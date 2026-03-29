@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus</title>
+    <link rel="icon" type="image/png" href="../assets/Logo.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../styles/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="brand-logo">
+                <img src="../assets/Logo.png" alt="Logo" class="img-logo">
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="email" placeholder="exemplo@nexus.com" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="password">Senha</label>
+                    </div>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="Digite sua senha" required>
+                    </div>
+                    <a href="#" class="forgot-password">Esqueceu a senha?</a>
+                </div>
+                <button type="submit" class="btn-login">Entrar</button>
+            </form>
+            <div class="login-footer">
+                <p>Não tem uma conta? <a href="#">Solicite acesso à sua empresa</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="../javascript/login.js"></script>
+</body>
+</html>

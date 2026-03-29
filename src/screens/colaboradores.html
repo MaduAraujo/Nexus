@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Colaboradores</title>
+    <link rel="icon" type="image/png" href="../assets/Logo.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../styles/colaboradores.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo">
+                <img src="../assets/Logo fundo azul.png" alt="Logo" class="brand-img">
+            </div>
+        </div>
+        <nav class="menu-section">
+            <p class="menu-header">Menu</p>
+            <ul class="menu-list">
+                <li class="menu-item">
+                    <a href="../screens/inicial.html"><i class="fas fa-home"></i> <span>Início</span></a>
+                </li>
+                <li class="menu-item active">
+                    <a href="../screens/colaboradores.html"><i class="fas fa-users"></i> <span>Colaboradores</span></a>
+                </li>
+                <li class="menu-item">
+                    <a href="#"><i class="fas fa-folder-open"></i> <span>Arquivos</span></a>
+                </li>
+                <li class="menu-item">
+                    <a href="#"><i class="fas fa-file-invoice-dollar"></i> <span>Pagamentos</span></a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-header" id="content-header">
+            <div class="header-title">
+                <h1>Colaboradores</h1>
+            </div>
+            <button class="btn-primary" onclick="toggleForm()">
+                <i class="fas fa-plus"></i> Novo Colaborador
+            </button>
+        </div>
+
+        <section class="form-section" id="form-container" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-user-plus"></i> Novo Colaborador</h3>
+                    <button class="btn-back" onclick="toggleForm()"><i class="fas fa-arrow-left"></i> Voltar</button>
+                </div>
+
+                <form id="employee-form">
+                    <p class="form-subtitle">Dados Pessoais</p>
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label for="name">Nome Completo</label>
+                            <input type="text" id="name" required placeholder="Ex: João Silva">
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="birth-date">Data de Nascimento</label>
+                            <input type="date" id="birth-date" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="gender">Sexo</label>
+                            <select id="gender" required>
+                                <option value="">Selecione</option>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Feminino">Feminino</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="civil-status">Estado Civil</label>
+                            <select id="civil-status" required>
+                                <option value="Solteiro">Solteiro(a)</option>
+                                <option value="Casado">Casado(a)</option>
+                                <option value="Divorciado">Divorciado(a)</option>
+                                <option value="Viúvo">Viúvo(a)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <p class="form-subtitle">Endereço</p>
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="zipcode">CEP</label>
+                            <input type="text" id="zipcode" required placeholder="00000-000">
+                        </div>
+                        <div class="form-group flex-3">
+                            <label for="address">Logradouro</label>
+                            <input type="text" id="address" required>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="number">Número</label>
+                            <input type="text" id="number" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="complement">Complemento</label>
+                            <input type="text" id="complement">
+                        </div>
+                        <div class="form-group">
+                            <label for="neighborhood">Bairro</label>
+                            <input type="text" id="neighborhood" required>
+                        </div>
+                        <div class="form-group flex-2">
+                            <label for="city">Cidade</label>
+                            <input type="text" id="city" required>
+                        </div>
+                        <div class="form-group flex-0-5">
+                            <label for="state">UF</label>
+                            <input type="text" id="state" required maxlength="2">
+                        </div>
+                    </div>
+
+                    <p class="form-subtitle">Contrato</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dept">Departamento</label>
+                            <select id="dept" required>
+                                <option value="TI">TI</option>
+                                <option value="RH">RH</option>
+                                <option value="Financeiro">Financeiro</option>
+                                <option value="Operacional">Operacional</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-2">
+                            <label for="role">Cargo</label>
+                            <input type="text" id="role" required placeholder="Ex: Analista de Sistemas">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="salary">Salário (R$)</label>
+                            <input type="number" id="salary" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="admission-date">Data de Admissão</label>
+                            <input type="date" id="admission-date" required>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="toggleForm()">Cancelar</button>
+                        <button type="submit" class="btn-primary">Cadastrar</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="list-section" id="list-section">
+            <div class="filter-container">
+                <button class="btn-filter active" onclick="filterEmployees('todos', this)">Todos</button>
+                <button class="btn-filter" onclick="filterEmployees('ativos', this)">Ativos</button>
+                <button class="btn-filter" onclick="filterEmployees('inativos', this)">Inativos</button>
+            </div>
+
+            <div class="table-container">
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Departamento</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employee-list-body">
+                        <!-- Preenchido via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Drawer de Visualização -->
+    <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+    <div id="employee-drawer" class="drawer">
+        <div class="drawer-header">
+            <h2><i class="fas fa-id-card"></i> Detalhes do Colaborador</h2>
+        </div>
+
+        <div class="drawer-body">
+            <div class="info-group">
+                <label>Nome Completo</label>
+                <p id="view-name" class="view-text">-</p>
+            </div>
+
+            <div class="info-row">
+                <div class="info-group">
+                    <label>Departamento</label>
+                    <p id="view-dept" class="view-text">-</p>
+                </div>
+                <div class="info-group">
+                    <label>Cargo</label>
+                    <p id="view-role" class="view-text">-</p>
+                </div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-group">
+                    <label>Salário Atual</label>
+                    <p id="view-salary" class="view-text">-</p>
+                </div>
+                <div class="info-group">
+                    <label>Data de Admissão</label>
+                    <p id="view-date" class="view-text">-</p>
+                </div>
+            </div>
+
+            <div class="info-group">
+                <label>Status na Empresa</label>
+                <p id="view-status" class="status-display">-</p>
+            </div>
+
+            <hr class="divider">
+
+            <div class="info-group">
+                <label><i class="fas fa-map-marker-alt"></i> Endereço Residencial</label>
+                <p id="view-address" class="view-text-small">-</p>
+            </div>
+
+            <button type="button" class="btn-secondary" onclick="closeDrawer()" style="width: 100%; margin-top: 2rem;">
+                Fechar
+            </button>
+        </div>
+    </div>
+    <script src="../javascript/colaboradores.js"></script>
+</body>
+</html>
