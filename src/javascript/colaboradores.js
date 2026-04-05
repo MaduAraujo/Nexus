@@ -129,7 +129,7 @@ window.toggleEmployeeStatus = function(id) {
 }
 
 window.deleteEmployee = function(id) {
-    if (confirm('Deseja excluir este registro permanentemente?')) {
+    if (confirm('Deseja excluir este registro?')) {
         employees = employees.filter(e => e.id !== Number(id));
         saveAndRefresh();
     }
