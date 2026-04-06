@@ -18,6 +18,7 @@
     --danger: #ef4444;
     --danger-bg: #fee2e2;
     --warning: #f59e0b;
+    --warning-bg: #fef3c7;
 }
 
 /* --- RESET E ESTRUTURA BASE --- */
@@ -122,6 +123,13 @@ body {
     color: var(--primary-color); 
 }
 
+.employee-count-text {
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    font-weight: 400;
+}
+
 /* --- ESTILO DAS ABAS --- */
 .tabs-nav {
     display: flex;
@@ -142,9 +150,12 @@ body {
     transition: color 0.2s;
 }
 
-.tab-btn:hover { color: var(--accent-color); }
+.tab-btn:hover { 
+    color: var(--accent-color); 
+}
 
-.tab-btn.active { color: var(--accent-color); }
+.tab-btn.active { 
+    color: var(--accent-color); }
 
 .tab-btn.active::after {
     content: '';
@@ -167,7 +178,7 @@ body {
 .card {
     background: white;
     border-radius: 12px;
-    padding: 24px;
+    padding: 30px;
     box-shadow: var(--shadow-md);
     border: 1px solid #e2e8f0;
     margin-bottom: 2rem;
@@ -175,12 +186,33 @@ body {
 }
 
 .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
     border-bottom: 1px solid #f1f5f9;
+}
+
+.title-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--primary-color);
+    margin-bottom: 4px;
+}
+
+.title-with-icon i {
+    font-size: 1.25rem;
+}
+
+.card-header h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.card-header p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-left: 38px;
 }
 
 .form-subtitle {
@@ -351,6 +383,7 @@ body {
 
 .badge-ativo { background: var(--success-bg); color: var(--success); }
 .badge-inativo { background: var(--danger-bg); color: var(--danger); }
+.badge-ferias { background: var(--warning-bg); color: var(--warning); }
 
 .filter-container { display: flex; gap: 10px; margin-bottom: 1.5rem; }
 
@@ -410,6 +443,60 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     background: #f8fafc;
+}
+
+.drawer-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-options {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.btn-options:hover { 
+    background-color: #f0f0f0; 
+}
+        
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #fff;
+    min-width: 150px;
+    box-shadow: 0px 8px 16px rgba(0,0,0,0.1);
+    z-index: 10;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    overflow: hidden;
+}
+
+.dropdown-content a {
+    color: #333;
+    padding: 10px 15px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.9rem;
+}
+
+.dropdown-content a:hover { 
+    background-color: #f8f9fa; 
+}
+
+.show { 
+    display: block; 
 }
 
 .header-content {
@@ -523,6 +610,149 @@ body {
 .btn-close-modern:hover {
     background: #f8fafc;
     border-color: #cbd5e1;
+}
+
+/* Estilização da Barra de Pesquisa */
+.search-container {
+    margin: 15px 0 20px 0;
+    padding: 0 5px;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 450px;
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+}
+
+.search-wrapper:focus-within {
+    border-color: #0056b3;
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+}
+
+.search-icon {
+    color: #666;
+    margin-right: 12px;
+    font-size: 0.9rem;
+}
+
+#search-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 0.95rem;
+    color: #333;
+    background: transparent;
+}
+
+/* --- UTILITÁRIOS E CLASSES EXTRAS --- */
+.hidden {
+    display: none !important;
+}
+
+.chevron-icon {
+    float: right;
+    font-size: 10px;
+    margin-top: 5px;
+}
+
+/* --- ESTILOS DO MENU DRAWER --- */
+.btn-delete-menu {
+    color: #dc3545;
+    border-top: 1px solid #eee;
+}
+
+.btn-delete-menu:hover {
+    color: #c82333;
+}
+
+.btn-back-menu {
+    background: #f8f9fa;
+    font-weight: bold;
+    color: #555 !important;
+    border-bottom: 1px solid #eee;
+}
+
+.submenu-title {
+    margin: 10px;
+    font-size: 0.7rem;
+    color: #999;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* --- CORES DOS ÍCONES --- */
+.icon-danger {
+    color: #dc3545;
+}
+
+.icon-warning {
+    color: #f08c00;
+}
+
+.icon-success {
+    color: #28a745;
+}
+
+/* --- STEPPER (LINHA DO TEMPO) --- */
+.stepper-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding: 0 10px;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    border: 2px solid white;
+}
+
+.step.active .step-number {
+    background: var(--success);
+    color: white;
+}
+
+.step-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.step.active .step-label {
+    color: var(--primary-color);
+}
+
+.step-line {
+    flex: 1;
+    height: 2px;
+    background: #e2e8f0;
+    margin: 0 10px;
+    transform: translateY(-12px); /* Alinha com o círculo */
 }
 
 /* --- ANIMAÇÕES --- */

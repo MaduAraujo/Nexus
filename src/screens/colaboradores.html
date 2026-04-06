@@ -41,17 +41,21 @@
         <header class="content-header" id="content-header">
             <div class="header-title">
                 <h1>Colaboradores</h1>
+                <p id="employee-count" class="employee-count-text">0 colaboradores encontrados</p>
             </div>
             <button class="btn-primary" id="btn-open-form" onclick="toggleForm()">
                 <i class="fas fa-plus"></i> Novo Colaborador
             </button>
         </header>
 
-        <section class="form-section" id="form-container" style="display: none;">
+        <section class="form-section hidden" id="form-container">
             <div class="card">
                 <div class="card-header">
-                    <h3 id="form-title"><i class="fas fa-user-plus"></i> Novo Colaborador</h3>
-                    <button class="btn-back" onclick="toggleForm()"><i class="fas fa-arrow-left"></i> Voltar</button>
+                    <div class="title-with-icon">
+                        <i class="fas fa-user-plus"></i>
+                        <h3 id="form-title">Novo Colaborador</h3>
+                    </div>
+                    <p class="subtitle">Preencha os dados do colaborador.</p>
                 </div>
 
                 <div class="tabs-nav">
@@ -61,141 +65,185 @@
 
                 <form id="employee-form">
                     <input type="hidden" id="employee-id">
-
                     <div id="tab-obrigatorios" class="tab-panel active">
-                        <p class="form-subtitle">Informações Básicas</p>
                         <div class="form-row">
                             <div class="form-group flex-2">
                                 <label for="name">Nome Completo *</label>
-                                <input type="text" id="name">
+                                <input type="text" id="name" required>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="cpf">CPF *</label>
+                                <input type="text" id="cpf" maxlength="14">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group flex-2">
+                                <label for="email">Email *</label>
+                                <input type="email" id="email" required>
                             </div>
                             <div class="form-group flex-1">
                                 <label for="admission-date">Data de Admissão *</label>
-                                <input type="date" id="admission-date">
+                                <input type="date" id="admission-date" required>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="contract-type">Tipo de Contrato *</label>
-                                <select id="contract-type">
+                                <select id="contract-type" required>
                                     <option value="" disabled selected>Selecione</option>
                                     <option value="CLT">CLT</option>
                                     <option value="PJ">PJ</option>
                                     <option value="Estágio">Estágio</option>
+                                    <option value="Aprendiz">Aprendiz</option>
                                     <option value="Temporário">Temporário</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="payment-type">Tipo de Pagamento *</label>
-                                <select id="payment-type">
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="Mensal">Mensal Fixo</option>
-                                    <option value="Quinzenal">Quinzenal</option>
-                                    <option value="Semanal">Semanal</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <p class="form-subtitle">Informações Profissionais</p>
-                        <div class="form-row">
-                            <div class="form-group">
                                 <label for="dept">Departamento *</label>
-                                <select id="dept">
+                                <select id="dept" required>
                                     <option value="" disabled selected>Selecione</option>
                                     <option value="TI">Tecnologia da Informação</option>
                                     <option value="RH">Recursos Humanos</option>
+                                    <option value="Comercial">Comercial</option>
                                     <option value="Financeiro">Financeiro</option>
+                                    <option value="Jurídico">Jurídico</option>
+                                    <option value="Administrativo">Administrativo</option>
                                     <option value="Marketing">Marketing</option>
-                                    <option value="Administração">Administração</option>
-                                    <option value="Vendas">Vendas</option>
                                 </select>
-                            </div>
-                            <div class="form-group flex-2">
-                                <label for="role">Cargo *</label>
-                                <input type="text" id="role">
                             </div>
                             <div class="form-group">
                                 <label for="salary">Salário (R$) *</label>
-                                <input type="number" id="salary" min="0">
+                                <input type="number" id="salary" min="0" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="work-load">Jornada de Trabalho *</label>
+                                <select id="work-load" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="44h">44 horas semanais</option>
+                                    <option value="40h">40 horas semanais</option>
+                                    <option value="30h">30 horas semanais</option>
+                                    <option value="20h">20 horas semanais</option>
+                                    <option value="Escala">Escala 12x36</option>
+                                </select>
                             </div>
                             <div class="form-group">
+                                <label for="salary-type">Tipo de Salário *</label>
+                                <select id="salary-type" required>
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="Mensal">Mensal Fixo</option>
+                                    <option value="Hora">Quinzenal</option>
+                                    <option value="Comissão">Por Comissão</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
                                 <label for="status-select">Status *</label>
-                                <select id="status-select">
+                                <select id="status-select" required>
                                     <option value="" disabled selected>Selecione</option>
                                     <option value="Ativo">Ativo</option>
-                                    <option value="Inativo">Inativo</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
                     <div id="tab-completos" class="tab-panel">
-                        <p class="form-subtitle">Informações Pessoais</p>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="birth-date">Data de Nascimento</label>
-                                <input type="date" id="birth-date">
+                        <div class="stepper-container">
+                            <div class="step active">
+                                <div class="step-number">1</div>
+                                <span class="step-label">Identificação</span>
                             </div>
-                            <div class="form-group">
-                                <label for="gender">Sexo</label>
-                                <select id="gender">
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="Masculino">Masculino</option>
-                                    <option value="Feminino">Feminino</option>
-                                    <option value="Outro">Outro</option>
-                                </select>
+                            <div class="step-line"></div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <span class="step-label">Contato e Endereço</span>
                             </div>
-                            <div class="form-group">
-                                <label for="civil-status">Estado Civil</label>
-                                <select id="civil-status">
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="Solteiro">Solteiro(a)</option>
-                                    <option value="Casado">Casado(a)</option>
-                                    <option value="Divorciado">Divorciado(a)</option>
-                                    <option value="Viúvo">Viúvo(a)</option>
-                                </select>
+                            <div class="step-line"></div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <span class="step-label">Vínculo</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <span class="step-label">Remuneração</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step">
+                                <div class="step-number">5</div>
+                                <span class="step-label">Benefícios</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step">
+                                <div class="step-number">6</div>
+                                <span class="step-label">Pagamento</span>
                             </div>
                         </div>
 
-                        <p class="form-subtitle">Endereço Residencial</p>
-                        <div class="form-row">
-                            <div class="form-group flex-1">
-                                <label for="zipcode">CEP</label>
-                                <input type="text" id="zipcode" maxlength="9">
+                        <div class="form-section-content">
+                            <h4 class="form-subtitle">Identificação</h4>
+                            
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="full-cpf">CPF *</label>
+                                    <input type="text" id="full-cpf" placeholder="123.456.789-01">
+                                </div>
+                                <div class="form-group flex-2">
+                                    <label for="full-name">Nome completo *</label>
+                                    <input type="text" id="full-name" placeholder="Carlos Eduardo Mendonça">
+                                </div>
                             </div>
-                            <div class="form-group flex-3">
-                                <label for="address">Logradouro</label>
-                                <input type="text" id="address">
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="birth-date">Data de nascimento</label>
+                                    <input type="date" id="birth-date">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="pis">PIS/PASEP</label>
+                                    <input type="text" id="pis" placeholder="123.45678.90-1">
+                                </div>
                             </div>
-                            <div class="form-group flex-1">
-                                <label for="number">Número</label>
-                                <input type="text" id="number">
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="rg">RG</label>
+                                    <input type="text" id="rg" placeholder="12.345.678-9">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="rg-issuer">Órgão emissor</label>
+                                    <select id="rg-issuer">
+                                        <option value="SSP/SP">SSP/SP</option>
+                                        <option value="SSP/RJ">SSP/RJ</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group flex-2">
-                                <label for="neighborhood">Bairro</label>
-                                <input type="text" id="neighborhood">
-                            </div>
-                            <div class="form-group flex-2">
-                                <label for="city">Cidade</label>
-                                <input type="text" id="city">
-                            </div>
-                            <div class="form-group flex-0-5">
-                                <label for="state">UF</label>
-                                <input type="text" id="state" maxlength="2">
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Sexo</label>
+                                    <div class="radio-group">
+                                        <label><input type="radio" name="gender" value="Masculino" checked> Masculino</label>
+                                        <label><input type="radio" name="gender" value="Feminino"> Feminino</label>
+                                    </div>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="civil-status">Estado civil</label>
+                                    <select id="civil-status">
+                                        <option value="Casado">Casado(a)</option>
+                                        <option value="Solteiro">Solteiro(a)</option>
+                                        <option value="Divorciado">Divorciado(a)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="toggleForm()">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>
-                        <button type="submit" class="btn-primary btn-save" id="btn-save">
-                            <i class="fas fa-check"></i> Cadastrar
-                        </button>
+                        <button type="button" class="btn-secondary" onclick="toggleForm()">Cancelar</button>
+                        <button type="button" class="btn-primary" id="btn-next-step" onclick="handleNextStep()">Continuar</button>
+                        <button type="submit" class="btn-primary" id="btn-save" style="display: none;">Cadastrar</button>
                     </div>
                 </form>
             </div>
@@ -206,65 +254,47 @@
                 <button class="btn-filter active" data-filter="todos">Todos</button>
                 <button class="btn-filter" data-filter="ativos">Ativos</button>
                 <button class="btn-filter" data-filter="inativos">Inativos</button>
+                <button class="btn-filter" data-filter="ferias">Férias</button>
+            </div>
+
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Buscar colaborador por nome ou departamento" onkeyup="filterTable()">
+                </div>
             </div>
 
             <div class="table-container">
                 <table class="employee-table">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Nome</th>
-                            <th>Departamento</th>
                             <th>Status</th>
-                            <th>Ações</th>
+                            <th>Departamento</th>
                         </tr>
                     </thead>
-                    <tbody id="employee-list-body">
-                        </tbody>
+                    <tbody id="employee-list-body"></tbody>
                 </table>
             </div>
         </section>
     </main>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
-    
     <div id="employee-drawer" class="drawer">
         <div class="drawer-header">
             <div class="header-content">
                 <div class="avatar-placeholder"><i class="fas fa-user"></i></div>
                 <div class="header-text">
-                    <h2 id="view-name">Nome do Colaborador</h2>
-                    <p id="view-role" class="subtitle">Cargo</p>
+                    <h2 id="view-name">-</h2>
+                    <p id="view-role" class="subtitle">-</p>
                 </div>
             </div>
-            <button class="btn-close-drawer" onclick="closeDrawer()" title="Fechar"><i class="fas fa-times"></i></button>
+            <button class="btn-close-drawer" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
         </div>
-
         <div class="drawer-body">
-            <div class="info-card">
-                <div class="info-item">
-                    <label><i class="fas fa-building"></i> Departamento</label>
-                    <p id="view-dept">-</p>
-                </div>
-                <div class="info-item">
-                    <label><i class="fas fa-calendar-alt"></i> Admissão</label>
-                    <p id="view-date">-</p>
-                </div>
-            </div>
-
-            <div class="info-card">
-                <div class="info-item">
-                    <label><i class="fas fa-money-bill-wave"></i> Salário Atual</label>
-                    <p id="view-salary" class="salary-highlight">-</p>
-                </div>
-                <div class="info-item">
-                    <label><i class="fas fa-info-circle"></i> Status</label>
-                    <div>
-                        <span id="view-status" class="badge">-</span>
-                    </div>
-                </div>
-            </div>
             <div class="drawer-footer">
-                <button type="button" class="btn-close-modern" onclick="closeDrawer()">Fechar Visualização</button>
+                <button type="button" class="btn-close-modern" onclick="closeDrawer()">Fechar</button>
             </div>
         </div>
     </div>
