@@ -195,13 +195,13 @@
                         <!-- ── STEP 1: IDENTIFICAÇÃO ── -->
                         <div class="step-panel active" id="step-panel-1">
                             <div class="form-row">
-                                <div class="form-group flex-2">
-                                    <label for="nome-completo">Nome Completo</label>
-                                    <input type="text" id="nome-completo">
-                                </div>
                                 <div class="form-group flex-1">
                                     <label for="cpf-completo">CPF</label>
                                     <input type="text" id="cpf-completo" maxlength="14">
+                                </div>
+                                <div class="form-group flex-2">
+                                    <label for="nome-completo">Nome Completo</label>
+                                    <input type="text" id="nome-completo">
                                 </div>
                             </div>
 
@@ -439,6 +439,13 @@
                         <div class="step-panel hidden" id="step-panel-5">
                             <div class="form-row">
                                 <div class="form-group flex-1">
+                                    <label for="tem-dependentes">Possui Dependentes?</label>
+                                    <select id="tem-dependentes" class="form-control">
+                                        <option value="nao">Não</option>
+                                        <option value="sim">Sim</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
                                     <label for="ben-dependentes">Número de Dependentes</label>
                                     <input type="number" id="ben-dependentes" min="1">
                                 </div>
@@ -541,6 +548,14 @@
                         <div class="step-panel hidden" id="step-panel-6">
                             <div class="form-row">
                                 <div class="form-group flex-1">
+                                <label for="pag-forma">Forma de Pagamento</label>
+                                <select id="pag-forma">
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="conta">Conta</option>
+                                </select>
+                            </div>
+                                <div class="form-group flex-1">
                                     <label for="pag-banco">Banco</label>
                                     <select id="pag-banco">
                                         <option value="" disabled selected>Selecione</option>
@@ -568,21 +583,12 @@
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="pag-agencia">Agência</label>
-                                    <input type="text" id="pag-agencia" maxlength="4">
+                                    <input type="text" id="pag-agencia" maxlength="5">
                                 </div>
                                 <div class="form-group flex-1">
                                     <label for="pag-conta">Número da Conta</label>
                                     <input type="text" id="pag-conta" maxlength="6">
                                 </div>
-                            </div>
-
-                            <div class="form-group flex-1">
-                                <label for="pag-forma">Forma de Pagamento</label>
-                                <select id="pag-forma">
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="pix">PIX</option>
-                                    <option value="conta">Conta</option>
-                                </select>
                             </div>
 
                             <div class="form-row">
