@@ -10,7 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
     setupCepListener();
     setupCpfMask();
+    setupRgMask();
+    setupPhoneMask();
+    setupAgenciaMask();
+    setupContaMask();
+    setupCepMask();
     setupValidationListeners();
+    setupConditionalFields();
     updateCount();
     resetStepper();
 });
@@ -73,12 +79,13 @@ window.toggleForm = function() {
     const listSection = document.getElementById('list-section');
     const contentHeader = document.getElementById('content-header');
     const form = document.getElementById('employee-form');
-
+ 
     if (formContainer && formContainer.classList.contains('hidden')) {
         formContainer.classList.remove('hidden');
         listSection.classList.add('hidden');
         contentHeader.classList.add('hidden');
         resetStepper();
+        resetConditionalFields();
     } else {
         formContainer?.classList.add('hidden');
         listSection?.classList.remove('hidden');
@@ -89,19 +96,117 @@ window.toggleForm = function() {
         const btnSimple = document.getElementById('btn-save-simple');
         if (btnSimple) btnSimple.innerHTML = '<i class="fas fa-check"></i> Cadastrar';
         resetStepper();
+        resetConditionalFields();
     }
 };
 
+function setupConditionalFields() {
+    // Seguro de Vida
+    setupToggleField('seguro-vida', 'sim', 'seguro-vida-details');
+    // Dependentes
+    setupToggleField('possui-dependentes', 'sim', 'dependentes-details');
+    // PCD
+    setupToggleField('pcd', 'sim', 'pcd-details');
+    // Pensão Alimentícia
+    setupToggleField('pensao-alimenticia', 'sim', 'pensao-details');
+    // Vale Transporte
+    setupToggleField('vale-transporte', 'sim', 'vale-transporte-details');
+    // Forma de Pagamento
+    setupPaymentMethodToggle();
+    // Banco "Outro"
+    setupBancoOutroToggle();
+}
+
+function setupToggleField(radioName, triggerValue, detailsId) {
+    const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const details = document.getElementById(detailsId);
+            if (!details) return;
+            if (radio.value === triggerValue && radio.checked) {
+                details.style.display = 'block';
+                details.classList.add('conditional-visible');
+            } else if (radio.checked) {
+                details.style.display = 'none';
+                details.classList.remove('conditional-visible');
+                // Limpa os campos ao esconder
+                details.querySelectorAll('input, select, textarea').forEach(f => f.value = '');
+            }
+        });
+    });
+}
+
+function setupPaymentMethodToggle() {
+    const radios = document.querySelectorAll('input[name="forma-pagamento"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const pixDetails = document.getElementById('pix-details');
+            const contaDetails = document.getElementById('conta-details');
+ 
+            if (!pixDetails || !contaDetails) return;
+ 
+            if (radio.value === 'pix' && radio.checked) {
+                pixDetails.style.display = 'block';
+                contaDetails.style.display = 'none';
+                contaDetails.querySelectorAll('input, select').forEach(f => f.value = '');
+            } else if (radio.value === 'conta' && radio.checked) {
+                pixDetails.style.display = 'none';
+                contaDetails.style.display = 'block';
+                pixDetails.querySelectorAll('input, select').forEach(f => f.value = '');
+            } else {
+                pixDetails.style.display = 'none';
+                contaDetails.style.display = 'none';
+            }
+        });
+    });
+}
+
+function setupBancoOutroToggle() {
+    const bancoSelect = document.getElementById('banco');
+    if (!bancoSelect) return;
+ 
+    bancoSelect.addEventListener('change', () => {
+        const bancoOutroDiv = document.getElementById('banco-outro-details');
+        if (!bancoOutroDiv) return;
+        if (bancoSelect.value === 'outro') {
+            bancoOutroDiv.style.display = 'block';
+        } else {
+            bancoOutroDiv.style.display = 'none';
+            const input = bancoOutroDiv.querySelector('input');
+            if (input) input.value = '';
+        }
+    });
+}
+
+function resetConditionalFields() {
+    const conditionalIds = [
+        'seguro-vida-details',
+        'dependentes-details',
+        'pcd-details',
+        'pensao-details',
+        'vale-transporte-details',
+        'pix-details',
+        'conta-details',
+        'banco-outro-details'
+    ];
+    conditionalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.display = 'none';
+            el.classList.remove('conditional-visible');
+            el.querySelectorAll('input, select, textarea').forEach(f => f.value = '');
+        }
+    });
+}
+
 // --- CONTROLE DO STEPPER ---
 function goToStep(step) {
-    // Oculta painel atual
     const currentPanel = document.getElementById('step-panel-' + currentStep);
     if (currentPanel) {
         currentPanel.classList.add('hidden');
         currentPanel.classList.remove('active');
     }
 
-    // Atualiza ícone do step atual
     const currentStepEl = document.querySelector('[data-step="' + currentStep + '"]');
     if (currentStepEl) {
         currentStepEl.classList.remove('active');
@@ -114,7 +219,6 @@ function goToStep(step) {
 
     currentStep = step;
 
-    // Exibe novo painel
     const newPanel = document.getElementById('step-panel-' + currentStep);
     if (newPanel) {
         newPanel.classList.remove('hidden');
@@ -124,7 +228,6 @@ function goToStep(step) {
     const newStepEl = document.querySelector('[data-step="' + currentStep + '"]');
     if (newStepEl) newStepEl.classList.add('active');
 
-    // Controla visibilidade dos botões
     const btnPrev = document.getElementById('btn-prev-step');
     const btnNext = document.getElementById('btn-next-step');
     const btnSave = document.getElementById('btn-save');
@@ -199,16 +302,49 @@ function updateSaveButton() {
 function setupFormListener() {
     const form = document.getElementById('employee-form');
     if (!form) return;
-
+ 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const idField = document.getElementById('employee-id').value;
-
+ 
+        // Seguro de vida
+        const seguroVida = document.querySelector('input[name="seguro-vida"]:checked')?.value || 'nao';
+        const seguradora = seguroVida === 'sim' ? (document.getElementById('seguradora')?.value || '') : '';
+ 
+        // Dependentes
+        const possuiDependentes = document.querySelector('input[name="possui-dependentes"]:checked')?.value || 'nao';
+        const qtdDependentes = possuiDependentes === 'sim' ? (document.getElementById('qtd-dependentes')?.value || '') : '';
+ 
+        // PCD
+        const pcd = document.querySelector('input[name="pcd"]:checked')?.value || 'nao';
+        const deficiencia = pcd === 'sim' ? (document.getElementById('tipo-deficiencia')?.value || '') : '';
+ 
+        // Pensão Alimentícia
+        const pensaoAlimenticia = document.querySelector('input[name="pensao-alimenticia"]:checked')?.value || 'nao';
+        const tipoPensao = pensaoAlimenticia === 'sim' ? (document.querySelector('input[name="tipo-pensao"]:checked')?.value || '') : '';
+ 
+        // Vale Transporte
+        const valeTransporte = document.querySelector('input[name="vale-transporte"]:checked')?.value || 'nao';
+        const valorPassagem = valeTransporte === 'sim' ? (document.getElementById('valor-passagem')?.value || '') : '';
+        const conducoesdia = valeTransporte === 'sim' ? (document.getElementById('conducoes-dia')?.value || '') : '';
+ 
+        // Forma de Pagamento
+        const formaPagamento = document.querySelector('input[name="forma-pagamento"]:checked')?.value || '';
+        const tipoChavePix = formaPagamento === 'pix' ? (document.getElementById('tipo-chave-pix')?.value || '') : '';
+        const chavePix = formaPagamento === 'pix' ? (document.getElementById('chave-pix')?.value || '') : '';
+        const bancoValue = document.getElementById('banco')?.value || '';
+        const bancoNome = bancoValue === 'outro' ? (document.getElementById('banco-outro')?.value || '') : bancoValue;
+        const tipoConta = document.getElementById('tipo-conta')?.value || '';
+        const agencia = document.getElementById('agencia')?.value || '';
+        const conta = document.getElementById('conta')?.value || '';
+ 
         const employeeData = {
             id: idField ? Number(idField) : generateNextId(),
             name: document.getElementById('name').value,
             role: document.getElementById('role').value,
             cpf: document.getElementById('cpf').value,
+            rg: document.getElementById('rg')?.value || '',
+            phone: document.getElementById('phone')?.value || '',
             email: document.getElementById('email').value,
             admissionDate: document.getElementById('admission-date').value,
             contractType: document.getElementById('contract-type').value,
@@ -216,9 +352,29 @@ function setupFormListener() {
             workLoad: document.getElementById('work-load').value,
             dept: document.getElementById('dept').value,
             salary: Number(document.getElementById('salary').value),
-            status: 'Ativo'
+            status: 'Ativo',
+            // Benefícios e extras
+            seguroVida,
+            seguradora,
+            possuiDependentes,
+            qtdDependentes,
+            pcd,
+            deficiencia,
+            pensaoAlimenticia,
+            tipoPensao,
+            valeTransporte,
+            valorPassagem,
+            conducoesdia,
+            // Pagamento
+            formaPagamento,
+            tipoChavePix,
+            chavePix,
+            banco: formaPagamento === 'conta' ? bancoNome : '',
+            tipoConta: formaPagamento === 'conta' ? tipoConta : '',
+            agencia: formaPagamento === 'conta' ? agencia : '',
+            conta: formaPagamento === 'conta' ? conta : ''
         };
-
+ 
         if (idField) {
             const index = employees.findIndex(emp => emp.id === Number(idField));
             if (index !== -1) {
@@ -228,7 +384,7 @@ function setupFormListener() {
         } else {
             employees.push(employeeData);
         }
-
+ 
         saveAndRefresh();
         toggleForm();
     });
@@ -350,26 +506,95 @@ window.handleEditFromDrawer = function() {
 window.editEmployee = function(id) {
     const emp = employees.find(e => e.id === Number(id));
     if (!emp) return;
-
+ 
     toggleForm();
     document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Colaborador';
-
+ 
     const btnSimple = document.getElementById('btn-save-simple');
     const btnStepper = document.getElementById('btn-save');
     if (btnSimple) btnSimple.innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
     if (btnStepper) btnStepper.innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
-
+ 
     document.getElementById('employee-id').value = emp.id;
     document.getElementById('name').value = emp.name;
-     document.getElementById('role').value = emp.role || '';
+    document.getElementById('role').value = emp.role || '';
     document.getElementById('cpf').value = emp.cpf || '';
+    if (document.getElementById('rg')) document.getElementById('rg').value = emp.rg || '';
+    if (document.getElementById('phone')) document.getElementById('phone').value = emp.phone || '';
     document.getElementById('email').value = emp.email || '';
     document.getElementById('admission-date').value = emp.admissionDate;
     document.getElementById('dept').value = emp.dept;
     document.getElementById('salary').value = emp.salary;
-
+ 
+    restoreConditionalField('seguro-vida', emp.seguroVida, 'seguro-vida-details');
+    if (emp.seguroVida === 'sim' && document.getElementById('seguradora')) {
+        document.getElementById('seguradora').value = emp.seguradora || '';
+    }
+ 
+    restoreConditionalField('possui-dependentes', emp.possuiDependentes, 'dependentes-details');
+    if (emp.possuiDependentes === 'sim' && document.getElementById('qtd-dependentes')) {
+        document.getElementById('qtd-dependentes').value = emp.qtdDependentes || '';
+    }
+ 
+    restoreConditionalField('pcd', emp.pcd, 'pcd-details');
+    if (emp.pcd === 'sim' && document.getElementById('tipo-deficiencia')) {
+        document.getElementById('tipo-deficiencia').value = emp.deficiencia || '';
+    }
+ 
+    restoreConditionalField('pensao-alimenticia', emp.pensaoAlimenticia, 'pensao-details');
+    if (emp.pensaoAlimenticia === 'sim' && emp.tipoPensao) {
+        const pensaoRadio = document.querySelector(`input[name="tipo-pensao"][value="${emp.tipoPensao}"]`);
+        if (pensaoRadio) pensaoRadio.checked = true;
+    }
+ 
+    restoreConditionalField('vale-transporte', emp.valeTransporte, 'vale-transporte-details');
+    if (emp.valeTransporte === 'sim') {
+        if (document.getElementById('valor-passagem')) document.getElementById('valor-passagem').value = emp.valorPassagem || '';
+        if (document.getElementById('conducoes-dia')) document.getElementById('conducoes-dia').value = emp.conducoesdia || '';
+    }
+ 
+    // Forma de pagamento
+    if (emp.formaPagamento) {
+        const pagamentoRadio = document.querySelector(`input[name="forma-pagamento"][value="${emp.formaPagamento}"]`);
+        if (pagamentoRadio) {
+            pagamentoRadio.checked = true;
+            pagamentoRadio.dispatchEvent(new Event('change'));
+        }
+        if (emp.formaPagamento === 'pix') {
+            if (document.getElementById('tipo-chave-pix')) document.getElementById('tipo-chave-pix').value = emp.tipoChavePix || '';
+            if (document.getElementById('chave-pix')) document.getElementById('chave-pix').value = emp.chavePix || '';
+        } else if (emp.formaPagamento === 'conta') {
+            const bancoSelect = document.getElementById('banco');
+            if (bancoSelect) {
+                const options = Array.from(bancoSelect.options).map(o => o.value);
+                if (options.includes(emp.banco)) {
+                    bancoSelect.value = emp.banco;
+                } else {
+                    bancoSelect.value = 'outro';
+                    bancoSelect.dispatchEvent(new Event('change'));
+                    if (document.getElementById('banco-outro')) document.getElementById('banco-outro').value = emp.banco || '';
+                }
+            }
+            if (document.getElementById('tipo-conta')) document.getElementById('tipo-conta').value = emp.tipoConta || '';
+            if (document.getElementById('agencia')) document.getElementById('agencia').value = emp.agencia || '';
+            if (document.getElementById('conta')) document.getElementById('conta').value = emp.conta || '';
+        }
+    }
+    
     updateSaveButton();
 };
+
+function restoreConditionalField(radioName, value, detailsId) {
+    if (!value) return;
+    const radio = document.querySelector(`input[name="${radioName}"][value="${value}"]`);
+    if (radio) {
+        radio.checked = true;
+        const details = document.getElementById(detailsId);
+        if (details) {
+            details.style.display = value === 'sim' ? 'block' : 'none';
+        }
+    }
+}
 
 window.handleDeleteEmployee = function() {
     if (confirm('Tem certeza que deseja excluir este colaborador?')) {
@@ -402,7 +627,9 @@ function setupFilters() {
     });
 }
 
-// --- MÁSCARAS E VALIDAÇÕES ---
+// --- MÁSCARAS ---
+ 
+// CPF: 000.000.000-00
 function setupCpfMask() {
     const cpfInput = document.getElementById('cpf');
     if (!cpfInput) return;
@@ -413,6 +640,96 @@ function setupCpfMask() {
         v = v.replace(/(\d{3})(\d)/, '$1.$2');
         v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
         e.target.value = v;
+    });
+}
+ 
+// RG: 00.000.000-0
+function setupRgMask() {
+    const rgInput = document.getElementById('rg');
+    if (!rgInput) return;
+    rgInput.addEventListener('input', (e) => {
+        let v = e.target.value.toUpperCase().replace(/[^0-9X]/g, '');
+        if (v.length > 9) v = v.slice(0, 9);
+        if (v.length <= 2) {
+            // nada
+        } else if (v.length <= 5) {
+            v = v.replace(/^(\d{2})(\d+)/, '$1.$2');
+        } else if (v.length <= 8) {
+            v = v.replace(/^(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
+        } else {
+            v = v.replace(/^(\d{2})(\d{3})(\d{3})([0-9X])/, '$1.$2.$3-$4');
+        }
+        e.target.value = v;
+    });
+}
+ 
+// Telefone: (00) 00000-0000
+function setupPhoneMask() {
+    const phoneInput = document.getElementById('phone');
+    if (!phoneInput) return;
+    phoneInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length === 0) {
+            e.target.value = '';
+            return;
+        }
+        if (v.length <= 2) {
+            v = `(${v}`;
+        } else if (v.length <= 7) {
+            v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+        } else {
+            v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+        }
+        e.target.value = v;
+    });
+}
+ 
+// Agência: 0000
+function setupAgenciaMask() {
+    const agenciaInput = document.getElementById('agencia');
+    if (!agenciaInput) return;
+    agenciaInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 4) v = v.slice(0, 4);
+        e.target.value = v;
+    });
+}
+ 
+// Conta: 00000-0 (dígito pode ser X)
+function setupContaMask() {
+    const contaInput = document.getElementById('conta');
+    if (!contaInput) return;
+    contaInput.addEventListener('input', (e) => {
+        let v = e.target.value.toUpperCase().replace(/[^0-9X]/g, '');
+        if (v.length > 7) v = v.slice(0, 7);
+        if (v.length <= 5) {
+            e.target.value = v;
+        } else {
+            e.target.value = `${v.slice(0, 5)}-${v.slice(5)}`;
+        }
+    });
+}
+ 
+// CEP: 00000-000
+function setupCepMask() {
+    const cepInput = document.getElementById('cep');
+    if (!cepInput) return;
+    cepInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 8) v = v.slice(0, 8);
+        if (v.length > 5) {
+            v = `${v.slice(0, 5)}-${v.slice(5)}`;
+        }
+        e.target.value = v;
+    });
+}
+
+function setupCepListener() {
+    const cepInput = document.getElementById('cep');
+    if (!cepInput) return;
+    cepInput.addEventListener('blur', (e) => {
+        window.pesquisacep(e.target.value);
     });
 }
 
