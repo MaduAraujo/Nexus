@@ -52,19 +52,24 @@
             <div class="card">
                 <div class="card-header">
                     <div class="title-with-icon">
-                        <i class="fas fa-user-plus"></i>
-                        <h3 id="form-title">Novo Colaborador</h3>
+                        <h3 id="form-title"><i class="fas fa-user-plus"></i> Novo Colaborador</h3>
                     </div>
                     <p class="subtitle">Preencha os dados do colaborador.</p>
                 </div>
 
                 <div class="tabs-nav">
-                    <button type="button" class="tab-btn active" onclick="switchTab(event, 'tab-obrigatorios')">Dados Obrigatórios</button>
-                    <button type="button" class="tab-btn" onclick="switchTab(event, 'tab-completos')">Dados Completos</button>
+                    <button type="button" class="tab-btn active" onclick="switchTab(event, 'tab-obrigatorios')">
+                        Dados Obrigatórios
+                    </button>
+                    <button type="button" class="tab-btn" onclick="switchTab(event, 'tab-completos')">
+                        Dados Completos
+                    </button>
                 </div>
 
                 <form id="employee-form">
                     <input type="hidden" id="employee-id">
+
+                    <!-- ===================== TAB: DADOS OBRIGATÓRIOS ===================== -->
                     <div id="tab-obrigatorios" class="tab-panel active">
                         <div class="form-row">
                             <div class="form-group flex-2">
@@ -72,11 +77,10 @@
                                 <input type="text" id="name" required>
                             </div>
                             <div class="form-group flex-1">
-                                <label for="cpf">CPF *</label>
+                                <label for="cpf">CPF</label>
                                 <input type="text" id="cpf" maxlength="14">
                             </div>
                         </div>
-
                         <div class="form-row">
                             <div class="form-group flex-2">
                                 <label for="email">Email *</label>
@@ -87,9 +91,8 @@
                                 <input type="date" id="admission-date" required>
                             </div>
                         </div>
-
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group flex-1">
                                 <label for="contract-type">Tipo de Contrato *</label>
                                 <select id="contract-type" required>
                                     <option value="" disabled selected>Selecione</option>
@@ -100,22 +103,21 @@
                                     <option value="Temporário">Temporário</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group flex-1">
                                 <label for="dept">Departamento *</label>
                                 <select id="dept" required>
                                     <option value="" disabled selected>Selecione</option>
                                     <option value="TI">Tecnologia da Informação</option>
                                     <option value="RH">Recursos Humanos</option>
-                                    <option value="Comercial">Comercial</option>
                                     <option value="Financeiro">Financeiro</option>
+                                    <option value="Marketing">Marketing</option>
                                     <option value="Jurídico">Jurídico</option>
                                     <option value="Administrativo">Administrativo</option>
-                                    <option value="Marketing">Marketing</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label for="salary">Salário (R$) *</label>
-                                <input type="number" id="salary" min="0" step="0.01" required>
+                            <div class="form-group flex-1">
+                                <label for="role">Cargo *</label>
+                                <input type="text" id="role">
                             </div>
                         </div>
                         <div class="form-row">
@@ -123,131 +125,482 @@
                                 <label for="work-load">Jornada de Trabalho *</label>
                                 <select id="work-load" required>
                                     <option value="" disabled selected>Selecione</option>
-                                    <option value="44h">44 horas semanais</option>
-                                    <option value="40h">40 horas semanais</option>
-                                    <option value="30h">30 horas semanais</option>
-                                    <option value="20h">20 horas semanais</option>
-                                    <option value="Escala">Escala 12x36</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="salary-type">Tipo de Salário *</label>
-                                <select id="salary-type" required>
-                                    <option value="" disabled selected>Selecione</option>
-                                    <option value="Mensal">Mensal Fixo</option>
-                                    <option value="Hora">Quinzenal</option>
-                                    <option value="Comissão">Por Comissão</option>
+                                    <option value="44h">44h Semanais</option>
+                                    <option value="40h">40h Semanais</option>
+                                    <option value="30h">30h Semanais</option>
+                                    <option value="20h">20h Semanais</option>
+                                    <option value="12x36">Escala 12x36</option>
                                 </select>
                             </div>
                             <div class="form-group flex-1">
-                                <label for="status-select">Status *</label>
-                                <select id="status-select" required>
+                                <label for="salary">Salário (R$) *</label>
+                                <input type="number" id="salary" step="0.01" required>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="salary-type">Tipo de Salário *</label>
+                                <select id="salary-type" required>
                                     <option value="" disabled selected>Selecione</option>
-                                    <option value="Ativo">Ativo</option>
+                                    <option value="Mensal Fixo">Mensal Fixo</option>
+                                    <option value="Quinzenal">Quinzenal</option>
+                                    <option value="Comissao">Por Comissão</option>
                                 </select>
                             </div>
                         </div>
+                        <div class="form-actions">
+                            <button type="button" onclick="toggleForm()" class="btn-secondary">
+                                Cancelar
+                            </button>
+                            <button type="submit" id="btn-save-simple" class="btn-primary">
+                                <i class="fas fa-check"></i> Cadastrar
+                            </button>
+                        </div>
                     </div>
 
+                    <!-- ===================== TAB: DADOS COMPLETOS ===================== -->
                     <div id="tab-completos" class="tab-panel">
+
+                        <!-- STEPPER -->
                         <div class="stepper-container">
-                            <div class="step active">
+                            <div class="step active" data-step="1">
                                 <div class="step-number">1</div>
                                 <span class="step-label">Identificação</span>
                             </div>
                             <div class="step-line"></div>
-                            <div class="step">
+                            <div class="step" data-step="2">
                                 <div class="step-number">2</div>
-                                <span class="step-label">Contato e Endereço</span>
+                                <span class="step-label">Contato</span>
                             </div>
                             <div class="step-line"></div>
-                            <div class="step">
+                            <div class="step" data-step="3">
                                 <div class="step-number">3</div>
                                 <span class="step-label">Vínculo</span>
                             </div>
                             <div class="step-line"></div>
-                            <div class="step">
+                            <div class="step" data-step="4">
                                 <div class="step-number">4</div>
                                 <span class="step-label">Remuneração</span>
                             </div>
                             <div class="step-line"></div>
-                            <div class="step">
+                            <div class="step" data-step="5">
                                 <div class="step-number">5</div>
                                 <span class="step-label">Benefícios</span>
                             </div>
                             <div class="step-line"></div>
-                            <div class="step">
+                            <div class="step" data-step="6">
                                 <div class="step-number">6</div>
                                 <span class="step-label">Pagamento</span>
                             </div>
                         </div>
 
-                        <div class="form-section-content">
-                            <h4 class="form-subtitle">Identificação</h4>
-                            
+                        <!-- ── STEP 1: IDENTIFICAÇÃO ── -->
+                        <div class="step-panel active" id="step-panel-1">
+                            <h4 class="section-title">Identificação Pessoal</h4>
+
                             <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label for="full-cpf">CPF *</label>
-                                    <input type="text" id="full-cpf">
-                                </div>
                                 <div class="form-group flex-2">
-                                    <label for="full-name">Nome completo *</label>
-                                    <input type="text" id="full-name">
+                                    <label for="nome-completo">Nome Completo</label>
+                                    <input type="text" id="nome-completo">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="cpf-completo">CPF</label>
+                                    <input type="text" id="cpf-completo" maxlength="14">
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group flex-1">
-                                    <label for="birth-date">Data de nascimento</label>
-                                    <input type="date" id="birth-date">
+                                    <label for="data-nascimento">Data de Nascimento</label>
+                                    <input type="date" id="data-nascimento">
                                 </div>
                                 <div class="form-group flex-1">
-                                    <label for="pis">PIS/PASEP</label>
-                                    <input type="text" id="pis">
+                                    <label for="pis-pasep">PIS/PASEP</label>
+                                    <input type="text" id="pis-pasep" maxlength="11">
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="rg">RG</label>
-                                    <input type="text" id="rg">
+                                    <input type="text" id="rg" maxlength="9">
                                 </div>
                                 <div class="form-group flex-1">
-                                    <label for="rg-issuer">Órgão emissor</label>
-                                    <select id="rg-issuer">
+                                    <label for="orgao-emissor">Órgão Emissor</label>
+                                    <select id="orgao-emissor">
                                         <option value="" disabled selected>Selecione</option>
                                         <option value="SSP/SP">SSP/SP</option>
-                                        <option value="SSP/RJ">SSP/RJ</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div class="form-row">
-                                <div class="form-group">
+                                <div class="form-group flex-1">
                                     <label>Sexo</label>
-                                    <div class="radio-group">
-                                        <label><input type="radio" name="gender" value="Masculino" checked> Masculino</label>
-                                        <label><input type="radio" name="gender" value="Feminino"> Feminino</label>
-                                        <label><input type="radio" name="gender" value="Outro"> Outro</label>
+                                    <div class="radio-group row-radio">
+                                        <label><input type="radio" name="sexo" value="Masculino" checked> Masculino</label>
+                                        <label><input type="radio" name="sexo" value="Feminino"> Feminino</label>
+                                        <label><input type="radio" name="sexo" value="Outro"> Outro</label>
                                     </div>
                                 </div>
                                 <div class="form-group flex-1">
-                                    <label for="civil-status">Estado civil</label>
-                                    <select id="civil-status">
+                                    <label for="estado-civil">Estado Civil</label>
+                                    <select id="estado-civil">
                                         <option value="" disabled selected>Selecione</option>
-                                        <option value="Casado">Casado(a)</option>
-                                        <option value="Solteiro">Solteiro(a)</option>
-                                        <option value="Divorciado">Divorciado(a)</option>
-                                        <option value="Viúvo">Viúvo(a)</option>
+                                        <option value="casado">Casado(a)</option>
+                                        <option value="solteiro">Solteiro(a)</option>
+                                        <option value="divorciado">Divorciado(a)</option>
+                                        <option value="viuvo">Viúvo(a)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="escolaridade">Grau de Instrução</label>
+                                    <select id="escolaridade">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="fundamental-incompleto">Ensino Fundamental Incompleto</option>
+                                        <option value="fundamental-completo">Ensino Fundamental Completo</option>
+                                        <option value="medio-incompleto">Ensino Médio Incompleto</option>
+                                        <option value="medio-completo">Ensino Médio Completo</option>
+                                        <option value="superior-incompleto">Ensino Superior Incompleto</option>
+                                        <option value="superior-completo">Ensino Superior Completo</option>
+                                        <option value="pos-graduacao">Pós-graduação / Mestrado / Doutorado</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="nacionalidade">Nacionalidade</label>
+                                    <input type="text" id="nacionalidade">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── STEP 2: CONTATO ── -->
+                        <div class="step-panel hidden" id="step-panel-2">
+                            <h4 class="section-title">Contato e Endereço</h4>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="cep">CEP</label>
+                                    <input type="text" id="cep" maxlength="9" placeholder="00000-000"
+                                           onblur="pesquisacep(this.value);">
+                                </div>
+                                <div class="form-group flex-2"></div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="logradouro">Logradouro</label>
+                                    <input type="text" id="logradouro">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="numero">Número</label>
+                                    <input type="text" id="numero">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="complemento">Complemento</label>
+                                    <input type="text" id="complemento">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="bairro">Bairro</label>
+                                    <input type="text" id="bairro">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="cidade">Cidade</label>
+                                    <input type="text" id="cidade">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="uf">UF</label>
+                                    <input type="text" id="uf" maxlength="2">
+                                </div>
+                                <div class="form-group flex-2">
+                                    <label for="email-contato">E-mail</label>
+                                    <input type="email" id="email-contato">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="telefone">Telefone</label>
+                                    <input type="text" id="telefone" placeholder="(00) 00000-0000">
+                                </div>
+                                <div class="form-group flex-2"></div>
+                            </div>
+                        </div>
+
+                        <!-- ── STEP 3: VÍNCULO ── -->
+                        <div class="step-panel hidden" id="step-panel-3">
+                            <h4 class="section-title">Vínculo Empregatício</h4>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-contrato">Tipo de Contrato</label>
+                                    <select id="vinculo-contrato">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="CLT">CLT</option>
+                                        <option value="PJ">PJ</option>
+                                        <option value="Estágio">Estágio</option>
+                                        <option value="Aprendiz">Aprendiz</option>
+                                        <option value="Temporário">Temporário</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-admissao">Data de Admissão</label>
+                                    <input type="date" id="vinculo-admissao">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-dept">Departamento</label>
+                                    <select id="vinculo-dept">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="TI">Tecnologia da Informação</option>
+                                        <option value="RH">Recursos Humanos</option>
+                                        <option value="Financeiro">Financeiro</option>
+                                        <option value="Marketing">Marketing</option>
+                                        <option value="Jurídico">Jurídico</option>
+                                        <option value="Administrativo">Administrativo</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-cargo">Cargo</label>
+                                    <input type="text" id="vinculo-cargo">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-jornada">Jornada de Trabalho</label>
+                                    <select id="vinculo-jornada">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="44h">44h Semanais</option>
+                                        <option value="40h">40h Semanais</option>
+                                        <option value="30h">30h Semanais</option>
+                                        <option value="20h">20h Semanais</option>
+                                        <option value="12x36">Escala 12x36</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="vinculo-modalidade">Modalidade</label>
+                                    <select id="vinculo-modalidade">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="presencial">Presencial</option>
+                                        <option value="hibrido">Híbrido</option>
+                                        <option value="remoto">Remoto</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="toggleForm()">Cancelar</button>
-                        <button type="button" class="btn-primary" id="btn-next-step" onclick="handleNextStep()">Continuar</button>
-                        <button type="submit" class="btn-primary" id="btn-save" style="display: none;">Cadastrar</button>
+
+                        <!-- ── STEP 4: REMUNERAÇÃO ── -->
+                        <div class="step-panel hidden" id="step-panel-4">
+                            <h4 class="section-title">Remuneração</h4>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="rem-salario">Salário Base (R$)</label>
+                                    <input type="number" id="rem-salario" step="0.01">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="rem-tipo-salario">Tipo de Salário</label>
+                                    <select id="rem-tipo-salario">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="Mensal Fixo">Mensal Fixo</option>
+                                        <option value="Quinzenal">Quinzenal</option>
+                                        <option value="Comissao">Por Comissão</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="rem-hora-extra">Valor Hora Extra (R$)</label>
+                                    <input type="number" id="rem-hora-extra" step="0.01">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="rem-adicional-noturno">Adicional Noturno (%)</label>
+                                    <input type="number" id="rem-adicional-noturno" step="0.01" placeholder="Ex: 20">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="rem-periculosidade">Periculosidade / Insalubridade</label>
+                                    <select id="rem-periculosidade">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nenhum">Nenhum</option>
+                                        <option value="insalubridade-minimo">Insalubridade — Mínimo (10%)</option>
+                                        <option value="insalubridade-medio">Insalubridade — Médio (20%)</option>
+                                        <option value="insalubridade-maximo">Insalubridade — Máximo (40%)</option>
+                                        <option value="periculosidade">Periculosidade (30%)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- ── STEP 5: BENEFÍCIOS ── -->
+                        <div class="step-panel hidden" id="step-panel-5">
+                            <h4 class="section-title">Benefícios</h4>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="ben-vale-transporte">Vale Transporte (R$/dia)</label>
+                                    <input type="number" id="ben-vale-transporte" step="0.01">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="ben-vale-refeicao">Vale Refeição (R$/dia)</label>
+                                    <input type="number" id="ben-vale-refeicao" step="0.01">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="ben-vale-alimentacao">Vale Alimentação (R$/mês)</label>
+                                    <input type="number" id="ben-vale-alimentacao" step="0.01">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="ben-plano-saude">Plano de Saúde</label>
+                                    <select id="ben-plano-saude">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nenhum">Nenhum</option>
+                                        <option value="basico">Básico</option>
+                                        <option value="intermediario">Intermediário</option>
+                                        <option value="premium">Premium</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="ben-plano-odonto">Plano Odontológico</label>
+                                    <select id="ben-plano-odonto">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nenhum">Nenhum</option>
+                                        <option value="basico">Básico</option>
+                                        <option value="completo">Completo</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="ben-seguro-vida">Seguro de Vida</label>
+                                    <select id="ben-seguro-vida">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nenhum">Nenhum</option>
+                                        <option value="sim">Sim</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="ben-outros">Outros Benefícios</label>
+                                    <input type="text" id="ben-outros" placeholder="Ex: Gympass, auxílio home office...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── STEP 6: PAGAMENTO ── -->
+                        <div class="step-panel hidden" id="step-panel-6">
+                            <h4 class="section-title">Dados de Pagamento</h4>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="pag-banco">Banco</label>
+                                    <select id="pag-banco">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="001">001 — Banco do Brasil</option>
+                                        <option value="033">033 — Santander</option>
+                                        <option value="104">104 — Caixa Econômica Federal</option>
+                                        <option value="237">237 — Bradesco</option>
+                                        <option value="341">341 — Itaú</option>
+                                        <option value="260">260 — Nu Pagamentos (Nubank)</option>
+                                        <option value="077">077 — Inter</option>
+                                        <option value="212">212 — Banco Original</option>
+                                        <option value="outros">Outro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="pag-tipo-conta">Tipo de Conta</label>
+                                    <select id="pag-tipo-conta">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="corrente">Conta Corrente</option>
+                                        <option value="poupanca">Conta Poupança</option>
+                                        <option value="pagamento">Conta de Pagamento</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="pag-agencia">Agência</label>
+                                    <input type="text" id="pag-agencia" placeholder="0000">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="pag-conta">Número da Conta</label>
+                                    <input type="text" id="pag-conta" placeholder="00000-0">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="pag-pix">Chave PIX</label>
+                                    <input type="text" id="pag-pix" placeholder="CPF, e-mail, telefone ou chave aleatória">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="pag-forma">Forma de Pagamento</label>
+                                    <select id="pag-forma">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="ted">TED / DOC</option>
+                                        <option value="pix">PIX</option>
+                                        <option value="boleto">Boleto</option>
+                                        <option value="cheque">Cheque</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="pag-dia">Dia de Pagamento</label>
+                                    <select id="pag-dia">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="5">Dia 5</option>
+                                        <option value="10">Dia 10</option>
+                                        <option value="15">Dia 15</option>
+                                        <option value="20">Dia 20</option>
+                                        <option value="25">Dia 25</option>
+                                        <option value="ultimo">Último dia útil</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-2"></div>
+                            </div>
+                        </div>
+
+                        <!-- AÇÕES DO STEPPER -->
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="toggleForm()">Cancelar</button>
+                            <div class="actions-right">
+                                <button type="button" class="btn-secondary" id="btn-prev-step"
+                                        onclick="handlePrevStep()" style="display: none;">
+                                    <i class="fas fa-arrow-left"></i> Voltar
+                                </button>
+                                <button type="button" class="btn-primary" id="btn-next-step"
+                                        onclick="handleNextStep()">
+                                    Continuar <i class="fas fa-arrow-right"></i>
+                                </button>
+                                <button type="submit" class="btn-primary" id="btn-save" style="display: none;">
+                                    <i class="fas fa-check"></i> Cadastrar
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -285,20 +638,81 @@
     </main>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+
     <div id="employee-drawer" class="drawer">
         <div class="drawer-header">
             <div class="header-content">
                 <div class="avatar-placeholder"><i class="fas fa-user"></i></div>
                 <div class="header-text">
                     <h2 id="view-name">-</h2>
-                    <p id="view-role" class="subtitle">-</p>
+                    <p id="view-role" class="subtitle">Cargo</p>
                 </div>
             </div>
-            <button class="btn-close-drawer" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
+
+            <div class="drawer-controls">
+                <div class="dropdown">
+                    <button class="btn-options" onclick="toggleDropdown(event)">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+
+                    <div id="drawer-dropdown" class="dropdown-content">
+                        <div id="main-menu-options">
+                            <a href="#" onclick="handleEditFromDrawer()">
+                                <i class="fas fa-edit"></i> Editar Dados
+                            </a>
+                            <a href="#" onclick="showStatusSubmenu()" class="btn-submenu">
+                                <i class="fas fa-sync-alt"></i> Alterar Status
+                                <i class="fas fa-chevron-right icon-arrow"></i>
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#" onclick="handleDeleteEmployee()" class="text-danger">
+                                <i class="fas fa-trash-alt"></i> Excluir Colaborador
+                            </a>
+                        </div>
+
+                        <div id="status-submenu-options" class="hidden">
+                            <a href="#" onclick="backToMainMenu()" class="btn-back">
+                                <i class="fas fa-arrow-left"></i> Voltar
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <div id="dynamic-status-options"></div>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-close-drawer" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
+            </div>
         </div>
+
         <div class="drawer-body">
-            <div class="drawer-footer">
-                <button type="button" class="btn-close-modern" onclick="closeDrawer()">Fechar</button>
+            <div class="drawer-info-group">
+                <div class="info-item">
+                    <i class="fas fa-building"></i>
+                    <div>
+                        <strong>Departamento</strong>
+                        <p id="view-dept">-</p>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <div>
+                        <strong>Salário</strong>
+                        <p id="view-salary">-</p>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <div>
+                        <strong>Data de Admissão</strong>
+                        <p id="view-date">-</p>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-id-badge"></i>
+                    <div>
+                        <strong>Status</strong>
+                        <span id="view-status" class="badge">-</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

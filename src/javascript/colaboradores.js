@@ -1,18 +1,26 @@
 let employees = JSON.parse(localStorage.getItem('nexus_employees')) || [];
 let currentEmployeeId = null;
+let currentStep = 1;
+const totalSteps = 6;
 
+// --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
     renderTable(employees);
     setupFormListener();
     setupFilters();
     setupCepListener();
     setupCpfMask();
-    setupValidationListeners(); // Monitora as mudanças nos campos
+    setupValidationListeners();
     updateCount();
-    validateRequiredFields();   // Verifica estado inicial ao carregar
+    resetStepper();
 });
 
 // --- UTILITÁRIOS ---
+const generateNextId = () => {
+    if (employees.length === 0) return 1;
+    return Math.max(...employees.map(emp => emp.id)) + 1;
+};
+
 const formatDateBR = (dateStr) => {
     if (!dateStr) return '-';
     const [year, month, day] = dateStr.split('-');
@@ -20,9 +28,9 @@ const formatDateBR = (dateStr) => {
 };
 
 const formatCurrency = (value) => {
-    return Number(value || 0).toLocaleString('pt-BR', { 
-        style: 'currency', 
-        currency: 'BRL' 
+    return Number(value || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
     });
 };
 
@@ -38,8 +46,8 @@ const getBadgeClass = (status) => {
 function updateCount() {
     const countElement = document.getElementById('employee-count');
     if (!countElement) return;
-    const visibleRows = document.querySelectorAll('#employee-list-body tr:not([style*="display: none"])').length;
-    
+    const visibleRows = document.querySelectorAll('#employee-list-body tr').length;
+
     if (visibleRows === 0) countElement.textContent = "Nenhum colaborador encontrado";
     else if (visibleRows === 1) countElement.textContent = "1 colaborador encontrado";
     else countElement.textContent = `${visibleRows} colaboradores encontrados`;
@@ -50,235 +58,173 @@ window.switchTab = function(event, tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
 
-    if(event && event.currentTarget) {
+    if (event && event.currentTarget) {
         event.currentTarget.classList.add('active');
     } else {
         const targetBtn = document.querySelector(`[onclick*="${tabId}"]`);
         if (targetBtn) targetBtn.classList.add('active');
     }
-    document.getElementById(tabId).classList.add('active');
-    
-    // Opcional: Validar ao trocar de aba para garantir estado dos botões
-    validateRequiredFields();
-}
 
-// --- CONTROLE DE INTERFACE (FORMULÁRIO) ---
+    document.getElementById(tabId)?.classList.add('active');
+};
+
 window.toggleForm = function() {
     const formContainer = document.getElementById('form-container');
     const listSection = document.getElementById('list-section');
     const contentHeader = document.getElementById('content-header');
     const form = document.getElementById('employee-form');
 
-    if (formContainer.classList.contains('hidden')) {
+    if (formContainer && formContainer.classList.contains('hidden')) {
         formContainer.classList.remove('hidden');
         listSection.classList.add('hidden');
         contentHeader.classList.add('hidden');
-        
-        document.querySelectorAll('.tab-btn').forEach((b, i) => i === 0 ? b.classList.add('active') : b.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach((p, i) => i === 0 ? p.classList.add('active') : p.classList.remove('active'));
+        resetStepper();
     } else {
-        formContainer.classList.add('hidden');
-        listSection.classList.remove('hidden');
-        contentHeader.classList.remove('hidden');
-        
-        form.reset();
+        formContainer?.classList.add('hidden');
+        listSection?.classList.remove('hidden');
+        contentHeader?.classList.remove('hidden');
+        form?.reset();
         document.getElementById('employee-id').value = '';
-        
-        const cpfInput = document.getElementById('cpf');
-        if(cpfInput) cpfInput.style.borderColor = '';
-
         document.getElementById('form-title').innerHTML = '<i class="fas fa-user-plus"></i> Novo Colaborador';
-        document.getElementById('btn-save').innerText = 'Cadastrar';
+        const btnSimple = document.getElementById('btn-save-simple');
+        if (btnSimple) btnSimple.innerHTML = '<i class="fas fa-check"></i> Cadastrar';
         resetStepper();
     }
-    validateRequiredFields(); // Garante que o botão comece desativado no form vazio
-}
+};
 
-// --- MÁSCARA DE CPF ---
-function setupCpfMask() {
-    const cpfInput = document.getElementById('cpf');
-    if (!cpfInput) return;
+// --- CONTROLE DO STEPPER ---
+function goToStep(step) {
+    // Oculta painel atual
+    const currentPanel = document.getElementById('step-panel-' + currentStep);
+    if (currentPanel) {
+        currentPanel.classList.add('hidden');
+        currentPanel.classList.remove('active');
+    }
 
-    cpfInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, "");
-        if (value.length <= 11) {
-            value = value.replace(/^(\d{3})(\d)/, "$1.$2");
-            value = value.replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3");
-            value = value.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+    // Atualiza ícone do step atual
+    const currentStepEl = document.querySelector('[data-step="' + currentStep + '"]');
+    if (currentStepEl) {
+        currentStepEl.classList.remove('active');
+        if (step > currentStep) {
+            currentStepEl.classList.add('completed');
+        } else {
+            currentStepEl.classList.remove('completed');
         }
-        e.target.value = value;
+    }
+
+    currentStep = step;
+
+    // Exibe novo painel
+    const newPanel = document.getElementById('step-panel-' + currentStep);
+    if (newPanel) {
+        newPanel.classList.remove('hidden');
+        newPanel.classList.add('active');
+    }
+
+    const newStepEl = document.querySelector('[data-step="' + currentStep + '"]');
+    if (newStepEl) newStepEl.classList.add('active');
+
+    // Controla visibilidade dos botões
+    const btnPrev = document.getElementById('btn-prev-step');
+    const btnNext = document.getElementById('btn-next-step');
+    const btnSave = document.getElementById('btn-save');
+
+    if (btnPrev) btnPrev.style.display = currentStep > 1 ? 'inline-flex' : 'none';
+    if (btnNext) btnNext.style.display = currentStep < totalSteps ? 'inline-flex' : 'none';
+    if (btnSave) {
+        btnSave.style.display = currentStep === totalSteps ? 'inline-flex' : 'none';
+        updateSaveButton();
+    }
+}
+
+window.handleNextStep = function() {
+    if (currentStep < totalSteps) {
+        goToStep(currentStep + 1);
+    }
+};
+
+window.handlePrevStep = function() {
+    if (currentStep > 1) {
+        goToStep(currentStep - 1);
+    }
+};
+
+function resetStepper() {
+    document.querySelectorAll('.step-panel').forEach(p => {
+        p.classList.add('hidden');
+        p.classList.remove('active');
     });
-}
-
-// --- INTEGRAÇÃO VIA CEP ---
-function setupCepListener() {
-    const zipInput = document.getElementById('zipcode');
-    if (!zipInput) return;
-
-    zipInput.addEventListener('blur', async function() {
-        const cep = this.value.replace(/\D/g, '');
-        if (cep.length === 8) {
-            try {
-                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                const data = await response.json();
-                if (!data.erro) {
-                    document.getElementById('address').value = data.logradouro;
-                    if (document.getElementById('neighborhood')) document.getElementById('neighborhood').value = data.bairro;
-                    if (document.getElementById('city')) document.getElementById('city').value = data.localidade;
-                    if (document.getElementById('state')) document.getElementById('state').value = data.uf;
-                    document.getElementById('number').focus();
-                    validateRequiredFields(); // Revalida após preenchimento automático
-                }
-            } catch (e) { console.error("Erro CEP", e); }
-        }
-    });
-}
-
-// --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
-function validateRequiredFields() {
-    const saveBtn = document.getElementById('btn-save');
-    const nextBtn = document.getElementById('btn-next-step');
-    
-    // Seleciona campos com atributo 'required' dentro da aba de dados obrigatórios
-    const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required], #tab-obrigatorios select[required]');
-    
-    const allFilled = Array.from(mandatoryFields).every(input => {
-        // Para inputs, verifica se não está vazio. Para selects, verifica se o valor não é vazio.
-        return input.value.trim() !== "";
+    document.querySelectorAll('.step').forEach(s => {
+        s.classList.remove('active', 'completed');
     });
 
-    if (saveBtn) {
-        saveBtn.disabled = !allFilled;
-        saveBtn.style.opacity = allFilled ? "1" : "0.5";
-        saveBtn.style.cursor = allFilled ? "pointer" : "not-allowed";
+    currentStep = 1;
+
+    const firstPanel = document.getElementById('step-panel-1');
+    if (firstPanel) {
+        firstPanel.classList.remove('hidden');
+        firstPanel.classList.add('active');
     }
 
-    if (nextBtn) {
-        nextBtn.disabled = !allFilled;
-        nextBtn.style.opacity = allFilled ? "1" : "0.5";
-        nextBtn.style.cursor = allFilled ? "pointer" : "not-allowed";
+    const firstStep = document.querySelector('[data-step="1"]');
+    if (firstStep) firstStep.classList.add('active');
+
+    const btnPrev = document.getElementById('btn-prev-step');
+    const btnNext = document.getElementById('btn-next-step');
+    const btnSave = document.getElementById('btn-save');
+
+    if (btnPrev) btnPrev.style.display = 'none';
+    if (btnNext) btnNext.style.display = 'inline-flex';
+    if (btnSave) btnSave.style.display = 'none';
+}
+
+function updateSaveButton() {
+    const btnSimple = document.getElementById('btn-save-simple');
+    const btnStepper = document.getElementById('btn-save');
+
+    const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required]');
+    const allFilled = Array.from(mandatoryFields).every(input => input.value.trim() !== '');
+
+    if (btnSimple) {
+        btnSimple.disabled = !allFilled;
+        btnSimple.style.opacity = allFilled ? '1' : '0.5';
     }
-}
-
-function setupValidationListeners() {
-    const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select');
-    mandatoryFields.forEach(field => {
-        field.addEventListener('input', validateRequiredFields);
-        field.addEventListener('change', validateRequiredFields);
-    });
-}
-
-// --- AÇÕES DO DRAWER ---
-window.toggleDrawerMenu = function() {
-    const menu = document.getElementById("drawer-menu");
-    menu.classList.toggle("show");
-    window.backToMainMenu(); 
-}
-
-window.showStatusSubmenu = function() {
-    const emp = employees.find(e => e.id === currentEmployeeId);
-    if (!emp) return;
-
-    if (emp.status === 'Inativo') {
-        alert("Colaborador inativo. O status não pode ser alterado.");
-        return;
-    }
-
-    const submenu = document.getElementById('status-submenu-options');
-    const options = submenu.querySelectorAll('a[onclick*="updateStatus"]');
-    
-    options.forEach(opt => opt.classList.add('hidden'));
-
-    if (emp.status === 'Ativo') {
-        submenu.querySelector('a[onclick*="Inativo"]').classList.remove('hidden');
-        submenu.querySelector('a[onclick*="Férias"]').classList.remove('hidden');
-    } else if (emp.status === 'Férias') {
-        submenu.querySelector('a[onclick*="Ativo"]').classList.remove('hidden');
-    }
-
-    document.getElementById('main-menu-options').classList.add('hidden');
-    submenu.classList.remove('hidden');
-}
-
-window.backToMainMenu = function() {
-    document.getElementById('main-menu-options').classList.remove('hidden');
-    document.getElementById('status-submenu-options').classList.add('hidden');
-}
-
-window.updateStatus = function(newStatus) {
-    if (!currentEmployeeId) return;
-    const index = employees.findIndex(emp => emp.id === currentEmployeeId);
-    
-    if (index !== -1) {
-        employees[index].status = newStatus;
-        saveAndRefresh();
-        openDrawer(currentEmployeeId); 
-        document.getElementById("drawer-menu").classList.remove("show");
+    if (btnStepper) {
+        btnStepper.disabled = !allFilled;
+        btnStepper.style.opacity = allFilled ? '1' : '0.5';
     }
 }
 
-window.handleEditFromDrawer = function() {
-    if (!currentEmployeeId) return;
-    const emp = employees.find(e => e.id === currentEmployeeId);
-    if (emp.status === 'Inativo') {
-        alert("Não é possível editar dados de um colaborador inativo.");
-        return;
-    }
-    closeDrawer();
-    editEmployee(currentEmployeeId);
-}
-
-window.handleDeleteFromDrawer = function() {
-    if (!currentEmployeeId) return;
-    const emp = employees.find(e => e.id === currentEmployeeId);
-    if (confirm(`Excluir permanentemente ${emp.name}?`)) {
-        employees = employees.filter(e => e.id !== currentEmployeeId);
-        saveAndRefresh();
-        closeDrawer();
-    }
-}
-
-// --- FORMULÁRIO (SALVAR) ---
+// --- FORMULÁRIO ---
 function setupFormListener() {
     const form = document.getElementById('employee-form');
     if (!form) return;
-    
+
     form.addEventListener('submit', (e) => {
         e.preventDefault();
+        const idField = document.getElementById('employee-id').value;
 
-        const cpfInput = document.getElementById('cpf');
-        if (cpfInput && cpfInput.value.replace(/\D/g, "").length < 11) {
-            cpfInput.style.borderColor = 'var(--danger)';
-            alert('O CPF deve conter 11 dígitos válidos.');
-            return; 
-        }
-
-        if (cpfInput) cpfInput.style.borderColor = ''; 
-
-        const id = document.getElementById('employee-id').value;
         const employeeData = {
-            id: id ? Number(id) : Date.now(),
+            id: idField ? Number(idField) : generateNextId(),
             name: document.getElementById('name').value,
-            cpf: document.getElementById('cpf')?.value || '',
-            email: document.getElementById('email')?.value || '',
+            role: document.getElementById('role').value,
+            cpf: document.getElementById('cpf').value,
+            email: document.getElementById('email').value,
             admissionDate: document.getElementById('admission-date').value,
             contractType: document.getElementById('contract-type').value,
-            salaryType: document.getElementById('salary-type')?.value || '',
-            workLoad: document.getElementById('work-load')?.value || '',
+            salaryType: document.getElementById('salary-type').value,
+            workLoad: document.getElementById('work-load').value,
             dept: document.getElementById('dept').value,
-            role: document.getElementById('role')?.value || '',
             salary: Number(document.getElementById('salary').value),
-            status: document.getElementById('status-select').value,
-            address: { 
-                zip: document.getElementById('zipcode')?.value || '', 
-                street: document.getElementById('address')?.value || '',
-                number: document.getElementById('number')?.value || ''
-            }
+            status: 'Ativo'
         };
 
-        if (id) {
-            const index = employees.findIndex(emp => emp.id === Number(id));
-            employees[index] = employeeData;
+        if (idField) {
+            const index = employees.findIndex(emp => emp.id === Number(idField));
+            if (index !== -1) {
+                employeeData.status = employees[index].status;
+                employees[index] = employeeData;
+            }
         } else {
             employees.push(employeeData);
         }
@@ -288,18 +234,106 @@ function setupFormListener() {
     });
 }
 
-// --- RENDERIZAÇÃO ---
+// --- SUBMENU DE STATUS E DROPDOWN ---
+window.toggleDropdown = function(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('drawer-dropdown');
+    dropdown.classList.toggle('show');
+};
+
+window.showStatusSubmenu = function() {
+    const emp = employees.find(e => e.id === currentEmployeeId);
+    if (!emp) return;
+
+    const mainMenu = document.getElementById('main-menu-options');
+    const submenu = document.getElementById('status-submenu-options');
+    const dynamicOptions = document.getElementById('dynamic-status-options');
+
+    dynamicOptions.innerHTML = '';
+
+    if (emp.status === 'Ativo') {
+        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Inativo')"><i class="fas fa-user-slash"></i> Inativo</a>`;
+        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>`;
+    }
+
+    if (emp.status === 'Férias') {
+        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar das Férias</a>`;
+    }
+
+    if (emp.status === 'Inativo') {
+        dynamicOptions.innerHTML = '<div style="padding: 10px 16px; font-size: 12px; color: #999;">Status Inativo é permanente.</div>';
+    }
+
+    mainMenu.classList.add('hidden');
+    submenu.classList.remove('hidden');
+};
+
+window.backToMainMenu = function() {
+    document.getElementById('main-menu-options').classList.remove('hidden');
+    document.getElementById('status-submenu-options').classList.add('hidden');
+};
+
+window.updateStatus = function(newStatus) {
+    const index = employees.findIndex(emp => emp.id === currentEmployeeId);
+    if (index !== -1) {
+        employees[index].status = newStatus;
+        saveAndRefresh();
+        openDrawer(currentEmployeeId);
+        document.getElementById('drawer-dropdown').classList.remove('show');
+        setTimeout(backToMainMenu, 300);
+    }
+};
+
+// --- DRAWER ---
+window.openDrawer = function(id) {
+    const emp = employees.find(e => e.id === Number(id));
+    if (!emp) return;
+
+    currentEmployeeId = emp.id;
+
+    document.getElementById('view-name').textContent = emp.name;
+    document.getElementById('view-role').textContent = emp.role || '-';
+    document.getElementById('view-dept').textContent = emp.dept || '-';
+    document.getElementById('view-salary').textContent = formatCurrency(emp.salary);
+    document.getElementById('view-date').textContent = formatDateBR(emp.admissionDate);
+
+    const statusBadge = document.getElementById('view-status');
+    if (statusBadge) {
+        statusBadge.textContent = emp.status;
+        statusBadge.className = `badge ${getBadgeClass(emp.status)}`;
+    }
+
+    document.getElementById('employee-drawer').classList.add('active');
+    document.getElementById('drawer-overlay').classList.add('active');
+};
+
+window.closeDrawer = function() {
+    document.getElementById('employee-drawer').classList.remove('active');
+    document.getElementById('drawer-overlay').classList.remove('active');
+    document.getElementById('drawer-dropdown').classList.remove('show');
+    backToMainMenu();
+};
+
+window.addEventListener('click', (event) => {
+    if (!event.target.closest('.dropdown')) {
+        document.getElementById('drawer-dropdown')?.classList.remove('show');
+        backToMainMenu();
+    }
+});
+
+// --- RENDERIZAÇÃO E FILTROS ---
 function renderTable(data) {
     const tbody = document.getElementById('employee-list-body');
     if (!tbody) return;
     tbody.innerHTML = '';
-    
+
     data.forEach(emp => {
         const tr = document.createElement('tr');
-        tr.onclick = () => openDrawer(emp.id);
+        tr.style.cursor = 'pointer';
+        tr.onclick = () => window.openDrawer(emp.id);
         tr.innerHTML = `
-            <td>#${emp.id.toString().slice(-4)}</td>
-            <td>${emp.name}</td>
+            <td>#${emp.id}</td>
+            <td class="emp-name"><strong>${emp.name}</strong></td>
             <td><span class="badge ${getBadgeClass(emp.status)}">${emp.status}</span></td>
             <td>${emp.dept}</td>
         `;
@@ -308,60 +342,42 @@ function renderTable(data) {
     updateCount();
 }
 
+window.handleEditFromDrawer = function() {
+    closeDrawer();
+    editEmployee(currentEmployeeId);
+};
+
 window.editEmployee = function(id) {
     const emp = employees.find(e => e.id === Number(id));
     if (!emp) return;
 
     toggleForm();
     document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Colaborador';
-    document.getElementById('btn-save').innerText = 'Salvar Alterações';
-    
+
+    const btnSimple = document.getElementById('btn-save-simple');
+    const btnStepper = document.getElementById('btn-save');
+    if (btnSimple) btnSimple.innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
+    if (btnStepper) btnStepper.innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
+
     document.getElementById('employee-id').value = emp.id;
     document.getElementById('name').value = emp.name;
-    if(document.getElementById('cpf')) document.getElementById('cpf').value = emp.cpf || '';
-    if(document.getElementById('email')) document.getElementById('email').value = emp.email || '';
+     document.getElementById('role').value = emp.role || '';
+    document.getElementById('cpf').value = emp.cpf || '';
+    document.getElementById('email').value = emp.email || '';
     document.getElementById('admission-date').value = emp.admissionDate;
-    document.getElementById('contract-type').value = emp.contractType || '';
-    if(document.getElementById('salary-type')) document.getElementById('salary-type').value = emp.salaryType || '';
-    if(document.getElementById('work-load')) document.getElementById('work-load').value = emp.workLoad || '';
     document.getElementById('dept').value = emp.dept;
-    if(document.getElementById('role')) document.getElementById('role').value = emp.role || '';
     document.getElementById('salary').value = emp.salary;
-    document.getElementById('status-select').value = emp.status;
 
-    if (emp.address) {
-        if(document.getElementById('zipcode')) document.getElementById('zipcode').value = emp.address.zip || '';
-        if(document.getElementById('address')) document.getElementById('address').value = emp.address.street || '';
-        if(document.getElementById('number')) document.getElementById('number').value = emp.address.number || '';
+    updateSaveButton();
+};
+
+window.handleDeleteEmployee = function() {
+    if (confirm('Tem certeza que deseja excluir este colaborador?')) {
+        employees = employees.filter(emp => emp.id !== currentEmployeeId);
+        saveAndRefresh();
+        closeDrawer();
     }
-    
-    validateRequiredFields(); // Habilita o botão pois campos obrigatórios estarão preenchidos
-}
-
-window.openDrawer = function(id) {
-    const emp = employees.find(e => e.id === Number(id));
-    if (!emp) return;
-    currentEmployeeId = emp.id;
-
-    document.getElementById('view-name').textContent = emp.name;
-    document.getElementById('view-dept').textContent = emp.dept;
-    if(document.getElementById('view-role')) document.getElementById('view-role').textContent = emp.role || '-';
-    document.getElementById('view-date').textContent = formatDateBR(emp.admissionDate);
-    document.getElementById('view-salary').textContent = formatCurrency(emp.salary);
-    
-    const statusLabel = document.getElementById('view-status');
-    statusLabel.textContent = emp.status;
-    statusLabel.className = `badge ${getBadgeClass(emp.status)}`;
-
-    document.getElementById('employee-drawer').classList.add('active');
-    document.getElementById('drawer-overlay').classList.add('active');
-}
-
-window.closeDrawer = function() {
-    document.getElementById('employee-drawer').classList.remove('active');
-    document.getElementById('drawer-overlay').classList.remove('active');
-    currentEmployeeId = null;
-}
+};
 
 function saveAndRefresh() {
     localStorage.setItem('nexus_employees', JSON.stringify(employees));
@@ -373,7 +389,6 @@ function applyStatusFilter(filter) {
     let filtered = employees;
     if (filter === 'ativos') filtered = employees.filter(e => e.status === 'Ativo');
     else if (filter === 'inativos') filtered = employees.filter(e => e.status === 'Inativo');
-    else if (filter === 'ferias') filtered = employees.filter(e => e.status === 'Férias');
     renderTable(filtered);
 }
 
@@ -387,41 +402,42 @@ function setupFilters() {
     });
 }
 
-// --- LÓGICA DO STEPPER ---
-let currentStep = 1;
-const totalSteps = 6;
-
-function handleNextStep() {
-    const activeTab = document.querySelector('.tab-btn.active').innerText;
-    
-    if (activeTab === "Dados Completos") {
-        if (currentStep < totalSteps) {
-            currentStep++;
-            updateStepper();
-        }
-    }
-}
-
-function updateStepper() {
-    const steps = document.querySelectorAll('.stepper-container .step');
-    const nextBtn = document.getElementById('btn-next-step');
-    const saveBtn = document.getElementById('btn-save');
-
-    steps.forEach((step, index) => {
-        if (index < currentStep) step.classList.add('active');
-        else step.classList.remove('active');
+// --- MÁSCARAS E VALIDAÇÕES ---
+function setupCpfMask() {
+    const cpfInput = document.getElementById('cpf');
+    if (!cpfInput) return;
+    cpfInput.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d)/, '$1.$2');
+        v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        e.target.value = v;
     });
-
-    if (currentStep === totalSteps) {
-        if (nextBtn) nextBtn.style.display = 'none';
-        if (saveBtn) saveBtn.style.display = 'block';
-    } else {
-        if (nextBtn) nextBtn.style.display = 'block';
-        if (saveBtn) saveBtn.style.display = 'none';
-    }
 }
 
-function resetStepper() {
-    currentStep = 1;
-    updateStepper();
+function setupCepListener() {
+    const zipInput = document.getElementById('zipcode');
+    if (!zipInput) return;
+    zipInput.addEventListener('blur', async function() {
+        const cep = this.value.replace(/\D/g, '');
+        if (cep.length === 8) {
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await response.json();
+                if (!data.erro) {
+                    document.getElementById('address').value = data.logradouro || '';
+                    document.getElementById('number')?.focus();
+                }
+            } catch (e) {
+                console.error('Erro ViaCEP', e);
+            }
+        }
+    });
+}
+
+function setupValidationListeners() {
+    document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select').forEach(f => {
+        f.addEventListener('input', updateSaveButton);
+    });
 }
