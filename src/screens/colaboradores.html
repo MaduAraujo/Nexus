@@ -168,7 +168,7 @@
                             <div class="step-line"></div>
                             <div class="step" data-step="2">
                                 <div class="step-number">2</div>
-                                <span class="step-label">Contato</span>
+                                <span class="step-label">Contato e Endereço</span>
                             </div>
                             <div class="step-line"></div>
                             <div class="step" data-step="3">
@@ -194,8 +194,6 @@
 
                         <!-- ── STEP 1: IDENTIFICAÇÃO ── -->
                         <div class="step-panel active" id="step-panel-1">
-                            <h4 class="section-title">Identificação Pessoal</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-2">
                                     <label for="nome-completo">Nome Completo</label>
@@ -227,7 +225,7 @@
                                     <label for="orgao-emissor">Órgão Emissor</label>
                                     <select id="orgao-emissor">
                                         <option value="" disabled selected>Selecione</option>
-                                        <option value="SSP/SP">SSP/SP</option>
+                                        <option value="SSP">SSP - Secretaria de Segurança Pública</option>
                                     </select>
                                 </div>
                             </div>
@@ -276,19 +274,13 @@
 
                         <!-- ── STEP 2: CONTATO ── -->
                         <div class="step-panel hidden" id="step-panel-2">
-                            <h4 class="section-title">Contato e Endereço</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="cep">CEP</label>
-                                    <input type="text" id="cep" maxlength="9" placeholder="00000-000"
+                                    <input type="text" id="cep" maxlength="9"
                                            onblur="pesquisacep(this.value);">
                                 </div>
-                                <div class="form-group flex-2"></div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group flex-1">
+                                <div class="form-group flex-3">
                                     <label for="logradouro">Logradouro</label>
                                     <input type="text" id="logradouro">
                                 </div>
@@ -299,53 +291,48 @@
                                     <label for="numero">Número</label>
                                     <input type="text" id="numero">
                                 </div>
-                                <div class="form-group flex-1">
+                                <div class="form-group flex-2">
                                     <label for="complemento">Complemento</label>
                                     <input type="text" id="complemento">
                                 </div>
                             </div>
 
                             <div class="form-row">
-                                <div class="form-group flex-1">
+                                <div class="form-group flex-2">
                                     <label for="bairro">Bairro</label>
                                     <input type="text" id="bairro">
                                 </div>
-                                <div class="form-group flex-1">
+                                <div class="form-group flex-2">
                                     <label for="cidade">Cidade</label>
                                     <input type="text" id="cidade">
                                 </div>
-                            </div>
-
-                            <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="uf">UF</label>
                                     <input type="text" id="uf" maxlength="2">
                                 </div>
+                            </div>
+
+                            <div class="form-row">
                                 <div class="form-group flex-2">
                                     <label for="email-contato">E-mail</label>
                                     <input type="email" id="email-contato">
                                 </div>
-                            </div>
-
-                            <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="telefone">Telefone</label>
-                                    <input type="text" id="telefone" placeholder="(00) 00000-0000">
+                                    <input type="text" id="telefone">
                                 </div>
-                                <div class="form-group flex-2"></div>
                             </div>
                         </div>
 
                         <!-- ── STEP 3: VÍNCULO ── -->
                         <div class="step-panel hidden" id="step-panel-3">
-                            <h4 class="section-title">Vínculo Empregatício</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="vinculo-contrato">Tipo de Contrato</label>
                                     <select id="vinculo-contrato">
                                         <option value="" disabled selected>Selecione</option>
-                                        <option value="CLT">CLT</option>
+                                        <option value="CLT">CLT - Prazo Indeterminado</option>
+                                        <option value="CLT">CLT - Prazo Determinado</option>
                                         <option value="PJ">PJ</option>
                                         <option value="Estágio">Estágio</option>
                                         <option value="Aprendiz">Aprendiz</option>
@@ -403,8 +390,6 @@
 
                         <!-- ── STEP 4: REMUNERAÇÃO ── -->
                         <div class="step-panel hidden" id="step-panel-4">
-                            <h4 class="section-title">Remuneração</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="rem-salario">Salário Base (R$)</label>
@@ -415,8 +400,10 @@
                                     <select id="rem-tipo-salario">
                                         <option value="" disabled selected>Selecione</option>
                                         <option value="Mensal Fixo">Mensal Fixo</option>
-                                        <option value="Quinzenal">Quinzenal</option>
-                                        <option value="Comissao">Por Comissão</option>
+                                        <option value="Horista">Por hora</option>
+                                        <option value="Diarista">Por dia</option>
+                                        <option value="Comissao">Comissão</option>
+                                        <option value="Fixo e Comissão">Fixo + Comissão</option>
                                     </select>
                                 </div>
                             </div>
@@ -426,43 +413,85 @@
                                     <label for="rem-hora-extra">Valor Hora Extra (R$)</label>
                                     <input type="number" id="rem-hora-extra" step="0.01">
                                 </div>
+                                <div class="form-row">
                                 <div class="form-group flex-1">
-                                    <label for="rem-adicional-noturno">Adicional Noturno (%)</label>
-                                    <input type="number" id="rem-adicional-noturno" step="0.01" placeholder="Ex: 20">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label for="rem-periculosidade">Periculosidade / Insalubridade</label>
+                                    <label for="rem-periculosidade">Periculosidade</label>
                                     <select id="rem-periculosidade">
                                         <option value="" disabled selected>Selecione</option>
-                                        <option value="nenhum">Nenhum</option>
-                                        <option value="insalubridade-minimo">Insalubridade — Mínimo (10%)</option>
-                                        <option value="insalubridade-medio">Insalubridade — Médio (20%)</option>
-                                        <option value="insalubridade-maximo">Insalubridade — Máximo (40%)</option>
-                                        <option value="periculosidade">Periculosidade (30%)</option>
+                                        <option value="periculosidade">30%</option>
                                     </select>
                                 </div>
-                                <div class="form-group flex-1"></div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="rem-insalubridade">Insalubridade</label>
+                                        <select id="rem-insalubridade">
+                                            <option value="" disabled selected>Selecione</option>
+                                            <option value="10%">10%</option>
+                                            <option value="20%">20%</option>
+                                            <option value="40%">40%</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- ── STEP 5: BENEFÍCIOS ── -->
                         <div class="step-panel hidden" id="step-panel-5">
-                            <h4 class="section-title">Benefícios</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
-                                    <label for="ben-vale-transporte">Vale Transporte (R$/dia)</label>
-                                    <input type="number" id="ben-vale-transporte" step="0.01">
+                                    <label for="ben-dependentes">Número de Dependentes</label>
+                                    <input type="number" id="ben-dependentes" min="1">
                                 </div>
+                                <div class="form-group flex-1">
+                                    <label for="ben-pcd">Pessoa com Deficiência (PCD)</label>
+                                    <select id="ben-pcd">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nao">Não</option>
+                                        <option value="sim">Sim</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="ben-pensao">Pensão Alimentícia</label>
+                                    <select id="ben-pensao">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="nao">Não</option>
+                                        <option value="sim">Sim</option>
+                                    </select>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="ben-tipo-pensao">Tipo de Pensão</label>
+                                    <select id="ben-tipo-pensao">
+                                        <option value="" disabled selected>Selecione</option>
+                                        <option value="percentual">Percentual sobre Salário</option>
+                                        <option value="valor-fixo">Valor Fixo</option>
+                                        <option value="judicial">Acordo Judicial</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="ben-utiliza-vt">Vale Transporte</label>
+                                <select id="ben-utiliza-vt">
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="nao">Não</option>
+                                    <option value="sim">Sim</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="ben-vt-valor">Valor Diário da Passagem (R$)</label>
+                                <input type="number" id="ben-vt-valor" step="0.01">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="ben-vt-conducoes">Conduções por Dia</label>
+                                <input type="number" id="ben-vt-conducoes" min="1">
+                            </div>
+                        </div>
                                 <div class="form-group flex-1">
                                     <label for="ben-vale-refeicao">Vale Refeição (R$/dia)</label>
                                     <input type="number" id="ben-vale-refeicao" step="0.01">
                                 </div>
                             </div>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="ben-vale-alimentacao">Vale Alimentação (R$/mês)</label>
@@ -503,15 +532,13 @@
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="ben-outros">Outros Benefícios</label>
-                                    <input type="text" id="ben-outros" placeholder="Ex: Gympass, auxílio home office...">
+                                    <input type="text" id="ben-outros">
                                 </div>
                             </div>
                         </div>
 
                         <!-- ── STEP 6: PAGAMENTO ── -->
                         <div class="step-panel hidden" id="step-panel-6">
-                            <h4 class="section-title">Dados de Pagamento</h4>
-
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="pag-banco">Banco</label>
@@ -524,7 +551,6 @@
                                         <option value="341">341 — Itaú</option>
                                         <option value="260">260 — Nu Pagamentos (Nubank)</option>
                                         <option value="077">077 — Inter</option>
-                                        <option value="212">212 — Banco Original</option>
                                         <option value="outros">Outro</option>
                                     </select>
                                 </div>
@@ -534,7 +560,7 @@
                                         <option value="" disabled selected>Selecione</option>
                                         <option value="corrente">Conta Corrente</option>
                                         <option value="poupanca">Conta Poupança</option>
-                                        <option value="pagamento">Conta de Pagamento</option>
+                                        <option value="pagamento">Conta Salário</option>
                                     </select>
                                 </div>
                             </div>
@@ -542,28 +568,37 @@
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="pag-agencia">Agência</label>
-                                    <input type="text" id="pag-agencia" placeholder="0000">
+                                    <input type="text" id="pag-agencia" maxlength="4">
                                 </div>
                                 <div class="form-group flex-1">
                                     <label for="pag-conta">Número da Conta</label>
-                                    <input type="text" id="pag-conta" placeholder="00000-0">
+                                    <input type="text" id="pag-conta" maxlength="6">
                                 </div>
+                            </div>
+
+                            <div class="form-group flex-1">
+                                <label for="pag-forma">Forma de Pagamento</label>
+                                <select id="pag-forma">
+                                    <option value="" disabled selected>Selecione</option>
+                                    <option value="pix">PIX</option>
+                                    <option value="conta">Conta</option>
+                                </select>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group flex-1">
-                                    <label for="pag-pix">Chave PIX</label>
-                                    <input type="text" id="pag-pix" placeholder="CPF, e-mail, telefone ou chave aleatória">
-                                </div>
-                                <div class="form-group flex-1">
-                                    <label for="pag-forma">Forma de Pagamento</label>
-                                    <select id="pag-forma">
+                                    <label for="pag-tipo-pix">Tipo de Chave PIX</label>
+                                    <select id="pag-tipo-pix">
                                         <option value="" disabled selected>Selecione</option>
-                                        <option value="ted">TED / DOC</option>
-                                        <option value="pix">PIX</option>
-                                        <option value="boleto">Boleto</option>
-                                        <option value="cheque">Cheque</option>
+                                        <option value="cpf">CPF</option>
+                                        <option value="email">E-mail</option>
+                                        <option value="telefone">Celular</option>
+                                        <option value="aleatoria">Chave Aleatória</option>
                                     </select>
+                                </div>
+                                <div class="form-group flex-2">
+                                    <label for="pag-pix">Chave PIX</label>
+                                    <input type="text" id="pag-pix" placeholder="Digite a chave selecionada">
                                 </div>
                             </div>
 
@@ -580,7 +615,6 @@
                                         <option value="ultimo">Último dia útil</option>
                                     </select>
                                 </div>
-                                <div class="form-group flex-2"></div>
                             </div>
                         </div>
 

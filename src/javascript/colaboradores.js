@@ -416,25 +416,24 @@ function setupCpfMask() {
     });
 }
 
-function setupCepListener() {
-    const zipInput = document.getElementById('zipcode');
-    if (!zipInput) return;
-    zipInput.addEventListener('blur', async function() {
-        const cep = this.value.replace(/\D/g, '');
-        if (cep.length === 8) {
-            try {
-                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                const data = await response.json();
-                if (!data.erro) {
-                    document.getElementById('address').value = data.logradouro || '';
-                    document.getElementById('number')?.focus();
-                }
-            } catch (e) {
-                console.error('Erro ViaCEP', e);
-            }
+window.pesquisacep = async function(valor) {
+    const cep = valor.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+            document.getElementById('logradouro').value = data.logradouro || '';
+            document.getElementById('bairro').value     = data.bairro     || '';
+            document.getElementById('cidade').value     = data.localidade  || '';
+            document.getElementById('uf').value         = data.uf          || '';
+            document.getElementById('numero')?.focus();
         }
-    });
-}
+    } catch (e) {
+        console.error('Erro ViaCEP', e);
+    }
+};
 
 function setupValidationListeners() {
     document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select').forEach(f => {
