@@ -4,7 +4,7 @@ let currentStep = 1;
 const totalSteps = 6;
 
 // --- TOAST ---
-function showToast(title = 'Colaborador Cadastrado!', msg = 'O colaborador foi registrado com sucesso.') {
+function showToast(title, msg, type = 'success') {
     let container = document.getElementById('toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -13,10 +13,16 @@ function showToast(title = 'Colaborador Cadastrado!', msg = 'O colaborador foi r
         document.body.appendChild(container);
     }
 
+    const icons = {
+        success: 'fa-check',
+        error: 'fa-times',
+        warning: 'fa-exclamation-triangle'
+    };
+
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas fa-check"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${title}</p>
             <p class="toast-msg">${msg}</p>
@@ -119,7 +125,7 @@ window.filterTable = function() {
         );
 
         if (filtered.length === 0) {
-            showToast('Colaborador não encontrado!', `Nenhum resultado para "${query}".`);
+            showToast('Colaborador Não Encontrado!', `Nenhum resultado para "${query}".`);
         }
     }
 
@@ -373,6 +379,22 @@ function setupFormListener() {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const idField = document.getElementById('employee-id').value;
+
+        const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required], #tab-obrigatorios select[required]');
+        const allFilled = Array.from(mandatoryFields).every(field => field.value.trim() !== '');
+        if (!allFilled) {
+            showToast('Campos Obrigatórios!', 'Preencha todos os campos.', 'warning');
+            return;
+        }
+
+        const cpfDigitado = document.getElementById('cpf').value.trim();
+        const cpfDuplicado = employees.some(emp =>
+            emp.cpf === cpfDigitado && emp.id !== Number(idField)
+        );
+        if (cpfDuplicado) {
+            showToast('CPF Duplicado!', 'Já existe um colaborador com este CPF.', 'error');
+            return;
+        }
  
         const seguroVida = document.querySelector('input[name="seguro-vida"]:checked')?.value || 'nao';
         const seguradora = seguroVida === 'sim' ? (document.getElementById('seguradora')?.value || '') : '';
@@ -501,6 +523,13 @@ window.updateStatus = function(newStatus) {
         openDrawer(currentEmployeeId);
         document.getElementById('drawer-dropdown').classList.remove('show');
         setTimeout(backToMainMenu, 300);
+
+        const msgs = {
+            'Ativo': 'Colaborador marcado como Ativo.',
+            'Inativo': 'Colaborador marcado como Inativo.',
+            'Férias': 'Colaborador marcado como em Férias.'
+        };
+        showToast('Status Atualizado!', msgs[newStatus] || `Status alterado para ${newStatus}.`, 'success');
     }
 };
 
@@ -665,6 +694,7 @@ window.handleDeleteEmployee = function() {
         employees = employees.filter(emp => emp.id !== currentEmployeeId);
         saveAndRefresh();
         closeDrawer();
+        showToast('Colaborador Excluído!', 'O colaborador foi removido com sucesso.', 'error');
     }
 };
 
@@ -854,6 +884,7 @@ function setupCurrencyMask(id) {
     });
 }
 
+// --- VIA CEP ---
 window.pesquisacep = async function(valor) {
     const cep = valor.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -867,8 +898,11 @@ window.pesquisacep = async function(valor) {
             document.getElementById('cidade').value     = data.localidade  || '';
             document.getElementById('uf').value         = data.uf          || '';
             document.getElementById('numero')?.focus();
+        } else {
+            showToast('CEP não encontrado!', 'Verifique o CEP informado e tente novamente.', 'warning');
         }
     } catch (e) {
+        showToast('CEP não encontrado!', 'Verifique o CEP informado e tente novamente.', 'warning');
         console.error('Erro ViaCEP', e);
     }
 };
