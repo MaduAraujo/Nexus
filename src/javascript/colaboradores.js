@@ -101,6 +101,31 @@ function updateCount() {
 }
 
 // --- LÓGICA DE ABAS ---
+window.filterTable = function() {
+    const query = document.getElementById('search-input').value.toLowerCase().trim();
+    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+
+    let filtered = employees;
+
+    if (activeFilter === 'ativos') filtered = employees.filter(e => e.status === 'Ativo');
+    else if (activeFilter === 'inativos') filtered = employees.filter(e => e.status === 'Inativo');
+    else if (activeFilter === 'ferias') filtered = employees.filter(e => e.status === 'Férias');
+
+    if (query) {
+        filtered = filtered.filter(e =>
+            e.name?.toLowerCase().includes(query) ||
+            e.dept?.toLowerCase().includes(query) ||
+            String(e.id).includes(query)
+        );
+
+        if (filtered.length === 0) {
+            showToast('Colaborador não encontrado!', `Nenhum resultado para "${query}".`);
+        }
+    }
+
+    renderTable(filtered);
+};
+
 window.switchTab = function(event, tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
@@ -534,6 +559,7 @@ function renderTable(data) {
         `;
         tbody.appendChild(tr);
     });
+
     updateCount();
 }
 
@@ -592,7 +618,6 @@ window.editEmployee = function(id) {
         if (document.getElementById('conducoes-dia')) document.getElementById('conducoes-dia').value = emp.conducoesdia || '';
     }
  
-    // Forma de pagamento
     if (emp.formaPagamento) {
         const pagamentoRadio = document.querySelector(`input[name="forma-pagamento"][value="${emp.formaPagamento}"]`);
         if (pagamentoRadio) {
@@ -662,6 +687,7 @@ function setupFilters() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            document.getElementById('search-input').value = '';
             applyStatusFilter(btn.getAttribute('data-filter'));
         });
     });
