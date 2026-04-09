@@ -133,7 +133,7 @@
                             </div>
                             <div class="form-group flex-1">
                                 <label for="salary">Salário (R$) *</label>
-                                <input type="number" id="salary" step="0.01" required>
+                                <input type="text" id="salary" required>
                             </div>
                             <div class="form-group flex-1">
                                 <label for="salary-type">Tipo de Salário *</label>
@@ -374,7 +374,7 @@
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="rem-salario">Salário Base (R$)</label>
-                                    <input type="number" id="rem-salario" step="0.01">
+                                    <input type="text" id="rem-salario">
                                 </div>
                                 <div class="form-group flex-1">
                                     <label for="rem-tipo-salario">Tipo de Salário</label>
@@ -391,7 +391,7 @@
                             <div class="form-row">
                                 <div class="form-group flex-1">
                                     <label for="rem-hora-extra">Valor Hora Extra (R$)</label>
-                                    <input type="number" id="rem-hora-extra" step="0.01">
+                                    <input type="text" id="rem-hora-extra">
                                 </div>
                                 <div class="form-group flex-1">
                                     <label for="rem-periculosidade">Periculosidade</label>
@@ -413,107 +413,119 @@
                         </div>
                         <!-- ===================== STEP 5: BENEFÍCIOS ===================== -->
                         <div class="step-panel hidden" id="step-panel-5">
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label>Seguro de Vida</label>
-                                    <div class="radio-group row-radio">
-                                        <label><input type="radio" name="seguro-vida" value="nao" checked> Não</label>
-                                        <label><input type="radio" name="seguro-vida" value="sim"> Sim</label>
+                            <div class="benefits-grid">
+                                <div>
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <label>Seguro de Vida</label>
+                                            <div class="radio-group row-radio">
+                                                <label><input type="radio" name="seguro-vida" value="nao" checked> Não</label>
+                                                <label><input type="radio" name="seguro-vida" value="sim"> Sim</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="seguro-vida-details" class="conditional-field" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group flex-2">
+                                                <label for="seguradora">Nome da Seguradora</label>
+                                                <input type="text" id="seguradora">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div id="seguro-vida-details" class="conditional-field" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group flex-2">
-                                        <label for="seguradora">Nome da Seguradora</label>
-                                        <input type="text" id="seguradora">
+                                <div>
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <label>Possui Dependentes?</label>
+                                            <div class="radio-group row-radio">
+                                                <label><input type="radio" name="possui-dependentes" value="nao" checked> Não</label>
+                                                <label><input type="radio" name="possui-dependentes" value="sim"> Sim</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="dependentes-details" class="conditional-field" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group flex-1">
+                                                <label for="qtd-dependentes">Quantidade de Dependentes</label>
+                                                <input type="number" id="qtd-dependentes" min="1">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label>Possui Dependentes?</label>
-                                    <div class="radio-group row-radio">
-                                        <label><input type="radio" name="possui-dependentes" value="nao" checked> Não</label>
-                                        <label><input type="radio" name="possui-dependentes" value="sim"> Sim</label>
+                                <div>
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <label>Pessoa com Deficiência (PCD)?</label>
+                                            <div class="radio-group row-radio">
+                                                <label><input type="radio" name="pcd" value="nao" checked> Não</label>
+                                                <label><input type="radio" name="pcd" value="sim"> Sim</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="pcd-details" class="conditional-field" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group flex-2">
+                                                <label for="tipo-deficiencia">Tipo de Deficiência</label>
+                                                <input type="text" id="tipo-deficiencia">
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div id="dependentes-details" class="conditional-field" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group flex-1">
-                                        <label for="qtd-dependentes">Quantidade de Dependentes</label>
-                                        <input type="number" id="qtd-dependentes" min="1">
+                                <div>
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <label>Pensão Alimentícia?</label>
+                                            <div class="radio-group row-radio">
+                                                <label><input type="radio" name="pensao-alimenticia" value="nao" checked> Não</label>
+                                                <label><input type="radio" name="pensao-alimenticia" value="sim"> Sim</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="pensao-details" class="conditional-field" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group flex-1">
+                                                <label>Tipo de Pensão</label>
+                                                <div class="radio-group row-radio">
+                                                    <label><input type="radio" name="tipo-pensao" value="percentual"> % do salário</label>
+                                                    <label><input type="radio" name="tipo-pensao" value="valor-fixo"> Valor fixo</label>
+                                                    <label><input type="radio" name="tipo-pensao" value="salario-minimo"> Salário mínimo</label>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label>Pessoa com Deficiência (PCD)?</label>
-                                    <div class="radio-group row-radio">
-                                        <label><input type="radio" name="pcd" value="nao" checked> Não</label>
-                                        <label><input type="radio" name="pcd" value="sim"> Sim</label>
+                                <div>
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <label>Vale Transporte?</label>
+                                            <div class="radio-group row-radio">
+                                                <label><input type="radio" name="vale-transporte" value="nao" checked> Não</label>
+                                                <label><input type="radio" name="vale-transporte" value="sim"> Sim</label>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div id="pcd-details" class="conditional-field" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group flex-2">
-                                        <label for="tipo-deficiencia">Tipo de Deficiência</label>
-                                        <input type="text" id="tipo-deficiencia">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label>Pensão Alimentícia?</label>
-                                    <div class="radio-group row-radio">
-                                        <label><input type="radio" name="pensao-alimenticia" value="nao" checked> Não</label>
-                                        <label><input type="radio" name="pensao-alimenticia" value="sim"> Sim</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="pensao-details" class="conditional-field" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group flex-1">
-                                        <label>Tipo de Pensão</label>
-                                        <div class="radio-group row-radio">
-                                            <label><input type="radio" name="tipo-pensao" value="percentual"> % do salário</label>
-                                            <label><input type="radio" name="tipo-pensao" value="valor-fixo"> Valor fixo</label>
-                                            <label><input type="radio" name="tipo-pensao" value="salario-minimo"> Salário mínimo</label>
+                                    <div id="vale-transporte-details" class="conditional-field" style="display:none;">
+                                        <div class="form-row">
+                                            <div class="form-group flex-1">
+                                                <label for="valor-passagem">Valor Diário da Passagem (R$)</label>
+                                                <input type="text" id="valor-passagem" step="0.01" min="0">
+                                            </div>
+                                            <div class="form-group flex-1">
+                                                <label for="conducoes-dia">Conduções por Dia</label>
+                                                <input type="number" id="conducoes-dia" min="1">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group flex-1">
-                                    <label>Vale Transporte?</label>
-                                    <div class="radio-group row-radio">
-                                        <label><input type="radio" name="vale-transporte" value="nao" checked> Não</label>
-                                        <label><input type="radio" name="vale-transporte" value="sim"> Sim</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="vale-transporte-details" class="conditional-field" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group flex-1">
-                                        <label for="valor-passagem">Valor Diário da Passagem (R$)</label>
-                                        <input type="number" id="valor-passagem" step="0.01" min="0">
-                                    </div>
-                                    <div class="form-group flex-1">
-                                        <label for="conducoes-dia">Conduções por Dia</label>
-                                        <input type="number" id="conducoes-dia" min="1">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group flex-1">
                                     <label for="ben-vale-refeicao">Vale Refeição (R$/dia)</label>
-                                    <input type="number" id="ben-vale-refeicao" step="0.01">
+                                    <input type="text" id="ben-vale-refeicao">
                                 </div>
                                 <div class="form-group flex-1">
                                     <label for="ben-vale-alimentacao">Vale Alimentação (R$/mês)</label>
-                                    <input type="number" id="ben-vale-alimentacao" step="0.01">
+                                    <input type="text" id="ben-vale-alimentacao">
                                 </div>
                             </div>
                             <div class="form-row">
@@ -543,8 +555,8 @@
                                     <input type="text" id="ben-outros">
                                 </div>
                             </div>
-
                         </div>
+
                         <!-- ===================== STEP 6: PAGAMENTO ===================== -->
                         <div class="step-panel hidden" id="step-panel-6">
                             <div class="form-row">
@@ -636,7 +648,6 @@
                                     </select>
                                 </div>
                             </div>
-
                         </div>
 
                         <!-- AÇÕES DO STEPPER -->
@@ -651,7 +662,7 @@
                                         onclick="handleNextStep()">
                                     Continuar <i class="fas fa-arrow-right"></i>
                                 </button>
-                                <button type="submit" class="btn-primary" id="btn-save" style="display: none;">
+                                <button type="button" class="btn-primary" id="btn-save" style="display: none;">
                                     <i class="fas fa-check"></i> Cadastrar
                                 </button>
                             </div>
@@ -670,14 +681,12 @@
                 <button class="btn-filter" data-filter="inativos">Inativos</button>
                 <button class="btn-filter" data-filter="ferias">Férias</button>
             </div>
-
             <div class="search-container">
                 <div class="search-wrapper">
                     <i class="fas fa-search search-icon"></i>
                     <input type="text" id="search-input" placeholder="Buscar colaborador" onkeyup="filterTable()">
                 </div>
             </div>
-
             <div class="table-container">
                 <table class="employee-table">
                     <thead>

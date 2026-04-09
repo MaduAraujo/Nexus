@@ -3,6 +3,41 @@ let currentEmployeeId = null;
 let currentStep = 1;
 const totalSteps = 6;
 
+// --- TOAST ---
+function showToast(title = 'Colaborador Cadastrado!', msg = 'O colaborador foi registrado com sucesso.') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+        <div class="toast-icon"><i class="fas fa-check"></i></div>
+        <div class="toast-content">
+            <p class="toast-title">${title}</p>
+            <p class="toast-msg">${msg}</p>
+        </div>
+        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide'); setTimeout(() => this.closest('.toast').remove(), 400);">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('show'));
+    });
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 400);
+    }, 4000);
+}
+
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
     renderTable(employees);
@@ -15,6 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAgenciaMask();
     setupContaMask();
     setupCepMask();
+    setupSalaryMask();
+    setupPisPasepMask();   
+    setupCurrencyMask('rem-hora-extra');                   
+    setupCurrencyMask('ben-vale-refeicao'); 
+    setupCurrencyMask('ben-vale-alimentacao');
+    setupCurrencyMask('valor-passagem');
     setupValidationListeners();
     setupConditionalFields();
     updateCount();
@@ -101,19 +142,12 @@ window.toggleForm = function() {
 };
 
 function setupConditionalFields() {
-    // Seguro de Vida
     setupToggleField('seguro-vida', 'sim', 'seguro-vida-details');
-    // Dependentes
     setupToggleField('possui-dependentes', 'sim', 'dependentes-details');
-    // PCD
     setupToggleField('pcd', 'sim', 'pcd-details');
-    // Pensão Alimentícia
     setupToggleField('pensao-alimenticia', 'sim', 'pensao-details');
-    // Vale Transporte
     setupToggleField('vale-transporte', 'sim', 'vale-transporte-details');
-    // Forma de Pagamento
     setupPaymentMethodToggle();
-    // Banco "Outro"
     setupBancoOutroToggle();
 }
 
@@ -129,7 +163,6 @@ function setupToggleField(radioName, triggerValue, detailsId) {
             } else if (radio.checked) {
                 details.style.display = 'none';
                 details.classList.remove('conditional-visible');
-                // Limpa os campos ao esconder
                 details.querySelectorAll('input, select, textarea').forEach(f => f.value = '');
             }
         });
@@ -278,23 +311,25 @@ function resetStepper() {
 
     if (btnPrev) btnPrev.style.display = 'none';
     if (btnNext) btnNext.style.display = 'inline-flex';
-    if (btnSave) btnSave.style.display = 'none';
 }
 
 function updateSaveButton() {
     const btnSimple = document.getElementById('btn-save-simple');
-    const btnStepper = document.getElementById('btn-save');
 
-    const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required]');
-    const allFilled = Array.from(mandatoryFields).every(input => input.value.trim() !== '');
+    const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required], #tab-obrigatorios select[required]');
+    const allFilled = Array.from(mandatoryFields).every(field => field.value.trim() !== '');
 
     if (btnSimple) {
         btnSimple.disabled = !allFilled;
         btnSimple.style.opacity = allFilled ? '1' : '0.5';
+        btnSimple.style.cursor = allFilled ? 'pointer' : 'not-allowed';
     }
+
+    const btnStepper = document.getElementById('btn-save');
     if (btnStepper) {
-        btnStepper.disabled = !allFilled;
-        btnStepper.style.opacity = allFilled ? '1' : '0.5';
+        btnStepper.disabled = false;
+        btnStepper.style.opacity = '1';
+        btnStepper.style.cursor = 'pointer';
     }
 }
 
@@ -302,33 +337,34 @@ function updateSaveButton() {
 function setupFormListener() {
     const form = document.getElementById('employee-form');
     if (!form) return;
+
+    const btnSave = document.getElementById('btn-save');
+    if (btnSave) {
+        btnSave.addEventListener('click', () => {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        });
+    }
  
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const idField = document.getElementById('employee-id').value;
  
-        // Seguro de vida
         const seguroVida = document.querySelector('input[name="seguro-vida"]:checked')?.value || 'nao';
         const seguradora = seguroVida === 'sim' ? (document.getElementById('seguradora')?.value || '') : '';
  
-        // Dependentes
         const possuiDependentes = document.querySelector('input[name="possui-dependentes"]:checked')?.value || 'nao';
         const qtdDependentes = possuiDependentes === 'sim' ? (document.getElementById('qtd-dependentes')?.value || '') : '';
- 
-        // PCD
+
         const pcd = document.querySelector('input[name="pcd"]:checked')?.value || 'nao';
         const deficiencia = pcd === 'sim' ? (document.getElementById('tipo-deficiencia')?.value || '') : '';
  
-        // Pensão Alimentícia
         const pensaoAlimenticia = document.querySelector('input[name="pensao-alimenticia"]:checked')?.value || 'nao';
         const tipoPensao = pensaoAlimenticia === 'sim' ? (document.querySelector('input[name="tipo-pensao"]:checked')?.value || '') : '';
  
-        // Vale Transporte
         const valeTransporte = document.querySelector('input[name="vale-transporte"]:checked')?.value || 'nao';
         const valorPassagem = valeTransporte === 'sim' ? (document.getElementById('valor-passagem')?.value || '') : '';
         const conducoesdia = valeTransporte === 'sim' ? (document.getElementById('conducoes-dia')?.value || '') : '';
  
-        // Forma de Pagamento
         const formaPagamento = document.querySelector('input[name="forma-pagamento"]:checked')?.value || '';
         const tipoChavePix = formaPagamento === 'pix' ? (document.getElementById('tipo-chave-pix')?.value || '') : '';
         const chavePix = formaPagamento === 'pix' ? (document.getElementById('chave-pix')?.value || '') : '';
@@ -353,7 +389,6 @@ function setupFormListener() {
             dept: document.getElementById('dept').value,
             salary: Number(document.getElementById('salary').value),
             status: 'Ativo',
-            // Benefícios e extras
             seguroVida,
             seguradora,
             possuiDependentes,
@@ -365,7 +400,6 @@ function setupFormListener() {
             valeTransporte,
             valorPassagem,
             conducoesdia,
-            // Pagamento
             formaPagamento,
             tipoChavePix,
             chavePix,
@@ -386,6 +420,11 @@ function setupFormListener() {
         }
  
         saveAndRefresh();
+        const isEditing = !!idField;
+        showToast(
+            isEditing ? 'Colaborador Atualizado!' : 'Colaborador Cadastrado!',
+            isEditing ? 'Os dados foram atualizados com sucesso.' : 'O colaborador foi registrado com sucesso.'
+        );
         toggleForm();
     });
 }
@@ -614,6 +653,7 @@ function applyStatusFilter(filter) {
     let filtered = employees;
     if (filter === 'ativos') filtered = employees.filter(e => e.status === 'Ativo');
     else if (filter === 'inativos') filtered = employees.filter(e => e.status === 'Inativo');
+    else if (filter === 'ferias') filtered = employees.filter(e => e.status === 'Férias');
     renderTable(filtered);
 }
 
@@ -733,6 +773,61 @@ function setupCepListener() {
     });
 }
 
+// Salário: R$ 0,00
+function setupSalaryMask() {
+    const salaryInputs = [
+        document.getElementById('salary'),
+        document.getElementById('rem-salario')
+    ];
+
+    salaryInputs.forEach(input => {
+        if (!input) return;
+
+        input.type = 'text';
+        input.inputMode = 'numeric';
+
+        input.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length === 0) { e.target.value = ''; return; }
+            let num = (parseInt(v, 10) / 100).toFixed(2);
+            e.target.value = 'R$ ' + num.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        });
+    });
+}
+
+ // PIS/PASEP: 000.00000.00-0
+function setupPisPasepMask() {
+    const input = document.getElementById('pis-pasep');
+    if (!input) return;
+    input.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 11) v = v.slice(0, 11);
+        if (v.length <= 3) {
+            e.target.value = v;
+        } else if (v.length <= 8) {
+            e.target.value = `${v.slice(0,3)}.${v.slice(3)}`;
+        } else if (v.length <= 10) {
+            e.target.value = `${v.slice(0,3)}.${v.slice(3,8)}.${v.slice(8)}`;
+        } else {
+            e.target.value = `${v.slice(0,3)}.${v.slice(3,8)}.${v.slice(8,10)}-${v.slice(10)}`;
+        }
+    });
+}
+
+// Vale Alimentação/Refeição: R$ 0,00
+function setupCurrencyMask(id) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length === 0) { e.target.value = ''; return; }
+        let num = (parseInt(v, 10) / 100).toFixed(2);
+        e.target.value = 'R$ ' + num.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    });
+}
+
 window.pesquisacep = async function(valor) {
     const cep = valor.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -755,5 +850,7 @@ window.pesquisacep = async function(valor) {
 function setupValidationListeners() {
     document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select').forEach(f => {
         f.addEventListener('input', updateSaveButton);
+        f.addEventListener('change', updateSaveButton);
     });
+    updateSaveButton();
 }
