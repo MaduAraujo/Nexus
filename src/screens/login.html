@@ -1,44 +1,267 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus</title>
-    <link rel="icon" type="image/png" href="../assets/Logo.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../styles/login.css">
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
-            <div class="brand-logo">
-                <img src="../assets/Logo.png" alt="Logo" class="img-logo">
+<div class="card">
+    <div class="panel-left">
+        <img src="../assets/image.jpeg" alt="Nexus" />
+        <div class="panel-left-overlay"></div>
+        <div class="panel-left-content">
+            <div class="panel-left-badge">Sistema ativo</div>
+            <p class="panel-left-tagline">Gestão de pessoas,<br>simplificada.</p>
+        </div>
+    </div>
+
+    <div class="panel-right">
+        <div class="logo-row">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+        </div>
+
+        <div id="form-profile" class="form-section active">
+            <p class="form-title">Como deseja acessar?</p>
+            <p class="form-subtitle">Selecione seu perfil para continuar</p>
+
+            <div class="profile-grid">
+                <div class="profile-card rh" onclick="selectProfile('rh', this)">
+                    <div class="profile-check">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <div class="profile-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <p class="profile-label">RH</p>
+                    <p class="profile-desc">Recursos Humanos e Gestão de Equipes</p>
+                </div>
+
+                <div class="profile-card colaborador" onclick="selectProfile('colaborador', this)">
+                    <div class="profile-check">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <div class="profile-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <p class="profile-label">Colaborador</p>
+                    <p class="profile-desc">Acesso à sua área pessoal</p>
+                </div>
             </div>
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="email">E-mail</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="email" placeholder="exemplo@nexus.com" required>
+
+            <button
+                class="btn-submit btn-continue"
+                id="btn-continue"
+                onclick="goToLogin()"
+                disabled
+                style="margin-top: 0; opacity: 0.4; cursor: not-allowed;"
+            >
+                Continuar
+            </button>
+        </div>
+
+        <div id="form-login" class="form-section">
+            <button class="back-btn" onclick="switchTab('profile')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Voltar
+            </button>
+
+            <div id="login-profile-pill"></div>
+
+            <p class="form-title" id="login-title">Bem-vindo de volta</p>
+            <p class="form-subtitle" id="login-subtitle">Acesse sua conta para continuar</p>
+
+            <div class="field">
+                <label>Usuário</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <input type="text" id="login-user" autocomplete="username" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Senha</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <input
+                        type="password"
+                        id="login-pass"
+                        autocomplete="current-password"
+                    />
+                    <button class="toggle-pw" type="button" onclick="togglePw('login-pass', this)" aria-label="Mostrar senha">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn-submit" id="btn-login" onclick="handleLogin()">
+                <span id="btn-login-text">Entrar</span>
+                <div class="spinner" id="spinner-login"></div>
+            </button>
+
+            <div class="divider"><span>ou</span></div>
+
+            <div class="signup-row">
+                Não tem conta? <a href="#" onclick="switchTab('signup'); return false;">Cadastre-se</a>
+            </div>
+
+        </div>
+
+        <div id="form-signup" class="form-section">
+
+            <button class="back-btn" onclick="switchTab('login')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Voltar
+            </button>
+
+            <p class="form-title">Criar conta</p>
+            <p class="form-subtitle">Junte-se ao Nexus</p>
+
+            <div class="profile-grid" style="margin-bottom: 1.25rem;">
+                <div class="profile-card rh" onclick="selectSignupProfile('rh', this)">
+                    <div class="profile-check">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <div class="profile-icon-row">
+                        <div class="profile-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <p class="profile-label">RH</p>
                     </div>
                 </div>
-                <div class="form-group">
-                    <div class="label-row">
-                        <label for="password">Senha</label>
+
+                <div class="profile-card colaborador" onclick="selectSignupProfile('colaborador', this)">
+                    <div class="profile-check">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
                     </div>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="password" placeholder="Digite sua senha" required>
+                    <div class="profile-icon-row">
+                        <div class="profile-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                        </div>
+                        <p class="profile-label">Colaborador</p>
                     </div>
-                    <a href="#" class="forgot-password">Esqueceu a senha?</a>
                 </div>
-                <button type="submit" class="btn-login">Entrar</button>
-            </form>
-            <div class="login-footer">
-                <p>Não tem uma conta? <a href="#">Solicite acesso à sua empresa</a></p>
+
+            </div>
+
+            <div class="field">
+                <label>Nome completo</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <input type="text" autocomplete="name" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label>E-mail</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <input type="email" autocomplete="email" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Senha</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <input type="password" id="signup-pass" autocomplete="new-password" oninput="onSignupPasswordInput(this.value)" />
+                    <button class="toggle-pw" type="button" onclick="togglePw('signup-pass', this)" aria-label="Mostrar senha">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div id="strength-wrap" style="display: none; margin-top: 10px;">
+                    <div class="pw-bars">
+                        <div class="pw-bar" id="pw-bar-1"></div>
+                        <div class="pw-bar" id="pw-bar-2"></div>
+                        <div class="pw-bar" id="pw-bar-3"></div>
+                        <div class="pw-bar" id="pw-bar-4"></div>
+                    </div>
+                    <div class="pw-strength-footer">
+                        <span class="pw-strength-label" id="pw-strength-label"></span>
+                        <span class="pw-entropy" id="pw-entropy"></span>
+                    </div>
+                    <ul class="pw-criteria">
+                        <li class="crit" id="c-len">
+                            <span class="crit-dot"></span> Mínimo 8 caracteres
+                        </li>
+                        <li class="crit" id="c-upper">
+                            <span class="crit-dot"></span> Uma letra maiúscula
+                        </li>
+                        <li class="crit" id="c-num">
+                            <span class="crit-dot"></span> Um número
+                        </li>
+                        <li class="crit" id="c-sym">
+                            <span class="crit-dot"></span> Um caractere especial
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <button class="btn-submit btn-default" style="margin-top: 0.5rem;" onclick="handleSignup()">
+                Criar conta
+            </button>
+
+            <div class="divider"><span>ou</span></div>
+
+            <div class="signup-row">
+                Já tem conta? <a href="#" onclick="switchTab('login'); return false;">Entrar</a>
             </div>
         </div>
     </div>
-    <script src="../javascript/login.js"></script>
+</div>
+<div class="toast" id="toast"></div>
+<script src="../javascript/login.js"></script>
 </body>
 </html>
