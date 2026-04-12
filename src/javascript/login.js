@@ -1,22 +1,29 @@
-let selectedProfile = null;
+let selectedProfile       = null;
 let selectedSignupProfile = null;
+let forgotResendInterval  = null;
 
 const profiles = {
     rh: {
-        label: 'RH',
-        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-        title: 'Acesso RH',
+        label:    'RH',
+        icon:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        title:    'Acesso RH',
         subtitle: 'Área restrita',
         btnClass: 'btn-rh',
     },
     colaborador: {
-        label: 'Colaborador',
-        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-        title: 'Bem-vindo de volta',
+        label:    'Colaborador',
+        icon:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        title:    'Bem-vindo de volta',
         subtitle: 'Acesse sua conta para continuar',
         btnClass: 'btn-colaborador',
-    }
+    },
 };
+
+function generateOtp() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+let currentOtp = null;
 
 // ─── Força de senha ───────────────────────────────────────
 const STRENGTH_LEVELS = [
@@ -39,11 +46,7 @@ function calcPasswordScore(value) {
 
 function checkPasswordStrength(value) {
     const wrap = document.getElementById('strength-wrap');
-
-    if (!value) {
-        wrap.style.display = 'none';
-        return 0;
-    }
+    if (!value) { wrap.style.display = 'none'; return 0; }
 
     wrap.style.display = 'block';
 
@@ -57,7 +60,7 @@ function checkPasswordStrength(value) {
 
     const label = document.getElementById('pw-strength-label');
     label.textContent = level.label;
-    label.className = `pw-strength-label ${level.cls}`;
+    label.className   = `pw-strength-label ${level.cls}`;
 
     const pool = (len ? 8 : 0) + (upper ? 26 : 0) + (num ? 10 : 0) + (sym ? 32 : 0) || 26;
     const bits = Math.round(value.length * Math.log2(pool));
@@ -84,27 +87,27 @@ function onSignupPasswordInput(value) {
 // ─── Validação ────────────────────────────────────────────
 const RULES = {
     user: {
-        required: 'Preencha o campo de usuário',
+        required:  'Preencha o campo de usuário',
         minLength: { value: 3, message: 'Mínimo de 3 caracteres' },
     },
     pass: {
-        required: 'Preencha o campo de senha',
-        minLength: { value: 6, message: 'Mínimo de 8 caracteres' },
+        required:  'Preencha o campo de senha',
+        minLength: { value: 8, message: 'Mínimo de 8 caracteres' },
     },
     name: {
-        required: 'Preencha seu nome completo',
+        required:  'Preencha seu nome completo',
         minLength: { value: 2, message: 'Nome muito curto' },
     },
     email: {
         required: 'Preencha o e-mail',
-        pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+        pattern:  { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
     },
 };
 
 function validateField(input, ruleKey, touched = false) {
-    const rule = RULES[ruleKey];
+    const rule  = RULES[ruleKey];
     const value = input.value.trim();
-    let error = null;
+    let error   = null;
 
     if (!value) {
         error = touched ? rule.required : null;
@@ -120,7 +123,7 @@ function validateField(input, ruleKey, touched = false) {
 
 function applyFieldState(input, errorMessage) {
     const wrap = input.closest('.field') || input.parentElement.parentElement;
-    let errEl = wrap.querySelector('.field-error');
+    let errEl  = wrap.querySelector('.field-error');
 
     if (!errEl) {
         errEl = document.createElement('p');
@@ -131,8 +134,8 @@ function applyFieldState(input, errorMessage) {
     if (errorMessage) {
         input.classList.add('is-error');
         input.classList.remove('is-ok');
-        errEl.textContent = errorMessage;
-        errEl.style.display = 'flex';
+        errEl.textContent    = errorMessage;
+        errEl.style.display  = 'flex';
         input.setAttribute('aria-invalid', 'true');
     } else if (input.value.trim()) {
         input.classList.remove('is-error');
@@ -146,6 +149,16 @@ function applyFieldState(input, errorMessage) {
     }
 }
 
+// ─── Loading helper universal ─────────────────────────────
+function setBtnLoading(btnId, spinId, textId, on) {
+    const btn  = document.getElementById(btnId);
+    const spin = document.getElementById(spinId);
+    const text = document.getElementById(textId);
+    if (btn)  btn.disabled       = on;
+    if (text) text.style.opacity = on ? '0' : '1';
+    if (spin) spin.classList.toggle('show', on);
+}
+
 // ─── Login ────────────────────────────────────────────────
 function handleLogin() {
     const userInput = document.getElementById('login-user');
@@ -156,18 +169,10 @@ function handleLogin() {
 
     if (!userOk || !passOk) return;
 
-    const btn     = document.getElementById('btn-login');
-    const txt     = document.getElementById('btn-login-text');
-    const spinner = document.getElementById('spinner-login');
-
-    txt.style.display = 'none';
-    spinner.classList.add('show');
-    btn.disabled = true;
+    setBtnLoading('btn-login', 'spinner-login', 'btn-login-text', true);
 
     setTimeout(() => {
-        txt.style.display = '';
-        spinner.classList.remove('show');
-        btn.disabled = false;
+        setBtnLoading('btn-login', 'spinner-login', 'btn-login-text', false);
 
         if (selectedProfile === 'rh') {
             window.location.href = '../screens/inicial.html';
@@ -175,15 +180,6 @@ function handleLogin() {
             showToast('Login realizado com sucesso!');
         }
     }, 1500);
-}
-
-function setLoginLoading(loading) {
-    const btn     = document.getElementById('btn-login');
-    const text    = document.getElementById('btn-login-text');
-    const spinner = document.getElementById('spinner-login');
-    btn.disabled          = loading;
-    text.style.opacity    = loading ? '0' : '1';
-    spinner.style.display = loading ? 'block' : 'none';
 }
 
 // ─── Cadastro ─────────────────────────────────────────────
@@ -206,17 +202,223 @@ function handleSignup() {
     setTimeout(() => switchTab('login'), 1500);
 }
 
+// ─── Esqueci minha senha ──────────────────────────────────
+function forgotGoTo(step) {
+    [1, 2, 3, 4].forEach(i => {
+        const s   = document.getElementById(`forgot-s${i}`);
+        const dot = document.getElementById(`fdot-${i}`);
+
+        if (s) s.style.display = i === step ? 'block' : 'none';
+
+        if (dot) {
+            dot.classList.remove('active', 'done');
+            if (i === step) dot.classList.add('active');
+            else if (i < step) dot.classList.add('done');
+        }
+    });
+
+    const steps = document.getElementById('forgot-steps');
+    if (steps) steps.style.display = step === 4 ? 'none' : 'flex';
+}
+
+function forgotClearErr(errId, input) {
+    const el = document.getElementById(errId);
+    if (el) { el.textContent = ''; el.classList.remove('show'); }
+    if (input) input.classList.remove('is-error');
+}
+
+function forgotShowErr(errId, msg, input) {
+    const el = document.getElementById(errId);
+    if (el) { el.textContent = msg; el.classList.add('show'); }
+    if (input) { input.classList.add('is-error'); input.focus(); }
+}
+
+async function forgotSendCode() {
+    const input = document.getElementById('forgot-email');
+    const value = input.value.trim();
+
+    if (!value) {
+        forgotShowErr('forgot-email-err', 'Preencha o e-mail', input);
+        return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        forgotShowErr('forgot-email-err', 'E-mail inválido', input);
+        return;
+    }
+
+    setBtnLoading('btn-forgot-send', 'spin-forgot-send', 'btn-forgot-send-text', true);
+
+    await new Promise(r => setTimeout(r, 800));
+
+    currentOtp = generateOtp();
+    console.info(`[DEV] Código OTP: ${currentOtp}`);
+
+    document.getElementById('forgot-email-shown').textContent = value;
+    forgotClearOtp();
+    forgotStartResendTimer();
+    forgotGoTo(2);
+    setTimeout(() => document.getElementById('otp0')?.focus(), 100);
+
+    setBtnLoading('btn-forgot-send', 'spin-forgot-send', 'btn-forgot-send-text', false);
+}
+
+// ─── OTP ─────────────────────────────────────────────────
+function otpInput(el, idx) {
+    el.value = el.value.replace(/\D/g, '').slice(0, 1);
+    el.classList.toggle('otp-filled', el.value !== '');
+
+    const errEl = document.getElementById('otp-err');
+    if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
+    document.querySelectorAll('.otp-input').forEach(i => i.classList.remove('is-error'));
+
+    if (el.value && idx < 5) document.getElementById(`otp${idx + 1}`)?.focus();
+
+    const btn = document.getElementById('btn-otp-verify');
+    if (btn) btn.disabled = getOtpValue().length < 6;
+}
+
+function otpKey(e, idx) {
+    if (e.key === 'Backspace' && !e.target.value && idx > 0)
+        document.getElementById(`otp${idx - 1}`)?.focus();
+    if (e.key === 'ArrowLeft'  && idx > 0) document.getElementById(`otp${idx - 1}`)?.focus();
+    if (e.key === 'ArrowRight' && idx < 5) document.getElementById(`otp${idx + 1}`)?.focus();
+}
+
+function otpPaste(e) {
+    e.preventDefault();
+    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    digits.split('').forEach((d, i) => {
+        const inp = document.getElementById(`otp${i}`);
+        if (inp) { inp.value = d; inp.classList.add('otp-filled'); }
+    });
+    const btn = document.getElementById('btn-otp-verify');
+    if (btn) btn.disabled = digits.length < 6;
+    document.getElementById(`otp${Math.min(digits.length, 5)}`)?.focus();
+}
+
+function getOtpValue() {
+    return [0, 1, 2, 3, 4, 5]
+        .map(i => document.getElementById(`otp${i}`)?.value || '')
+        .join('');
+}
+
+function forgotClearOtp() {
+    [0, 1, 2, 3, 4, 5].forEach(i => {
+        const el = document.getElementById(`otp${i}`);
+        if (el) { el.value = ''; el.classList.remove('otp-filled', 'is-error'); }
+    });
+    const btn = document.getElementById('btn-otp-verify');
+    if (btn) btn.disabled = true;
+}
+
+async function forgotVerifyOtp() {
+    const code = getOtpValue();
+    if (code.length < 6) return;
+
+    setBtnLoading('btn-otp-verify', 'spin-otp', 'btn-otp-text', true);
+
+    await new Promise(r => setTimeout(r, 400));
+
+    if (code !== currentOtp) {
+        const errEl = document.getElementById('otp-err');
+        if (errEl) { errEl.textContent = 'Código incorreto. Tente novamente.'; errEl.classList.add('show'); }
+        document.querySelectorAll('.otp-input').forEach(i => i.classList.add('is-error'));
+        setBtnLoading('btn-otp-verify', 'spin-otp', 'btn-otp-text', false);
+        return;
+    }
+
+    currentOtp = null;
+    forgotGoTo(3);
+    setTimeout(() => document.getElementById('new-pass')?.focus(), 100);
+    setBtnLoading('btn-otp-verify', 'spin-otp', 'btn-otp-text', false);
+}
+
+function forgotStartResendTimer() {
+    let seconds = 30;
+    const link  = document.getElementById('resend-link');
+    const timer = document.getElementById('resend-timer');
+    if (!link || !timer) return;
+
+    link.classList.add('resend-disabled');
+    if (forgotResendInterval) clearInterval(forgotResendInterval);
+
+    timer.textContent = `(${seconds}s)`;
+    forgotResendInterval = setInterval(() => {
+        seconds--;
+        timer.textContent = `(${seconds}s)`;
+        if (seconds <= 0) {
+            clearInterval(forgotResendInterval);
+            link.classList.remove('resend-disabled');
+            timer.textContent = '';
+        }
+    }, 1000);
+}
+
+async function forgotResend() {
+    const email = document.getElementById('forgot-email-shown').textContent;
+    if (!email) return;
+
+    forgotClearOtp();
+    forgotStartResendTimer();
+
+    await new Promise(r => setTimeout(r, 400));
+    currentOtp = generateOtp();
+    console.info(`[DEV] Código OTP reenviado: ${currentOtp}`); 
+}
+
+// ─── Nova senha ───────────────────────────────────────────
+function forgotValidatePass() {
+    const np = document.getElementById('new-pass').value;
+    const cp = document.getElementById('confirm-pass').value;
+
+    const npOk = np.length >= 8;
+    const cpOk = cp.length > 0 && np === cp;
+
+    const npErr = document.getElementById('new-pass-err');
+    const cpErr = document.getElementById('confirm-pass-err');
+
+    if (np.length > 0 && !npOk) {
+        npErr.textContent = 'Mínimo 8 caracteres';
+        npErr.classList.add('show');
+    } else {
+        npErr.classList.remove('show');
+    }
+
+    if (cp.length > 0 && !cpOk) {
+        cpErr.textContent = 'As senhas não coincidem';
+        cpErr.classList.add('show');
+    } else {
+        cpErr.classList.remove('show');
+    }
+
+    const btn = document.getElementById('btn-reset');
+    if (btn) btn.disabled = !(npOk && cpOk);
+}
+
+async function forgotReset() {
+    const np = document.getElementById('new-pass').value;
+    const cp = document.getElementById('confirm-pass').value;
+    if (np.length < 8 || np !== cp) return;
+
+    setBtnLoading('btn-reset', 'spin-reset', 'btn-reset-text', true);
+
+    await new Promise(r => setTimeout(r, 1200));
+    forgotGoTo(4);
+
+    setBtnLoading('btn-reset', 'spin-reset', 'btn-reset-text', false);
+}
+
 // ─── Validação em tempo real ──────────────────────────────
 function initFieldListeners() {
     const loginUser = document.getElementById('login-user');
     const loginPass = document.getElementById('login-pass');
 
-    loginUser.addEventListener('blur', () => validateField(loginUser, 'user', true));
+    loginUser.addEventListener('blur',  () => validateField(loginUser, 'user', true));
     loginUser.addEventListener('input', () => {
         if (loginUser.classList.contains('is-error')) validateField(loginUser, 'user', true);
     });
 
-    loginPass.addEventListener('blur', () => validateField(loginPass, 'pass', true));
+    loginPass.addEventListener('blur',  () => validateField(loginPass, 'pass', true));
     loginPass.addEventListener('input', () => {
         if (loginPass.classList.contains('is-error')) validateField(loginPass, 'pass', true);
     });
@@ -258,7 +460,6 @@ function selectProfile(type, el) {
 
 function selectSignupProfile(type, el) {
     selectedSignupProfile = type;
-
     document.querySelectorAll('#form-signup .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
 }
@@ -284,9 +485,15 @@ function switchTab(tab) {
         const btn = document.getElementById('btn-login');
         btn.className = 'btn-submit ' + p.btnClass;
     }
+
+    if (tab !== 'forgot') return;
+    forgotGoTo(1);
+    const emailInput = document.getElementById('forgot-email');
+    if (emailInput) emailInput.value = '';
+    forgotClearErr('forgot-email-err');
 }
 
-// ─── Utilitários ─────────────────────────────────────────
+// ─── Utilitários ──────────────────────────────────────────
 function togglePw(id, btn) {
     const input  = document.getElementById(id);
     const isText = input.type === 'text';
