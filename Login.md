@@ -19,7 +19,7 @@ nexus/
 ```
 ---
 
-### Diagrama de Fluxo
+### Diagramas do Fluxo
 
 ```mermaid
 graph TD
