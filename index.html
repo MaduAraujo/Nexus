@@ -1,12 +1,217 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus</title>
+  <link rel="stylesheet" href="index.css" />
 </head>
 <body>
-    
-    
+    <header class="navbar" id="navbar">
+        <a href="#" class="logo">Ne<span class="x">x</span>us</a>
+        <nav class="nav-links" aria-label="Menu principal">
+            <a class="nav-link" href="#features">Funcionalidades</a>
+            <a class="nav-link" href="#about">Sobre</a>
+        </nav>
+        <div class="nav-right">
+            <a href="./src/screens/login.html" class="btn-outline" id="btn-login">Entrar</a>
+            <button class="hamburger" id="btn-hamburger" aria-label="Abrir menu" aria-expanded="false">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+        <nav>
+            <a class="mobile-link" href="#features">Funcionalidades</a>
+            <a class="mobile-link" href="#about">Sobre</a>
+        </nav>
+        <div class="mobile-actions">
+            <a href="./src/screens/login.html" class="btn-outline" id="btn-login">Entrar</a>
+        </div>
+    </div>
+
+    <main>
+        <section class="hero" id="hero">
+            <div class="hero-bg-grid" aria-hidden="true"></div>
+            <div class="hero-glow" aria-hidden="true"></div>
+
+            <div class="hero-content">
+                <div class="eyebrow reveal">
+                    <span class="eyebrow-dot"></span>
+                    Plataforma de RH inteligente
+                </div>
+
+                <h1 class="reveal reveal-delay-1">
+                    Gestão de <span class="hl">pessoas</span> que realmente funciona.
+                </h1>
+
+                <p class="hero-sub reveal reveal-delay-2">
+                    Centralize processos, automatize tarefas repetitivas e tome decisões
+                    baseadas em dados — tudo em uma única plataforma.
+                </p>
+            </div>
+        </section>
+
+        <section class="stats-section" aria-label="Números">
+            <div class="stats-inner">
+                <div class="stat-div" aria-hidden="true"></div>
+
+                <div class="stat-item reveal reveal-delay-1">
+                    <span class="stat-num" data-target="3">0</span><span class="stat-unit">x</span>
+                    <span class="stat-label">Mais rápido que planilhas</span>
+                </div>
+                <div class="stat-div" aria-hidden="true"></div>
+                <div class="stat-item reveal reveal-delay-2">
+                    <span class="stat-num" data-target="24">0</span><span class="stat-unit">/7</span>
+                    <span class="stat-label">Disponibilidade de dados</span>
+                </div>
+                <div class="stat-div" aria-hidden="true"></div>
+                <div class="stat-item reveal reveal-delay-3">
+                    <span class="stat-num" data-target="98">0</span><span class="stat-unit">%</span>
+                    <span class="stat-label">Menos erros operacionais</span>
+                </div>
+                <div class="stat-div" aria-hidden="true"></div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="features-inner">
+                <div class="section-header reveal">
+                    <div class="section-label">
+                        <span class="sl-line" aria-hidden="true"></span>
+                        Funcionalidades
+                    </div>
+                    <h2 class="section-title">
+                        Tudo que o RH precisa,<span class="hl"> em um só lugar </span>
+                    </h2>
+                    <p class="section-desc">
+                        Módulos integrados para cobrir cada etapa da jornada do colaborador.
+                    </p>
+                </div>
+
+                <div class="feat-grid">
+                    <article class="feat-card reveal">
+                        <div class="feat-icon ic-blue" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.75"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3>Gestão de colaboradores</h3>
+                        <p>Perfis completos, histórico de cargo, documentos e avaliações em um único painel. Controle toda a jornada com visibilidade total.</p>
+                    </article>
+
+                    <article class="feat-card reveal reveal-delay-1">
+                        <div class="feat-icon ic-teal" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.75"/>
+                                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.75"/>
+                            </svg>
+                        </div>
+                        <h3>Jornada e férias</h3>
+                        <p>Controle de ponto, banco de horas e solicitações de férias totalmente integrados.</p>
+                    </article>
+
+                    <article class="feat-card reveal reveal-delay-2">
+                        <div class="feat-icon ic-amber" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                <polyline points="16 7 22 7 22 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>Análises e relatórios</h3>
+                        <p>Dashboards em tempo real.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="lgpd-section" id="lgpd" aria-label="Conformidade LGPD">
+            <div class="lgpd-inner">
+                <div class="lgpd-header reveal">
+                    <div class="section-label">
+                        <span class="sl-line" aria-hidden="true"></span>
+                        Segurança &amp; Privacidade
+                    </div>
+                    <h2 class="section-title">
+                        Em conformidade com a <span class="hl">LGPD</span>
+                    </h2>
+                    <p class="section-desc">
+                        Os dados dos colaboradores e do setor protegidos por padrão, em todas as camadas.
+                    </p>
+                </div>
+
+                <div class="lgpd-grid">
+                    <div class="lgpd-badge reveal reveal-delay-1">
+                        <div class="lgpd-icon ic-green" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <path d="M12 3L4 7v5c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V7L12 3z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3>Dados Protegidos</h3>
+                    </div>
+
+                    <div class="lgpd-badge reveal reveal-delay-2">
+                        <div class="lgpd-icon ic-blue" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.75"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <h3>Privacidade</h3>
+                    </div>
+
+                    <div class="lgpd-badge reveal reveal-delay-3">
+                        <div class="lgpd-icon ic-teal" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.75"/>
+                                <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3>Transparência Total</h3>
+                    </div>
+                </div>
+
+                <div class="lgpd-stamp reveal">
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3L4 7v5c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V7L12 3z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                    </svg>
+                    Conforme Lei 13.709/2018 — LGPD
+                </div>
+            </div>
+        </section>
+
+        <section class="about-section" id="about">
+            <div class="about-inner">
+                <div class="about-text reveal">
+                    <div class="section-label">
+                        <span class="sl-line" aria-hidden="true"></span>
+                        Sobre o Nexus
+                    </div>
+                    <h2 class="section-title">
+                        Desenvolvido para o<br /><span class="hl">RH moderno</span>
+                    </h2>
+                    <p class="about-desc">
+                        O Nexus nasceu da necessidade de substituir planilhas e sistemas fragmentados
+                        por uma solução única, intuitiva e poderosa. Combinamos tecnologia de ponta
+                        com a experiência de profissionais de RH para criar a plataforma que o mercado
+                        realmente precisa.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer class="footer">
+        <span class="footer-copy">© 2026 Nexus. Todos os direitos reservados.</span>
+    </footer>
+    <script src="./index.js"></script>
 </body>
 </html>
