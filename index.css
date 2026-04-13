@@ -413,9 +413,10 @@ h3 {
 
 .section-title {
   font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.1;
+  line-height: 1.2;
   margin-bottom: 1.5rem;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .section-desc {
@@ -431,7 +432,7 @@ h3 {
 }
 
 .feat-card {
-  background: rgba(255, 255, 255, 0.03); /* Efeito levemente translúcido */
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   padding: 3rem 2.5rem;
   border-radius: 24px;
@@ -596,7 +597,7 @@ h3 {
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr; /* Layout assimétrico para sofisticação */
+  grid-template-columns: 1.2fr 0.8fr;
   gap: 4rem;
   align-items: center;
 }
