@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/dashboard.css" />
+</head>
+<body>
+
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <p class="nav-section-label">Menu</p>
+            <ul class="nav-list">
+                <li class="nav-item active">
+                    <a href="dashboard.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="colaboradores.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Colaboradores</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Arquivos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Pagamentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                        <span class="nav-text">Analisar Currículo</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name">Admin RH</p>
+                    <p class="user-role">Recursos Humanos</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title">Dashboard</h1>
+                <p class="page-subtitle" id="current-date"></p>
+            </div>
+            <div class="topbar-right">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Sistema ativo</span>
+                </div>
+                <button class="icon-btn" title="Notificações">
+                    <i class="fas fa-bell"></i>
+                    <span class="notif-badge">3</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content" id="content">
+            <section class="metrics-grid" aria-label="Métricas gerais">
+                <div class="metric-card metric-total" data-animate>
+                    <div class="metric-icon-wrap">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="metric-body">
+                        <span class="metric-label">Total de colaboradores</span>
+                        <span class="metric-value" data-count="148">0</span>
+                        <span class="metric-delta positive">
+                            <i class="fas fa-arrow-up"></i> +3 este mês
+                        </span>
+                    </div>
+                </div>
+
+                <div class="metric-card metric-active" data-animate>
+                    <div class="metric-icon-wrap">
+                        <i class="fas fa-circle-check"></i>
+                    </div>
+                    <div class="metric-body">
+                        <span class="metric-label">Ativos</span>
+                        <span class="metric-value" data-count="132">0</span>
+                        <span class="metric-delta neutral">89% do total</span>
+                    </div>
+                </div>
+
+                <div class="metric-card metric-vacation" data-animate>
+                    <div class="metric-icon-wrap">
+                        <i class="fas fa-umbrella-beach"></i>
+                    </div>
+                    <div class="metric-body">
+                        <span class="metric-label">Em férias</span>
+                        <span class="metric-value" data-count="11">0</span>
+                        <span class="metric-delta neutral">7,4% do total</span>
+                    </div>
+                </div>
+
+                <div class="metric-card metric-inactive" data-animate>
+                    <div class="metric-icon-wrap">
+                        <i class="fas fa-circle-xmark"></i>
+                    </div>
+                    <div class="metric-body">
+                        <span class="metric-label">Inativos</span>
+                        <span class="metric-value" data-count="5">0</span>
+                        <span class="metric-delta negative">
+                            <i class="fas fa-arrow-up"></i> +2 este mês
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="charts-row">
+                <div class="chart-card" data-animate>
+                    <div class="chart-card-header">
+                        <div>
+                            <h2 class="chart-title">Headcount por departamento</h2>
+                            <p class="chart-subtitle">Distribuição atual · 148 colaboradores</p>
+                        </div>
+                        <div class="chart-legend" id="dept-legend"></div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="deptChart" role="img"
+                            aria-label="Gráfico de barras com colaboradores por departamento">
+                            TI 38, RH 22, Financeiro 28, Marketing 19, Jurídico 14, Administrativo 27
+                        </canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card" data-animate>
+                    <div class="chart-card-header">
+                        <div>
+                            <h2 class="chart-title">Admissões vs Desligamentos</h2>
+                            <p class="chart-subtitle">Últimos 6 meses</p>
+                        </div>
+                        <div class="chart-legend" id="move-legend"></div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="moveChart" role="img"
+                            aria-label="Gráfico de linha com admissões e desligamentos nos últimos 6 meses">
+                            Admissões: Nov 6, Dez 4, Jan 8, Fev 5, Mar 7, Abr 3.
+                            Desligamentos: Nov 2, Dez 3, Jan 1, Fev 4, Mar 2, Abr 2.
+                        </canvas>
+                    </div>
+                </div>
+
+            </section>
+
+            <section class="bottom-row">
+                <div class="panel-card" data-animate>
+                    <div class="panel-header">
+                        <h2 class="panel-title">Colaboradores recentes</h2>
+                        <a href="colaboradores.html" class="panel-link">Ver todos <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    <ul class="emp-list" id="emp-list">
+                    </ul>
+                </div>
+
+                <div class="right-col">
+                    <div class="panel-card" data-animate>
+                        <div class="panel-header">
+                            <h2 class="panel-title">Tipo de contrato</h2>
+                        </div>
+                        <ul class="contract-list" id="contract-list"></ul>
+                    </div>
+
+                    <div class="panel-card" data-animate>
+                        <div class="panel-header">
+                            <h2 class="panel-title">Atividade recente</h2>
+                        </div>
+                        <ul class="activity-list" id="activity-list"></ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="../javascript/dashboard.js"></script>
+</body>
+</html>

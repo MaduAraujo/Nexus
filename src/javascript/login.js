@@ -175,7 +175,7 @@ function handleLogin() {
         setBtnLoading('btn-login', 'spinner-login', 'btn-login-text', false);
 
         if (selectedProfile === 'rh') {
-            window.location.href = '../screens/inicial.html';
+            window.location.href = '../screens/dashboard.html';
         } else {
             showToast('Login realizado com sucesso!');
         }
