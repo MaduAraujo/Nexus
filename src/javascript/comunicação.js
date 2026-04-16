@@ -33,8 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ─── SIDEBAR ────────────────────────────────────────────
-
     function isMobile() {
         return window.innerWidth <= 768;
     }
@@ -51,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
-    // Botão dentro da sidebar: fecha em mobile, colapsa em desktop
     sidebarToggle?.addEventListener('click', (e) => {
         e.preventDefault();
         if (isMobile()) {
@@ -67,17 +64,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Overlay fecha a sidebar ao clicar fora
     sidebarOverlay?.addEventListener('click', closeSidebar);
 
-    // Botão hamburger na topbar: abre/fecha em mobile
     mainToggleBtn?.addEventListener('click', () => {
         if (isMobile()) {
             sidebar.classList.contains('active') ? closeSidebar() : openSidebar();
             return;
         }
 
-        // Comportamento original em desktop: alterna entre escrita e histórico
         const isWriting = mainToggleBtn.getAttribute('data-current') === 'writing';
         const btnText   = mainToggleBtn.querySelector('span');
         const btnIcon   = mainToggleBtn.querySelector('i');
@@ -98,19 +92,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Restaura estado do sidebar no desktop
     if (!isMobile() && localStorage.getItem(SIDEBAR_STATE_KEY) === 'collapsed') {
         sidebar.classList.add('collapsed');
     }
 
-    // Redimensionou para desktop: limpa estado mobile
     window.addEventListener('resize', () => {
         if (!isMobile()) {
             closeSidebar();
         }
     });
-
-    // ─── TECLADO ────────────────────────────────────────────
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -122,8 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
-
-    // ─── MODAL ──────────────────────────────────────────────
 
     window.openModal = () => {
         if (!messageInput.value.trim()) {
@@ -172,8 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ─── TABELA DE MENSAGENS ─────────────────────────────────
-
     function renderizarMensagens() {
         if (!messagesList) return;
 
@@ -217,8 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         salvarMensagens();
         renderizarMensagens();
     };
-
-    // ─── UTILS ──────────────────────────────────────────────
 
     function escapeHTML(str) {
         return String(str)
