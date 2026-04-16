@@ -51,6 +51,12 @@
                             <span class="nav-text">Analisar Currículo</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="../screens/comunicação.html" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                            <span class="nav-text">Comunicação Interna</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -58,7 +64,7 @@
                 <div class="user-card">
                     <div class="user-avatar">RH</div>
                     <div class="user-info">
-                        <p class="user-name">Admin RH</p>
+                        <p class="user-name">Administrador</p>
                         <p class="user-role">Recursos Humanos</p>
                     </div>
                 </div>
@@ -71,143 +77,63 @@
                     <h1 class="page-title">Dashboard</h1>
                     <p class="page-subtitle" id="current-date"></p>
                 </div>
-                <div class="topbar-right">
-                    <button class="icon-btn" title="Notificações">
-                        <i class="fas fa-bell"></i>
-                        <span class="notif-badge">3</span>
-                    </button>
-                </div>
             </header>
 
             <main class="content">
-                <section class="kpi-grid">
-                    <div class="kpi-card" id="kpi-total" style="--kpi-color:var(--c-total)">
-                        <div class="kpi-inner">
-                            <div class="kpi-head">
-                                <span class="kpi-label">Total de colaboradores</span>
-                                <span class="kpi-icon"><i class="fas fa-users"></i></span>
-                            </div>
-                            <div class="kpi-value" id="v-total">148</div>
-                            <canvas class="kpi-sparkline" id="spark-total" width="200" height="36"></canvas>
-                            <div class="kpi-foot">
-                                <span class="kpi-delta d-pos" id="d-total"><i class="fas fa-arrow-up"></i> +3 este mês</span>
-                            </div>
+                <section class="section-header">
+                    <h2>Resumo Geral</h2>
+                </section>
+
+                <section class="cards">
+                    <div class="card">
+                        <div class="card-icon active-icon"><i class="fas fa-user-check"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Ativos</p>
+                            <h2 id="count-ativos">0</h2>
                         </div>
                     </div>
-
-                    <div class="kpi-card" id="kpi-active" style="--kpi-color:var(--c-active)">
-                        <div class="kpi-inner">
-                            <div class="kpi-head">
-                                <span class="kpi-label">Ativos</span>
-                                <span class="kpi-icon"><i class="fas fa-circle-check"></i></span>
-                            </div>
-                            <div class="kpi-value" id="v-active">132</div>
-                            <canvas class="kpi-sparkline" id="spark-active" width="200" height="36"></canvas>
-                            <div class="kpi-foot">
-                                <span class="kpi-delta d-neu" id="d-active">89% do total</span>
-                            </div>
+                    <div class="card">
+                        <div class="card-icon holiday-icon"><i class="fas fa-umbrella-beach"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Em Férias</p>
+                            <h2 id="count-ferias">0</h2>
                         </div>
                     </div>
-
-                    <div class="kpi-card" id="kpi-vacation" style="--kpi-color:var(--c-vac)">
-                        <div class="kpi-inner">
-                            <div class="kpi-head">
-                                <span class="kpi-label">Em férias</span>
-                                <span class="kpi-icon"><i class="fas fa-umbrella-beach"></i></span>
-                            </div>
-                            <div class="kpi-value" id="v-vacation">11</div>
-                            <canvas class="kpi-sparkline" id="spark-vacation" width="200" height="36"></canvas>
-                            <div class="kpi-foot">
-                                <span class="kpi-delta d-neu" id="d-vacation">7,4% do total</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="kpi-card" id="kpi-inactive" style="--kpi-color:var(--c-inact)">
-                        <div class="kpi-inner">
-                            <div class="kpi-head">
-                                <span class="kpi-label">Inativos</span>
-                                <span class="kpi-icon"><i class="fas fa-circle-xmark"></i></span>
-                            </div>
-                            <div class="kpi-value" id="v-inactive">5</div>
-                            <canvas class="kpi-sparkline" id="spark-inactive" width="200" height="36"></canvas>
-                            <div class="kpi-foot">
-                                <span class="kpi-delta d-neg" id="d-inactive"><i class="fas fa-arrow-up"></i> +2 este mês</span>
-                            </div>
+                    <div class="card">
+                        <div class="card-icon inactive-icon"><i class="fas fa-user-times"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Inativos</p>
+                            <h2 id="count-inativos">0</h2>
                         </div>
                     </div>
                 </section>
 
-                <div class="event-ticker" id="event-ticker">
-                    <div class="ticker-label">
-                        <div class="ticker-live-dot" id="ticker-dot"></div>
-                        LIVE STREAM
+                <section class="charts-grid">
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-exchange-alt"></i> Admissões vs Desligamentos</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-turnover"></canvas>
+                        </div>
                     </div>
-                    <div class="ticker-scroll" id="ticker-scroll">
-                        <div class="ticker-empty" id="ticker-empty">// aguardando eventos do sistema...</div>
-                    </div>
-                </div>
 
-                <section class="charts-row">
-                    <div class="chart-card">
-                        <div class="cc-head">
-                            <div>
-                                <div class="cc-title">Headcount por departamento</div>
-                                <div class="cc-sub" id="dept-sub">distribuição atual · 148 colaboradores</div>
-                            </div>
-                            <div class="legend" id="dept-legend"></div>
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-file-contract"></i> Tipo de Contrato</h3>
                         </div>
-                        <div class="chart-wrap">
-                            <canvas id="deptChart" role="img" aria-label="Headcount por departamento"></canvas>
+                        <div class="chart-container">
+                            <canvas id="chart-contracts"></canvas>
                         </div>
                     </div>
-                    <div class="chart-card">
-                        <div class="cc-head">
-                            <div>
-                                <div class="cc-title">Admissões vs Desligamentos</div>
-                                <div class="cc-sub">últimos 6 meses</div>
-                            </div>
-                            <div class="legend" id="move-legend"></div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> Headcount por Departamento</h3>
                         </div>
-                        <div class="chart-wrap">
-                            <canvas id="moveChart" role="img" aria-label="Admissões vs Desligamentos"></canvas>
-                        </div>
+                        <div id="department-list" class="department-grid"></div>
                     </div>
                 </section>
-
-                <section class="bottom-row">
-                    <div class="panel-card">
-                        <div class="p-head">
-                            <h2 class="p-title">Colaboradores recentes</h2>
-                            <span class="p-meta" id="emp-count-label">5 registros</span>
-                        </div>
-                        <ul class="emp-list" id="emp-list"></ul>
-                    </div>
-
-                    <div class="right-col">
-                        <div class="panel-card">
-                            <div class="p-head"><h2 class="p-title">Tipo de contrato</h2></div>
-                            <ul class="contract-list" id="contract-list"></ul>
-                        </div>
-
-                        <div class="panel-card">
-                            <div class="p-head">
-                                <h2 class="p-title">Feed de eventos</h2>
-                                <span class="event-badge">EVENT-DRIVEN</span>
-                            </div>
-                            <div class="feed" id="feed"></div>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="panel-card">
-                    <div class="elog">
-                        <div class="elog-title">console de eventos recebidos</div>
-                        <div id="elog-lines">
-                            <div class="elog-empty">// sem eventos recebidos ainda. abra a tela de colaboradores.</div>
-                        </div>
-                    </div>
-                </div>
             </main>
         </div>
     </div>

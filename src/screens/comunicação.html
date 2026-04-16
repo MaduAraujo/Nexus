@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Comunicação Interna</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/comunicação.css">
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-name">Ne<span class="x">x</span>us</div>
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="dashboard.html" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="colaboradores.html" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-users"></i></span>
+                            <span class="nav-text">Colaboradores</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                            <span class="nav-text">Arquivos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                            <span class="nav-text">Pagamentos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                            <span class="nav-text">Analisar Currículo</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active">
+                            <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                            <span class="nav-text">Comunicação Interna</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-card">
+                    <div class="user-avatar">RH</div>
+                    <div class="user-info">
+                        <p class="user-name">Administrador</p>
+                        <p class="user-role">Recursos Humanos</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 class="page-title">Comunicação Interna</h1>
+                </div>
+                <div class="topbar-right">
+                    <button id="main-toggle-btn" class="nav-toggle-btn" data-current="writing">
+                        <i class="fas fa-history"></i>
+                        <span>Comunicados Enviados</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="content">
+                <div id="write-section">
+                    <section class="section-header">
+                        <h2 class="section-title">Central de Mensagens</h2>
+                        <p class="section-description">Envie comunicados para os colaboradores e equipes.</p>
+                    </section>
+
+                    <section class="message-section">
+                        <div class="message-card">
+                            <div class="message-form">
+                                <label class="input-label">Novo comunicado</label>
+                                <textarea id="message-text" class="message-input" placeholder="Digite sua mensagem aqui..."></textarea>
+                                <div class="form-footer">
+                                    <span class="char-count">O uso de linguagem clara é recomendado.</span>
+                                    <button class="send-button" onclick="openModal()">
+                                        <i class="fas fa-paper-plane"></i> Enviar Comunicado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="sent-messages-section" style="display: none;">
+                    <section class="section-header">
+                        <h2 class="section-title">Histórico de Avisos</h2>
+                        <p class="section-description">Gerencie as mensagens enviadas anteriormente.</p>
+                    </section>
+                    
+                    <div class="message-card">
+                        <div class="table-container">
+                            <table class="messages-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Mensagem</th>
+                                        <th>Destino</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="messages-list"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="destinationModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Selecione o Destino</h3>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Para qual setor você deseja disparar este comunicado?</p>
+                <div class="destination-grid">
+                    <button class="dest-card" onclick="confirmSend('Todos')">
+                        <i class="fas fa-globe"></i> <span>Todos</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('TI')">
+                        <i class="fas fa-code"></i> <span>TI</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('RH')">
+                        <i class="fas fa-user-tie"></i> <span>RH</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('Financeiro')">
+                        <i class="fas fa-dollar-sign"></i> <span>Financeiro</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('Marketing')">
+                        <i class="fas fa-ad"></i> <span>Marketing</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('Jurídico')">
+                        <i class="fas fa-gavel"></i> <span>Jurídico</span>
+                    </button>
+                    <button class="dest-card" onclick="confirmSend('Administrativo')">
+                        <i class="fas fa-building"></i> <span>Administrativo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../javascript/comunicação.js"></script>
+</body>
+</html>
