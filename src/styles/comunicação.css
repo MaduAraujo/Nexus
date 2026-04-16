@@ -672,48 +672,6 @@ body {
 }
 
 @media (max-width: 768px) {
-    .sidebar {
-        left: -280px;
-        width: 260px !important; 
-        background-color: #0f0f11;
-        box-shadow: none;
-        transition: left 0.3s var(--ease);
-    }
-
-    .sidebar.active {
-        left: 0;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
-    }
-
-    .sidebar .logo-name,
-    .sidebar .nav-text,
-    .sidebar .user-info {
-        display: block !important;
-    }
-
-    .sidebar .nav-link {
-        padding: 12px !important;
-        justify-content: flex-start !important;
-    }
-
-    .sidebar .nav-icon {
-        margin-right: 12px !important;
-    }
-
-    .sidebar .sidebar-header {
-        justify-content: space-between !important;
-        padding: 0 24px !important;
-    }
-
-    .sidebar .user-card {
-        justify-content: flex-start !important;
-    }
-
-    .main-wrapper {
-        margin-left: 0 !important;
-        width: 100% !important;
-    }
-
     .topbar  { padding: 0 16px; }
     .content { padding: 24px 16px; }
 

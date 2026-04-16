@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ─── Elementos do DOM ────────────────────────────────────────────────────────
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const messageInput   = document.getElementById('message-text');
@@ -9,12 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sectionHistory = document.getElementById('sent-messages-section');
     const messagesList   = document.getElementById('messages-list');
 
-    // ─── Constantes ──────────────────────────────────────────────────────────────
     const STORAGE_KEY       = 'nexus_messages';
     const SIDEBAR_STATE_KEY = 'sidebarState';
-    const MOBILE_BREAKPOINT = 768;
 
-    // ─── 1. Banco de Dados Local ─────────────────────────────────────────────────
     const defaultMessages = [
         { id: 1, data: "15/04/2026", texto: "Bem-vindos ao novo portal Nexus!", destino: "Todos" },
         { id: 2, data: "16/04/2026", texto: "Lembrete: Atualização de sistemas hoje às 22h.", destino: "TI" }
@@ -36,74 +32,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ─── 2. Sidebar ──────────────────────────────────────────────────────────────
-    const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
-
-    // Cria o overlay programaticamente — resolve o bug definitivamente.
-    // O sidebarToggle fica DENTRO da sidebar, então sidebar.contains(toggle) === true,
-    // impossibilitando distinguir "clique no botão" de "clique dentro da sidebar"
-    // via document.addEventListener. O overlay elimina essa ambiguidade: ele cobre
-    // todo o conteúdo fora da sidebar e, ao ser clicado, fecha o menu.
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    document.body.appendChild(overlay);
-
-    function abrirSidebar() {
-        sidebar.classList.add('active');
-        overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function fecharSidebar() {
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-
     function handleToggle(e) {
         e.preventDefault();
-        if (isMobile()) {
-            sidebar.classList.contains('active') ? fecharSidebar() : abrirSidebar();
-        } else {
-            sidebar.classList.toggle('collapsed');
-            try {
-                localStorage.setItem(
-                    SIDEBAR_STATE_KEY,
-                    sidebar.classList.contains('collapsed') ? 'collapsed' : 'expanded'
-                );
-            } catch {/* silencia erro de storage */}
-        }
+        sidebar.classList.toggle('collapsed');
+        try {
+            localStorage.setItem(
+                SIDEBAR_STATE_KEY,
+                sidebar.classList.contains('collapsed') ? 'collapsed' : 'expanded'
+            );
+        } catch {}
     }
 
     sidebarToggle.addEventListener('click', handleToggle);
 
-    // Overlay fecha a sidebar ao clicar fora (mobile)
-    overlay.addEventListener('click', fecharSidebar);
-
-    // Fechar com tecla Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (isMobile() && sidebar.classList.contains('active')) fecharSidebar();
             if (modal.style.display === 'flex') closeModal();
         }
     });
 
-    // Fechar modal ao clicar no backdrop
     document.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
 
-    // Garante que o overlay seja limpo ao redimensionar para desktop
-    window.addEventListener('resize', () => {
-        if (!isMobile()) fecharSidebar();
-    });
-
-    // Inicializa estado da sidebar no desktop
-    if (localStorage.getItem(SIDEBAR_STATE_KEY) === 'collapsed' && !isMobile()) {
+    if (localStorage.getItem(SIDEBAR_STATE_KEY) === 'collapsed') {
         sidebar.classList.add('collapsed');
     }
 
-    // ─── 3. Modal ────────────────────────────────────────────────────────────────
     window.openModal = () => {
         if (!messageInput.value.trim()) {
             alert('Por favor, digite uma mensagem.');
@@ -117,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'none';
     };
 
-    // ─── 4. Envio de Mensagem ────────────────────────────────────────────────────
     window.confirmSend = (setor) => {
         const texto = messageInput.value.trim();
         if (!texto) return;
@@ -135,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         salvarMensagens();
         closeModal();
 
-        // Feedback visual
         const originalContent = sendBtn.innerHTML;
         sendBtn.classList.add('sent-success');
         sendBtn.innerHTML = '<i class="fas fa-check"></i> Enviado';
@@ -153,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ─── 5. Toggle Escrita / Histórico ───────────────────────────────────────────
     mainToggleBtn.addEventListener('click', () => {
         const isWriting = mainToggleBtn.getAttribute('data-current') === 'writing';
         const btnText   = mainToggleBtn.querySelector('span');
@@ -175,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ─── 6. Histórico (renderização via DocumentFragment) ────────────────────────
     function renderizarMensagens() {
         if (!messagesList) return;
 
@@ -220,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderizarMensagens();
     };
 
-    // ─── Utilitários ─────────────────────────────────────────────────────────────
     function escapeHTML(str) {
         return String(str)
             .replace(/&/g, '&amp;')
