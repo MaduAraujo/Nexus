@@ -12,7 +12,7 @@ const profiles = {
     },
     colaborador: {
         label:    'Colaborador',
-        icon:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        icon:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
         title:    'Bem-vindo de volta',
         subtitle: 'Acesse sua conta para continuar',
         btnClass: 'btn-colaborador',
@@ -25,7 +25,7 @@ function generateOtp() {
 
 let currentOtp = null;
 
-// ─── Força de senha ───────────────────────────────────────
+/* ─── Força de senha ─────────────────────────────────────── */
 const STRENGTH_LEVELS = [
     { label: 'Muito fraca', cls: 's1', bars: 1, barCls: 'active-1' },
     { label: 'Fraca',       cls: 's2', bars: 2, barCls: 'active-2' },
@@ -80,11 +80,18 @@ function setCriteria(id, met) {
 
 function onSignupPasswordInput(value) {
     const score = checkPasswordStrength(value);
-    const btn = document.querySelector('#form-signup .btn-submit');
-    if (btn) btn.disabled = score < 4;
+    /* O botão só fica ativo quando a senha é forte (score 4) E o perfil foi selecionado */
+    updateSignupBtn();
 }
 
-// ─── Validação ────────────────────────────────────────────
+function updateSignupBtn() {
+    const passInput = document.getElementById('signup-pass');
+    const { score } = calcPasswordScore(passInput ? passInput.value : '');
+    const btn = document.querySelector('#form-signup .btn-submit');
+    if (btn) btn.disabled = score < 4 || !selectedSignupProfile;
+}
+
+/* ─── Validação ──────────────────────────────────────────── */
 const RULES = {
     user: {
         required:  'Preencha o campo de usuário',
@@ -134,8 +141,8 @@ function applyFieldState(input, errorMessage) {
     if (errorMessage) {
         input.classList.add('is-error');
         input.classList.remove('is-ok');
-        errEl.textContent    = errorMessage;
-        errEl.style.display  = 'flex';
+        errEl.textContent   = errorMessage;
+        errEl.style.display = 'flex';
         input.setAttribute('aria-invalid', 'true');
     } else if (input.value.trim()) {
         input.classList.remove('is-error');
@@ -149,7 +156,7 @@ function applyFieldState(input, errorMessage) {
     }
 }
 
-// ─── Loading helper universal ─────────────────────────────
+/* ─── Loading helper ─────────────────────────────────────── */
 function setBtnLoading(btnId, spinId, textId, on) {
     const btn  = document.getElementById(btnId);
     const spin = document.getElementById(spinId);
@@ -159,7 +166,7 @@ function setBtnLoading(btnId, spinId, textId, on) {
     if (spin) spin.classList.toggle('show', on);
 }
 
-// ─── Login ────────────────────────────────────────────────
+/* ─── Login ──────────────────────────────────────────────── */
 function handleLogin() {
     const userInput = document.getElementById('login-user');
     const passInput = document.getElementById('login-pass');
@@ -182,19 +189,20 @@ function handleLogin() {
     }, 1500);
 }
 
-// ─── Cadastro ─────────────────────────────────────────────
+/* ─── Cadastro ───────────────────────────────────────────── */
 function handleSignup() {
-    const fields = document.querySelectorAll('#form-signup input');
-    const [nameInput, emailInput, passInput] = fields;
-
-    const nameOk  = validateField(nameInput,  'name',  true);
-    const emailOk = validateField(emailInput, 'email', true);
-    const passOk  = validateField(passInput,  'pass',  true);
+    const nameInput  = document.getElementById('signup-name');
+    const emailInput = document.getElementById('signup-email');
+    const passInput  = document.getElementById('signup-pass');
 
     if (!selectedSignupProfile) {
         showToast('Selecione um perfil para continuar');
         return;
     }
+
+    const nameOk  = validateField(nameInput,  'name',  true);
+    const emailOk = validateField(emailInput, 'email', true);
+    const passOk  = validateField(passInput,  'pass',  true);
 
     if (!nameOk || !emailOk || !passOk) return;
 
@@ -202,7 +210,7 @@ function handleSignup() {
     setTimeout(() => switchTab('login'), 1500);
 }
 
-// ─── Esqueci minha senha ──────────────────────────────────
+/* ─── Esqueci minha senha ────────────────────────────────── */
 function forgotGoTo(step) {
     [1, 2, 3, 4].forEach(i => {
         const s   = document.getElementById(`forgot-s${i}`);
@@ -262,7 +270,7 @@ async function forgotSendCode() {
     setBtnLoading('btn-forgot-send', 'spin-forgot-send', 'btn-forgot-send-text', false);
 }
 
-// ─── OTP ─────────────────────────────────────────────────
+/* ─── OTP ────────────────────────────────────────────────── */
 function otpInput(el, idx) {
     el.value = el.value.replace(/\D/g, '').slice(0, 1);
     el.classList.toggle('otp-filled', el.value !== '');
@@ -363,10 +371,10 @@ async function forgotResend() {
 
     await new Promise(r => setTimeout(r, 400));
     currentOtp = generateOtp();
-    console.info(`[DEV] Código OTP reenviado: ${currentOtp}`); 
+    console.info(`[DEV] Código OTP reenviado: ${currentOtp}`);
 }
 
-// ─── Nova senha ───────────────────────────────────────────
+/* ─── Nova senha ─────────────────────────────────────────── */
 function forgotValidatePass() {
     const np = document.getElementById('new-pass').value;
     const cp = document.getElementById('confirm-pass').value;
@@ -408,25 +416,32 @@ async function forgotReset() {
     setBtnLoading('btn-reset', 'spin-reset', 'btn-reset-text', false);
 }
 
-// ─── Validação em tempo real ──────────────────────────────
+/* ─── Validação em tempo real ────────────────────────────── */
 function initFieldListeners() {
     const loginUser = document.getElementById('login-user');
     const loginPass = document.getElementById('login-pass');
 
-    loginUser.addEventListener('blur',  () => validateField(loginUser, 'user', true));
-    loginUser.addEventListener('input', () => {
-        if (loginUser.classList.contains('is-error')) validateField(loginUser, 'user', true);
-    });
+    if (loginUser) {
+        loginUser.addEventListener('blur',  () => validateField(loginUser, 'user', true));
+        loginUser.addEventListener('input', () => {
+            if (loginUser.classList.contains('is-error')) validateField(loginUser, 'user', true);
+        });
+    }
 
-    loginPass.addEventListener('blur',  () => validateField(loginPass, 'pass', true));
-    loginPass.addEventListener('input', () => {
-        if (loginPass.classList.contains('is-error')) validateField(loginPass, 'pass', true);
-    });
+    if (loginPass) {
+        loginPass.addEventListener('blur',  () => validateField(loginPass, 'pass', true));
+        loginPass.addEventListener('input', () => {
+            if (loginPass.classList.contains('is-error')) validateField(loginPass, 'pass', true);
+        });
+    }
 
-    document.querySelectorAll('#form-signup input').forEach((input, i) => {
-        const ruleKeys = ['name', 'email', 'pass'];
-        const key = ruleKeys[i];
-        if (!key) return;
+    const signupName  = document.getElementById('signup-name');
+    const signupEmail = document.getElementById('signup-email');
+    const signupPass  = document.getElementById('signup-pass');
+    const pairs       = [[signupName, 'name'], [signupEmail, 'email'], [signupPass, 'pass']];
+
+    pairs.forEach(([input, key]) => {
+        if (!input) return;
         input.addEventListener('blur',  () => validateField(input, key, true));
         input.addEventListener('input', () => {
             if (input.classList.contains('is-error')) validateField(input, key, true);
@@ -434,34 +449,53 @@ function initFieldListeners() {
     });
 }
 
+/* ─── DOMContentLoaded ───────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('nexus_profile');
-    if (saved) {
-        const card = document.querySelector(`.profile-card.${saved}`);
-        if (card) selectProfile(saved, card);
+    /* Tenta restaurar perfil salvo; usa try/catch caso localStorage
+       esteja bloqueado (modo privado em alguns navegadores) */
+    try {
+        const saved = localStorage.getItem('nexus_profile');
+        if (saved && profiles[saved]) {
+            const card = document.querySelector(`#form-profile .profile-card.${saved}`);
+            if (card) selectProfile(saved, card);
+        }
+    } catch (e) {
+        /* localStorage indisponível — ignora silenciosamente */
     }
 
     initFieldListeners();
 });
 
-// ─── Perfil ───────────────────────────────────────────────
+/* ─── Perfil ─────────────────────────────────────────────── */
 function selectProfile(type, el) {
+    if (!profiles[type]) return;
+
     selectedProfile = type;
-    localStorage.setItem('nexus_profile', type);
+
+    try {
+        localStorage.setItem('nexus_profile', type);
+    } catch (e) { /* ignorado */ }
 
     document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
 
     const btn = document.getElementById('btn-continue');
-    btn.disabled      = false;
-    btn.style.opacity = '1';
-    btn.style.cursor  = 'pointer';
+    if (btn) {
+        btn.disabled      = false;
+        btn.style.opacity = '1';
+        btn.style.cursor  = 'pointer';
+    }
 }
 
 function selectSignupProfile(type, el) {
+    if (!profiles[type]) return;
+
     selectedSignupProfile = type;
     document.querySelectorAll('#form-signup .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
+
+    /* Reavalia botão de criar conta após seleção de perfil */
+    updateSignupBtn();
 }
 
 function goToLogin() {
@@ -470,45 +504,59 @@ function goToLogin() {
 }
 
 function switchTab(tab) {
+    const validTabs = ['profile', 'login', 'signup', 'forgot'];
+    if (!validTabs.includes(tab)) return;
+
     document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('form-' + tab).classList.add('active');
+
+    const target = document.getElementById('form-' + tab);
+    if (!target) return;
+    target.classList.add('active');
 
     if (tab === 'login' && selectedProfile) {
         const p = profiles[selectedProfile];
 
         const pill = document.getElementById('login-profile-pill');
-        pill.innerHTML = `<div class="profile-pill ${selectedProfile}">${p.icon}${p.label}</div>`;
+        if (pill) pill.innerHTML = `<div class="profile-pill ${selectedProfile}">${p.icon}${p.label}</div>`;
 
-        document.getElementById('login-title').textContent    = p.title;
-        document.getElementById('login-subtitle').textContent = p.subtitle;
+        const loginTitle    = document.getElementById('login-title');
+        const loginSubtitle = document.getElementById('login-subtitle');
+        if (loginTitle)    loginTitle.textContent    = p.title;
+        if (loginSubtitle) loginSubtitle.textContent = p.subtitle;
 
         const btn = document.getElementById('btn-login');
-        btn.className = 'btn-submit ' + p.btnClass;
+        if (btn) btn.className = 'btn-submit ' + p.btnClass;
     }
 
-    if (tab !== 'forgot') return;
-    forgotGoTo(1);
-    const emailInput = document.getElementById('forgot-email');
-    if (emailInput) emailInput.value = '';
-    forgotClearErr('forgot-email-err');
+    if (tab === 'forgot') {
+        forgotGoTo(1);
+        const emailInput = document.getElementById('forgot-email');
+        if (emailInput) emailInput.value = '';
+        forgotClearErr('forgot-email-err');
+    }
 }
 
-// ─── Utilitários ──────────────────────────────────────────
+/* ─── Utilitários ────────────────────────────────────────── */
 function togglePw(id, btn) {
     const input  = document.getElementById(id);
+    if (!input) return;
     const isText = input.type === 'text';
     input.type = isText ? 'password' : 'text';
-    btn.querySelector('svg').style.opacity = isText ? '1' : '0.5';
+    const svg = btn.querySelector('svg');
+    if (svg) svg.style.opacity = isText ? '1' : '0.5';
 }
 
 function showToast(msg) {
     const t = document.getElementById('toast');
+    if (!t) return;
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 function logout() {
-    localStorage.removeItem('nexus_profile');
+    try {
+        localStorage.removeItem('nexus_profile');
+    } catch (e) { /* ignorado */ }
     window.location.href = '../screens/login.html';
 }

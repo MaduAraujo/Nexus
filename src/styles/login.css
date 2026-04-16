@@ -34,6 +34,7 @@ body {
     padding: 1rem;
 }
 
+/* ─── CARD ───────────────────────────────────────────────── */
 .card {
     display: flex;
     width: 850px;
@@ -121,6 +122,7 @@ body {
     flex-direction: column;
     padding: 2.5rem 2.25rem;
     overflow-y: auto;
+    min-width: 0;
 }
 
 .logo-row {
@@ -234,6 +236,7 @@ body {
     align-items: center;
     justify-content: center;
     margin-bottom: 0.75rem;
+    flex-shrink: 0;
 }
 
 #form-signup .profile-icon {
@@ -241,7 +244,6 @@ body {
     height: 28px;
     border-radius: 8px;
     margin-bottom: 0;
-    flex-shrink: 0;
 }
 
 .profile-icon-row {
@@ -342,6 +344,8 @@ body {
     font-family: 'DM Sans', sans-serif;
     transition: border-color var(--transition), background var(--transition);
     outline: none;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .field-input-wrap input::placeholder {
@@ -364,6 +368,7 @@ body {
     padding: 4px;
     display: flex;
     align-items: center;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .toggle-pw svg {
@@ -453,6 +458,8 @@ body {
     background: #2563eb;
     color: #fff;
     overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .btn-submit:hover:not(:disabled) {
@@ -529,6 +536,7 @@ body {
     padding: 0;
     margin-bottom: 1.25rem;
     transition: color var(--transition);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .back-btn:hover {
@@ -617,6 +625,11 @@ body {
     transition: opacity 0.3s, transform 0.3s;
     pointer-events: none;
     white-space: nowrap;
+    z-index: 1000;
+    max-width: calc(100vw - 2rem);
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .toast.show {
@@ -776,7 +789,8 @@ body {
     color: var(--text);
     outline: none;
     transition: border-color var(--transition), background var(--transition);
-    appearance: textfield;
+    -webkit-appearance: none;
+    appearance: none;
     padding: 0;
 }
 
@@ -845,18 +859,168 @@ body {
     stroke: #97c459;
 }
 
-/* ─── RESPONSIVE ─────────────────────────────────────────── */
-@media (max-width: 640px) {
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Large desktop (> 1024px): limita largura máxima ─────── */
+@media (min-width: 1024px) {
+    .card {
+        width: 900px;
+    }
+}
+
+/* ─── Tablet landscape / desktop pequeno (769px – 1023px) ── */
+@media (max-width: 1023px) and (min-width: 769px) {
+    .card {
+        width: 100%;
+        max-width: 800px;
+        min-height: 520px;
+    }
+
+    .panel-left {
+        width: 38%;
+    }
+
+    .panel-left-tagline {
+        font-size: 1.3rem;
+    }
+
+    .panel-left-content {
+        padding: 1.5rem;
+    }
+
+    .panel-right {
+        padding: 2rem 1.75rem;
+    }
+}
+
+/* ─── Tablet portrait (481px – 768px) ───────────────────── */
+@media (max-width: 768px) and (min-width: 481px) {
+    body {
+        padding: 0.75rem;
+        align-items: flex-start;
+    }
+
+    .card {
+        width: 100%;
+        border-radius: 16px;
+        min-height: unset;
+        margin: auto 0;
+    }
+
+    .panel-left {
+        width: 35%;
+    }
+
+    .panel-left-tagline {
+        font-size: 1.1rem;
+    }
+
+    .panel-left-badge {
+        font-size: 11px;
+        padding: 4px 10px;
+    }
+
+    .panel-left-content {
+        padding: 1.25rem;
+    }
+
+    .panel-right {
+        padding: 1.75rem 1.5rem;
+    }
+
+    .form-title {
+        font-size: 1.2rem;
+    }
+
+    .profile-grid {
+        gap: 8px;
+    }
+
+    .profile-card {
+        padding: 0.9rem 0.85rem;
+    }
+
+    #form-signup .profile-card {
+        height: 80px;
+    }
+
+    .otp-input {
+        font-size: 18px;
+    }
+}
+
+/* ─── Mobile (≤ 480px) ───────────────────────────────────── */
+@media (max-width: 480px) {
+    body {
+        padding: 0;
+        align-items: flex-start;
+    }
+
+    .card {
+        width: 100%;
+        min-height: 100svh;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        border-bottom: none;
+        box-shadow: none;
+    }
+
     .panel-left {
         display: none;
     }
 
     .panel-right {
-        padding: 2rem 1.5rem;
+        padding: 1.75rem 1.25rem 2rem;
     }
 
-    .card {
-        min-height: unset;
+    .logo-name {
+        font-size: 1.35rem;
+    }
+
+    .form-title {
+        font-size: 1.2rem;
+    }
+
+    .form-subtitle {
+        font-size: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .profile-grid {
+        gap: 8px;
+        margin-bottom: 1.25rem;
+    }
+
+    .profile-card {
+        padding: 0.85rem 0.8rem;
+        border-radius: 10px;
+    }
+
+    #form-signup .profile-card {
+        height: 76px;
+    }
+
+    .profile-icon {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 0.5rem;
+    }
+
+    .profile-label {
+        font-size: 13px;
+    }
+
+    .profile-desc {
+        font-size: 11px;
+    }
+
+    .field-input-wrap input {
+        font-size: 16px; /* evita zoom no iOS */
+        padding: 0.7rem 2.75rem 0.7rem 2.5rem;
     }
 
     .otp-wrap {
@@ -864,6 +1028,100 @@ body {
     }
 
     .otp-input {
+        font-size: 18px;
+        border-radius: 40px;
+    }
+
+    .forgot-steps {
+        margin-bottom: 1.25rem;
+    }
+
+    .btn-submit {
+        padding: 0.8rem;
+        font-size: 14px;
+    }
+
+    .toast {
+        bottom: 1.5rem;
+        font-size: 12px;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* ─── Mobile muito pequeno (< 360px) ────────────────────── */
+@media (max-width: 359px) {
+    .panel-right {
+        padding: 1.5rem 1rem 1.75rem;
+    }
+
+    .profile-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .profile-card {
+        padding: 0.75rem 0.65rem;
+    }
+
+    #form-signup .profile-card {
+        height: 70px;
+    }
+
+    .profile-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    #form-signup .profile-icon {
+        width: 22px;
+        height: 22px;
+    }
+
+    .otp-wrap {
+        gap: 3px;
+    }
+
+    .otp-input {
         font-size: 16px;
+    }
+
+    .form-title {
+        font-size: 1.1rem;
+    }
+}
+
+/* ─── Altura muito baixa (landscape mobile) ─────────────── */
+@media (max-height: 600px) and (max-width: 900px) {
+    body {
+        align-items: flex-start;
+    }
+
+    .card {
+        min-height: unset;
+    }
+
+    .panel-right {
+        padding-top: 1.25rem;
+        padding-bottom: 1.25rem;
+    }
+
+    .logo-row {
+        margin-bottom: 1rem;
+    }
+
+    .form-subtitle {
+        margin-bottom: 1rem;
+    }
+
+    .field {
+        margin-bottom: 0.75rem;
+    }
+
+    .profile-grid {
+        margin-bottom: 1rem;
+    }
+
+    .divider {
+        margin: 0.75rem 0;
     }
 }
