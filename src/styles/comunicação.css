@@ -672,6 +672,56 @@ body {
 }
 
 @media (max-width: 768px) {
+    .sidebar {
+        left: -280px;
+        width: 260px !important;
+        transition: left 0.3s var(--ease);
+        z-index: 2000;
+    }
+
+    .sidebar.active {
+        left: 0;
+    }
+
+    .sidebar.active .logo-name,
+    .sidebar.active .nav-text,
+    .sidebar.active .nav-section-label,
+    .sidebar.active .user-info {
+        display: block;
+    }
+
+    .sidebar.active .nav-link {
+        padding: 12px;
+        justify-content: flex-start;
+    }
+
+    .sidebar.active .nav-icon {
+        margin-right: 12px;
+    }
+
+    .sidebar.active .sidebar-header {
+        justify-content: space-between;
+        padding: 0 24px;
+    }
+
+    .sidebar.active .user-card {
+        justify-content: flex-start;
+    }
+
+    .sidebar-overlay {
+        display: block;
+        pointer-events: none;
+    }
+
+    .sidebar-overlay.active {
+        pointer-events: auto;
+    }
+
+    .main-wrapper {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
     .topbar  { padding: 0 16px; }
     .content { padding: 24px 16px; }
 
