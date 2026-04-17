@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebarOverlay?.addEventListener('click', closeSidebar);
 
     mainToggleBtn?.addEventListener('click', () => {
+
         const isWriting = mainToggleBtn.getAttribute('data-current') === 'writing';
         const btnText   = mainToggleBtn.querySelector('span');
         const btnIcon   = mainToggleBtn.querySelector('i');
@@ -77,13 +78,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isWriting) {
             if(sectionWrite) sectionWrite.style.display = 'none';
             if(sectionHistory) sectionHistory.style.display = 'block';
+            
             mainToggleBtn.setAttribute('data-current', 'history');
             if(btnText) btnText.textContent = 'Novo Comunicado';
             if(btnIcon) btnIcon.className = 'fas fa-plus';
+            
             renderizarMensagens();
         } else {
             if(sectionWrite) sectionWrite.style.display = 'block';
             if(sectionHistory) sectionHistory.style.display = 'none';
+            
             mainToggleBtn.setAttribute('data-current', 'writing');
             if(btnText) btnText.textContent = 'Comunicados Enviados';
             if(btnIcon) btnIcon.className = 'fas fa-history';
