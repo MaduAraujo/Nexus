@@ -769,7 +769,7 @@ header {
   }
   
   .hero { 
-    padding: calc(var(--nav-height) + 2rem) 1.5rem 4rem; 
+    padding: calc(var(--nav-height) + 1rem) 1.5rem 3rem; 
     min-height: auto;
   }
 
