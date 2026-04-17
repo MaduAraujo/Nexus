@@ -26,14 +26,12 @@
     </header>
 
     <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
-        <nav>
-            <a class="mobile-link" href="#tech">Tecnologia</a>
-            <a class="mobile-link" href="#features">Funcionalidades</a>
-            <a class="mobile-link" href="#lgpd">Segurança</a>
-            <a class="mobile-link" href="#about">Sobre</a>
-        </nav>
+        <a class="mobile-link" href="#tech">Tecnologia</a>
+        <a class="mobile-link" href="#features">Funcionalidades</a>
+        <a class="mobile-link" href="#lgpd">Segurança</a>
+        <a class="mobile-link" href="#about">Sobre</a>
         <div class="mobile-actions">
-            <a href="./src/screens/login.html" class="btn-outline">Entrar</a>
+            <a href="./src/screens/login.html" class="btn-outline w-full">Entrar</a>
         </div>
     </div>
 
@@ -63,17 +61,23 @@
             <div class="stats-inner">
                 <div class="stat-div" aria-hidden="true"></div>
                 <div class="stat-item reveal reveal-delay-1">
-                    <span class="stat-num" data-target="3">0</span><span class="stat-unit">x</span>
+                    <div class="stat-num-wrap">
+                        <span class="stat-num" data-target="3">0</span><span class="stat-unit">x</span>
+                    </div>
                     <span class="stat-label">Mais rápido que planilhas</span>
                 </div>
                 <div class="stat-div" aria-hidden="true"></div>
                 <div class="stat-item reveal reveal-delay-2">
-                    <span class="stat-num" data-target="24">0</span><span class="stat-unit">/7</span>
+                    <div class="stat-num-wrap">
+                        <span class="stat-num" data-target="24">0</span><span class="stat-unit">/7</span>
+                    </div>
                     <span class="stat-label">Disponibilidade de dados</span>
                 </div>
                 <div class="stat-div" aria-hidden="true"></div>
                 <div class="stat-item reveal reveal-delay-3">
-                    <span class="stat-num" data-target="98">0</span><span class="stat-unit">%</span>
+                    <div class="stat-num-wrap">
+                        <span class="stat-num" data-target="98">0</span><span class="stat-unit">%</span>
+                    </div>
                     <span class="stat-label">Menos erros operacionais</span>
                 </div>
                 <div class="stat-div" aria-hidden="true"></div>
@@ -198,7 +202,7 @@
                     <h2 class="section-title">
                         Conformidade com a <span class="hl">LGPD</span>
                     </h2>
-                    <p class="section-desc"> 
+                    <p class="section-desc">
                         Proteção de dados sensíveis implementada em todas as camadas da aplicação.
                     </p>
                 </div>
@@ -262,11 +266,9 @@
             </div>
         </section>
     </main>
-
     <footer class="footer">
         <span class="footer-copy">© 2026 Nexus. Todos os direitos reservados.</span>
     </footer>
-
     <script src="./index.js"></script>
 </body>
 </html>
