@@ -25,7 +25,6 @@ function generateOtp() {
 
 let currentOtp = null;
 
-/* ─── Força de senha ─────────────────────────────────────── */
 const STRENGTH_LEVELS = [
     { label: 'Muito fraca', cls: 's1', bars: 1, barCls: 'active-1' },
     { label: 'Fraca',       cls: 's2', bars: 2, barCls: 'active-2' },
@@ -80,7 +79,6 @@ function setCriteria(id, met) {
 
 function onSignupPasswordInput(value) {
     const score = checkPasswordStrength(value);
-    /* O botão só fica ativo quando a senha é forte (score 4) E o perfil foi selecionado */
     updateSignupBtn();
 }
 
@@ -91,7 +89,6 @@ function updateSignupBtn() {
     if (btn) btn.disabled = score < 4 || !selectedSignupProfile;
 }
 
-/* ─── Validação ──────────────────────────────────────────── */
 const RULES = {
     user: {
         required:  'Preencha o campo de usuário',
@@ -156,7 +153,6 @@ function applyFieldState(input, errorMessage) {
     }
 }
 
-/* ─── Loading helper ─────────────────────────────────────── */
 function setBtnLoading(btnId, spinId, textId, on) {
     const btn  = document.getElementById(btnId);
     const spin = document.getElementById(spinId);
@@ -166,7 +162,6 @@ function setBtnLoading(btnId, spinId, textId, on) {
     if (spin) spin.classList.toggle('show', on);
 }
 
-/* ─── Login ──────────────────────────────────────────────── */
 function handleLogin() {
     const userInput = document.getElementById('login-user');
     const passInput = document.getElementById('login-pass');
@@ -189,7 +184,6 @@ function handleLogin() {
     }, 1500);
 }
 
-/* ─── Cadastro ───────────────────────────────────────────── */
 function handleSignup() {
     const nameInput  = document.getElementById('signup-name');
     const emailInput = document.getElementById('signup-email');
@@ -210,7 +204,6 @@ function handleSignup() {
     setTimeout(() => switchTab('login'), 1500);
 }
 
-/* ─── Esqueci minha senha ────────────────────────────────── */
 function forgotGoTo(step) {
     [1, 2, 3, 4].forEach(i => {
         const s   = document.getElementById(`forgot-s${i}`);
@@ -270,7 +263,6 @@ async function forgotSendCode() {
     setBtnLoading('btn-forgot-send', 'spin-forgot-send', 'btn-forgot-send-text', false);
 }
 
-/* ─── OTP ────────────────────────────────────────────────── */
 function otpInput(el, idx) {
     el.value = el.value.replace(/\D/g, '').slice(0, 1);
     el.classList.toggle('otp-filled', el.value !== '');
@@ -374,7 +366,6 @@ async function forgotResend() {
     console.info(`[DEV] Código OTP reenviado: ${currentOtp}`);
 }
 
-/* ─── Nova senha ─────────────────────────────────────────── */
 function forgotValidatePass() {
     const np = document.getElementById('new-pass').value;
     const cp = document.getElementById('confirm-pass').value;
@@ -416,7 +407,6 @@ async function forgotReset() {
     setBtnLoading('btn-reset', 'spin-reset', 'btn-reset-text', false);
 }
 
-/* ─── Validação em tempo real ────────────────────────────── */
 function initFieldListeners() {
     const loginUser = document.getElementById('login-user');
     const loginPass = document.getElementById('login-pass');
@@ -449,24 +439,18 @@ function initFieldListeners() {
     });
 }
 
-/* ─── DOMContentLoaded ───────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-    /* Tenta restaurar perfil salvo; usa try/catch caso localStorage
-       esteja bloqueado (modo privado em alguns navegadores) */
     try {
         const saved = localStorage.getItem('nexus_profile');
         if (saved && profiles[saved]) {
             const card = document.querySelector(`#form-profile .profile-card.${saved}`);
             if (card) selectProfile(saved, card);
         }
-    } catch (e) {
-        /* localStorage indisponível — ignora silenciosamente */
-    }
+    } catch (e) {}
 
     initFieldListeners();
 });
 
-/* ─── Perfil ─────────────────────────────────────────────── */
 function selectProfile(type, el) {
     if (!profiles[type]) return;
 
@@ -474,7 +458,7 @@ function selectProfile(type, el) {
 
     try {
         localStorage.setItem('nexus_profile', type);
-    } catch (e) { /* ignorado */ }
+    } catch (e) {}
 
     document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
@@ -494,7 +478,6 @@ function selectSignupProfile(type, el) {
     document.querySelectorAll('#form-signup .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
 
-    /* Reavalia botão de criar conta após seleção de perfil */
     updateSignupBtn();
 }
 
@@ -536,7 +519,6 @@ function switchTab(tab) {
     }
 }
 
-/* ─── Utilitários ────────────────────────────────────────── */
 function togglePw(id, btn) {
     const input  = document.getElementById(id);
     if (!input) return;
@@ -557,6 +539,6 @@ function showToast(msg) {
 function logout() {
     try {
         localStorage.removeItem('nexus_profile');
-    } catch (e) { /* ignorado */ }
+    } catch (e) {}
     window.location.href = '../screens/login.html';
 }

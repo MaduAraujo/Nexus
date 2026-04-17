@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nexus</title>
-  <link rel="stylesheet" href="index.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus</title>
+    <link rel="stylesheet" href="index.css" />
 </head>
 <body>
     <header class="navbar" id="navbar">
         <a href="#" class="logo">Ne<span class="x">x</span>us</a>
         <nav class="nav-links" aria-label="Menu principal">
+            <a class="nav-link" href="#tech">Tecnologia</a>
             <a class="nav-link" href="#features">Funcionalidades</a>
+            <a class="nav-link" href="#lgpd">Segurança</a>
             <a class="nav-link" href="#about">Sobre</a>
         </nav>
         <div class="nav-right">
@@ -25,11 +27,13 @@
 
     <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
         <nav>
+            <a class="mobile-link" href="#tech">Tecnologia</a>
             <a class="mobile-link" href="#features">Funcionalidades</a>
+            <a class="mobile-link" href="#lgpd">Segurança</a>
             <a class="mobile-link" href="#about">Sobre</a>
         </nav>
         <div class="mobile-actions">
-            <a href="./src/screens/login.html" class="btn-outline" id="btn-login">Entrar</a>
+            <a href="./src/screens/login.html" class="btn-outline">Entrar</a>
         </div>
     </div>
 
@@ -41,7 +45,7 @@
             <div class="hero-content">
                 <div class="eyebrow reveal">
                     <span class="eyebrow-dot"></span>
-                    Plataforma de RH inteligente
+                    Plataforma de RH Inteligente
                 </div>
 
                 <h1 class="reveal reveal-delay-1">
@@ -55,10 +59,9 @@
             </div>
         </section>
 
-        <section class="stats-section" aria-label="Números">
+        <section class="stats-section" aria-label="Números e impacto">
             <div class="stats-inner">
                 <div class="stat-div" aria-hidden="true"></div>
-
                 <div class="stat-item reveal reveal-delay-1">
                     <span class="stat-num" data-target="3">0</span><span class="stat-unit">x</span>
                     <span class="stat-label">Mais rápido que planilhas</span>
@@ -77,6 +80,47 @@
             </div>
         </section>
 
+        <section class="tech-section" id="tech">
+            <div class="tech-inner">
+                <div class="section-header reveal">
+                    <div class="section-label">
+                        <span class="sl-line" aria-hidden="true"></span>
+                        Stack Tecnológica
+                    </div>
+                    <h2 class="section-title">Base de <span class="hl">Desenvolvimento</span></h2>
+                    <p class="section-desc">Arquitetura construída sobre os pilares fundamentais da web moderna.</p>
+                </div>
+
+                <div class="tech-container">
+                    <article class="tech-card reveal">
+                        <div class="tech-icon-wrapper">
+                            <img src="./src/assets/html.png" alt="HTML5 Logo" class="tech-png">
+                        </div>
+                        <h3>HTML5</h3>
+                        <span>Estruturação e Semântica</span>
+                    </article>
+
+                    <article class="tech-card reveal reveal-delay-1">
+                        <div class="tech-icon-wrapper">
+                            <img src="./src/assets/css.png" alt="CSS3 Logo" class="tech-png">
+                        </div>
+                        <h3>CSS3</h3>
+                        <span>Estilização Dinâmica</span>
+                    </article>
+
+                    <article class="tech-card reveal reveal-delay-2">
+                        <div class="tech-icon-wrapper">
+                            <img src="./src/assets/js.png" alt="JavaScript Logo" class="tech-png">
+                        </div>
+                        <h3>JavaScript</h3>
+                        <span>Lógica e Interação</span>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <div class="section-divider" aria-hidden="true"></div>
+
         <section class="features" id="features">
             <div class="features-inner">
                 <div class="section-header reveal">
@@ -85,10 +129,10 @@
                         Funcionalidades
                     </div>
                     <h2 class="section-title">
-                        Tudo que o RH precisa, <span class="hl">em um só lugar </span>
+                        Tudo que o RH precisa, <span class="hl">em um só lugar</span>
                     </h2>
                     <p class="section-desc">
-                        Módulos integrados para cobrir cada etapa da jornada do colaborador.
+                        Módulos projetados para cobrir cada etapa da jornada do colaborador.
                     </p>
                 </div>
 
@@ -102,7 +146,7 @@
                             </svg>
                         </div>
                         <h3>Gestão de colaboradores</h3>
-                        <p>Perfis completos, histórico de cargo, documentos e avaliações em um único painel. Controle toda a jornada com visibilidade total.</p>
+                        <p>Perfis completos, documentos e avaliações em um único painel.</p>
                     </article>
 
                     <article class="feat-card reveal reveal-delay-1">
@@ -115,7 +159,7 @@
                             </svg>
                         </div>
                         <h3>Jornada e férias</h3>
-                        <p>Controle de ponto, banco de horas e solicitações de férias totalmente integrados.</p>
+                        <p>Controle de ponto, banco de horas e férias totalmente integrados.</p>
                     </article>
 
                     <article class="feat-card reveal reveal-delay-2">
@@ -128,11 +172,23 @@
                         <h3>Análises e relatórios</h3>
                         <p>Dashboards em tempo real.</p>
                     </article>
+
+                    <article class="feat-card reveal reveal-delay-3">
+                        <div class="feat-icon ic-purple" aria-hidden="true">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="9" y1="10" x2="15" y2="10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                <line x1="9" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3>Comunicação interna</h3>
+                        <p>Avisos e comunicados entre equipes em tempo real.</p>
+                    </article>
                 </div>
             </div>
         </section>
 
-        <section class="lgpd-section" id="lgpd" aria-label="Conformidade LGPD">
+        <section class="lgpd-section" id="lgpd">
             <div class="lgpd-inner">
                 <div class="lgpd-header reveal">
                     <div class="section-label">
@@ -140,10 +196,10 @@
                         Segurança &amp; Privacidade
                     </div>
                     <h2 class="section-title">
-                        Em conformidade com a <span class="hl">LGPD</span>
+                        Conformidade com a <span class="hl">LGPD</span>
                     </h2>
                     <p class="section-desc"> 
-                        Dados dos colaboradores e do setor protegidos por padrão, em todas as camadas.
+                        Proteção de dados sensíveis implementada em todas as camadas da aplicação.
                     </p>
                 </div>
 
@@ -176,14 +232,11 @@
                                 <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <h3>Transparência Total</h3>
+                        <h3>Transparência</h3>
                     </div>
                 </div>
 
                 <div class="lgpd-stamp reveal">
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 3L4 7v5c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V7L12 3z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
-                    </svg>
                     Conforme Lei 13.709/2018 — LGPD
                 </div>
             </div>
@@ -194,14 +247,14 @@
                 <div class="about-text reveal">
                     <div class="section-label">
                         <span class="sl-line" aria-hidden="true"></span>
-                        Sobre o Nexus
+                        Sobre o Projeto
                     </div>
                     <h2 class="section-title">
-                        Desenvolvido para o<br /><span class="hl">RH moderno</span>
+                        Sobre o <span class="hl">Nexus</span>
                     </h2>
                     <p class="about-desc">
                         O Nexus nasceu da necessidade de substituir planilhas e sistemas fragmentados
-                        por uma solução única, intuitiva e poderosa. Combinamos tecnologia de ponta
+                        por uma solução única e intuitiva. Combinamos tecnologia de ponta
                         com a experiência de profissionais de RH para criar a plataforma que o mercado
                         realmente precisa.
                     </p>
@@ -209,9 +262,11 @@
             </div>
         </section>
     </main>
+
     <footer class="footer">
         <span class="footer-copy">© 2026 Nexus. Todos os direitos reservados.</span>
     </footer>
+
     <script src="./index.js"></script>
 </body>
 </html>

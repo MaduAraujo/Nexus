@@ -34,7 +34,6 @@ body {
     padding: 1rem;
 }
 
-/* ─── CARD ───────────────────────────────────────────────── */
 .card {
     display: flex;
     width: 850px;
@@ -47,7 +46,6 @@ body {
     box-shadow: 0 32px 80px rgba(0,0,0,0.5);
 }
 
-/* ─── LEFT PANEL ─────────────────────────────────────────── */
 .panel-left {
     position: relative;
     width: 42%;
@@ -115,7 +113,6 @@ body {
     line-height: 1.6;
 }
 
-/* ─── RIGHT PANEL ────────────────────────────────────────── */
 .panel-right {
     flex: 1;
     display: flex;
@@ -141,7 +138,6 @@ body {
     color: #2563eb;
 }
 
-/* ─── FORM SECTIONS ──────────────────────────────────────── */
 .form-section {
     display: none;
 }
@@ -170,7 +166,6 @@ body {
     font-weight: 500;
 }
 
-/* ─── PROFILE SELECTOR ───────────────────────────────────── */
 .profile-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -299,7 +294,6 @@ body {
     stroke: #000;
 }
 
-/* ─── FIELDS ─────────────────────────────────────────────── */
 .field {
     margin-bottom: 1rem;
 }
@@ -382,7 +376,6 @@ body {
     stroke: var(--text-muted);
 }
 
-/* ─── VALIDAÇÃO ──────────────────────────────────────────── */
 .field-input-wrap input.is-error {
     border-color: #e24b4a;
     background: rgba(226, 75, 74, 0.08);
@@ -421,7 +414,6 @@ body {
     background-repeat: no-repeat;
 }
 
-/* ─── FORGOT LINK ────────────────────────────────────────── */
 .forgot-link-row {
     text-align: right;
     margin-top: 6px;
@@ -438,7 +430,6 @@ body {
     color: var(--text);
 }
 
-/* ─── BUTTONS ────────────────────────────────────────────── */
 .btn-submit {
     position: relative;
     width: 100%;
@@ -498,7 +489,6 @@ body {
     margin-top: 0.5rem;
 }
 
-/* ─── SPINNER ────────────────────────────────────────────── */
 .spinner {
     display: none;
     position: absolute;
@@ -522,7 +512,6 @@ body {
     to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* ─── BACK BUTTON ────────────────────────────────────────── */
 .back-btn {
     display: inline-flex;
     align-items: center;
@@ -549,7 +538,6 @@ body {
     stroke: currentColor;
 }
 
-/* ─── PROFILE PILL ───────────────────────────────────────── */
 .profile-pill {
     display: inline-flex;
     align-items: center;
@@ -570,7 +558,6 @@ body {
     stroke: currentColor;
 }
 
-/* ─── DIVIDER ────────────────────────────────────────────── */
 .divider {
     display: flex;
     align-items: center;
@@ -591,7 +578,6 @@ body {
     color: var(--text-subtle);
 }
 
-/* ─── SIGNUP ROW ─────────────────────────────────────────── */
 .signup-row {
     text-align: center;
     font-size: 13px;
@@ -609,7 +595,6 @@ body {
     opacity: 0.7;
 }
 
-/* ─── TOAST ──────────────────────────────────────────────── */
 .toast {
     position: fixed;
     bottom: 2rem;
@@ -637,7 +622,6 @@ body {
     transform: translateX(-50%) translateY(0);
 }
 
-/* ─── FORÇA DE SENHA ─────────────────────────────────────── */
 .strength-wrap {
     display: none;
     margin-top: 10px;
@@ -733,7 +717,6 @@ body {
     transform: rotate(-45deg) translateY(-1px);
 }
 
-/* ─── ESQUECI SENHA — STEPS ──────────────────────────────── */
 .forgot-steps {
     display: flex;
     align-items: center;
@@ -767,7 +750,6 @@ body {
     display: none;
 }
 
-/* ─── OTP ────────────────────────────────────────────────── */
 .otp-wrap {
     display: flex;
     gap: 6px;
@@ -813,7 +795,6 @@ body {
     background: rgba(226, 75, 74, 0.08);
 }
 
-/* ─── REENVIAR ───────────────────────────────────────────── */
 .resend-row {
     font-size: 12px;
     color: var(--text-muted);
@@ -836,7 +817,6 @@ body {
     pointer-events: none;
 }
 
-/* ─── SUCESSO ────────────────────────────────────────────── */
 #forgot-s4 {
     text-align: center;
 }
@@ -859,18 +839,12 @@ body {
     stroke: #97c459;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   RESPONSIVE BREAKPOINTS
-   ═══════════════════════════════════════════════════════════ */
-
-/* ─── Large desktop (> 1024px): limita largura máxima ─────── */
 @media (min-width: 1024px) {
     .card {
         width: 900px;
     }
 }
 
-/* ─── Tablet landscape / desktop pequeno (769px – 1023px) ── */
 @media (max-width: 1023px) and (min-width: 769px) {
     .card {
         width: 100%;
@@ -895,7 +869,6 @@ body {
     }
 }
 
-/* ─── Tablet portrait (481px – 768px) ───────────────────── */
 @media (max-width: 768px) and (min-width: 481px) {
     body {
         padding: 0.75rem;
@@ -951,7 +924,6 @@ body {
     }
 }
 
-/* ─── Mobile (≤ 480px) ───────────────────────────────────── */
 @media (max-width: 480px) {
     body {
         padding: 0;
@@ -1019,7 +991,7 @@ body {
     }
 
     .field-input-wrap input {
-        font-size: 16px; /* evita zoom no iOS */
+        font-size: 16px; 
         padding: 0.7rem 2.75rem 0.7rem 2.5rem;
     }
 
@@ -1048,7 +1020,6 @@ body {
     }
 }
 
-/* ─── Mobile muito pequeno (< 360px) ────────────────────── */
 @media (max-width: 359px) {
     .panel-right {
         padding: 1.5rem 1rem 1.75rem;
@@ -1090,7 +1061,6 @@ body {
     }
 }
 
-/* ─── Altura muito baixa (landscape mobile) ─────────────── */
 @media (max-height: 600px) and (max-width: 900px) {
     body {
         align-items: flex-start;
