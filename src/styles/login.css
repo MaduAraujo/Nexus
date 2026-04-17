@@ -23,6 +23,13 @@
     --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
+html, body {
+    overflow: hidden;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
@@ -810,8 +817,6 @@ body {
     pointer-events: none;
 }
 
-/* ── Forgot success ─────────────────────────────────────────────────────── */
-
 #forgot-s4 {
     text-align: center;
 }
@@ -834,18 +839,12 @@ body {
     stroke: #97c459;
 }
 
-/* ════════════════════════════════════════════════════════════════════════
-   RESPONSIVE
-═══════════════════════════════════════════════════════════════════════ */
-
-/* ── ≥1024 px ───────────────────────────────────────────────────────────── */
 @media (min-width: 1024px) {
     .card {
         width: 900px;
     }
 }
 
-/* ── 769 – 1023 px ──────────────────────────────────────────────────────── */
 @media (max-width: 1023px) and (min-width: 769px) {
     .card {
         width: 100%;
@@ -870,7 +869,6 @@ body {
     }
 }
 
-/* ── 481 – 768 px ───────────────────────────────────────────────────────── */
 @media (max-width: 768px) and (min-width: 481px) {
     body {
         padding: 1rem;
@@ -926,11 +924,11 @@ body {
     }
 }
 
-/* ── ≤480 px  (mobile) ──────────────────────────────────────────────────── */
 @media (max-width: 480px) {
     body {
         padding: 0;
         align-items: stretch;
+        overflow: hidden;
     }
 
     .card {
@@ -941,33 +939,28 @@ body {
         border: none;
         box-shadow: none;
         flex-direction: column;
+        margin: 0;
     }
 
-    /* Hide decorative image panel on small screens */
     .panel-left {
         display: none;
     }
 
-    /*
-     * The right panel fills the whole screen and uses flex to push content
-     * to the vertical centre. A fixed logo row sits at the top, the form
-     * content is centred, and breathing room is added at the bottom.
-     */
     .panel-right {
         flex: 1;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        padding: 2rem 1.5rem;
-        overflow-y: auto;
+        justify-content: flex-start;
+        padding: 4rem 1.5rem 1rem;
+        overflow: hidden;
     }
 
-    /* Logo always at top, not pulled by justify-content: center */
     .logo-row {
         position: absolute;
-        top: 1.75rem;
+        top: 1rem;
         left: 1.5rem;
         margin-bottom: 0;
+        z-index: 10;
     }
 
     .logo-name {
@@ -980,12 +973,12 @@ body {
 
     .form-subtitle {
         font-size: 12px;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
     }
 
     .profile-grid {
         gap: 8px;
-        margin-bottom: 1.25rem;
+        margin-bottom: 1rem;
     }
 
     .profile-card {
@@ -1011,7 +1004,6 @@ body {
         font-size: 11px;
     }
 
-    /* Prevent iOS zoom on focus (font-size must be ≥16px) */
     .field-input-wrap input {
         font-size: 16px;
         padding: 0.7rem 2.75rem 0.7rem 2.5rem;
@@ -1033,6 +1025,8 @@ body {
     .btn-submit {
         padding: 0.8rem;
         font-size: 14px;
+        margin-top: auto;  
+        margin-bottom: 1rem;
     }
 
     .toast {
@@ -1042,7 +1036,6 @@ body {
     }
 }
 
-/* ── ≤359 px  (very small phones) ──────────────────────────────────────── */
 @media (max-width: 359px) {
     .panel-right {
         padding: 2rem 1rem 1.75rem;
@@ -1087,7 +1080,6 @@ body {
     }
 }
 
-/* ── Landscape + short viewport ─────────────────────────────────────────── */
 @media (max-height: 600px) and (max-width: 900px) {
     body {
         align-items: flex-start;
@@ -1103,7 +1095,6 @@ body {
         padding-bottom: 1.25rem;
     }
 
-    /* In landscape the logo can go back to normal flow */
     .logo-row {
         position: static;
         margin-bottom: 1rem;
