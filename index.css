@@ -455,7 +455,7 @@ header {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #888;
+  color: #007aff;
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 2px;
@@ -465,7 +465,7 @@ header {
 .sl-line {
   width: 30px;
   height: 1px;
-  background-color: #333;
+  background-color: #007aff;
   flex-shrink: 0;
 }
 
@@ -694,6 +694,7 @@ header {
   text-transform: uppercase;
   transition: all 0.3s ease;
 }
+
 .lgpd-stamp:hover { background: rgba(255,255,255,0.05); color: var(--text); }
 
 .about-section {
@@ -745,6 +746,7 @@ header {
   text-align: center;
   transition: all 0.4s ease;
 }
+
 .footer-copy:hover { color: var(--text); opacity: 1; transform: translateY(-2px); }
 
 @media (max-width: 1024px) {
