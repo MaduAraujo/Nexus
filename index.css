@@ -762,10 +762,36 @@ header {
 }
 
 @media (max-width: 768px) {
-  h1 { 
-    font-size: 2.2rem !important;
-    line-height: 1.1; 
-    text-align: center;
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center; 
+    width: 100%;
+    padding: 0 1rem;
+    margin-top: -1.5rem; 
+  }
+
+  .section-label, 
+  .plataforma-badge { 
+    margin-bottom: 1rem;
+    font-size: 0.7rem;
+  }
+
+  h1 {
+    font-size: 1.8rem !important; /* Tamanho otimizado para não forçar zoom horizontal */
+    line-height: 1.2;
+    margin-bottom: 1rem;
+    max-width: 90%; /* Evita que o texto encoste nas bordas */
+  }
+
+  .hero-desc,
+  .hero-content p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 85%;
+    margin: 0 auto;
   }
   
   .hero { 
@@ -794,6 +820,7 @@ header {
   }
 
   .tech-section { padding: 5rem 1.5rem; }
+
   .tech-container { 
     grid-template-columns: 1fr; 
     gap: 20px; 
