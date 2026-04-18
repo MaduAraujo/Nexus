@@ -1,24 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
-
-    // ── Elementos ──────────────────────────────────────────────
     const sidebar        = document.getElementById('sidebar');
-    const sidebarToggle  = document.getElementById('sidebar-toggle');   // dentro da sidebar (desktop)
-    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');  // na topbar (mobile)
+    const sidebarToggle  = document.getElementById('sidebar-toggle');
+    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     const mainWrapper    = document.querySelector('.main-wrapper');
 
     const messageInput   = document.getElementById('message-text');
-    const mainToggleBtn  = document.getElementById('main-toggle-btn');  // botão desktop
-    const fabBtn         = document.getElementById('btn-fab');           // FAB mobile
+    const mainToggleBtn  = document.getElementById('main-toggle-btn');
+    const fabBtn         = document.getElementById('btn-fab');
     const modal          = document.getElementById('destinationModal');
     const sectionWrite   = document.getElementById('write-section');
     const sectionHistory = document.getElementById('sent-messages-section');
-    const messagesList   = document.getElementById('messages-list');
+    const messagesList   = document.getElementById('messages-list');   
+    const messagesCards  = document.getElementById('messages-cards'); 
 
     const STORAGE_KEY       = 'nexus_messages';
     const SIDEBAR_STATE_KEY = 'sidebarState_comunicacao';
 
-    // ── Dados ──────────────────────────────────────────────────
     const defaultMessages = [
         { id: 1, data: '15/04/2026', texto: 'Bem-vindos ao novo portal Nexus!', destino: 'Todos' },
         { id: 2, data: '16/04/2026', texto: 'Lembrete: Atualização de sistemas hoje às 22h.', destino: 'TI' }
@@ -40,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-    // ── Sidebar helpers ────────────────────────────────────────
     const isMobile = () => window.innerWidth <= 768;
 
     function openMobileSidebar() {
@@ -55,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
-    // Desktop: toggle collapsed
     sidebarToggle?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (isMobile()) {
@@ -67,28 +63,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Mobile: topbar hamburger
     topbarMenuBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
     });
 
-    // Overlay fecha sidebar mobile
     sidebarOverlay?.addEventListener('click', closeMobileSidebar);
 
-    // Restaura estado collapsed no desktop
     if (!isMobile() && localStorage.getItem(SIDEBAR_STATE_KEY) === 'collapsed') {
         sidebar?.classList.add('collapsed');
         mainWrapper?.classList.add('sidebar-collapsed');
     }
 
-    // Limpa estado mobile ao redimensionar para desktop
     window.addEventListener('resize', () => {
         if (!isMobile()) closeMobileSidebar();
     });
 
-    // ── Toggle de seção (desktop + mobile FAB) ─────────────────
-    let currentSection = 'writing'; // 'writing' | 'history'
+    let currentSection = 'writing';
 
     function switchToHistory() {
         currentSection = 'history';
@@ -137,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
     mainToggleBtn?.addEventListener('click', toggleSection);
     fabBtn?.addEventListener('click', toggleSection);
 
-    // ── Modal ─────────────────────────────────────────────────
     window.openModal = () => {
         if (!messageInput?.value.trim()) {
             alert('Por favor, digite uma mensagem.');
@@ -166,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         salvarMensagens();
         window.closeModal();
 
-        // Feedback visual no botão de envio
         const sendBtn = document.querySelector('.send-button');
         if (sendBtn) {
             const original = sendBtn.innerHTML;
@@ -187,8 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentSection === 'history') renderizarMensagens();
     };
 
-    // ── Renderização da tabela ────────────────────────────────
     function renderizarMensagens() {
+        renderizarTabela();
+        renderizarCards();
+    }
+
+    function renderizarTabela() {
         if (!messagesList) return;
 
         if (dbMensagens.length === 0) {
@@ -217,7 +210,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    messagesList?.addEventListener('click', (e) => {
+    function renderizarCards() {
+        if (!messagesCards) return;
+
+        if (dbMensagens.length === 0) {
+            messagesCards.innerHTML = `
+                <div style="text-align:center;padding:32px;opacity:.6;font-size:14px;color:var(--text-secondary);">
+                    Nenhum comunicado encontrado.
+                </div>`;
+            return;
+        }
+
+        messagesCards.innerHTML = dbMensagens.map(msg => {
+            const textoSafe = escapeHTML(msg.texto);
+            return `
+                <div class="msg-card-item">
+                    <div class="msg-card-body">
+                        <div class="msg-card-top">
+                            <span class="msg-card-date">${escapeHTML(msg.data)}</span>
+                            <span class="msg-card-dest">${escapeHTML(msg.destino)}</span>
+                        </div>
+                        <div class="msg-card-text" title="${textoSafe}">${textoSafe}</div>
+                    </div>
+                    <div class="msg-card-actions">
+                        <button class="delete-btn" data-id="${msg.id}" aria-label="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function handleDelete(e) {
         const btn = e.target.closest('.delete-btn');
         if (!btn) return;
         const id = Number(btn.dataset.id);
@@ -226,9 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
             salvarMensagens();
             renderizarMensagens();
         }
-    });
+    }
 
-    // ── Teclado & clique fora do modal ────────────────────────
+    messagesList?.addEventListener('click', handleDelete);
+    messagesCards?.addEventListener('click', handleDelete);
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             window.closeModal();
