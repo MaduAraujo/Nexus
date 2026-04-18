@@ -588,7 +588,6 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
     width: 100%;
     outline: none;
-    /* Prevent zoom on iOS */
     font-size: max(16px, 0.88rem);
 }
 
@@ -1115,7 +1114,6 @@ body {
 .toast-error   .toast-icon { background: var(--danger-bg); color: var(--danger); }
 .toast-warning { border-left-color: var(--warning); }
 .toast-warning .toast-icon { background: var(--warning-bg); color: var(--warning); }
-
 .hidden { display: none !important; }
 
 @keyframes fadeIn {
@@ -1133,6 +1131,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
     .sidebar {
         transform: translateX(-100%);
         width: var(--sidebar-w) !important;
@@ -1163,7 +1162,7 @@ body {
     .btn-fab {
         display: inline-flex;
     }
-    
+
     .page-body                    { padding: 18px 14px 80px; }
     .content-header               { flex-direction: column; align-items: flex-start; gap: 12px; }
     .card                         { padding: 18px 14px; }
@@ -1208,4 +1207,74 @@ body {
     .topbar { padding: 0 12px; }
     .page-title { font-size: 0.95rem; }
     .btn-fab { width: 50px; height: 50px; bottom: 18px; right: 18px; font-size: 1rem; }
+}
+
+@media (max-width: 768px) {
+    .employee-table {
+        min-width: unset;
+        width: 100%;
+    }
+
+    .employee-table th:nth-child(4),
+    .employee-table td:nth-child(4),
+    .employee-table th:nth-child(5),
+    .employee-table td:nth-child(5),
+    .employee-table th:nth-child(6),
+    .employee-table td:nth-child(6) {
+        display: none;
+    }
+
+    .form-section .card,
+    #form-container .card {
+        max-width: 100%;
+    }
+
+    .form-row {
+        flex-direction: column;
+    }
+
+    .form-group {
+        width: 100%;
+    }
+
+    #btn-prev-step,
+    #btn-next-step,
+    #btn-save {
+        flex: 1;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .actions-right {
+        width: 100%;
+        display: flex;
+        gap: 10px;
+    }
+
+    .form-actions > .btn-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .step-panel {
+        width: 100%;
+    }
+
+    .stepper-container {
+        justify-content: center;
+        gap: 0;
+    }
+}
+
+@media (max-width: 400px) {
+    .employee-table th:nth-child(3),
+    .employee-table td:nth-child(3) {
+        display: none;
+    }
+
+    .employee-table th:nth-child(1),
+    .employee-table td:nth-child(1) {
+        width: 40px;
+        padding: 10px 8px;
+    }
 }
