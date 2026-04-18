@@ -58,11 +58,9 @@ Os comunicados são persistidos no **`localStorage`** do navegador, sem necessid
 
 ## Tecnologias Utilizadas
 
-| Tecnologia | Uso |
-|---|---|
-| HTML5 | Estrutura semântica da página |
-| CSS3 | Layout (Flexbox/Grid), variáveis CSS, media queries, animações |
-| JavaScript | Lógica de negócio, manipulação do DOM, persistência |
-| localStorage | Armazenamento local dos comunicados |
-| Font Awesome 6 | Ícones da interface |
-| Google Fonts | Tipografia: `Plus Jakarta Sans` + `DM Sans` |
+- HTML5 
+- CSS3 
+- JavaScript 
+- localStorage 
+- Font Awesome 6
+- Google Fonts 

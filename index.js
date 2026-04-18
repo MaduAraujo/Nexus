@@ -165,7 +165,6 @@
     initCardHoverGlow();
     initActiveNavLinks();
 
-    // Revela elementos já visíveis no carregamento inicial
     document.querySelectorAll('.reveal').forEach(el => {
       const rect = el.getBoundingClientRect();
       if (rect.top < window.innerHeight * 0.92) {
