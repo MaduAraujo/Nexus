@@ -4,19 +4,6 @@ Módulo de envio e gerenciamento de comunicados internos do sistema. Permite que
 
 ---
 
-## 📋 Índice
-
-- [Visão Geral](#visão-geral)
-- [Funcionalidades](#funcionalidades)
-- [Estrutura de Arquivos](#estrutura-de-arquivos)
-- [Como Usar](#como-usar)
-- [Componentes da Interface](#componentes-da-interface)
-- [Armazenamento de Dados](#armazenamento-de-dados)
-- [Responsividade](#responsividade)
-- [Tecnologias Utilizadas](#tecnologias-utilizadas)
-
----
-
 ## Visão Geral
 
 A tela de **Comunicação Interna** é composta por duas seções principais, alternadas por um botão de navegação na topbar (desktop) ou um botão FAB flutuante (mobile):
