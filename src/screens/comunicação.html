@@ -13,7 +13,7 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo-name">Ne<span class="x">x</span>us</div>
-                <button class="sidebar-toggle" id="sidebar-toggle">
+                <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
@@ -50,7 +50,7 @@
                             <span class="nav-text">Analisar Currículo</span>
                         </a>
                     </li>
-                    <li class="nav-item">
+                    <li class="nav-item active">
                         <a href="#" class="nav-link active">
                             <span class="nav-icon"><i class="fas fa-envelope"></i></span>
                             <span class="nav-text">Comunicação Interna</span>
@@ -70,9 +70,14 @@
             </div>
         </aside>
 
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
         <div class="main-wrapper">
             <header class="topbar">
                 <div class="topbar-left">
+                    <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <h1 class="page-title">Comunicação Interna</h1>
                 </div>
                 <div class="topbar-right">
@@ -82,6 +87,10 @@
                     </button>
                 </div>
             </header>
+
+            <button class="btn-fab" id="btn-fab" aria-label="Comunicados Enviados">
+                <i class="fas fa-history"></i>
+            </button>
 
             <main class="content">
                 <div id="write-section">

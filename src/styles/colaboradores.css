@@ -29,9 +29,9 @@
     --info:       #3b82f6;
     --info-bg:    #dbeafe;
 
-    --sidebar-w:    280px;
+    --sidebar-w:    260px;
     --sidebar-sm-w: 72px;
-    --topbar-h:     58px;
+    --topbar-h:     64px;
     --radius:       12px;
     --ease:         cubic-bezier(0.4, 0, 0.2, 1);
     --speed:        0.25s;
@@ -201,7 +201,7 @@ body {
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 900 !important;
     color: inherit;
-    font-size: 20px !important;
+    font-size: 18px !important;
     display: inline-block !important;
     font-style: normal;
     font-variant: normal;
