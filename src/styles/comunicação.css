@@ -708,15 +708,11 @@ body {
 
     .topbar-menu-btn { display: flex; }
     .topbar { padding: 0 18px; }
-
     .nav-toggle-btn { display: none; }
     .btn-fab        { display: inline-flex; }
-
     .content { padding: 24px 16px 88px; }
-
     .section-title       { font-size: 22px; }
     .section-description { font-size: 14px; }
-
     .message-form { padding: 20px 16px; }
 
     .form-footer {
@@ -731,12 +727,9 @@ body {
     }
 
     .char-count { text-align: center; }
-
     .messages-table { min-width: unset; }
-
     .messages-table th:nth-child(3),
     .messages-table td:nth-child(3) { display: none; }
-
     .destination-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -768,4 +761,76 @@ body {
     .content    { padding: 12px 10px 80px; }
     .modal-body { padding: 16px; }
     .dest-card  { padding: 10px 12px; font-size: 13px; }
+}
+
+#sent-messages-section {
+    width: 100%;
+}
+
+#sent-messages-section .section-header {
+    text-align: left;
+}
+
+#sent-messages-section .message-card {
+    width: 100%;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    #sent-messages-section .message-card {
+        border-radius: 10px;
+    }
+
+    .messages-table {
+        min-width: unset;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .messages-table th,
+    .messages-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .messages-table th:nth-child(2),
+    .messages-table td:nth-child(2) {
+        width: 60%;
+    }
+
+    .messages-table th:nth-child(4),
+    .messages-table td:nth-child(4) {
+        width: 48px;
+        text-align: center;
+    }
+
+    .message-preview {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .messages-table {
+        min-width: unset;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .messages-table th:nth-child(2),
+    .messages-table td:nth-child(2) {
+        width: 75%;
+    }
+
+    .messages-table th:nth-child(4),
+    .messages-table td:nth-child(4) {
+        width: 48px;
+        text-align: center;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    .delete-btn {
+        margin: 0 auto;
+    }
 }
