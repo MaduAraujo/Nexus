@@ -1,4 +1,4 @@
-# 👥 Nexus — Colaboradores
+# Nexus — Colaboradores
 
 Módulo completo de gestão de colaboradores. Permite cadastrar, visualizar, editar, filtrar e excluir colaboradores, com formulário em dois modos (obrigatório e completo em 6 etapas), drawer de detalhes e interface totalmente responsiva.
 
