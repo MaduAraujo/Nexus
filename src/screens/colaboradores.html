@@ -75,6 +75,9 @@
     <div class="main-wrapper">
         <header class="topbar">
             <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <h1 class="page-title">Colaboradores</h1>
             </div>
             <div class="header-actions">
@@ -84,6 +87,10 @@
                 </button>
             </div>
         </header>
+
+        <button class="btn-fab" id="btn-fab" onclick="toggleForm()" aria-label="Novo Colaborador">
+            <i class="fas fa-user-plus"></i>
+        </button>
         
         <main class="content">
             <div class="page-body">
@@ -754,17 +761,7 @@
                                     <th><i class="fas fa-calendar-alt"></i> Admissão</th>
                                 </tr>
                             </thead>
-                            <tbody id="employee-list-body">
-                                <tr class="empty-row" id="empty-row">
-                                    <td colspan="6">
-                                        <div class="empty-state">
-                                            <i class="fas fa-users-slash"></i>
-                                            <p>Nenhum colaborador cadastrado</p>
-                                            <span>Clique em "Novo Colaborador" para começar</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
+                            <tbody id="employee-list-body"></tbody>
                         </table>
                     </div>
                 </section>
