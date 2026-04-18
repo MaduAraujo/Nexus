@@ -286,10 +286,7 @@ body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--text-on-dark);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: #fff;
 }
 
 .topbar-menu-btn {
@@ -680,6 +677,7 @@ body {
 }
 
 .dest-card:hover i { color: #fff; }
+
 .hidden { display: none !important; }
 
 @media (max-width: 1280px) {
@@ -708,11 +706,15 @@ body {
 
     .topbar-menu-btn { display: flex; }
     .topbar { padding: 0 18px; }
+
     .nav-toggle-btn { display: none; }
     .btn-fab        { display: inline-flex; }
+
     .content { padding: 24px 16px 88px; }
+
     .section-title       { font-size: 22px; }
     .section-description { font-size: 14px; }
+
     .message-form { padding: 20px 16px; }
 
     .form-footer {
@@ -727,9 +729,12 @@ body {
     }
 
     .char-count { text-align: center; }
+
     .messages-table { min-width: unset; }
+
     .messages-table th:nth-child(3),
     .messages-table td:nth-child(3) { display: none; }
+
     .destination-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -746,9 +751,6 @@ body {
     .messages-table th,
     .messages-table td { padding: 12px 14px; font-size: 13px; }
 
-    .messages-table th:nth-child(1),
-    .messages-table td:nth-child(1) { display: none; }
-
     .destination-grid { grid-template-columns: 1fr; gap: 8px; }
 
     .topbar { padding: 0 12px; gap: 8px; }
@@ -763,74 +765,70 @@ body {
     .dest-card  { padding: 10px 12px; font-size: 13px; }
 }
 
-#sent-messages-section {
-    width: 100%;
-}
-
-#sent-messages-section .section-header {
-    text-align: left;
-}
-
-#sent-messages-section .message-card {
-    width: 100%;
-    overflow: hidden;
-}
+#sent-messages-section { width: 100%; }
+#sent-messages-section .message-card { width: 100%; }
 
 @media (max-width: 768px) {
-    #sent-messages-section .message-card {
-        border-radius: 10px;
+
+    #sent-messages-section .message-card { border-radius: 10px; }
+
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
     }
+
+    .table-container::-webkit-scrollbar        { height: 4px; }
+    .table-container::-webkit-scrollbar-track  { background: transparent; }
+    .table-container::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
 
     .messages-table {
-        min-width: unset;
+        min-width: 360px;   
         width: 100%;
-        table-layout: fixed;
+        table-layout: auto; 
     }
 
-    .messages-table th,
-    .messages-table td {
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .messages-table th:nth-child(3),
+    .messages-table td:nth-child(3) { display: none; }
+
+    .messages-table th:nth-child(1),
+    .messages-table td:nth-child(1) {
+        width: 88px;
         white-space: nowrap;
     }
 
     .messages-table th:nth-child(2),
     .messages-table td:nth-child(2) {
-        width: 60%;
-    }
-
-    .messages-table th:nth-child(4),
-    .messages-table td:nth-child(4) {
-        width: 48px;
-        text-align: center;
+        min-width: 160px;
     }
 
     .message-preview {
-        max-width: 100%;
-    }
-}
-
-@media (max-width: 480px) {
-    .messages-table {
-        min-width: unset;
-        width: 100%;
-        table-layout: fixed;
-    }
-
-    .messages-table th:nth-child(2),
-    .messages-table td:nth-child(2) {
-        width: 75%;
+        max-width: 320px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .messages-table th:nth-child(4),
     .messages-table td:nth-child(4) {
-        width: 48px;
+        width: 52px;
         text-align: center;
-        padding-left: 4px;
-        padding-right: 4px;
+        white-space: nowrap;
     }
 
-    .delete-btn {
-        margin: 0 auto;
-    }
+    .delete-btn { margin: 0 auto; }
+
+    .messages-table th,
+    .messages-table td { padding: 12px 14px; font-size: 13px; }
+}
+
+@media (max-width: 480px) {
+    .messages-table th,
+    .messages-table td { padding: 10px 10px; font-size: 12px; }
+
+    .messages-table th:nth-child(1),
+    .messages-table td:nth-child(1) { width: 76px; }
+
+    .message-preview { max-width: 200px; }
 }
