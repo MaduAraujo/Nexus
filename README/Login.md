@@ -1,4 +1,4 @@
-# Tela de Login
+# Nexus - Tela de Login
 O módulo de autenticação da Nexus foi projetado para oferecer uma experiência personalizada desde o primeiro contato, 
 garantindo que a interface se adapte ao nível de permissão do usuário.
 
@@ -9,9 +9,9 @@ garantindo que a interface se adapte ao nível de permissão do usuário.
 ```
 nexus/
 ├── screens/
-│   └── login.html          # Markup principal da tela
+│   └── login.html          # Estrutura HTML da tela
 ├── styles/
-│   └── login.css           # Estilos da tela
+│   └── login.css           # Estilos e responsividade
 ├── javascript/
 │   └── login.js            # Lógica e interações
 └── assets/
