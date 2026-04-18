@@ -486,6 +486,7 @@ body {
 
 .send-button.sent-success i { animation: scaleCheck 0.3s ease-out; }
 
+/* ── Tabela (desktop) ────────────────────────────────────── */
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -573,24 +574,44 @@ body {
     transform: scale(1.05);
 }
 
+/* ── Cards mobile ────────────────────────────────────────── */
 .messages-cards {
-    display: none; 
+    display: none;
     flex-direction: column;
-    gap: 0;
+    gap: 12px;
+    padding: 16px;
 }
 
 .msg-card-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 16px 20px;
-    border-bottom: 1px solid #f1f5f9;
-    transition: background 0.15s;
+    gap: 14px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(99,102,241,0.04);
+    transition: box-shadow 0.2s, transform 0.2s;
+    position: relative;
+    overflow: hidden;
 }
 
-.msg-card-item:last-child { border-bottom: none; }
-.msg-card-item:hover      { background: #f8fafc; }
+.msg-card-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 3px 0 0 3px;
+}
+
+.msg-card-item:active {
+    transform: scale(0.985);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
 
 .msg-card-body { flex: 1; min-width: 0; }
 
@@ -598,7 +619,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
 }
 
@@ -606,32 +627,38 @@ body {
     font-size: 11px;
     font-weight: 700;
     color: var(--accent);
+    letter-spacing: 0.03em;
     white-space: nowrap;
 }
 
 .msg-card-dest {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     background: var(--accent-light);
     color: var(--accent);
     font-size: 10px;
-    font-weight: 600;
-    padding: 2px 8px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 9px;
     border-radius: 20px;
     white-space: nowrap;
 }
 
 .msg-card-text {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: 13.5px;
+    color: var(--text-primary);
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
 .msg-card-actions { flex-shrink: 0; }
 
+/* ── Modal ───────────────────────────────────────────────── */
 .modal-overlay {
     display: none;
     position: fixed;
@@ -748,6 +775,7 @@ body {
 #sent-messages-section { width: 100%; }
 #sent-messages-section .message-card { width: 100%; }
 
+/* ── Responsividade ──────────────────────────────────────── */
 @media (max-width: 1280px) {
     .content { padding: 32px 28px; }
 }
@@ -800,8 +828,18 @@ body {
 
     .destination-grid { grid-template-columns: 1fr 1fr; }
 
+    /* Troca tabela → cards no mobile */
     .table-container  { display: none; }
     .messages-cards   { display: flex; }
+
+    /* Remove borda/radius do wrapper quando exibe cards soltos */
+    #sent-messages-section .message-card {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+    }
 }
 
 @media (max-width: 480px) {
