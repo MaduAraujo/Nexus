@@ -14,7 +14,7 @@ A tela de Arquivos é composta por três áreas principais:
 
 ---
 
-## 🗂️ Estrutura de Arquivos
+## Estrutura de Arquivos
 
 ```
 nexus/
