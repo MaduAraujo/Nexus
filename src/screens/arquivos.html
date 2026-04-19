@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Arquivos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/arquivos.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/dashboard.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/colaboradores.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Colaboradores</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="../screens/arquivos.html" class="nav-link active">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Arquivos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Pagamentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                        <span class="nav-text">Analisar Currículo</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/comunicação.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicação Interna</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name">Administrador</p>
+                    <p class="user-role">Recursos Humanos</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Arquivos</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn-primary" id="btn-upload" onclick="openUploadModal()">
+                    <i class="fas fa-upload"></i>
+                    <span>Enviar Arquivo</span>
+                </button>
+            </div>
+        </header>
+
+        <button class="btn-fab" id="btn-fab" onclick="openUploadModal()" aria-label="Enviar Arquivo">
+            <i class="fas fa-upload"></i>
+        </button>
+
+        <main class="content">
+            <div class="page-body">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--blue"><i class="fas fa-file-alt"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="total-count">0</span>
+                            <span class="stat-label">Total de Arquivos</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--green"><i class="fas fa-user-plus"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="admissional-count">0</span>
+                            <span class="stat-label">Admissionais</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--red"><i class="fas fa-user-minus"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="demissional-count">0</span>
+                            <span class="stat-label">Demissionais</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="tabs-nav">
+                        <button class="tab-btn active" data-tab="admissional">
+                            <i class="fas fa-user-plus"></i> Admissional
+                        </button>
+                        <button class="tab-btn" data-tab="demissional">
+                            <i class="fas fa-user-minus"></i> Demissional
+                        </button>
+                    </div>
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="search-input" placeholder="Buscar arquivo ou colaborador…">
+                        <button class="search-clear hidden" id="search-clear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-container">
+                        <table class="files-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-file"></i> Arquivo</th>
+                                    <th><i class="fas fa-user"></i> Colaborador</th>
+                                    <th><i class="fas fa-tag"></i> Tipo</th>
+                                    <th><i class="fas fa-calendar-alt"></i> Data</th>
+                                    <th><i class="fas fa-weight"></i> Tamanho</th>
+                                    <th><i class="fas fa-cog"></i> Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal-overlay" id="upload-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-upload"></i> Enviar Arquivo</h3>
+            <button class="close-modal" onclick="closeUploadModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Colaborador</label>
+                <input type="text" id="upload-employee" placeholder="Nome do colaborador">
+            </div>
+            <div class="form-group">
+                <label>Categoria</label>
+                <select id="upload-category">
+                    <option value="" disabled selected>Selecione</option>
+                    <optgroup label="Admissional">
+                        <option value="admissional|RG">RG</option>
+                        <option value="admissional|CPF">CPF</option>
+                        <option value="admissional|Comprovante de Residência">Comprovante de Residência</option>
+                        <option value="admissional|Exame Admissional">Exame Admissional</option>
+                        <option value="admissional|Carteira de Trabalho">Carteira de Trabalho</option>
+                        <option value="admissional|Contrato de Trabalho">Contrato de Trabalho</option>
+                        <option value="admissional|Outros">Outros (Admissional)</option>
+                    </optgroup>
+                    <optgroup label="Demissional">
+                        <option value="demissional|Aviso Prévio">Aviso Prévio</option>
+                        <option value="demissional|Termo de Rescisão">Termo de Rescisão</option>
+                        <option value="demissional|Exame Demissional">Exame Demissional</option>
+                        <option value="admissional|Carteira de Trabalho">Carteira de Trabalho</option>
+                        <option value="demissional|Homologação">Homologação</option>
+                        <option value="demissional|Guia FGTS">Guia FGTS</option>
+                        <option value="demissional|Outros">Outros (Demissional)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Arquivo</label>
+                <div class="drop-zone" id="drop-zone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Arraste o arquivo ou <span>clique para selecionar</span></p>
+                    <small>PDF, DOCX, JPG</small>
+                    <input type="file" id="file-input" accept=".pdf,.docx,.jpg" hidden>
+                </div>
+                <div class="file-selected hidden" id="file-selected">
+                    <i class="fas fa-file-check"></i>
+                    <span id="file-selected-name"></span>
+                    <button onclick="clearFileInput()"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeUploadModal()">Cancelar</button>
+            <button class="btn-primary" onclick="submitUpload()">
+                <i class="fas fa-upload"></i> Enviar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="../javascript/arquivos.js"></script>
+</body>
+</html>
