@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Minha Área</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/colaborador.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item active">
+                    <a href="../screens/colaborador.html" class="nav-link active">
+                        <span class="nav-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Início</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/perfil-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-user"></i></span>
+                        <span class="nav-text">Meu Perfil</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Holerites</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Meus Documentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
+                        <span class="nav-text">Férias</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicados</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card" id="sidebar-user-card">
+                <div class="user-avatar" id="sidebar-avatar">?</div>
+                <div class="user-info">
+                    <p class="user-name" id="sidebar-name">—</p>
+                    <p class="user-role" id="sidebar-role">Colaborador</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Minha Área</h1>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-logout" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+                <div class="welcome-banner">
+                    <div class="welcome-left">
+                        <div class="welcome-avatar" id="welcome-avatar">?</div>
+                        <div class="welcome-text">
+                            <p class="welcome-greeting" id="welcome-greeting">Olá!</p>
+                            <p class="welcome-name" id="welcome-name">Colaborador</p>
+                            <p class="welcome-meta" id="welcome-meta">—</p>
+                        </div>
+                    </div>
+                    <div class="welcome-badge" id="welcome-badge">
+                        <i class="fas fa-circle"></i>
+                        <span id="welcome-status">Ativo</span>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-icon info-icon--blue"><i class="fas fa-briefcase"></i></div>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Cargo</span>
+                            <span class="info-card-value" id="info-role">—</span>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-icon info-icon--purple"><i class="fas fa-building"></i></div>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Departamento</span>
+                            <span class="info-card-value" id="info-dept">—</span>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-icon info-icon--green"><i class="fas fa-calendar-check"></i></div>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Data de Admissão</span>
+                            <span class="info-card-value" id="info-admission">—</span>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-icon info-icon--orange"><i class="fas fa-envelope"></i></div>
+                        <div class="info-card-body">
+                            <span class="info-card-label">E-mail</span>
+                            <span class="info-card-value" id="info-email">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title-row">
+                    <h2 class="section-title">Acesso Rápido</h2>
+                </div>
+
+                <div class="quick-actions">
+                    <button class="quick-card" onclick="showToast('Em breve!', 'info')">
+                        <div class="quick-icon quick-icon--blue"><i class="fas fa-file-invoice-dollar"></i></div>
+                        <span class="quick-label">Ver Holerite</span>
+                        <span class="quick-desc">Mês atual</span>
+                    </button>
+                    <button class="quick-card" onclick="showToast('Em breve!', 'info')">
+                        <div class="quick-icon quick-icon--green"><i class="fas fa-umbrella-beach"></i></div>
+                        <span class="quick-label">Solicitar Férias</span>
+                        <span class="quick-desc">Agendar período</span>
+                    </button>
+                    <button class="quick-card" onclick="showToast('Em breve!', 'info')">
+                        <div class="quick-icon quick-icon--purple"><i class="fas fa-folder-open"></i></div>
+                        <span class="quick-label">Documentos</span>
+                        <span class="quick-desc">Meus arquivos</span>
+                    </button>
+                    <button class="quick-card" onclick="showToast('Em breve!', 'info')">
+                        <div class="quick-icon quick-icon--orange"><i class="fas fa-user-edit"></i></div>
+                        <span class="quick-label">Atualizar Dados</span>
+                        <span class="quick-desc">Perfil pessoal</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="../javascript/colaborador.js"></script>
+</body>
+</html>

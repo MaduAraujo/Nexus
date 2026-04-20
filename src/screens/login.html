@@ -30,9 +30,7 @@
             <div class="profile-grid">
                 <div class="profile-card rh" onclick="selectProfile('rh', this)">
                     <div class="profile-check">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                        </svg>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="profile-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
@@ -48,9 +46,7 @@
 
                 <div class="profile-card colaborador" onclick="selectProfile('colaborador', this)">
                     <div class="profile-check">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                        </svg>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="profile-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="2">
@@ -70,9 +66,7 @@
 
         <div id="form-login" class="form-section">
             <button class="back-btn" onclick="switchTab('profile')">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Voltar
             </button>
 
@@ -82,13 +76,14 @@
             <p class="form-subtitle" id="login-subtitle">Acesse sua conta para continuar</p>
 
             <div class="field">
-                <label>Usuário</label>
+                <label>E-mail</label>
                 <div class="field-input-wrap">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
                     </svg>
-                    <input type="text" id="login-user" autocomplete="username" />
+                    <input type="email" id="login-user" autocomplete="username" placeholder="seu@email.com"
+                           onkeydown="if(event.key==='Enter') document.getElementById('login-pass').focus()" />
                 </div>
             </div>
 
@@ -99,7 +94,8 @@
                         <rect x="3" y="11" width="18" height="11" rx="2"/>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
-                    <input type="password" id="login-pass" autocomplete="current-password" />
+                    <input type="password" id="login-pass" autocomplete="current-password"
+                           onkeydown="if(event.key==='Enter') handleLogin()" />
                     <button class="toggle-pw" type="button" onclick="togglePw('login-pass', this)" aria-label="Mostrar senha">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -126,9 +122,7 @@
 
         <div id="form-signup" class="form-section">
             <button class="back-btn" onclick="switchTab('login')">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Voltar
             </button>
 
@@ -138,9 +132,7 @@
             <div class="profile-grid profile-grid--compact">
                 <div class="profile-card rh" onclick="selectSignupProfile('rh', this)">
                     <div class="profile-check">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                        </svg>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="profile-icon-row">
                         <div class="profile-icon">
@@ -157,9 +149,7 @@
 
                 <div class="profile-card colaborador" onclick="selectSignupProfile('colaborador', this)">
                     <div class="profile-check">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3">
-                            <polyline points="20 6 9 17 4 12"/>
-                        </svg>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="profile-icon-row">
                         <div class="profile-icon">
@@ -180,7 +170,7 @@
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    <input type="text" id="signup-name" autocomplete="name" />
+                    <input type="text" id="signup-name" autocomplete="name" placeholder="Seu nome" />
                 </div>
             </div>
 
@@ -191,7 +181,7 @@
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                         <polyline points="22,6 12,13 2,6"/>
                     </svg>
-                    <input type="email" id="signup-email" autocomplete="email" />
+                    <input type="email" id="signup-email" autocomplete="email" placeholder="seu@email.com" />
                 </div>
             </div>
 
@@ -202,7 +192,8 @@
                         <rect x="3" y="11" width="18" height="11" rx="2"/>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
-                    <input type="password" id="signup-pass" autocomplete="new-password" oninput="onSignupPasswordInput(this.value)" />
+                    <input type="password" id="signup-pass" autocomplete="new-password"
+                           oninput="onSignupPasswordInput(this.value)" />
                     <button class="toggle-pw" type="button" onclick="togglePw('signup-pass', this)" aria-label="Mostrar senha">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -244,9 +235,7 @@
 
         <div id="form-forgot" class="form-section">
             <button class="back-btn" onclick="switchTab('login')">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Voltar
             </button>
 
@@ -263,7 +252,6 @@
             <div id="forgot-s1">
                 <p class="form-title">Esqueceu sua senha?</p>
                 <p class="form-subtitle">Informe seu e-mail cadastrado e enviaremos um código de verificação.</p>
-
                 <div class="field">
                     <label>E-mail</label>
                     <div class="field-input-wrap">
@@ -271,17 +259,12 @@
                             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                             <polyline points="22,6 12,13 2,6"/>
                         </svg>
-                        <input
-                            type="email"
-                            id="forgot-email"
-                            autocomplete="email"
-                            oninput="forgotClearErr('forgot-email-err', this)"
-                            onkeydown="if(event.key==='Enter') forgotSendCode()"
-                        />
+                        <input type="email" id="forgot-email" autocomplete="email"
+                               oninput="forgotClearErr('forgot-email-err', this)"
+                               onkeydown="if(event.key==='Enter') forgotSendCode()" />
                     </div>
                     <p class="field-error" id="forgot-email-err"></p>
                 </div>
-
                 <button class="btn-submit" id="btn-forgot-send" onclick="forgotSendCode()">
                     <span id="btn-forgot-send-text">Enviar código</span>
                     <div class="spinner" id="spin-forgot-send"></div>
@@ -290,33 +273,20 @@
 
             <div id="forgot-s2" class="forgot-step-panel">
                 <p class="form-title">Verifique seu e-mail</p>
-                <p class="form-subtitle">
-                    Enviamos um código de 6 dígitos para <strong id="forgot-email-shown"></strong>
-                </p>
-
+                <p class="form-subtitle">Enviamos um código de 6 dígitos para <strong id="forgot-email-shown"></strong></p>
                 <div class="otp-wrap">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp0"
-                        oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" onpaste="otpPaste(event)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp1"
-                        oninput="otpInput(this,1)" onkeydown="otpKey(event,1)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp2"
-                        oninput="otpInput(this,2)" onkeydown="otpKey(event,2)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp3"
-                        oninput="otpInput(this,3)" onkeydown="otpKey(event,3)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp4"
-                        oninput="otpInput(this,4)" onkeydown="otpKey(event,4)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp5"
-                        oninput="otpInput(this,5)" onkeydown="otpKey(event,5)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" onpaste="otpPaste(event)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)">
+                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)">
                 </div>
-
                 <p class="field-error" id="otp-err"></p>
-
                 <p class="resend-row">
-                    Não recebeu?
-                    <a id="resend-link" onclick="forgotResend()">Reenviar</a>
+                    Não recebeu? <a id="resend-link" onclick="forgotResend()">Reenviar</a>
                     <span id="resend-timer"></span>
                 </p>
-
                 <button class="btn-submit" id="btn-otp-verify" onclick="forgotVerifyOtp()" disabled>
                     <span id="btn-otp-text">Verificar</span>
                     <div class="spinner" id="spin-otp"></div>
@@ -326,7 +296,6 @@
             <div id="forgot-s3" class="forgot-step-panel">
                 <p class="form-title">Nova senha</p>
                 <p class="form-subtitle">Crie uma senha diferente da anterior.</p>
-
                 <div class="field">
                     <label>Nova senha</label>
                     <div class="field-input-wrap">
@@ -334,14 +303,9 @@
                             <rect x="3" y="11" width="18" height="11" rx="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        <input
-                            type="password"
-                            id="new-pass"
-                            autocomplete="new-password"
-                            oninput="forgotValidatePass()"
-                            onkeydown="if(event.key==='Enter') forgotReset()"
-                        />
-                        <button class="toggle-pw" type="button" onclick="togglePw('new-pass', this)" aria-label="Mostrar senha">
+                        <input type="password" id="new-pass" autocomplete="new-password"
+                               oninput="forgotValidatePass()" onkeydown="if(event.key==='Enter') forgotReset()" />
+                        <button class="toggle-pw" type="button" onclick="togglePw('new-pass', this)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -350,7 +314,6 @@
                     </div>
                     <p class="field-error" id="new-pass-err"></p>
                 </div>
-
                 <div class="field">
                     <label>Confirmar senha</label>
                     <div class="field-input-wrap">
@@ -358,14 +321,9 @@
                             <rect x="3" y="11" width="18" height="11" rx="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        <input
-                            type="password"
-                            id="confirm-pass"
-                            autocomplete="new-password"
-                            oninput="forgotValidatePass()"
-                            onkeydown="if(event.key==='Enter') forgotReset()"
-                        />
-                        <button class="toggle-pw" type="button" onclick="togglePw('confirm-pass', this)" aria-label="Mostrar confirmação">
+                        <input type="password" id="confirm-pass" autocomplete="new-password"
+                               oninput="forgotValidatePass()" onkeydown="if(event.key==='Enter') forgotReset()" />
+                        <button class="toggle-pw" type="button" onclick="togglePw('confirm-pass', this)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -374,7 +332,6 @@
                     </div>
                     <p class="field-error" id="confirm-pass-err"></p>
                 </div>
-
                 <button class="btn-submit" id="btn-reset" onclick="forgotReset()" disabled>
                     <span id="btn-reset-text">Redefinir senha</span>
                     <div class="spinner" id="spin-reset"></div>
@@ -388,12 +345,8 @@
                     </svg>
                 </div>
                 <p class="form-title">Senha redefinida!</p>
-                <p class="form-subtitle">
-                    Sua senha foi alterada com sucesso.
-                </p>
-                <button class="btn-submit" onclick="switchTab('login')">
-                    Ir para o login
-                </button>
+                <p class="form-subtitle">Sua senha foi alterada com sucesso.</p>
+                <button class="btn-submit" onclick="switchTab('login')">Ir para o login</button>
             </div>
         </div>
     </div>
