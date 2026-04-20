@@ -91,17 +91,35 @@
                 <div class="profile-hero">
                     <div class="avatar-area">
                         <div class="profile-avatar-wrap">
+                            <img class="profile-avatar-img hidden" id="profile-avatar-img" alt="Foto de perfil" />
                             <div class="profile-avatar" id="profile-avatar">?</div>
-                            <button class="avatar-edit-btn" onclick="openColorPicker()" title="Personalizar cor">
-                                <i class="fas fa-palette"></i>
+                            <button class="avatar-edit-btn" id="avatar-edit-btn"
+                                    onclick="toggleAvatarMenu()" title="Editar foto / cor">
+                                <i class="fas fa-camera"></i>
                             </button>
                         </div>
-                        
+                        <div class="avatar-menu" id="avatar-menu">
+                            <button class="avatar-menu-item" onclick="triggerPhotoUpload()">
+                                <i class="fas fa-upload"></i> Enviar foto
+                            </button>
+                            <button class="avatar-menu-item" id="avatar-menu-remove"
+                                    onclick="removePhoto()" style="display:none">
+                                <i class="fas fa-trash-alt"></i> Remover foto
+                            </button>
+                            <button class="avatar-menu-item" onclick="openColorPicker()">
+                                <i class="fas fa-palette"></i> Escolher cor
+                            </button>
+                        </div>
+
+                        <input type="file" id="photo-input" accept="image/*"
+                               style="display:none" onchange="handlePhotoUpload(event)" />
+
                         <div class="color-picker" id="color-picker">
                             <p class="color-picker-title">Cor do avatar</p>
                             <div class="color-swatches" id="color-swatches"></div>
                         </div>
                     </div>
+
                     <div class="profile-hero-info">
                         <h2 class="profile-hero-name" id="profile-hero-name">—</h2>
                         <p class="profile-hero-sub" id="profile-hero-sub">—</p>
@@ -114,6 +132,12 @@
                 <div class="profile-tabs">
                     <button class="ptab active" data-ptab="info" onclick="switchPTab(this,'info')">
                         <i class="fas fa-id-card"></i> Informações
+                    </button>
+                    <button class="ptab" data-ptab="professional" onclick="switchPTab(this,'professional')">
+                        <i class="fas fa-briefcase"></i> Profissional
+                    </button>
+                    <button class="ptab" data-ptab="notifications" onclick="switchPTab(this,'notifications')">
+                        <i class="fas fa-bell"></i> Notificações
                     </button>
                     <button class="ptab" data-ptab="security" onclick="switchPTab(this,'security')">
                         <i class="fas fa-lock"></i> Segurança
@@ -160,7 +184,8 @@
                                     </div>
                                     <div class="edit-group edit-group--full">
                                         <label>Sobre mim</label>
-                                        <textarea id="edit-bio" rows="3" placeholder="Escreva algo sobre você..."></textarea>
+                                        <textarea id="edit-bio" rows="3"
+                                                  placeholder="Escreva algo sobre você..."></textarea>
                                     </div>
                                 </div>
                                 <div class="edit-actions">
@@ -168,6 +193,179 @@
                                     <button class="btn-save-edit" onclick="saveInfo()">
                                         <i class="fas fa-check"></i> Salvar alterações
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ptab-professional" class="ptab-panel hidden">
+                    <div class="profile-card">
+                        <div class="profile-card-header">
+                            <h3><i class="fas fa-building"></i> Dados Profissionais</h3>
+                        </div>
+                        <div class="profile-card-body">
+                            <div class="info-row-grid">
+                                <div class="info-field">
+                                    <span class="info-field-label">Cargo</span>
+                                    <span class="info-field-value" id="prof-role">—</span>
+                                </div>
+                                <div class="info-field">
+                                    <span class="info-field-label">Departamento</span>
+                                    <span class="info-field-value" id="prof-dept">—</span>
+                                </div>
+                                <div class="info-field">
+                                    <span class="info-field-label">Data de Admissão</span>
+                                    <span class="info-field-value" id="prof-admission">—</span>
+                                </div>
+                                <div class="info-field">
+                                    <span class="info-field-label">Tempo de empresa</span>
+                                    <span class="info-field-value" id="prof-tenure">—</span>
+                                </div>
+                                <div class="info-field">
+                                    <span class="info-field-label">Status</span>
+                                    <span class="info-field-value" id="prof-status">—</span>
+                                </div>
+                                <div class="info-field">
+                                    <span class="info-field-label">Perfil de acesso</span>
+                                    <span class="info-field-value" id="prof-profile">—</span>
+                                </div>
+                            </div>
+
+                            <div class="prof-highlights">
+                                <div class="prof-highlight-card">
+                                    <div class="prof-highlight-icon prof-icon--blue">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </div>
+                                    <div class="prof-highlight-body">
+                                        <span class="prof-highlight-label">Dias na empresa</span>
+                                        <strong class="prof-highlight-value" id="prof-days">—</strong>
+                                    </div>
+                                </div>
+                                <div class="prof-highlight-card">
+                                    <div class="prof-highlight-icon prof-icon--green">
+                                        <i class="fas fa-umbrella-beach"></i>
+                                    </div>
+                                    <div class="prof-highlight-body">
+                                        <span class="prof-highlight-label">Férias disponíveis</span>
+                                        <strong class="prof-highlight-value">30 dias</strong>
+                                    </div>
+                                </div>
+                                <div class="prof-highlight-card">
+                                    <div class="prof-highlight-icon prof-icon--purple">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="prof-highlight-body">
+                                        <span class="prof-highlight-label">Banco de horas</span>
+                                        <strong class="prof-highlight-value">+2h 30min</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="prof-readonly-note">
+                                <i class="fas fa-info-circle"></i>
+                                Esses dados são gerenciados pelo RH. Para solicitar alterações,
+                                entre em contato com o departamento de Recursos Humanos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ptab-notifications" class="ptab-panel hidden">
+                    <div class="profile-card">
+                        <div class="profile-card-header">
+                            <h3><i class="fas fa-bell"></i> Preferências de Notificação</h3>
+                        </div>
+                        <div class="profile-card-body">
+                            <p class="notif-desc">
+                                Escolha quais notificações você deseja receber na plataforma.
+                            </p>
+
+                            <div class="notif-list">
+
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--blue">
+                                        <i class="fas fa-bullhorn"></i>
+                                    </div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Comunicados</p>
+                                        <p class="notif-item-desc">Novos avisos e comunicados enviados pelo RH</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-comunicados" checked
+                                               onchange="saveNotifPref('comunicados', this.checked)" />
+                                        <span class="toggle-track">
+                                            <span class="toggle-thumb"></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--green">
+                                        <i class="fas fa-file-invoice-dollar"></i>
+                                    </div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Holerite disponível</p>
+                                        <p class="notif-item-desc">Alerta quando um novo holerite for publicado</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-holerite" checked
+                                               onchange="saveNotifPref('holerite', this.checked)" />
+                                        <span class="toggle-track">
+                                            <span class="toggle-thumb"></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--orange">
+                                        <i class="fas fa-umbrella-beach"></i>
+                                    </div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Férias</p>
+                                        <p class="notif-item-desc">Atualizações sobre solicitações e períodos de férias</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-ferias" checked
+                                               onchange="saveNotifPref('ferias', this.checked)" />
+                                        <span class="toggle-track">
+                                            <span class="toggle-thumb"></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--purple">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Banco de horas</p>
+                                        <p class="notif-item-desc">Alertas sobre saldo e registros de ponto</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-horas"
+                                               onchange="saveNotifPref('horas', this.checked)" />
+                                        <span class="toggle-track">
+                                            <span class="toggle-thumb"></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--red">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Segurança da conta</p>
+                                        <p class="notif-item-desc">Alertas de login, alteração de senha e acesso</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-seguranca" checked
+                                               onchange="saveNotifPref('seguranca', this.checked)" />
+                                        <span class="toggle-track">
+                                            <span class="toggle-thumb"></span>
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -185,7 +383,8 @@
                                     <label>Senha atual</label>
                                     <div class="pw-wrap">
                                         <input type="password" id="curr-pass" placeholder="••••••••" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('curr-pass', this)">
+                                        <button class="toggle-pw-small"
+                                                onclick="togglePwSmall('curr-pass', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -195,7 +394,8 @@
                                     <div class="pw-wrap">
                                         <input type="password" id="new-pass-profile" placeholder="••••••••"
                                                oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('new-pass-profile', this)">
+                                        <button class="toggle-pw-small"
+                                                onclick="togglePwSmall('new-pass-profile', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -205,7 +405,8 @@
                                     <div class="pw-wrap">
                                         <input type="password" id="confirm-pass-profile" placeholder="••••••••"
                                                oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('confirm-pass-profile', this)">
+                                        <button class="toggle-pw-small"
+                                                onclick="togglePwSmall('confirm-pass-profile', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -213,7 +414,8 @@
                                 </div>
                             </div>
                             <div class="edit-actions">
-                                <button class="btn-save-edit" id="btn-change-pw" onclick="changePassword()" disabled>
+                                <button class="btn-save-edit" id="btn-change-pw"
+                                        onclick="changePassword()" disabled>
                                     <i class="fas fa-lock"></i> Alterar senha
                                 </button>
                             </div>
@@ -222,20 +424,25 @@
 
                     <div class="profile-card danger-card">
                         <div class="profile-card-header">
-                            <h3 class="danger-title"><i class="fas fa-exclamation-triangle"></i> Zona de Perigo</h3>
+                            <h3 class="danger-title">
+                                <i class="fas fa-exclamation-triangle"></i> Zona de Perigo
+                            </h3>
                         </div>
                         <div class="profile-card-body">
                             <div class="danger-row">
                                 <div>
                                     <p class="danger-label">Encerrar sessão em todos os dispositivos</p>
-                                    <p class="danger-desc">Você será desconectado de todos os acessos ativos.</p>
+                                    <p class="danger-desc">
+                                        Você será desconectado de todos os acessos ativos.
+                                    </p>
                                 </div>
-                                <button class="btn-danger-outline" onclick="logoutAll()">Encerrar sessões</button>
+                                <button class="btn-danger-outline" onclick="logoutAll()">
+                                    Encerrar sessões
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
