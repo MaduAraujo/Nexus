@@ -70,11 +70,11 @@ window.handleLogin = function () {
         localStorage.setItem('nexus_session', JSON.stringify(sessionUser));
 
         if (found.profile === 'rh') {
-            window.location.href = 'dashboard.html';
+            window.location.href = '../screens/dashboard.html';
         } else if (found.firstAccess !== false) {
             openFirstAccessModal(found.email);
         } else {
-            window.location.href = 'inicio-colaborador.html';
+            window.location.href = '../screens/inicio-colaborador.html';
         }
     }, 1400);
 };
@@ -185,7 +185,7 @@ window.submitFirstAccess = function (userEmail) {
             const { password: _pw, ...session } = users[idx];
             localStorage.setItem('nexus_session', JSON.stringify(session));
         }
-        window.location.href = 'inicio-colaborador.html';
+        window.location.href = '../screens/inicio-colaborador.html';
     }, 900);
 };
 
