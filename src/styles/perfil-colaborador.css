@@ -570,17 +570,22 @@ html {
 }
 
 .prof-highlights {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-direction: row;
     gap: 12px;
     margin-top: 20px;
 }
 
 .prof-highlight-card {
-    background: var(--bg-page); border-radius: 10px;
+    background: var(--bg-page); 
+    border-radius: 10px;
     border: 1px solid var(--border-color);
-    padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px;
-    min-width: 0; 
+    padding: 14px 16px; 
+    display: flex; 
+    align-items: flex-start; 
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
 }
 
 .prof-highlight-icon {
@@ -622,7 +627,15 @@ html {
 
 @media (max-width: 640px) {
     .prof-highlights {
-        grid-template-columns: 1fr 1fr;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px;
+    }
+
+    .prof-highlight-card {
+        flex: 0 0 200px;
+        scroll-snap-align: start;
     }
 
     .prof-highlight-card:last-child:nth-child(odd) {
@@ -631,7 +644,10 @@ html {
 }
 
 @media (max-width: 400px) {
-    .prof-highlights { grid-template-columns: 1fr; }
+   .prof-highlight-card {
+        flex: 0 0 180px;
+    }
+    
     .prof-highlight-card:last-child:nth-child(odd) { grid-column: span 1; }
 }
 
