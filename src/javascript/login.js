@@ -74,7 +74,7 @@ window.handleLogin = function () {
         } else if (found.firstAccess !== false) {
             openFirstAccessModal(found.email);
         } else {
-            window.location.href = 'colaborador.html';
+            window.location.href = 'inicio-colaborador.html';
         }
     }, 1400);
 };
@@ -185,7 +185,7 @@ window.submitFirstAccess = function (userEmail) {
             const { password: _pw, ...session } = users[idx];
             localStorage.setItem('nexus_session', JSON.stringify(session));
         }
-        window.location.href = 'colaborador.html';
+        window.location.href = 'inicio-colaborador.html';
     }, 900);
 };
 
