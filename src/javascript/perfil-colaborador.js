@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let note = '';
         if (meses < 12) {
             const falta = Math.ceil(12 - meses);
-            note = `Período aquisitivo em andamento — faltam ${falta} mês(es)`;
+            note = `Faltam ${falta} mês(es)`;
         } else if (diasDisponiveis === 0) {
             note = `Férias em andamento ou já utilizadas`;
         } else {
