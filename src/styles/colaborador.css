@@ -870,7 +870,6 @@ body {
 
 @media (max-width: 480px) {
     .section-title {
-        margin-top: 5px;
         font-size: 0.9rem; 
         margin-left: 10px;
     }
