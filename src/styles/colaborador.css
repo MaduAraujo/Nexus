@@ -584,6 +584,7 @@ body {
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-main);
+    margin-bottom: 10px;
 }
 
 .quick-actions {
@@ -815,6 +816,10 @@ body {
 }
 
 @media (max-width: 768px) {
+    .section-title {
+        font-size: 0.95rem; 
+    }
+
     .sidebar {
         transform: translateX(-100%);
         width: var(--sidebar-w) !important;
@@ -863,6 +868,11 @@ body {
 }
 
 @media (max-width: 480px) {
+    .section-title {
+        font-size: 0.9rem; 
+        margin-bottom: 10px;
+    }
+
     .page-body { padding: 12px; gap: 14px; }
 
     .welcome-banner {
