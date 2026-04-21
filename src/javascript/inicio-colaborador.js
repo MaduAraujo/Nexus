@@ -1,6 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-
-    // ── Sessão ────────────────────────────────────────────────
     const session = (() => {
         try {
             const s = localStorage.getItem('nexus_session');
@@ -8,13 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch { return null; }
     })();
 
-    // Redireciona se não houver sessão ou for RH
     if (!session || session.profile === 'rh') {
         window.location.href = '../screens/login.html';
         return;
     }
 
-    // ── Sidebar ───────────────────────────────────────────────
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
@@ -52,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMobile()) closeMobileSidebar(); });
 
-    // ── Preenche dados da sessão ──────────────────────────────
     const initials = session.name
         .split(' ')
         .slice(0, 2)
@@ -72,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${d}/${m}/${y}`;
     };
 
-    // Sidebar footer
     const sidebarAvatar = document.getElementById('sidebar-avatar');
     const sidebarName   = document.getElementById('sidebar-name');
     const sidebarRole   = document.getElementById('sidebar-role');
@@ -80,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sidebarName)   sidebarName.textContent   = session.name;
     if (sidebarRole)   sidebarRole.textContent   = session.role || 'Colaborador';
 
-    // Welcome banner
     const welcomeAvatar   = document.getElementById('welcome-avatar');
     const welcomeGreeting = document.getElementById('welcome-greeting');
     const welcomeName     = document.getElementById('welcome-name');
@@ -94,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (welcomeMeta)     welcomeMeta.textContent      = `${session.role || '—'} · ${session.dept || '—'}`;
     if (welcomeStatus)   welcomeStatus.textContent    = session.status || 'Ativo';
 
-    // Badge cor conforme status
     if (welcomeBadge) {
         const dot = welcomeBadge.querySelector('i');
         if (session.status === 'Ativo' && dot) dot.style.color = '#4ade80';
@@ -102,14 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (dot) dot.style.color = '#f87171';
     }
 
-    // Info cards
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
     set('info-role',      session.role);
     set('info-dept',      session.dept);
     set('info-admission', formatDate(session.admissionDate));
     set('info-email',     session.email);
 
-    // ── Comunicados ───────────────────────────────────────────
     const comunicadosList = document.getElementById('comunicados-list');
 
     function renderComunicados() {
@@ -120,10 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('nexus_messages');
             if (saved) {
                 const all = JSON.parse(saved);
-                // Filtra mensagens destinadas ao dept ou a "Todos"
                 mensagens = all.filter(m =>
                     m.destino === 'Todos' || m.destino === session.dept
-                ).slice(0, 5); // máximo 5 recentes
+                ).slice(0, 5); 
             }
         } catch { mensagens = []; }
 
@@ -155,13 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderComunicados();
 
-    // ── Logout ────────────────────────────────────────────────
     window.logout = function () {
         localStorage.removeItem('nexus_session');
         window.location.href = '../screens/login.html';
     };
 
-    // ── Toast ─────────────────────────────────────────────────
     window.showToast = function (title, type = 'success', msg = '') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = document.getElementById('toast-container');
