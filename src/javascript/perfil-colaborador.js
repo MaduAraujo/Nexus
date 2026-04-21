@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const isMobile = () => window.innerWidth <= 767;
 
-    function openMobileSidebar()  {
+    function openMobileSidebar() {
         sidebar?.classList.add('open');
         sidebarOverlay?.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -64,8 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
         '#f59e0b','#3b82f6','#ef4444','#14b8a6','#f97316','#84cc16'
     ];
 
-    const initials  = (name) => (name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
-    const formatDate = (str) => { if (!str) return '—'; const [y,m,d] = str.split('-'); return `${d}/${m}/${y}`; };
+    const initials   = (name) => (name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
+    const formatDate = (str)  => { if (!str) return '—'; const [y,m,d] = str.split('-'); return `${d}/${m}/${y}`; };
     const setEl      = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
     const setInput   = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
 
@@ -78,18 +78,21 @@ document.addEventListener('DOMContentLoaded', () => {
         setEl('sidebar-name', session.name);
         setEl('sidebar-role', session.role || 'Colaborador');
 
-        const avatarImg = document.getElementById('profile-avatar-img');
-        const avatarDiv = document.getElementById('profile-avatar');
+        const avatarImg   = document.getElementById('profile-avatar-img');
+        const avatarDiv   = document.getElementById('profile-avatar');
+        const removeBtn   = document.getElementById('avatar-menu-remove');
 
         if (session.avatarPhoto) {
             if (avatarImg) { avatarImg.src = session.avatarPhoto; avatarImg.classList.remove('hidden'); }
             if (avatarDiv) avatarDiv.classList.add('hidden');
-            const removeBtn = document.getElementById('avatar-menu-remove');
             if (removeBtn) removeBtn.style.display = 'flex';
         } else {
             if (avatarImg) avatarImg.classList.add('hidden');
-            if (avatarDiv) { avatarDiv.classList.remove('hidden'); avatarDiv.textContent = ini; avatarDiv.style.background = color; }
-            const removeBtn = document.getElementById('avatar-menu-remove');
+            if (avatarDiv) {
+                avatarDiv.classList.remove('hidden');
+                avatarDiv.textContent = ini;
+                avatarDiv.style.background = color;
+            }
             if (removeBtn) removeBtn.style.display = 'none';
         }
 
@@ -98,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const badge = document.getElementById('profile-status-badge');
         if (badge) {
-            badge.innerHTML = `<i class="fas fa-circle"></i> ${session.status || 'Ativo'}`;
-            const dot = badge.querySelector('i');
-            if (dot) dot.style.color = session.status === 'Ativo' ? '#4ade80' : session.status === 'Férias' ? '#facc15' : '#f87171';
+            const statusColor = session.status === 'Ativo' ? '#4ade80'
+                              : session.status === 'Férias' ? '#facc15' : '#f87171';
+            badge.innerHTML = `<i class="fas fa-circle" style="color:${statusColor}"></i> ${session.status || 'Ativo'}`;
         }
 
         setEl('view-name',  session.name);
@@ -117,15 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (session.admissionDate) {
             const admDate = new Date(session.admissionDate);
             const today   = new Date();
-            const diffMs  = today - admDate;
-            const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const days    = Math.floor((today - admDate) / 86400000);
             const months  = Math.floor(days / 30);
             const years   = Math.floor(months / 12);
 
             let tenure = '';
-            if (years > 0)       tenure = `${years} ano${years > 1 ? 's' : ''} e ${months % 12} mês(es)`;
-            else if (months > 0) tenure = `${months} mês(es)`;
-            else                 tenure = `${days} dia(s)`;
+            if (years > 0)        tenure = `${years} ano${years > 1 ? 's' : ''} e ${months % 12} mês(es)`;
+            else if (months > 0)  tenure = `${months} mês(es)`;
+            else                  tenure = `${days} dia(s)`;
 
             setEl('prof-tenure', tenure);
             setEl('prof-days',   days.toLocaleString('pt-BR'));
@@ -138,7 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.switchPTab = function (btn, tabId) {
         document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.ptab-panel').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
+        document.querySelectorAll('.ptab-panel').forEach(p => {
+            p.classList.remove('active');
+            p.classList.add('hidden');
+        });
         btn.classList.add('active');
         const panel = document.getElementById('ptab-' + tabId);
         if (panel) { panel.classList.remove('hidden'); panel.classList.add('active'); }
@@ -182,7 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         session = { ...session, name, phone, bio };
         localStorage.setItem('nexus_session', JSON.stringify(session));
         syncUsersRecord({ name, phone, bio });
-
         applySession();
         cancelEditInfo();
         showToast('Perfil atualizado!', 'success');
@@ -192,22 +196,88 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
             const idx   = users.findIndex(u => u.email === session.email);
-            if (idx !== -1) { users[idx] = { ...users[idx], ...fields }; localStorage.setItem('nexus_users', JSON.stringify(users)); }
+            if (idx !== -1) {
+                users[idx] = { ...users[idx], ...fields };
+                localStorage.setItem('nexus_users', JSON.stringify(users));
+            }
         } catch {}
+    }
+
+    function positionFloating(el, anchor) {
+        const rect   = anchor.getBoundingClientRect();
+        const margin = 8;
+        let top  = rect.bottom + margin;
+        let left = rect.left;
+
+        const elWidth = el.offsetWidth || 192;
+        if (left + elWidth > window.innerWidth - 12) {
+            left = window.innerWidth - elWidth - 12;
+        }
+
+        const elHeight = el.offsetHeight || 160;
+        if (top + elHeight > window.innerHeight - 12) {
+            top = rect.top - elHeight - margin;
+        }
+
+        el.style.top  = top  + 'px';
+        el.style.left = left + 'px';
     }
 
     window.toggleAvatarMenu = function () {
         const menu   = document.getElementById('avatar-menu');
         const picker = document.getElementById('color-picker');
-        if (!menu) return;
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!menu || !btn) return;
+
         picker?.classList.remove('open');
-        menu.classList.toggle('open');
+
+        if (menu.classList.contains('open')) {
+            menu.classList.remove('open');
+        } else {
+            menu.classList.add('open');
+            positionFloating(menu, btn);
+        }
     };
 
-    function closeAvatarMenu() { document.getElementById('avatar-menu')?.classList.remove('open'); }
+    function closeAvatarMenu() {
+        document.getElementById('avatar-menu')?.classList.remove('open');
+    }
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.avatar-area')) { closeAvatarMenu(); closeColorPicker(); }
+        const menu   = document.getElementById('avatar-menu');
+        const picker = document.getElementById('color-picker');
+        const btn    = document.getElementById('avatar-edit-btn');
+
+        if (menu?.classList.contains('open') &&
+            !e.target.closest('#avatar-menu') &&
+            !e.target.closest('#avatar-edit-btn')) {
+            closeAvatarMenu();
+        }
+
+        if (picker?.classList.contains('open') &&
+            !e.target.closest('#color-picker') &&
+            !e.target.closest('#avatar-edit-btn') &&
+            !e.target.closest('#avatar-menu')) {
+            closeColorPicker();
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        const menu   = document.getElementById('avatar-menu');
+        const picker = document.getElementById('color-picker');
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!btn) return;
+        if (menu?.classList.contains('open'))   positionFloating(menu, btn);
+        if (picker?.classList.contains('open')) positionFloating(picker, btn);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        const menu   = document.getElementById('avatar-menu');
+        const picker = document.getElementById('color-picker');
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!btn) return;
+        if (menu?.classList.contains('open'))   positionFloating(menu, btn);
+        if (picker?.classList.contains('open')) positionFloating(picker, btn);
     });
 
     window.triggerPhotoUpload = function () {
@@ -219,8 +289,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) { showToast('Selecione uma imagem.', 'error'); return; }
-        if (file.size > 2 * 1024 * 1024)    { showToast('Imagem deve ter até 2 MB.', 'warning'); return; }
+        if (!file.type.startsWith('image/')) {
+            showToast('Selecione uma imagem válida.', 'error');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('A imagem deve ter no máximo 2 MB.', 'warning');
+            return;
+        }
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -244,12 +320,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.openColorPicker = function () {
-        closeAvatarMenu();
+        const menu   = document.getElementById('avatar-menu');
         const picker = document.getElementById('color-picker');
-        picker?.classList.toggle('open');
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!picker || !btn) return;
+
+        menu?.classList.remove('open');
+
+        if (picker.classList.contains('open')) {
+            picker.classList.remove('open');
+        } else {
+            picker.classList.add('open');
+            positionFloating(picker, btn);
+        }
     };
 
-    function closeColorPicker() { document.getElementById('color-picker')?.classList.remove('open'); }
+    function closeColorPicker() {
+        document.getElementById('color-picker')?.classList.remove('open');
+    }
 
     function buildColorSwatches() {
         const container = document.getElementById('color-swatches');
@@ -305,14 +393,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg  = document.getElementById('pw-match-msg');
         const btn  = document.getElementById('btn-change-pw');
 
-        const valid = !!(curr && np.length >= 8 && np === cp);
-        if (btn) btn.disabled = !valid;
+        if (btn) btn.disabled = !(curr && np.length >= 8 && np === cp);
 
         if (!msg) return;
-        if (!cp)           { msg.textContent = ''; msg.className = 'pw-match-msg'; }
-        else if (np !== cp){ msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
+        if (!cp)              { msg.textContent = ''; msg.className = 'pw-match-msg'; }
+        else if (np !== cp)   { msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
         else if (np.length < 8){ msg.textContent = 'Mínimo 8 caracteres.'; msg.className = 'pw-match-msg err'; }
-        else               { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
+        else                  { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
     };
 
     window.changePassword = function () {
@@ -380,6 +467,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>`;
         container.appendChild(toast);
         requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3500);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
     };
 });

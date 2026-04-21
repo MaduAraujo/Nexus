@@ -98,16 +98,21 @@
                                 <i class="fas fa-camera"></i>
                             </button>
                         </div>
+
                         <div class="avatar-menu" id="avatar-menu">
                             <button class="avatar-menu-item" onclick="triggerPhotoUpload()">
-                                <i class="fas fa-upload"></i> Enviar foto
+                                <i class="fas fa-upload"></i>
+                                <span>Enviar foto</span>
                             </button>
                             <button class="avatar-menu-item" id="avatar-menu-remove"
                                     onclick="removePhoto()" style="display:none">
-                                <i class="fas fa-trash-alt"></i> Remover foto
+                                <i class="fas fa-trash-alt"></i>
+                                <span>Remover foto</span>
                             </button>
+                            <div class="avatar-menu-divider"></div>
                             <button class="avatar-menu-item" onclick="openColorPicker()">
-                                <i class="fas fa-palette"></i> Escolher cor
+                                <i class="fas fa-palette"></i>
+                                <span>Mudar cor do avatar</span>
                             </button>
                         </div>
 
@@ -131,16 +136,20 @@
 
                 <div class="profile-tabs">
                     <button class="ptab active" data-ptab="info" onclick="switchPTab(this,'info')">
-                        <i class="fas fa-id-card"></i> Informações
+                        <i class="fas fa-id-card"></i>
+                        <span>Informações</span>
                     </button>
                     <button class="ptab" data-ptab="professional" onclick="switchPTab(this,'professional')">
-                        <i class="fas fa-briefcase"></i> Profissional
+                        <i class="fas fa-briefcase"></i>
+                        <span>Profissional</span>
                     </button>
                     <button class="ptab" data-ptab="notifications" onclick="switchPTab(this,'notifications')">
-                        <i class="fas fa-bell"></i> Notificações
+                        <i class="fas fa-bell"></i>
+                        <span>Notificações</span>
                     </button>
                     <button class="ptab" data-ptab="security" onclick="switchPTab(this,'security')">
-                        <i class="fas fa-lock"></i> Segurança
+                        <i class="fas fa-lock"></i>
+                        <span>Segurança</span>
                     </button>
                 </div>
 
@@ -231,7 +240,6 @@
                                     <span class="info-field-value" id="prof-profile">—</span>
                                 </div>
                             </div>
-
                             <div class="prof-highlights">
                                 <div class="prof-highlight-card">
                                     <div class="prof-highlight-icon prof-icon--blue">
@@ -261,7 +269,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <p class="prof-readonly-note">
                                 <i class="fas fa-info-circle"></i>
                                 Esses dados são gerenciados pelo RH. Para solicitar alterações,
@@ -277,16 +284,10 @@
                             <h3><i class="fas fa-bell"></i> Preferências de Notificação</h3>
                         </div>
                         <div class="profile-card-body">
-                            <p class="notif-desc">
-                                Escolha quais notificações você deseja receber na plataforma.
-                            </p>
-
+                            <p class="notif-desc">Escolha quais notificações você deseja receber na plataforma.</p>
                             <div class="notif-list">
-
                                 <div class="notif-item">
-                                    <div class="notif-item-icon notif-icon--blue">
-                                        <i class="fas fa-bullhorn"></i>
-                                    </div>
+                                    <div class="notif-item-icon notif-icon--blue"><i class="fas fa-bullhorn"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Comunicados</p>
                                         <p class="notif-item-desc">Novos avisos e comunicados enviados pelo RH</p>
@@ -294,16 +295,11 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-comunicados" checked
                                                onchange="saveNotifPref('comunicados', this.checked)" />
-                                        <span class="toggle-track">
-                                            <span class="toggle-thumb"></span>
-                                        </span>
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
-
                                 <div class="notif-item">
-                                    <div class="notif-item-icon notif-icon--green">
-                                        <i class="fas fa-file-invoice-dollar"></i>
-                                    </div>
+                                    <div class="notif-item-icon notif-icon--green"><i class="fas fa-file-invoice-dollar"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Holerite disponível</p>
                                         <p class="notif-item-desc">Alerta quando um novo holerite for publicado</p>
@@ -311,16 +307,11 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-holerite" checked
                                                onchange="saveNotifPref('holerite', this.checked)" />
-                                        <span class="toggle-track">
-                                            <span class="toggle-thumb"></span>
-                                        </span>
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
-
                                 <div class="notif-item">
-                                    <div class="notif-item-icon notif-icon--orange">
-                                        <i class="fas fa-umbrella-beach"></i>
-                                    </div>
+                                    <div class="notif-item-icon notif-icon--orange"><i class="fas fa-umbrella-beach"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Férias</p>
                                         <p class="notif-item-desc">Atualizações sobre solicitações e períodos de férias</p>
@@ -328,16 +319,11 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-ferias" checked
                                                onchange="saveNotifPref('ferias', this.checked)" />
-                                        <span class="toggle-track">
-                                            <span class="toggle-thumb"></span>
-                                        </span>
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
-
                                 <div class="notif-item">
-                                    <div class="notif-item-icon notif-icon--purple">
-                                        <i class="fas fa-clock"></i>
-                                    </div>
+                                    <div class="notif-item-icon notif-icon--purple"><i class="fas fa-clock"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Banco de horas</p>
                                         <p class="notif-item-desc">Alertas sobre saldo e registros de ponto</p>
@@ -345,16 +331,11 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-horas"
                                                onchange="saveNotifPref('horas', this.checked)" />
-                                        <span class="toggle-track">
-                                            <span class="toggle-thumb"></span>
-                                        </span>
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
-
                                 <div class="notif-item">
-                                    <div class="notif-item-icon notif-icon--red">
-                                        <i class="fas fa-shield-alt"></i>
-                                    </div>
+                                    <div class="notif-item-icon notif-icon--red"><i class="fas fa-shield-alt"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Segurança da conta</p>
                                         <p class="notif-item-desc">Alertas de login, alteração de senha e acesso</p>
@@ -362,9 +343,7 @@
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-seguranca" checked
                                                onchange="saveNotifPref('seguranca', this.checked)" />
-                                        <span class="toggle-track">
-                                            <span class="toggle-thumb"></span>
-                                        </span>
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
                             </div>
@@ -383,8 +362,7 @@
                                     <label>Senha atual</label>
                                     <div class="pw-wrap">
                                         <input type="password" id="curr-pass" placeholder="••••••••" />
-                                        <button class="toggle-pw-small"
-                                                onclick="togglePwSmall('curr-pass', this)">
+                                        <button class="toggle-pw-small" onclick="togglePwSmall('curr-pass', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -394,8 +372,7 @@
                                     <div class="pw-wrap">
                                         <input type="password" id="new-pass-profile" placeholder="••••••••"
                                                oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small"
-                                                onclick="togglePwSmall('new-pass-profile', this)">
+                                        <button class="toggle-pw-small" onclick="togglePwSmall('new-pass-profile', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -405,8 +382,7 @@
                                     <div class="pw-wrap">
                                         <input type="password" id="confirm-pass-profile" placeholder="••••••••"
                                                oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small"
-                                                onclick="togglePwSmall('confirm-pass-profile', this)">
+                                        <button class="toggle-pw-small" onclick="togglePwSmall('confirm-pass-profile', this)">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -432,9 +408,7 @@
                             <div class="danger-row">
                                 <div>
                                     <p class="danger-label">Encerrar sessão em todos os dispositivos</p>
-                                    <p class="danger-desc">
-                                        Você será desconectado de todos os acessos ativos.
-                                    </p>
+                                    <p class="danger-desc">Você será desconectado de todos os acessos ativos.</p>
                                 </div>
                                 <button class="btn-danger-outline" onclick="logoutAll()">
                                     Encerrar sessões
