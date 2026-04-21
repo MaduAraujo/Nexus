@@ -876,7 +876,7 @@ body {
     .welcome-avatar { width: 46px; height: 46px; font-size: 1rem; border-radius: 12px; }
     .welcome-name   { font-size: 1rem; }
     .welcome-meta   { font-size: 0.74rem; }
-    .welcome-badge  { align-self: flex-start; }
+    .welcome-badge  { align-self: flex-start; margin-left: auto; }
 
     .info-grid    { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .info-card    { padding: 14px; gap: 10px; }
