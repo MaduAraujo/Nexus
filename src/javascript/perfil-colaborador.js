@@ -42,63 +42,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const setInput   = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
 
     function calcFeriasInfo(contractType, admissionDate) {
-        const type = (contractType || '').toLowerCase();
+    const type = (contractType || '').toLowerCase();
 
-        if (type === 'pj') {
-            return {
-                icon:  'prof-icon--orange',
-                value: 'Negociado',
-                note:  'Contrato PJ: dias negociados entre as partes'
-            };
-        }
+    if (type === 'pj') {
+        return { icon: 'prof-icon--orange', value: 'Negociado', note: 'Contrato PJ: dias negociados entre as partes' };
+    }
 
-        if (type === 'temporário' || type === 'temporario') {
-            return {
-                icon:  'prof-icon--gray',
-                value: 'Não aplicável',
-                note:  'Contrato temporário não garante férias'
-            };
-        }
+    if (type === 'temporário' || type === 'temporario') {
+        return { icon: 'prof-icon--gray', value: 'Não aplicável', note: 'Contrato temporário não garante férias' };
+    }
 
-        if (!admissionDate) {
-            return { icon: 'prof-icon--green', value: '—', note: 'Data de admissão não informada' };
-        }
+    if (!admissionDate) {
+        return { icon: 'prof-icon--green', value: '—', note: 'Data de admissão não informada' };
+    }
 
-        const adm      = new Date(admissionDate);
-        const hoje     = new Date();
-        const diasTotal = Math.floor((hoje - adm) / 86400000);
-        const meses     = diasTotal / 30.44;
+    const adm  = new Date(admissionDate + 'T00:00:00');
+    const hoje = new Date();
 
-        const periodosCompletos = Math.floor(meses / 12);
-        const mesesPeriodoAtual = meses % 12;
-        const diasDisponiveis = periodosCompletos * 30;
+    let mesesCompletos = (hoje.getFullYear() - adm.getFullYear()) * 12 + (hoje.getMonth() - adm.getMonth());
+    
+    if (hoje.getDate() < adm.getDate()) mesesCompletos = Math.max(0, mesesCompletos - 1);
 
-        const proximoAniversario = new Date(adm);
-        proximoAniversario.setFullYear(adm.getFullYear() + (periodosCompletos + 1));
-        const diasParaVencimento = Math.ceil((proximoAniversario - hoje) / 86400000);
-        const mesesParaVencimento = Math.ceil(diasParaVencimento / 30);
+    const periodosCompletos  = Math.floor(mesesCompletos / 12); 
+    const mesesNoPeriodoAtual = mesesCompletos % 12;             
 
-        let note = '';
-        if (meses < 12) {
-            const falta = Math.ceil(12 - meses);
-            note = `Faltam ${falta} mês(es)`;
-        } else if (diasDisponiveis === 0) {
-            note = `Férias em andamento ou já utilizadas`;
-        } else {
-            note = `Próximo vencimento em ${mesesParaVencimento > 0 ? mesesParaVencimento + ' mês(es)' : 'breve'}`;
-        }
+    const diasAcumulados = Math.min(Math.floor(mesesNoPeriodoAtual * 2.5), 30);
 
-        let label = '';
-        if (type.includes('estágio') || type.includes('estagio')) label = '30 dias (recesso)';
-        else if (type.includes('aprendiz')) label = '30 dias';
-        else label = '30 dias';
+    const diasDisponiveisAnteriores = periodosCompletos * 30;
 
+    const proximoAniversario = new Date(adm);
+    proximoAniversario.setFullYear(adm.getFullYear() + periodosCompletos + 1);
+    const mesesParaProximo = Math.round((proximoAniversario - hoje) / (1000 * 60 * 60 * 24 * 30.44));
+
+    if (mesesCompletos < 12) {
+        const faltam = 12 - mesesCompletos;
         return {
             icon:  'prof-icon--green',
-            value: meses >= 12 ? label : `${Math.round(mesesPeriodoAtual * 2.5)} dias acumulados`,
-            note
+            value: `${diasAcumulados} dias acumulados`,
+            note:  `Faltam ${faltam} mês(es)`
         };
     }
+
+    if (diasDisponiveisAnteriores > 0) {
+        return {
+            icon:  'prof-icon--green',
+            value: `${diasDisponiveisAnteriores} dias disponíveis`,
+            note:  mesesNoPeriodoAtual > 0
+                ? `+ ${diasAcumulados} dias acumulados no período atual`
+                : `Próximo vencimento em ${mesesParaProximo} mês(es)`
+        };
+    }
+    
+    return {
+        icon:  'prof-icon--green',
+        value: `${diasAcumulados} dias acumulados`,
+        note:  `Próximo vencimento em ${mesesParaProximo} mês(es)`
+    };
+}
 
     function applySession() {
         const color = session.avatarColor || '#6366f1';

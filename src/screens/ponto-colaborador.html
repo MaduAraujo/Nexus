@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Banco de Horas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/ponto-colaborador.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/inicio-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Início</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/perfil-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-user"></i></span>
+                        <span class="nav-text">Meu Perfil</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Holerites</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Meus Documentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
+                        <span class="nav-text">Férias</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicados</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="sidebar-avatar">?</div>
+                <div class="user-info">
+                    <p class="user-name" id="sidebar-name">—</p>
+                    <p class="user-role" id="sidebar-role">Colaborador</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Banco de Horas</h1>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-logout" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+                <div class="hero-row">
+                    <div class="saldo-card">
+                        <div class="saldo-icon" id="saldo-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="saldo-info">
+                            <span class="saldo-label">Saldo acumulado</span>
+                            <span class="saldo-value" id="saldo-value">+0h 00min</span>
+                            <span class="saldo-sub" id="saldo-sub">Calculando...</span>
+                        </div>
+                    </div>
+
+                    <div class="ponto-card">
+                        <div class="ponto-header">
+                            <h3><i class="fas fa-fingerprint"></i> Registrar Ponto</h3>
+                            <div class="ponto-clock">
+                                <span id="ponto-hora">--:--:--</span>
+                                <span id="ponto-data">--/--/----</span>
+                            </div>
+                        </div>
+
+                        <div class="timeline-steps">
+                            <div class="ts-step" id="ts-entrada">
+                                <div class="ts-dot"><i class="fas fa-sign-in-alt"></i></div>
+                                <span class="ts-label">Entrada</span>
+                                <span class="ts-time" id="ts-time-entrada">—</span>
+                            </div>
+                            <div class="ts-line" id="ts-line-1"></div>
+                            <div class="ts-step" id="ts-saida-almoco">
+                                <div class="ts-dot"><i class="fas fa-coffee"></i></div>
+                                <span class="ts-label">Almoço</span>
+                                <span class="ts-time" id="ts-time-saida-almoco">—</span>
+                            </div>
+                            <div class="ts-line" id="ts-line-2"></div>
+                            <div class="ts-step" id="ts-retorno">
+                                <div class="ts-dot"><i class="fas fa-utensils"></i></div>
+                                <span class="ts-label">Retorno</span>
+                                <span class="ts-time" id="ts-time-retorno">—</span>
+                            </div>
+                            <div class="ts-line" id="ts-line-3"></div>
+                            <div class="ts-step" id="ts-saida">
+                                <div class="ts-dot"><i class="fas fa-sign-out-alt"></i></div>
+                                <span class="ts-label">Saída</span>
+                                <span class="ts-time" id="ts-time-saida">—</span>
+                            </div>
+                        </div>
+
+                        <div class="ponto-status-bar">
+                            <span class="ponto-status-dot" id="ponto-dot"></span>
+                            <span id="ponto-status-text">Carregando...</span>
+                        </div>
+
+                        <button class="btn-ponto" id="btn-ponto" onclick="abrirConfirmar()">
+                            <i class="fas fa-sign-in-alt" id="btn-ponto-icon"></i>
+                            <span id="btn-ponto-text">Registrar Entrada</span>
+                        </button>
+
+                        <p class="ponto-hint" id="ponto-hint"></p>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--blue"><i class="fas fa-calendar-check"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-dias-mes">0</span>
+                            <span class="stat-label">Dias trabalhados</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--green"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-horas-extras">0h 00min</span>
+                            <span class="stat-label">Horas extras</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--red"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-horas-falta">0h 00min</span>
+                            <span class="stat-label">Horas em falta</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--purple"><i class="fas fa-hourglass-half"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-jornada">8h/dia</span>
+                            <span class="stat-label">Jornada esperada</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="section-solicitacoes" class="hidden">
+                    <div class="section-header-row" style="margin-bottom:12px">
+                        <h2 class="section-title"><i class="fas fa-hourglass-half"></i> Ajustes Pendentes</h2>
+                    </div>
+                    <div class="solicitacoes-list" id="solicitacoes-list"></div>
+                </div>
+
+                <div class="section-header-row">
+                    <h2 class="section-title"><i class="fas fa-history"></i> Histórico de Ponto</h2>
+                    <div class="history-filters">
+                        <input type="month" id="filter-month" onchange="renderHistorico()" />
+                        <button class="btn-solicitar" onclick="openModalAjuste()">
+                            <i class="fas fa-edit"></i>
+                            <span>Solicitar Ajuste</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-container">
+                        <table class="ponto-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Entrada</th>
+                                    <th>Saída Almoço</th>
+                                    <th>Retorno</th>
+                                    <th>Saída</th>
+                                    <th>Trabalhado</th>
+                                    <th>Saldo</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historico-tbody">
+                                <tr><td colspan="8"><div class="empty-state">
+                                    <i class="fas fa-clock"></i>
+                                    <p>Nenhum registro encontrado</p>
+                                    <span>Os registros de ponto aparecerão aqui</span>
+                                </div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirmar">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3 id="modal-confirmar-title"><i class="fas fa-fingerprint"></i> Confirmar Registro</h3>
+            <button class="modal-close" onclick="closeModal('modal-confirmar')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="confirmar-info">
+                <div class="confirmar-avatar" id="confirmar-avatar">?</div>
+                <div class="confirmar-dados">
+                    <p class="confirmar-nome" id="confirmar-nome">—</p>
+                    <p class="confirmar-email" id="confirmar-email">—</p>
+                </div>
+            </div>
+            <div class="confirmar-detalhe">
+                <div class="confirmar-item">
+                    <span class="confirmar-label">Tipo</span>
+                    <span class="confirmar-val badge-tipo" id="confirmar-tipo">—</span>
+                </div>
+                <div class="confirmar-item">
+                    <span class="confirmar-label">Data</span>
+                    <span class="confirmar-val" id="confirmar-data">—</span>
+                </div>
+                <div class="confirmar-item">
+                    <span class="confirmar-label">Horário</span>
+                    <span class="confirmar-val confirmar-hora" id="confirmar-hora">--:--:--</span>
+                </div>
+            </div>
+            <p class="confirmar-aviso">
+                <i class="fas fa-lock"></i>
+                Este registro é associado exclusivamente à sua conta e não pode ser desfeito.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('modal-confirmar')">Cancelar</button>
+            <button class="btn-primary" id="btn-confirmar-ponto" onclick="confirmarRegistro()">
+                <i class="fas fa-check"></i> Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-ajuste">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Solicitar Ajuste de Ponto</h3>
+            <button class="modal-close" onclick="closeModal('modal-ajuste')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="info-banner">
+                <i class="fas fa-info-circle"></i>
+                <span>Ajustes ficam pendentes até aprovação do RH.</span>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Data <span class="req">*</span></label>
+                    <input type="date" id="ajuste-data" />
+                    <span class="field-error" id="err-ajuste-data"></span>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de ajuste <span class="req">*</span></label>
+                    <select id="ajuste-tipo" onchange="onAjusteTipoChange()">
+                        <option value="" disabled selected>Selecione</option>
+                        <option value="entrada">Correção de Entrada</option>
+                        <option value="saida-almoco">Correção de Saída p/ Almoço</option>
+                        <option value="retorno-almoco">Correção de Retorno do Almoço</option>
+                        <option value="saida">Correção de Saída</option>
+                        <option value="falta">Justificativa de Falta</option>
+                    </select>
+                    <span class="field-error" id="err-ajuste-tipo"></span>
+                </div>
+            </div>
+            <div class="form-group" id="ajuste-horario-group">
+                <label>Horário correto <span class="req">*</span></label>
+                <input type="time" id="ajuste-horario" />
+                <span class="field-error" id="err-ajuste-horario"></span>
+            </div>
+            <div class="form-group">
+                <label>Justificativa <span class="req">*</span></label>
+                <textarea id="ajuste-justificativa" rows="3"
+                          placeholder="Descreva detalhadamente o motivo do ajuste..."></textarea>
+                <span class="field-error" id="err-ajuste-just"></span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('modal-ajuste')">Cancelar</button>
+            <button class="btn-primary" onclick="enviarSolicitacao()">
+                <i class="fas fa-paper-plane"></i> Enviar Solicitação
+            </button>
+        </div>
+    </div>
+</div>
+<div id="toast-container" class="toast-container"></div>
+<script src="../javascript/ponto-colaborador.js"></script>
+</body>
+</html>
