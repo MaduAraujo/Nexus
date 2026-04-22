@@ -13,7 +13,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const PONTO_KEY = `nexus_ponto_${EMAIL}`;         
     const AJUSTE_KEY = `nexus_ajustes_${EMAIL}`;      
     const AUDIT_KEY  = 'nexus_ponto_audit';           
-    const JORNADA_MIN = 8 * 60;                      
+
+    // ─── Jornada por tipo de contrato ───────────────────────────────────────
+    // Tipos esperados em session.contractType: 'clt' | 'estagio' | 'aprendiz' | 'pj'
+    function getJornadaMin() {
+        const tipo = (session.contractType || 'clt').toLowerCase();
+        if (tipo === 'estagio' || tipo === 'aprendiz') return 6 * 60;
+        if (tipo === 'pj') return null; // PJ: sem jornada definida
+        return 8 * 60; // CLT (padrão)
+    }
+
+    // ─── Verifica se o registro é um dia de falta ────────────────────────────
+    // Falta: dia útil sem entrada registrada (sem ajuste de justificativa aprovado)
+    function isFalta(rec) {
+        return !rec || !rec.entrada;
+    }
 
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
@@ -93,6 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calcWorkedMin(rec) {
+        // Dia de falta: não houve trabalho
+        if (isFalta(rec)) return 0;
+
         let total = 0;
         if (rec.entrada) {
             const fim1 = rec.saida_almoco || rec.saida;
@@ -105,8 +122,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calcSaldoMin(rec) {
-        if (!rec.saida) return null; 
-        return calcWorkedMin(rec) - JORNADA_MIN;
+        // Dia de falta não entra no cálculo de saldo de horas trabalhadas.
+        // Faltas são tratadas separadamente (ausência, não déficit de horas).
+        if (isFalta(rec)) return null;
+
+        // Jornada não encerrada ainda
+        if (!rec.saida) return null;
+
+        const jornadaMin = getJornadaMin();
+
+        // PJ: sem jornada definida — sem saldo a calcular
+        if (jornadaMin === null) return null;
+
+        return calcWorkedMin(rec) - jornadaMin;
     }
 
     function fmtDate(key) {
@@ -208,7 +236,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (step === 'saida_almoco')    return `Em expediente desde ${timeStr(rec.entrada)}`;
         if (step === 'retorno_almoco')  return `Em almoço desde ${timeStr(rec.saida_almoco)}`;
         if (step === 'saida')           return `Retornou às ${timeStr(rec.retorno_almoco)}`;
+
+        const jornadaMin = getJornadaMin();
         const saldo = calcSaldoMin(rec);
+
+        // PJ: sem cálculo de saldo
+        if (jornadaMin === null) {
+            return `Jornada encerrada — ${minToStr(calcWorkedMin(rec))} registradas`;
+        }
+
         if (saldo === null) return 'Jornada encerrada';
         return saldo >= 0
             ? `Jornada encerrada — +${minToStr(saldo)} extras`
@@ -241,10 +277,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSaldo() {
         const records = getRecords();
+        const jornadaMin = getJornadaMin();
         let totalMin  = 0;
         let hasDias   = false;
 
         Object.values(records).forEach(rec => {
+            // Dias de falta NÃO entram no saldo de horas
+            if (isFalta(rec)) return;
+
             const s = calcSaldoMin(rec);
             if (s !== null) { totalMin += s; hasDias = true; }
         });
@@ -252,6 +292,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const icon  = $('saldo-icon');
         const val   = $('saldo-value');
         const sub   = $('saldo-sub');
+
+        // PJ: exibe total de horas registradas, sem saldo
+        if (jornadaMin === null) {
+            let totalWorked = 0;
+            Object.values(records).forEach(rec => {
+                if (!isFalta(rec)) totalWorked += calcWorkedMin(rec);
+            });
+            if (icon) icon.className = 'saldo-icon positivo';
+            if (val)  { val.textContent = minToStr(totalWorked); val.className = 'saldo-value'; }
+            if (sub)  sub.textContent = 'Total de horas registradas (PJ — sem jornada definida)';
+            return;
+        }
 
         if (!hasDias) {
             if (val) val.textContent = '0h 00min';
@@ -264,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (icon) { icon.className = `saldo-icon ${totalMin >= 0 ? 'positivo' : 'negativo'}`; }
         if (val)  { val.textContent = `${sign}${str}`; val.className = `saldo-value ${totalMin >= 0 ? 'positivo' : 'negativo'}`; }
-        if (sub)  { sub.textContent = 'Saldo acumulado de todos os dias'; }
+        if (sub)  { sub.textContent = 'Saldo acumulado de todos os dias (faltas não incluídas)'; }
     }
 
     function renderStats() {
@@ -272,24 +324,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const now     = new Date();
         const mesKey  = `${now.getFullYear()}-${pad0(now.getMonth()+1)}`;
 
-        let diasMes  = 0, extrasMin = 0, faltaMin = 0;
+        let diasMes  = 0, extrasMin = 0, faltaMin = 0, diasFalta = 0;
 
         Object.entries(records).forEach(([key, rec]) => {
             if (!key.startsWith(mesKey)) return;
+
+            // Dia de falta: conta como ausência, não como déficit de horas
+            if (isFalta(rec)) {
+                diasFalta++;
+                return;
+            }
+
             const s = calcSaldoMin(rec);
-            if (s === null) return;
+            if (s === null) return; // jornada não encerrada ou PJ
+
             diasMes++;
             if (s > 0) extrasMin += s;
-            else       faltaMin  += Math.abs(s);
+            else if (s < 0) faltaMin += Math.abs(s);
         });
 
-        const el_dias  = $('stat-dias-mes');
-        const el_extra = $('stat-horas-extras');
-        const el_falta = $('stat-horas-falta');
+        const el_dias        = $('stat-dias-mes');
+        const el_extra       = $('stat-horas-extras');
+        const el_falta       = $('stat-horas-falta');
+        const el_jornada     = $('stat-jornada');
+        const el_faltas_dias = $('stat-dias-falta');
 
-        if (el_dias)  el_dias.textContent  = diasMes;
-        if (el_extra) el_extra.textContent = extrasMin ? minToStr(extrasMin) : '0h 00min';
-        if (el_falta) el_falta.textContent = faltaMin  ? minToStr(faltaMin)  : '0h 00min';
+        if (el_dias)        el_dias.textContent        = diasMes;
+        if (el_extra)       el_extra.textContent       = extrasMin ? minToStr(extrasMin) : '0h 00min';
+        if (el_falta)       el_falta.textContent       = faltaMin  ? minToStr(faltaMin)  : '0h 00min';
+        if (el_faltas_dias) el_faltas_dias.textContent = diasFalta;
+
+        if (el_jornada) {
+            const jornadaMin = getJornadaMin();
+            if (jornadaMin === null) {
+                el_jornada.textContent = 'Autônomo';
+            } else {
+                el_jornada.textContent = `${Math.floor(jornadaMin / 60)}h/dia`;
+            }
+        }
     }
 
     window.renderHistorico = function () {
@@ -315,12 +387,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const jornadaMin = getJornadaMin();
+
         tbody.innerHTML = dias.map(([key, rec]) => {
+            // Dia de falta: exibe linha com badge Falta e sem cálculos de hora
+            if (isFalta(rec)) {
+                return `<tr class="row-falta">
+                    <td class="td-date">
+                        ${fmtDate(key)}
+                        <span class="dia-semana">${diaSemana(key)}</span>
+                    </td>
+                    <td><span class="td-time missing">—</span></td>
+                    <td><span class="td-time missing">—</span></td>
+                    <td><span class="td-time missing">—</span></td>
+                    <td><span class="td-time missing">—</span></td>
+                    <td class="td-total">—</td>
+                    <td class="td-saldo">—</td>
+                    <td><span class="badge badge-falta">Falta</span></td>
+                </tr>`;
+            }
+
             const worked = calcWorkedMin(rec);
             const saldo  = calcSaldoMin(rec);
             const workedStr = rec.saida ? minToStr(worked) : '—';
+
             let saldoStr = '—'; let saldoCls = 'zero';
-            if (saldo !== null) {
+
+            // PJ: exibe horas trabalhadas sem saldo
+            if (jornadaMin === null) {
+                saldoStr = rec.saida ? minToStr(worked) : '—';
+                saldoCls = 'zero';
+            } else if (saldo !== null) {
                 saldoStr = (saldo >= 0 ? '+' : '-') + minToStr(saldo);
                 saldoCls = saldo > 0 ? 'positivo' : saldo < 0 ? 'negativo' : 'zero';
             }
@@ -351,12 +448,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function getBadge(rec, saldo) {
-        if (rec.ajustado)         return { cls:'badge-ajuste', label:'Ajustado' };
-        if (!rec.entrada)         return { cls:'badge-falta',  label:'Falta' };
-        if (!rec.saida)           return { cls:'badge-ajuste', label:'Incompleto' };
-        if (saldo === null)       return { cls:'badge-ajuste', label:'Incompleto' };
-        if (saldo > 0)            return { cls:'badge-extra',  label:'Extra' };
-        if (saldo < 0)            return { cls:'badge-falta',  label:'Falta' };
+        // Falta: sem entrada — não deve ser considerado dia trabalhado
+        if (isFalta(rec))             return { cls:'badge-falta',   label:'Falta' };
+        if (rec.ajustado)             return { cls:'badge-ajuste',  label:'Ajustado' };
+        if (!rec.saida)               return { cls:'badge-ajuste',  label:'Incompleto' };
+        if (saldo === null)           return { cls:'badge-normal',  label:'Normal' }; // PJ ou sem saldo
+        if (saldo > 0)               return { cls:'badge-extra',   label:'Extra' };
+        if (saldo < 0)               return { cls:'badge-falta',   label:'Falta' };
         return { cls:'badge-normal', label:'Normal' };
     }
 
@@ -475,14 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const tipo   = $('ajuste-tipo')?.value                 || '';
         const hor    = $('ajuste-horario')?.value              || '';
         const just   = $('ajuste-justificativa')?.value.trim() || '';
-        const isFalta = tipo === 'falta';
+        const isFaltaType = tipo === 'falta';
 
         let ok = true;
         const setErr = (id, msg) => { const el = $(id); if (el) el.textContent = msg; if (msg) ok = false; };
 
         setErr('err-ajuste-data',    data  ? '' : 'Informe a data.');
         setErr('err-ajuste-tipo',    tipo  ? '' : 'Selecione o tipo.');
-        setErr('err-ajuste-horario', (isFalta || hor) ? '' : 'Informe o horário correto.');
+        setErr('err-ajuste-horario', (isFaltaType || hor) ? '' : 'Informe o horário correto.');
         setErr('err-ajuste-just',    just  ? '' : 'A justificativa é obrigatória.');
 
         if (!ok) return;
@@ -497,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nome:      session.name || '—',
             data,
             tipo,
-            horario:   isFalta ? null : hor,
+            horario:   isFaltaType ? null : hor,
             justificativa: just,
             status:    'pendente',
             criadoEm

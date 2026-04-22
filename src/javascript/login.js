@@ -138,6 +138,26 @@ function openFirstAccessModal(userEmail) {
                     <p class="fam-error" id="fam-role-err"></p>
                 </div>
                 <div class="fam-field">
+                    <label class="fam-label" for="fam-contract">Tipo de Contrato</label>
+                    <div class="fam-input-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        <select id="fam-contract">
+                            <option value="" disabled selected>Selecione</option>
+                            <option value="clt">CLT — 8h/dia · 44h/semana</option>
+                            <option value="pj">PJ — Autônomo (sem jornada fixa)</option>
+                            <option value="estagio">Estágio — 6h/dia · 30h/semana</option>
+                            <option value="aprendiz">Aprendiz — 6h/dia · 30h/semana</option>
+                        </select>
+                    </div>
+                    <p class="fam-error" id="fam-contract-err"></p>
+                </div>
+                <div class="fam-field">
                     <label class="fam-label" for="fam-admission">Data de Admissão</label>
                     <div class="fam-input-wrap">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -162,14 +182,16 @@ function openFirstAccessModal(userEmail) {
 }
 
 window.submitFirstAccess = function (userEmail) {
-    const dept      = document.getElementById('fam-dept').value.trim();
-    const role      = document.getElementById('fam-role').value.trim();
-    const admission = document.getElementById('fam-admission').value;
+    const dept         = document.getElementById('fam-dept').value.trim();
+    const role         = document.getElementById('fam-role').value.trim();
+    const contractType = document.getElementById('fam-contract').value;
+    const admission    = document.getElementById('fam-admission').value;
 
-    document.getElementById('fam-dept-err').textContent      = dept      ? '' : 'Informe o setor.';
-    document.getElementById('fam-role-err').textContent      = role      ? '' : 'Informe o cargo.';
-    document.getElementById('fam-admission-err').textContent = admission ? '' : 'Informe a data.';
-    if (!dept || !role || !admission) return;
+    document.getElementById('fam-dept-err').textContent     = dept         ? '' : 'Informe o setor.';
+    document.getElementById('fam-role-err').textContent     = role         ? '' : 'Informe o cargo.';
+    document.getElementById('fam-contract-err').textContent = contractType ? '' : 'Selecione o tipo de contrato.';
+    document.getElementById('fam-admission-err').textContent = admission   ? '' : 'Informe a data.';
+    if (!dept || !role || !contractType || !admission) return;
 
     const btn  = document.getElementById('fam-btn');
     const text = document.getElementById('fam-btn-text');
@@ -180,7 +202,14 @@ window.submitFirstAccess = function (userEmail) {
         const users = getUsers();
         const idx   = users.findIndex(u => u.email.toLowerCase() === userEmail.toLowerCase());
         if (idx !== -1) {
-            users[idx] = { ...users[idx], dept, role, admissionDate: admission, firstAccess: false };
+            users[idx] = {
+                ...users[idx],
+                dept,
+                role,
+                contractType,  
+                admissionDate: admission,
+                firstAccess: false,
+            };
             saveUsers(users);
             const { password: _pw, ...session } = users[idx];
             localStorage.setItem('nexus_session', JSON.stringify(session));
@@ -216,6 +245,7 @@ window.handleSignup = function () {
         profile:       selectedSignupProfile,
         role:          selectedSignupProfile === 'rh' ? 'Analista de RH' : 'Colaborador',
         dept:          selectedSignupProfile === 'rh' ? 'Recursos Humanos' : '',
+        contractType:  selectedSignupProfile === 'rh' ? null : '',  
         admissionDate: new Date().toISOString().split('T')[0],
         status:        'Ativo',
         phone:         '',
