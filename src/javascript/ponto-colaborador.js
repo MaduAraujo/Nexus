@@ -13,9 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const PONTO_KEY  = `nexus_ponto_${EMAIL}`;
     const AJUSTE_KEY = `nexus_ajustes_${EMAIL}`;
     const AUDIT_KEY  = 'nexus_ponto_audit';
-    const BURNOUT_KEY = 'nexus_burnout_audit'; // audit global para RH
+    const BURNOUT_KEY = 'nexus_burnout_audit'; 
 
-    // ─── Empresa ───────────────────────────────────────────────────────────────
     const EMPRESA = {
         nome: session.dept ? `${session.dept} — Nexus` : 'Nexus',
         unidades: [
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
         raioM: 200
     };
 
-    // ─── Jornada por contrato ──────────────────────────────────────────────────
     function getJornadaMin() {
         const tipo = (session.contractType || 'clt').toLowerCase();
         if (tipo === 'estagio' || tipo === 'aprendiz') return 6 * 60;
@@ -37,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isFalta(rec) { return !rec || !rec.entrada; }
 
-    // ─── Sidebar ───────────────────────────────────────────────────────────────
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
@@ -51,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sidebarToggle?.addEventListener('click', e => {
         e.stopPropagation();
+        
         if (isMobile()) { sidebar?.classList.contains('open') ? closeSidebar() : openSidebar(); }
         else { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); localStorage.setItem(SIDEBAR_KEY, c ? 'collapsed' : 'expanded'); }
     });
@@ -60,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => { if (!isMobile()) closeSidebar(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSidebar(); closeAllModals(); } });
 
-    // ─── Helpers ───────────────────────────────────────────────────────────────
     const $ = id => document.getElementById(id);
     const pad0 = n => String(n).padStart(2, '0');
 
@@ -91,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return calcWorkedMin(rec) - j;
     }
 
-    // ─── Relógio ────────────────────────────────────────────────────────────────
     function updateClock() {
         const now = new Date();
         const el  = $('ponto-hora'), elD = $('ponto-data');
@@ -130,30 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
         encerrado:      { label:'Jornada encerrada',    icon:'fa-check-circle', cls:'btn-encerrado',dotCls:'encerrado', hint:'Todos os registros do dia foram concluídos.' },
     };
 
-    // ─── BURNOUT: detecção ────────────────────────────────────────────────────
-    //
-    // Regras:
-    //   1. HORAS EXTRAS CONSECUTIVAS: 3+ dias úteis seguidos com saldo > 60 min
-    //   2. ALMOÇO PULADO: jornada encerrada sem saida_almoco registrada
-    //   3. SOBRECARGA SEMANAL: total de horas extras na semana > 5h
-    //
-    // Ao detectar, exibe card de alerta ao colaborador e notifica o RH via audit.
 
-    const BURNOUT_EXTRAS_MIN      = 60;   // saldo mínimo p/ contar como "dia com extra"
-    const BURNOUT_DIAS_CONSECUTIVOS = 3;  // dias consecutivos para disparar
-    const BURNOUT_SEMANA_MIN      = 5 * 60; // 5h de extras na semana para disparar sobrecarga
+    const BURNOUT_EXTRAS_MIN = 60;   
+    const BURNOUT_DIAS_CONSECUTIVOS = 3;  
+    const BURNOUT_SEMANA_MIN = 5 * 60; 
 
     function detectBurnout() {
         const records   = getRecords();
         const jornadaMin = getJornadaMin();
         const alertas   = [];
 
-        // Ordena chaves de dias úteis encerrados (excluindo falta e jornada aberta)
         const diasEncerrados = Object.entries(records)
             .filter(([, rec]) => !isFalta(rec) && rec.saida)
             .sort(([a], [b]) => a.localeCompare(b));
 
-        // ── 1. Extras consecutivos ─────────────────────────────────────────────
         if (jornadaMin !== null) {
             let streak = 0;
             let streakDias = [];
@@ -183,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // ── 2. Almoço pulado ───────────────────────────────────────────────────
         const hoje = todayKey();
         const ultimos7Dias = diasEncerrados.filter(([key]) => key !== hoje).slice(-7);
         const almocosPulados = ultimos7Dias.filter(([, rec]) => rec.entrada && rec.saida && !rec.saida_almoco);
@@ -200,10 +185,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // ── 3. Sobrecarga semanal ──────────────────────────────────────────────
         if (jornadaMin !== null) {
             const now = new Date();
-            const diaSemanaNum = now.getDay(); // 0 = Dom
+            const diaSemanaNum = now.getDay(); 
             const inicioSemana = new Date(now);
             inicioSemana.setDate(now.getDate() - (diaSemanaNum === 0 ? 6 : diaSemanaNum - 1));
             const inicioKey = `${inicioSemana.getFullYear()}-${pad0(inicioSemana.getMonth()+1)}-${pad0(inicioSemana.getDate())}`;
@@ -237,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const now   = new Date();
             const hoje  = todayKey();
 
-            // Evita duplicar notificação do mesmo dia para o mesmo colaborador
             const jaNotificouHoje = audit.some(
                 n => n.email === EMAIL && n.data === hoje
             );
@@ -267,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         section.classList.remove('hidden');
 
-        // Nível geral: se qualquer alerta for crítico, o card vira crítico
         const nivelGeral = alertas.some(a => a.nivel === 'critico') ? 'critico' : 'atencao';
 
         const iconePrincipal = nivelGeral === 'critico'
@@ -345,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
         notificarRH(alertas);
     }
 
-    // ─── Render UI ─────────────────────────────────────────────────────────────
     function renderUI() {
         const rec  = getTodayRec();
         const step = nextStep(rec);
@@ -499,7 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = ajustes.map(a => `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo]||a.tipo}</p><p class="sol-meta">Data: ${a.data}${a.horario?' • Horário: '+a.horario:''} • Enviado em ${a.criadoEm}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`).join('');
     }
 
-    // ─── Localização ───────────────────────────────────────────────────────────
     let userCoords = null;
 
     function haversineM(lat1, lng1, lat2, lng2) {
@@ -552,6 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderMapStatic(null);
                 if (refreshBtn) refreshBtn.classList.remove('spin');
             },
+
             { timeout: 10000, maximumAge: 30000 }
         );
     };
@@ -619,7 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </svg>`;
     }
 
-    // ─── Modal confirmar ───────────────────────────────────────────────────────
     let pendingStep = null;
 
     window.abrirConfirmar = function () {
@@ -681,7 +661,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUI();
     };
 
-    // ─── Modal ajuste ──────────────────────────────────────────────────────────
     window.openModalAjuste = function () {
         ['ajuste-data','ajuste-horario','ajuste-justificativa'].forEach(id => { const el=$(id); if (el) el.value=''; });
         const tipo = $('ajuste-tipo'); if (tipo) tipo.value = '';
