@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const BURNOUT_KEY = 'nexus_burnout_audit'; 
 
     const EMPRESA = {
-        nome: session.dept ? `${session.dept} — Nexus` : 'Nexus',
+        nome: 'Nexus',
         unidades: [
             { endereco: 'R. Augusta, 1508 - Consolação, São Paulo - SP', lat: -23.5591, lng: -46.6606, raioM: 200 },
             { endereco: 'R. Borges de Figueiredo, 510 - Mooca, São Paulo - SP', lat: -23.5552, lng: -46.6035, raioM: 200 }
@@ -48,12 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sidebarToggle?.addEventListener('click', e => {
         e.stopPropagation();
-        
         if (isMobile()) { sidebar?.classList.contains('open') ? closeSidebar() : openSidebar(); }
         else { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); localStorage.setItem(SIDEBAR_KEY, c ? 'collapsed' : 'expanded'); }
     });
+
     topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeSidebar() : openSidebar(); });
     sidebarOverlay?.addEventListener('click', closeSidebar);
+
     if (!isMobile() && localStorage.getItem(SIDEBAR_KEY) === 'collapsed') { sidebar?.classList.add('collapsed'); mainWrapper?.classList.add('sidebar-collapsed'); }
     window.addEventListener('resize', () => { if (!isMobile()) closeSidebar(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSidebar(); closeAllModals(); } });
@@ -126,10 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         encerrado:      { label:'Jornada encerrada',    icon:'fa-check-circle', cls:'btn-encerrado',dotCls:'encerrado', hint:'Todos os registros do dia foram concluídos.' },
     };
 
-
-    const BURNOUT_EXTRAS_MIN = 60;   
+    const BURNOUT_EXTRAS_MIN      = 60;   
     const BURNOUT_DIAS_CONSECUTIVOS = 3;  
-    const BURNOUT_SEMANA_MIN = 5 * 60; 
+    const BURNOUT_SEMANA_MIN      = 5 * 60; 
 
     function detectBurnout() {
         const records   = getRecords();
@@ -224,6 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const jaNotificouHoje = audit.some(
                 n => n.email === EMAIL && n.data === hoje
             );
+
             if (jaNotificouHoje) return;
 
             audit.push({
@@ -532,7 +533,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderMapStatic(null);
                 if (refreshBtn) refreshBtn.classList.remove('spin');
             },
-
             { timeout: 10000, maximumAge: 30000 }
         );
     };
