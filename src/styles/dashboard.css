@@ -326,10 +326,16 @@ ul { list-style: none; }
 }
 
 .section-header h2 {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-main);
+}
+
+.section-header i {
+    color: var(--accent);
+    font-size: 0.9rem;
+    flex-shrink: 0;
 }
 
 /* ── KPI cards ───────────────────────────────── */
@@ -403,15 +409,15 @@ ul { list-style: none; }
 }
 
 .card-header h3 {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--text-main);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
-.card-header h3 i { color: var(--accent); font-size: 0.85rem; }
+.card-header h3 i { color: var(--accent); font-size: 0.85rem; flex-shrink: 0; }
 
 .chart-container {
     position: relative;
