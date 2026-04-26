@@ -53,6 +53,7 @@ body {
     box-shadow: 0 32px 80px rgba(0,0,0,0.5);
 }
 
+/* ── Painel esquerdo ── */
 .panel-left {
     position: relative;
     width: 42%;
@@ -60,7 +61,7 @@ body {
     overflow: hidden;
 }
 
-.panel-left img { width: 100%; height: 100%; display: block; }
+.panel-left img { width: 100%; height: 100%; display: block; object-fit: cover; }
 
 .panel-left-overlay {
     position: absolute;
@@ -109,6 +110,7 @@ body {
     line-height: 1.3;
 }
 
+/* ── Painel direito ── */
 .panel-right {
     flex: 1;
     display: flex;
@@ -130,8 +132,12 @@ body {
 
 .logo-name .x { color: #2563eb; }
 
+/* ── Seções de formulário ── */
 .form-section { display: none; }
 .form-section.active { display: block; }
+
+/* O formulário de cadastro usa display:flex para controlar o scroll interno */
+#form-signup.active { display: flex; flex-direction: column; }
 
 .form-title {
     font-family: 'Syne', sans-serif;
@@ -150,6 +156,7 @@ body {
 
 .form-subtitle strong { color: var(--text); font-weight: 500; }
 
+/* ── Grade de perfis ── */
 .profile-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -157,7 +164,31 @@ body {
     margin-bottom: 1.3rem;
 }
 
-.profile-grid--compact { margin-bottom: 1rem; }
+/* Grade de perfis no cadastro: mesmo tamanho do login */
+.profile-grid--signup {
+    margin-bottom: 1.1rem;
+}
+
+/* Ícone + label lado a lado (cards do cadastro) */
+.profile-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.55rem;
+}
+
+.profile-grid--signup .profile-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.profile-grid--signup .profile-icon svg {
+    width: 15px;
+    height: 15px;
+}
 
 .profile-card {
     cursor: pointer;
@@ -170,14 +201,6 @@ body {
     overflow: hidden;
     text-align: left;
     -webkit-tap-highlight-color: transparent;
-}
-
-#form-signup .profile-card {
-    height: 90px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.35rem;
 }
 
 .profile-card::before {
@@ -209,10 +232,6 @@ body {
 
 .profile-icon svg { stroke: var(--accent-blue); }
 
-#form-signup .profile-icon { width: 28px; height: 28px; border-radius: 8px; margin-bottom: 0; }
-
-.profile-icon-row { display: flex; align-items: center; gap: 8px; }
-
 .profile-label {
     font-family: 'Syne', sans-serif;
     font-size: 14px;
@@ -241,6 +260,7 @@ body {
 .profile-card.selected .profile-check { opacity: 1; }
 .profile-check svg { stroke: #000; }
 
+/* ── Campos ── */
 .field { margin-bottom: 1rem; }
 
 .field label {
@@ -340,6 +360,7 @@ body {
 
 .forgot-link-row a:hover { color: var(--text); }
 
+/* ── Botão principal ── */
 .btn-submit {
     position: relative;
     width: 100%;
@@ -368,8 +389,8 @@ body {
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-continue { margin-top: 0; border: 1px solid var(--border); }
 .btn-continue:hover:not(:disabled) { border-color: #3b82f6; opacity: 1; }
-.btn-default { margin-top: 0.5rem; }
 
+/* ── Spinner ── */
 .spinner {
     display: none;
     position: absolute;
@@ -385,10 +406,9 @@ body {
     pointer-events: none;
 }
 
-.spinner.show { display: block; }
-
 @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 
+/* ── Botão voltar ── */
 .back-btn {
     display: inline-flex;
     align-items: center;
@@ -408,6 +428,7 @@ body {
 .back-btn:hover { color: var(--text); }
 .back-btn svg { width: 14px; height: 14px; stroke: currentColor; }
 
+/* ── Pílula de perfil ── */
 .profile-pill {
     display: inline-flex;
     align-items: center;
@@ -424,14 +445,17 @@ body {
 
 .profile-pill svg { width: 13px; height: 13px; stroke: currentColor; }
 
+/* ── Divisor ── */
 .divider { display: flex; align-items: center; gap: 12px; margin: 1.25rem 0; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .divider span { font-size: 12px; color: var(--text-subtle); }
 
+/* ── Link de cadastro ── */
 .signup-row { text-align: center; font-size: 13px; color: var(--text-muted); }
 .signup-row a { color: var(--text); text-decoration: none; font-weight: 500; transition: opacity var(--transition); }
 .signup-row a:hover { opacity: 0.7; }
 
+/* ── Toast ── */
 .toast {
     position: fixed;
     bottom: 2rem;
@@ -453,7 +477,9 @@ body {
 }
 
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast--error { background: #e24b4a; color: #fff; }
 
+/* ── Força de senha ── */
 .strength-wrap { display: none; margin-top: 10px; }
 
 .pw-bars { display: flex; gap: 5px; margin-bottom: 8px; }
@@ -466,25 +492,14 @@ body {
     transition: background 0.25s;
 }
 
-.pw-bar.active-1 { background: #e24b4a; }
-.pw-bar.active-2 { background: #ba7517; }
-.pw-bar.active-3 { background: #378add; }
-.pw-bar.active-4 { background: #639922; }
-
 .pw-strength-footer { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 
-.pw-strength-label { font-size: 12px; font-weight: 500; transition: color 0.2s; color: var(--text-muted); }
-.pw-strength-label.s1 { color: #f09595; }
-.pw-strength-label.s2 { color: #ef9f27; }
-.pw-strength-label.s3 { color: #6ea8fe; }
-.pw-strength-label.s4 { color: #97c459; }
-
-.pw-entropy { font-size: 11px; color: var(--text-subtle); }
+.pw-strength-label { font-size: 12px; font-weight: 500; color: var(--text-muted); transition: color 0.2s; }
 
 .pw-criteria { list-style: none; display: flex; flex-direction: column; gap: 5px; }
 
 .crit { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-subtle); transition: color 0.2s; }
-.crit.met { color: #97c459; }
+.crit.ok { color: #97c459; }
 
 .crit-dot {
     width: 13px;
@@ -496,9 +511,9 @@ body {
     position: relative;
 }
 
-.crit.met .crit-dot { background: rgba(97,196,89,0.15); border-color: #639922; }
+.crit.ok .crit-dot { background: rgba(97,196,89,0.15); border-color: #639922; }
 
-.crit.met .crit-dot::after {
+.crit.ok .crit-dot::after {
     content: '';
     position: absolute;
     top: 2px;
@@ -510,6 +525,23 @@ body {
     transform: rotate(-45deg) translateY(-1px);
 }
 
+/* ── Scroll interno do cadastro ──
+   Mantém back-btn e títulos fixos; só a área de campos + senha rola. */
+.signup-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    /* Compensa o padding-right para não deslocar os campos */
+    margin-right: -4px;
+}
+
+.signup-scroll::-webkit-scrollbar { width: 3px; }
+.signup-scroll::-webkit-scrollbar-track { background: transparent; }
+.signup-scroll::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+.signup-scroll { scrollbar-width: thin; scrollbar-color: var(--border-hover) transparent; }
+
+/* ── Esqueceu senha — steps ── */
 .forgot-steps { display: flex; align-items: center; margin-bottom: 1.5rem; }
 
 .forgot-step-dot {
@@ -526,6 +558,7 @@ body {
 .forgot-step-line { flex: 1; height: 1px; background: var(--border); }
 .forgot-step-panel { display: none; }
 
+/* ── OTP ── */
 .otp-wrap { display: flex; gap: 6px; margin-bottom: 1rem; width: 100%; }
 
 .otp-input {
@@ -557,8 +590,8 @@ body {
 .resend-row { font-size: 12px; color: var(--text-muted); margin-bottom: 1.25rem; }
 .resend-row a { color: var(--accent-blue); cursor: pointer; text-decoration: none; transition: opacity var(--transition); }
 .resend-row a:hover { opacity: 0.75; }
-.resend-row a.resend-disabled { color: var(--text-subtle); pointer-events: none; }
 
+/* ── Senha redefinida ── */
 #forgot-s4 { text-align: center; }
 
 .forgot-success-icon {
@@ -575,6 +608,7 @@ body {
 
 .forgot-success-icon svg { width: 24px; height: 24px; stroke: #97c459; }
 
+/* ── Modal primeiro acesso ── */
 .fam-overlay {
     position: fixed;
     inset: 0;
@@ -676,10 +710,8 @@ body {
 }
 
 .fam-input-wrap select:required:invalid { color: #c4c9d4; }
-
 .fam-input-wrap select option           { color: #111827; background: #fff; }
 .fam-input-wrap select option[value=""] { color: #9ca3af; }
-
 .fam-input-wrap input::placeholder      { color: #c4c9d4; }
 .fam-input-wrap input[type="date"]      { color: #374151; }
 
@@ -721,6 +753,10 @@ body {
 
 @keyframes fam-spin { to { transform: rotate(360deg); } }
 
+/* ════════════════════════════════════════
+   RESPONSIVIDADE
+════════════════════════════════════════ */
+
 @media (min-width: 1024px) { .card { width: 900px; } }
 
 @media (max-width: 1023px) and (min-width: 769px) {
@@ -742,22 +778,59 @@ body {
     .form-title { font-size: 1.2rem; }
     .profile-grid { gap: 8px; }
     .profile-card { padding: 0.9rem 0.85rem; }
-    #form-signup .profile-card { height: 80px; }
     .otp-input { font-size: 18px; }
 }
 
 @media (max-width: 480px) {
     body { padding: 0; align-items: stretch; overflow: hidden; }
-    .card { width: 100%; min-height: 100svh; min-height: 100vh; border-radius: 0; border: none; box-shadow: none; flex-direction: column; margin: 0; margin-top: 60px; }
+    html, body { overflow: hidden; }
+
+    .card {
+        width: 100%;
+        min-height: 100svh;
+        min-height: 100vh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        flex-direction: column;
+        margin: 0;
+    }
+
     .panel-left { display: none; }
-    .panel-right { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding: 4rem 1.5rem 1rem; overflow: hidden; }
-    .logo-row { position: absolute; top: 1rem; left: 1.5rem; margin-bottom: 0; z-index: 10; }
+
+    .panel-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 4rem 1.5rem 1.5rem;
+        /* Sem overflow-y aqui; o scroll fica no .signup-scroll */
+        overflow: hidden;
+    }
+
+    /* No mobile, todos os form-section precisam de display flex para o scroll funcionar */
+    #form-signup.active {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .signup-scroll {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .logo-row {
+        position: absolute;
+        top: 1rem;
+        left: 1.5rem;
+        margin-bottom: 0;
+        z-index: 10;
+    }
+
     .logo-name { font-size: 1.35rem; }
     .form-title { font-size: 1.2rem; }
     .form-subtitle { font-size: 12px; margin-bottom: 1rem; }
     .profile-grid { gap: 8px; margin-bottom: 1rem; }
     .profile-card { padding: 0.85rem 0.8rem; border-radius: 10px; }
-    #form-signup .profile-card { height: 76px; }
     .profile-icon { width: 32px; height: 32px; margin-bottom: 0.5rem; }
     .profile-label { font-size: 13px; }
     .profile-desc { font-size: 11px; }
@@ -765,19 +838,17 @@ body {
     .otp-wrap { gap: 4px; }
     .otp-input { font-size: 18px; border-radius: 40px; }
     .forgot-steps { margin-bottom: 1.25rem; }
-    .btn-submit { padding: 0.8rem; font-size: 14px; margin-top: auto; margin-bottom: 1rem; }
+    .btn-submit { padding: 0.8rem; font-size: 14px; }
     .toast { bottom: 1.5rem; font-size: 12px; padding: 0.5rem 1rem; }
     .fam-card { padding: 28px 20px 24px; border-radius: 16px; }
 }
 
 @media (max-width: 359px) {
-    .panel-right { padding: 2rem 1rem 1.75rem; }
+    .panel-right { padding: 2rem 1rem 1.5rem; }
     .logo-row { left: 1rem; }
     .profile-grid { gap: 6px; }
     .profile-card { padding: 0.75rem 0.65rem; }
-    #form-signup .profile-card { height: 70px; }
     .profile-icon { width: 28px; height: 28px; }
-    #form-signup .profile-icon { width: 22px; height: 22px; }
     .otp-wrap { gap: 3px; }
     .otp-input { font-size: 16px; }
     .form-title { font-size: 1.1rem; }

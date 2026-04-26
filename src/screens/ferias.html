@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Gestão de Férias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/ferias.css" />
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/dashboard.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/colaboradores.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Colaboradores</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="../screens/ferias.html" class="nav-link active">
+                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
+                        <span class="nav-text">Gestão de Férias</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/arquivos.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Arquivos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Pagamentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                        <span class="nav-text">Analisar Currículo</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/comunicação.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicação Interna</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name">Administrador</p>
+                    <p class="user-role">Recursos Humanos</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper" id="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Gestão de Férias</h1>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-add" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i>
+                    <span>Nova Solicitação</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi--pending">
+                        <div class="kpi-icon"><i class="fas fa-clock"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Aguardando Aprovação</span>
+                            <span class="kpi-value" id="kpi-pending">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--upcoming">
+                        <div class="kpi-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Saem nos próximos 15 dias</span>
+                            <span class="kpi-value" id="kpi-upcoming">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--active">
+                        <div class="kpi-icon"><i class="fas fa-plane-departure"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Atualmente de férias</span>
+                            <span class="kpi-value" id="kpi-active">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--risk">
+                        <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Vencem em até 60 dias</span>
+                            <span class="kpi-value" id="kpi-risk">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tabs-bar">
+                    <button class="tab-btn active" data-tab="requests" onclick="switchTab(this,'requests')">
+                        <i class="fas fa-list"></i> Solicitações
+                    </button>
+                    <button class="tab-btn" data-tab="calendar" onclick="switchTab(this,'calendar')">
+                        <i class="fas fa-calendar-alt"></i> Calendário
+                    </button>
+                </div>
+
+                <div class="tab-panel active" id="tab-requests">
+                    <div class="filters-bar">
+                        <div class="search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="search-input" placeholder="Buscar..." oninput="applyFilters()">
+                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="filter-chips">
+                            <button class="chip chip--active" data-filter="todos"     onclick="setFilter(this)">Todos</button>
+                            <button class="chip"              data-filter="pendente"  onclick="setFilter(this)">Pendente</button>
+                            <button class="chip"              data-filter="aprovado"  onclick="setFilter(this)">Aprovado</button>
+                            <button class="chip"              data-filter="concluido" onclick="setFilter(this)">Concluído</button>
+                            <button class="chip"              data-filter="recusado"  onclick="setFilter(this)">Recusado</button>
+                            <button class="chip chip--alert"  data-filter="risco"     onclick="setFilter(this)">
+                                <i class="fas fa-exclamation-triangle"></i> Risco Vencimento
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="req-table">
+                            <thead>
+                                <tr>
+                                    <th>Colaborador</th>
+                                    <th>Período Solicitado</th>
+                                    <th>Dias</th>
+                                    <th>Financeiro</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requests-tbody">
+                                <tr id="empty-row">
+                                    <td colspan="6">
+                                        <div class="table-empty">
+                                            <i class="fas fa-umbrella-beach"></i>
+                                            <p>Nenhuma solicitação encontrada.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="table-count" id="table-count"></p>
+                </div>
+
+                <div class="tab-panel" id="tab-calendar">
+                    <div class="gantt-wrap">
+                        <div class="gantt-header">
+                            <div class="gantt-label-col">Colaborador</div>
+                            <div class="gantt-months" id="gantt-months"></div>
+                        </div>
+                        <div id="gantt-rows"></div>
+                        <div class="gantt-legend">
+                            <span class="gantt-leg-item"><span class="gantt-dot gantt-dot--approved"></span>Aprovado</span>
+                            <span class="gantt-leg-item"><span class="gantt-dot gantt-dot--active"></span>Em Gozo</span>
+                            <span class="gantt-leg-item"><span class="gantt-dot gantt-dot--concluded"></span>Concluído</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal-overlay" id="add-modal" onclick="handleOverlayClick(event,'add-modal')">
+    <div class="modal-card">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-calendar-plus"></i></div>
+                <div>
+                    <h3 class="modal-title" id="add-modal-title">Nova Solicitação</h3>
+                    <p class="modal-sub">Registre férias diretamente para o colaborador</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeAddModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="add-employee">Colaborador</label>
+                <select id="add-employee" class="form-input">
+                    <option value="">Selecione o colaborador...</option>
+                </select>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label class="form-label" for="add-start">Data de Início</label>
+                    <input type="date" id="add-start" class="form-input" onchange="calcAddDays()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="add-end">Data de Fim</label>
+                    <input type="date" id="add-end" class="form-input" onchange="calcAddDays()">
+                </div>
+            </div>
+            <div class="days-preview" id="add-days-preview">
+                <i class="fas fa-calendar-day"></i>
+                <span id="add-days-count">Selecione as datas</span>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label class="form-label" for="add-status">Status inicial</label>
+                    <select id="add-status" class="form-input">
+                        <option value="pendente">Pendente</option>
+                        <option value="aprovado">Aprovado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label checkbox-label" style="margin-top:24px;">
+                        <input type="checkbox" id="add-abono">
+                        <span class="checkbox-box"></span>
+                        <span class="checkbox-text">Abono Pecuniário</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="add-obs">Observação</label>
+                <textarea id="add-obs" class="form-textarea" rows="2" placeholder="Observação interna..."></textarea>
+            </div>
+            <div class="modal-alert" id="add-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
+            <button class="btn-confirm" onclick="submitAdd()">
+                <i class="fas fa-check"></i> Salvar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="reject-modal" onclick="handleOverlayClick(event,'reject-modal')">
+    <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon modal-head-icon--danger"><i class="fas fa-times-circle"></i></div>
+                <div>
+                    <h3 class="modal-title">Recusar Solicitação</h3>
+                    <p class="modal-sub" id="reject-sub">Informe o motivo da recusa</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeRejectModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="reject-reason">Motivo <span style="color:#ef4444">*</span></label>
+                <textarea id="reject-reason" class="form-textarea" rows="3" placeholder="Explique o motivo da recusa ao colaborador..."></textarea>
+            </div>
+            <div class="modal-alert" id="reject-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeRejectModal()">Cancelar</button>
+            <button class="btn-danger" onclick="confirmReject()">
+                <i class="fas fa-times"></i> Recusar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="view-modal" onclick="handleOverlayClick(event,'view-modal')">
+    <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-eye"></i></div>
+                <div>
+                    <h3 class="modal-title">Detalhes da Solicitação</h3>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeViewModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="view-body"></div>
+        <div class="modal-footer">
+            <button class="btn-confirm" onclick="closeViewModal()">Fechar</button>
+        </div>
+    </div>
+</div>
+<div id="toast-container" class="toast-container"></div>
+<script src="../javascript/ferias.js"></script>
+</body>
+</html>

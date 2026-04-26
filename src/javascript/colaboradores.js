@@ -3,6 +3,163 @@ let currentEmployeeId = null;
 let currentStep = 1;
 const totalSteps = 6;
 
+function syncEmployeeToLoginSystem(employeeData, isNew = true) {
+    const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
+    
+    if (isNew) {
+        const newUser = {
+            name: employeeData.name,
+            email: employeeData.email.toLowerCase(),
+            password: '',
+            profile: 'colaborador',
+            role: employeeData.role || 'Colaborador',
+            dept: employeeData.dept || '',
+            contractType: employeeData.contractType || '',
+            admissionDate: employeeData.admissionDate || '',
+            status: 'Aguardando Ativação',
+            phone: employeeData.telefone || '',
+            bio: '',
+            avatarColor: getRandomAvatarColor(),
+            firstAccess: true,
+            employeeId: employeeData.id,
+            cpf: employeeData.cpf || '',
+            rg: employeeData.rg || '',
+            salary: employeeData.salary || 0,
+            salaryType: employeeData.salaryType || '',
+            workLoad: employeeData.workLoad || '',
+            createdAt: new Date().toISOString()
+        };
+        
+        users.push(newUser);
+        console.log('[Nexus Sync] Novo usuário criado para login:', newUser.email, '| firstAccess:', true);
+        
+    } else {
+        const userIndex = users.findIndex(u => 
+            u.email.toLowerCase() === employeeData.email.toLowerCase() && 
+            u.profile === 'colaborador' &&
+            (u.employeeId === employeeData.id || u.cpf === employeeData.cpf)
+        );
+        
+        if (userIndex !== -1) {
+            users[userIndex] = {
+                ...users[userIndex],
+                name: employeeData.name,
+                email: employeeData.email.toLowerCase(),
+                role: employeeData.role || users[userIndex].role,
+                dept: employeeData.dept || users[userIndex].dept,
+                contractType: employeeData.contractType || users[userIndex].contractType,
+                admissionDate: employeeData.admissionDate || users[userIndex].admissionDate,
+                phone: employeeData.telefone || users[userIndex].phone,
+                cpf: employeeData.cpf || users[userIndex].cpf,
+                rg: employeeData.rg || users[userIndex].rg,
+                salary: employeeData.salary || users[userIndex].salary,
+                salaryType: employeeData.salaryType || users[userIndex].salaryType,
+                workLoad: employeeData.workLoad || users[userIndex].workLoad,
+                updatedAt: new Date().toISOString()
+            };
+            console.log('[Nexus Sync] Usuário atualizado:', employeeData.email);
+        } else {
+            const cpfIndex = users.findIndex(u => 
+                u.cpf === employeeData.cpf && 
+                u.profile === 'colaborador'
+            );
+            
+            if (cpfIndex !== -1) {
+                users[cpfIndex] = {
+                    ...users[cpfIndex],
+                    name: employeeData.name,
+                    email: employeeData.email.toLowerCase(),
+                    role: employeeData.role || users[cpfIndex].role,
+                    dept: employeeData.dept || users[cpfIndex].dept,
+                    contractType: employeeData.contractType || users[cpfIndex].contractType,
+                    admissionDate: employeeData.admissionDate || users[cpfIndex].admissionDate,
+                    phone: employeeData.telefone || users[cpfIndex].phone,
+                    rg: employeeData.rg || users[cpfIndex].rg,
+                    salary: employeeData.salary || users[cpfIndex].salary,
+                    salaryType: employeeData.salaryType || users[cpfIndex].salaryType,
+                    workLoad: employeeData.workLoad || users[cpfIndex].workLoad,
+                    employeeId: employeeData.id,
+                    updatedAt: new Date().toISOString()
+                };
+                console.log('[Nexus Sync] Usuário atualizado por CPF:', employeeData.cpf);
+            }
+        }
+    }
+    
+    localStorage.setItem('nexus_users', JSON.stringify(users));
+    
+    window.dispatchEvent(new StorageEvent('storage', {
+        key: 'nexus_users',
+        newValue: JSON.stringify(users),
+        oldValue: null,
+        storageArea: localStorage
+    }));
+}
+
+function removeEmployeeFromLoginSystem(employeeData) {
+    const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
+    
+    const filteredUsers = users.filter(u => 
+        !(u.profile === 'colaborador' && 
+          (u.employeeId === employeeData.id || 
+           u.email.toLowerCase() === employeeData.email.toLowerCase() ||
+           u.cpf === employeeData.cpf))
+    );
+    
+    if (filteredUsers.length < users.length) {
+        localStorage.setItem('nexus_users', JSON.stringify(filteredUsers));
+        console.log('[Nexus Sync] Usuário removido do login:', employeeData.email);
+        
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'nexus_users',
+            newValue: JSON.stringify(filteredUsers),
+            oldValue: null,
+            storageArea: localStorage
+        }));
+    }
+}
+
+function getRandomAvatarColor() {
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4', '#84cc16', '#f97316'];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function isValidCPF(cpf) {
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cleaned)) return false;
+    
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cleaned.charAt(i)) * (10 - i);
+    let rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cleaned.charAt(9))) return false;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cleaned.charAt(i)) * (11 - i);
+    rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cleaned.charAt(10))) return false;
+    
+    return true;
+}
+
+function setupRealtimeSync() {
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'nexus_employees') {
+            try {
+                employees = JSON.parse(event.newValue || '[]');
+                const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+                applyStatusFilter(activeFilter);
+                updateCount();
+                console.log('[Nexus Sync] Colaboradores atualizados de outra aba');
+            } catch (e) {
+                console.error('[Nexus Sync] Erro ao sincronizar:', e);
+            }
+        }
+    });
+}
+
 function showToast(title, msg, type = 'success') {
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -63,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupValidationListeners();
     setupConditionalFields();
     setupSidebarToggle();
+    setupRealtimeSync();
     updateCount();
     resetStepper();
 });
@@ -190,6 +348,17 @@ window.clearSearch = function () {
     clearTimeout(searchToastTimeout);
     filterTable();
 };
+
+function setupFilters() {
+    document.querySelectorAll('.btn-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            clearSearch();
+            applyStatusFilter(btn.getAttribute('data-filter'));
+        });
+    });
+}
 
 window.switchTab = function (event, tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -319,6 +488,16 @@ function resetConditionalFields() {
     });
 }
 
+function restoreConditionalField(radioName, value, detailsId) {
+    if (!value) return;
+    const radio = document.querySelector(`input[name="${radioName}"][value="${value}"]`);
+    if (radio) {
+        radio.checked = true;
+        const details = document.getElementById(detailsId);
+        if (details) details.style.display = value === 'sim' ? 'block' : 'none';
+    }
+}
+
 function goToStep(step) {
     const currentPanel = document.getElementById('step-panel-' + currentStep);
     if (currentPanel) {
@@ -428,66 +607,89 @@ function setupFormListener() {
         });
     }
 
+    const btnSaveSimple = document.getElementById('btn-save-simple');
+    if (btnSaveSimple) {
+        btnSaveSimple.addEventListener('click', () => {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        });
+    }
+
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const idField = document.getElementById('employee-id').value;
 
         const mandatoryFields = document.querySelectorAll('#tab-obrigatorios input[required], #tab-obrigatorios select[required]');
-        const allFilled       = Array.from(mandatoryFields).every(field => field.value.trim() !== '');
+        const allFilled = Array.from(mandatoryFields).every(field => field.value.trim() !== '');
         if (!allFilled) {
-            showToast('Campos Obrigatórios!', 'Preencha todos os campos.', 'warning');
+            showToast('Campos Obrigatórios!', 'Preencha todos os campos obrigatórios.', 'warning');
             return;
         }
 
-        const cpfDigitado  = document.getElementById('cpf').value.trim();
+        const cpfDigitado = document.getElementById('cpf').value.trim();
+        if (!isValidCPF(cpfDigitado)) {
+            showToast('CPF Inválido!', 'Verifique o CPF informado.', 'error');
+            return;
+        }
+
         const cpfDuplicado = employees.some(emp => emp.cpf === cpfDigitado && emp.id !== Number(idField));
         if (cpfDuplicado) {
             showToast('CPF Duplicado!', 'Já existe um colaborador com este CPF.', 'error');
             return;
         }
 
-        const seguroVida      = document.querySelector('input[name="seguro-vida"]:checked')?.value        || 'nao';
-        const seguradora      = seguroVida === 'sim' ? (document.getElementById('seguradora')?.value || '') : '';
+        const emailDigitado = document.getElementById('email').value.trim().toLowerCase();
+        const emailDuplicado = employees.some(emp => 
+            emp.email.toLowerCase() === emailDigitado && emp.id !== Number(idField)
+        );
+        if (emailDuplicado) {
+            showToast('Email Duplicado!', 'Já existe um colaborador com este email.', 'error');
+            return;
+        }
 
+        const seguroVida = document.querySelector('input[name="seguro-vida"]:checked')?.value || 'nao';
+        const seguradora = seguroVida === 'sim' ? (document.getElementById('seguradora')?.value || '') : '';
+        
         const possuiDependentes = document.querySelector('input[name="possui-dependentes"]:checked')?.value || 'nao';
-        const qtdDependentes    = possuiDependentes === 'sim' ? (document.getElementById('qtd-dependentes')?.value || '') : '';
-
-        const pcd         = document.querySelector('input[name="pcd"]:checked')?.value             || 'nao';
+        const qtdDependentes = possuiDependentes === 'sim' ? (document.getElementById('qtd-dependentes')?.value || '') : '';
+        
+        const pcd = document.querySelector('input[name="pcd"]:checked')?.value || 'nao';
         const deficiencia = pcd === 'sim' ? (document.getElementById('tipo-deficiencia')?.value || '') : '';
-
+        
         const pensaoAlimenticia = document.querySelector('input[name="pensao-alimenticia"]:checked')?.value || 'nao';
-        const tipoPensao        = pensaoAlimenticia === 'sim'
+        const tipoPensao = pensaoAlimenticia === 'sim'
             ? (document.querySelector('input[name="tipo-pensao"]:checked')?.value || '') : '';
-
+        
         const valeTransporte = document.querySelector('input[name="vale-transporte"]:checked')?.value || 'nao';
-        const valorPassagem  = valeTransporte === 'sim' ? (document.getElementById('valor-passagem')?.value  || '') : '';
-        const conducoesdia   = valeTransporte === 'sim' ? (document.getElementById('conducoes-dia')?.value   || '') : '';
-
+        const valorPassagem = valeTransporte === 'sim' ? (document.getElementById('valor-passagem')?.value || '') : '';
+        const conducoesdia = valeTransporte === 'sim' ? (document.getElementById('conducoes-dia')?.value || '') : '';
+        
         const formaPagamento = document.querySelector('input[name="forma-pagamento"]:checked')?.value || '';
-        const tipoChavePix   = formaPagamento === 'pix'   ? (document.getElementById('tipo-chave-pix')?.value || '') : '';
-        const chavePix       = formaPagamento === 'pix'   ? (document.getElementById('chave-pix')?.value      || '') : '';
-        const bancoValue     = document.getElementById('banco')?.value || '';
-        const bancoNome      = bancoValue === 'outro'
+        const tipoChavePix = formaPagamento === 'pix' ? (document.getElementById('tipo-chave-pix')?.value || '') : '';
+        const chavePix = formaPagamento === 'pix' ? (document.getElementById('chave-pix')?.value || '') : '';
+        const bancoValue = document.getElementById('banco')?.value || '';
+        const bancoNome = bancoValue === 'outro'
             ? (document.getElementById('banco-outro')?.value || '') : bancoValue;
-        const tipoConta  = document.getElementById('tipo-conta')?.value || '';
-        const agencia    = document.getElementById('agencia')?.value    || '';
-        const conta      = document.getElementById('conta')?.value      || '';
+        const tipoConta = document.getElementById('tipo-conta')?.value || '';
+        const agencia = document.getElementById('agencia')?.value || '';
+        const conta = document.getElementById('conta')?.value || '';
 
+        const isEditing = !!idField;
+        
         const employeeData = {
-            id:            idField ? Number(idField) : generateNextId(),
-            name:          document.getElementById('name').value,
-            role:          document.getElementById('role').value,
-            cpf:           document.getElementById('cpf').value,
-            rg:            document.getElementById('rg')?.value        || '',
-            telefone:      document.getElementById('telefone')?.value  || '',
-            email:         document.getElementById('email').value,
+            id: idField ? Number(idField) : generateNextId(),
+            name: document.getElementById('name').value.trim(),
+            role: document.getElementById('role').value.trim(),
+            cpf: cpfDigitado,
+            rg: document.getElementById('rg')?.value || '',
+            telefone: document.getElementById('telefone')?.value || '',
+            email: emailDigitado,
             admissionDate: document.getElementById('admission-date').value,
-            contractType:  document.getElementById('contract-type').value,
-            salaryType:    document.getElementById('salary-type').value,
-            workLoad:      document.getElementById('work-load').value,
-            dept:          document.getElementById('dept').value,
-            salary:        Number(document.getElementById('salary').value.replace(/\D/g, '')) / 100,
-            status:        'Ativo',
+            contractType: document.getElementById('contract-type').value,
+            salaryType: document.getElementById('salary-type').value,
+            workLoad: document.getElementById('work-load').value,
+            dept: document.getElementById('dept').value,
+            salary: Number(document.getElementById('salary').value.replace(/\D/g, '')) / 100,
+            status: 'Ativo',
             seguroVida,
             seguradora,
             possuiDependentes,
@@ -502,29 +704,42 @@ function setupFormListener() {
             formaPagamento,
             tipoChavePix,
             chavePix,
-            banco:    formaPagamento === 'conta' ? bancoNome  : '',
-            tipoConta:formaPagamento === 'conta' ? tipoConta  : '',
-            agencia:  formaPagamento === 'conta' ? agencia    : '',
-            conta:    formaPagamento === 'conta' ? conta       : ''
+            banco: formaPagamento === 'conta' ? bancoNome : '',
+            tipoConta: formaPagamento === 'conta' ? tipoConta : '',
+            agencia: formaPagamento === 'conta' ? agencia : '',
+            conta: formaPagamento === 'conta' ? conta : ''
         };
 
-        if (idField) {
+        if (isEditing) {
             const index = employees.findIndex(emp => emp.id === Number(idField));
             if (index !== -1) {
                 employeeData.status = employees[index].status;
-                employees[index]    = employeeData;
+                syncEmployeeToLoginSystem(employeeData, false);
+                employees[index] = employeeData;
             }
         } else {
             employees.push(employeeData);
+            syncEmployeeToLoginSystem(employeeData, true);
         }
 
         saveAndRefresh();
         showToast(
-            idField ? 'Colaborador Atualizado!' : 'Colaborador Cadastrado!',
-            idField ? 'Os dados foram atualizados com sucesso.' : 'O colaborador foi registrado com sucesso.'
+            isEditing ? 'Colaborador Atualizado!' : 'Colaborador Cadastrado!',
+            isEditing 
+                ? 'Os dados foram atualizados com sucesso.' 
+                : 'Colaborador registrado. Usuário criado com status "Aguardando Ativação".',
+            'success'
         );
         toggleForm();
     });
+}
+
+function setupValidationListeners() {
+    document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select').forEach(f => {
+        f.addEventListener('input',  updateSaveButton);
+        f.addEventListener('change', updateSaveButton);
+    });
+    updateSaveButton();
 }
 
 window.toggleDropdown = function (event) {
@@ -564,17 +779,36 @@ window.backToMainMenu = function () {
 
 window.updateStatus = function (newStatus) {
     const index = employees.findIndex(emp => emp.id === currentEmployeeId);
+
     if (index !== -1) {
         employees[index].status = newStatus;
         saveAndRefresh();
+        
+        const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
+        const userIndex = users.findIndex(u => 
+            u.employeeId === currentEmployeeId || 
+            u.email.toLowerCase() === employees[index].email.toLowerCase()
+        );
+        
+        if (userIndex !== -1) {
+            users[userIndex].status = newStatus;
+            localStorage.setItem('nexus_users', JSON.stringify(users));
+            
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: 'nexus_users',
+                newValue: JSON.stringify(users),
+                storageArea: localStorage
+            }));
+        }
+        
         openDrawer(currentEmployeeId);
         document.getElementById('drawer-dropdown').classList.remove('show');
         setTimeout(backToMainMenu, 300);
 
         const msgs = {
-            'Ativo':   'Colaborador marcado como Ativo.',
+            'Ativo': 'Colaborador marcado como Ativo.',
             'Inativo': 'Colaborador marcado como Inativo.',
-            'Férias':  'Colaborador marcado como em Férias.'
+            'Férias': 'Colaborador marcado como em Férias.'
         };
         showToast('Status Atualizado!', msgs[newStatus] || `Status alterado para ${newStatus}.`, 'success');
     }
@@ -752,22 +986,16 @@ window.editEmployee = function (id) {
     updateSaveButton();
 };
 
-function restoreConditionalField(radioName, value, detailsId) {
-    if (!value) return;
-    const radio = document.querySelector(`input[name="${radioName}"][value="${value}"]`);
-    if (radio) {
-        radio.checked = true;
-        const details = document.getElementById(detailsId);
-        if (details) details.style.display = value === 'sim' ? 'block' : 'none';
-    }
-}
-
 window.handleDeleteEmployee = function () {
-    if (confirm('Tem certeza que deseja excluir este colaborador?')) {
-        employees = employees.filter(emp => emp.id !== currentEmployeeId);
+    const emp = employees.find(e => e.id === currentEmployeeId);
+    if (!emp) return;
+    
+    if (confirm(`Tem certeza que deseja excluir ${emp.name}?\n\nO acesso ao sistema também será removido.`)) {
+        removeEmployeeFromLoginSystem(emp);
+        employees = employees.filter(e => e.id !== currentEmployeeId);
         saveAndRefresh();
         closeDrawer();
-        showToast('Colaborador Excluído!', 'O colaborador foi removido com sucesso.', 'error');
+        showToast('Colaborador Excluído!', 'O colaborador e seu acesso ao sistema foram removidos.', 'error');
     }
 };
 
@@ -782,18 +1010,7 @@ function applyStatusFilter(filter) {
     if (filter === 'ativos')   filtered = employees.filter(e => e.status === 'Ativo');
     else if (filter === 'inativos') filtered = employees.filter(e => e.status === 'Inativo');
     else if (filter === 'ferias')   filtered = employees.filter(e => e.status === 'Férias');
-    renderTable(filtered, activeFilter);
-}
-
-function setupFilters() {
-    document.querySelectorAll('.btn-filter').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            clearSearch();
-            applyStatusFilter(btn.getAttribute('data-filter'));
-        });
-    });
+    renderTable(filtered, filter);
 }
 
 function setupCpfMask() {
@@ -936,11 +1153,3 @@ window.pesquisacep = async function (valor) {
         console.error('Erro ViaCEP', err);
     }
 };
-
-function setupValidationListeners() {
-    document.querySelectorAll('#tab-obrigatorios input, #tab-obrigatorios select').forEach(f => {
-        f.addEventListener('input',  updateSaveButton);
-        f.addEventListener('change', updateSaveButton);
-    });
-    updateSaveButton();
-}

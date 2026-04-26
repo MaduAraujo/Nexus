@@ -1,56 +1,140 @@
-let selectedProfileType   = null; 
-let selectedSignupProfile = null;
-let forgotStep     = 1;
-let forgotEmail    = '';
-let forgotCode     = '';
+let selectedProfileType = null;
+let forgotStep = 1;
+let forgotEmail = '';
+let forgotCode = '';
 let resendInterval = null;
+let pendingLoginUser = null;
+let loginStep = 1;
 
 function getUsers() {
-    try { return JSON.parse(localStorage.getItem('nexus_users') || '[]'); }
-    catch { return []; }
+    try {
+        return JSON.parse(localStorage.getItem('nexus_users') || '[]');
+    } catch {
+        return [];
+    }
 }
 
 function saveUsers(users) {
     localStorage.setItem('nexus_users', JSON.stringify(users));
 }
 
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.className = `toast toast--${type} show`;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function isBlocked(user) {
+    return user && (user.status === 'Bloqueado' || user.status === 'Inativo');
+}
+
 window.selectProfile = function (type, el) {
     selectedProfileType = type;
     document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
-    document.getElementById('btn-continue').disabled = false;
+    const continueBtn = document.getElementById('btn-continue');
+    if (continueBtn) continueBtn.disabled = false;
 };
 
 window.goToLogin = function () {
     if (!selectedProfileType) return;
     switchTab('login');
+    loginStep = 1;
 
-    const pill     = document.getElementById('login-profile-pill');
-    const title    = document.getElementById('login-title');
+    const pill = document.getElementById('login-profile-pill');
+    const title = document.getElementById('login-title');
     const subtitle = document.getElementById('login-subtitle');
+    const passSection = document.getElementById('login-pass-section');
+    const btnLoginText = document.getElementById('btn-login-text');
+    const loginPass = document.getElementById('login-pass');
 
     if (selectedProfileType === 'rh') {
-        pill.innerHTML       = '<span class="profile-pill rh-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> RH</span>';
-        title.textContent    = 'Bem-vindo de volta';
-        subtitle.textContent = 'Acesse o painel de Recursos Humanos';
+        if (pill) pill.innerHTML = '<span class="profile-pill rh-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> RH</span>';
+        if (title) title.textContent = 'Bem-vindo de volta';
+        if (subtitle) subtitle.textContent = 'Acesse o painel de Recursos Humanos';
+        if (passSection) passSection.style.display = 'none';
+        if (btnLoginText) btnLoginText.textContent = 'Entrar';
     } else {
-        pill.innerHTML       = '<span class="profile-pill colab-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaborador</span>';
-        title.textContent    = 'Olá, colaborador!';
-        subtitle.textContent = 'Acesse sua área pessoal';
+        if (pill) pill.innerHTML = '<span class="profile-pill colab-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaborador</span>';
+        if (title) title.textContent = 'Olá, colaborador!';
+        if (subtitle) subtitle.textContent = 'Acesse sua área pessoal';
+        if (passSection) passSection.style.display = 'none';
+        if (btnLoginText) btnLoginText.textContent = 'Continuar';
     }
+
+    if (loginPass) loginPass.value = '';
+};
+
+window.goToProfileSelection = function () {
+    document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+
+    const profileSection = document.getElementById('form-profile');
+    if (profileSection) profileSection.classList.add('active');
+
+    const loginUser = document.getElementById('login-user');
+    const loginPass = document.getElementById('login-pass');
+    if (loginUser) loginUser.value = '';
+    if (loginPass) loginPass.value = '';
+
+    loginStep = 1;
+    const passSection = document.getElementById('login-pass-section');
+    if (passSection) passSection.style.display = '';
+
+    selectedProfileType = null;
+
+    document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
+
+    const continueBtn = document.getElementById('btn-continue');
+    if (continueBtn) continueBtn.disabled = true;
 };
 
 window.switchTab = function (tab) {
+    if (tab !== 'login' && tab !== 'forgot') return;
+    
     document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById('form-' + tab);
     if (target) target.classList.add('active');
 };
 
+function setLoginLoading(on) {
+    const btn = document.getElementById('btn-login');
+    const text = document.getElementById('btn-login-text');
+    const spin = document.getElementById('spinner-login');
+    if (!btn) return;
+    btn.disabled = on;
+    if (text) text.style.opacity = on ? '0' : '1';
+    if (spin) spin.style.display = on ? 'block' : 'none';
+}
+
+function setForgotBtnLoading(btnId, textId, spinId, on) {
+    const btn = document.getElementById(btnId);
+    const text = document.getElementById(textId);
+    const spin = document.getElementById(spinId);
+    if (btn) btn.disabled = on;
+    if (text) text.style.opacity = on ? '0' : '1';
+    if (spin) spin.style.display = on ? 'block' : 'none';
+}
+
 window.handleLogin = function () {
     const emailInput = document.getElementById('login-user').value.trim().toLowerCase();
-    const pass       = document.getElementById('login-pass').value;
+    const passInput = document.getElementById('login-pass').value;
 
-    if (!emailInput || !pass) { showToast('Preencha e-mail e senha.', 'error'); return; }
+    if (selectedProfileType === 'rh') {
+        setLoginLoading(true);
+        setTimeout(() => {
+            setLoginLoading(false);
+            window.location.href = '../screens/dashboard.html';
+        }, 800);
+        return;
+    }
+
+    if (!emailInput) {
+        showToast('Informe seu e-mail.', 'error');
+        return;
+    }
 
     setLoginLoading(true);
 
@@ -60,44 +144,77 @@ window.handleLogin = function () {
         const users = getUsers();
         const found = users.find(
             u => u.email.toLowerCase() === emailInput &&
-                 u.password            === pass &&
-                 u.profile             === (selectedProfileType || 'colaborador')
+                u.profile === 'colaborador'
         );
 
-        if (!found) { showToast('E-mail ou senha incorretos.', 'error'); return; }
-
-        const { password: _pw, ...sessionUser } = found;
-        localStorage.setItem('nexus_session', JSON.stringify(sessionUser));
-
-        if (found.profile === 'rh') {
-            window.location.href = '../screens/dashboard.html';
-        } else if (found.firstAccess !== false) {
-            openFirstAccessModal(found.email);
-        } else {
-            window.location.href = '../screens/inicio-colaborador.html';
+        if (!found) {
+            showToast('E-mail não encontrado. Solicite seu cadastro ao RH.', 'error');
+            return;
         }
+
+        if (isBlocked(found)) {
+            const statusMsg = found.status === 'Bloqueado'
+                ? 'Sua conta está bloqueada.'
+                : 'Sua conta está inativa.';
+            showToast(`${statusMsg} Entre em contato com o RH.`, 'error');
+            return;
+        }
+
+        if (loginStep === 1) {
+            if (!found.password) {
+                pendingLoginUser = found;
+                openFirstAccessModal(found.email);
+                return;
+            }
+            showPasswordStep();
+            return;
+        }
+
+        if (!passInput) {
+            showToast('Informe sua senha.', 'error');
+            return;
+        }
+
+        if (found.password !== passInput) {
+            showToast('Senha incorreta.', 'error');
+            return;
+        }
+
+        completeLogin(found);
     }, 1400);
 };
 
-function setLoginLoading(on) {
-    const btn  = document.getElementById('btn-login');
-    const text = document.getElementById('btn-login-text');
-    const spin = document.getElementById('spinner-login');
-    if (!btn) return;
-    btn.disabled       = on;
-    text.style.opacity = on ? '0' : '1';
-    spin.style.display = on ? 'block' : 'none';
+function showPasswordStep() {
+    loginStep = 2;
+    const passSection = document.getElementById('login-pass-section');
+    const btnLoginText = document.getElementById('btn-login-text');
+    const loginPass = document.getElementById('login-pass');
+    if (passSection) passSection.style.display = '';
+    if (btnLoginText) btnLoginText.textContent = 'Entrar';
+    setTimeout(() => loginPass?.focus(), 50);
+}
+
+function completeLogin(user) {
+    syncLastAccess(user);
+
+    const { password: _pw, ...sessionUser } = user;
+    localStorage.setItem('nexus_session', JSON.stringify(sessionUser));
+
+    if (user.profile === 'rh') {
+        window.location.href = '../screens/dashboard.html';
+    } else {
+        window.location.href = '../screens/inicio-colaborador.html';
+    }
 }
 
 function openFirstAccessModal(userEmail) {
-    if (document.getElementById('first-access-modal')) {
-        document.getElementById('first-access-modal').classList.add('fam-visible');
-        return;
+    const existing = document.getElementById('first-access-modal');
+    if (existing) {
+        existing.remove();
     }
 
-    const today   = new Date().toISOString().split('T')[0];
     const overlay = document.createElement('div');
-    overlay.id        = 'first-access-modal';
+    overlay.id = 'first-access-modal';
     overlay.className = 'fam-overlay';
     overlay.innerHTML = `
         <div class="fam-card" role="dialog" aria-modal="true" aria-labelledby="fam-title">
@@ -109,221 +226,276 @@ function openFirstAccessModal(userEmail) {
                     </svg>
                 </div>
                 <div>
-                    <p class="fam-title" id="fam-title">Complete seu perfil</p>
-                    <p class="fam-subtitle">Essas informações aparecerão na sua área pessoal.</p>
+                    <p class="fam-title" id="fam-title">Primeiro Acesso</p>
+                    <p class="fam-subtitle">Defina sua senha para acessar o sistema.</p>
                 </div>
             </div>
             <div class="fam-body">
                 <div class="fam-field">
-                    <label class="fam-label" for="fam-dept">Setor / Departamento</label>
-                    <div class="fam-input-wrap">
+                    <label class="fam-label">E-mail</label>
+                    <div class="fam-input-wrap" style="opacity: 0.7;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="7" width="20" height="14" rx="2"/>
-                            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22,6 12,13 2,6"/>
                         </svg>
-                        <input type="text" id="fam-dept" placeholder="Ex: Tecnologia da Informação" />
+                        <input type="email" value="${userEmail}" disabled style="background: #f3f4f6;" />
                     </div>
-                    <p class="fam-error" id="fam-dept-err"></p>
                 </div>
                 <div class="fam-field">
-                    <label class="fam-label" for="fam-role">Cargo</label>
+                    <label class="fam-label" for="fam-password">Nova Senha</label>
                     <div class="fam-input-wrap">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                            <path d="M2 17l10 5 10-5"/>
-                            <path d="M2 12l10 5 10-5"/>
+                            <rect x="3" y="11" width="18" height="11" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        <input type="text" id="fam-role" placeholder="Ex: Desenvolvedor Front-end" />
+                        <input type="password" id="fam-password" placeholder="Mínimo 8 caracteres"
+                               oninput="window.validateFirstAccessPassword()" />
                     </div>
-                    <p class="fam-error" id="fam-role-err"></p>
+                    <p class="fam-error" id="fam-password-err"></p>
+                    <div class="strength-wrap" id="fam-strength-wrap">
+                        <div class="pw-bars">
+                            <div class="pw-bar" id="fam-bar-1"></div>
+                            <div class="pw-bar" id="fam-bar-2"></div>
+                            <div class="pw-bar" id="fam-bar-3"></div>
+                        </div>
+                        <div class="pw-strength-footer">
+                            <span class="pw-strength-label" id="fam-strength-label"></span>
+                        </div>
+                        <ul class="pw-criteria">
+                            <li class="crit" id="fam-crit-length"><span class="crit-dot"></span>Mínimo 8 caracteres</li>
+                            <li class="crit" id="fam-crit-letter"><span class="crit-dot"></span>Contém letras</li>
+                            <li class="crit" id="fam-crit-number"><span class="crit-dot"></span>Contém números</li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="fam-field">
-                    <label class="fam-label" for="fam-contract">Tipo de Contrato</label>
+                    <label class="fam-label" for="fam-confirm-password">Confirmar Nova Senha</label>
                     <div class="fam-input-wrap">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
+                            <rect x="3" y="11" width="18" height="11" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        <select id="fam-contract">
-                            <option value="" disabled selected>Selecione</option>
-                            <option value="clt">CLT — 8h/dia · 44h/semana</option>
-                            <option value="pj">PJ — Autônomo (sem jornada fixa)</option>
-                            <option value="estagio">Estágio — 6h/dia · 30h/semana</option>
-                            <option value="aprendiz">Aprendiz — 6h/dia · 30h/semana</option>
-                        </select>
+                        <input type="password" id="fam-confirm-password" placeholder="Repita a senha"
+                               oninput="window.validateFirstAccessPassword()" />
                     </div>
-                    <p class="fam-error" id="fam-contract-err"></p>
-                </div>
-                <div class="fam-field">
-                    <label class="fam-label" for="fam-admission">Data de Admissão</label>
-                    <div class="fam-input-wrap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2"/>
-                            <line x1="16" y1="2" x2="16" y2="6"/>
-                            <line x1="8" y1="2" x2="8" y2="6"/>
-                            <line x1="3" y1="10" x2="21" y2="10"/>
-                        </svg>
-                        <input type="date" id="fam-admission" max="${today}" />
-                    </div>
-                    <p class="fam-error" id="fam-admission-err"></p>
+                    <p class="fam-error" id="fam-confirm-password-err"></p>
                 </div>
             </div>
-            <button class="fam-btn" id="fam-btn" onclick="submitFirstAccess('${userEmail}')">
-                <span id="fam-btn-text">Salvar e entrar</span>
+            <button class="fam-btn" id="fam-btn" onclick="submitFirstAccess('${userEmail}')" disabled>
+                <span id="fam-btn-text">Definir Senha</span>
                 <div class="fam-spinner" id="fam-spinner"></div>
             </button>
+            <p class="fam-footer-text">
+                Em caso de dúvidas, entre em contato com o RH.
+            </p>
         </div>`;
 
     document.body.appendChild(overlay);
-    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('fam-visible')));
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            overlay.classList.add('fam-visible');
+            document.getElementById('fam-password')?.focus();
+        });
+    });
 }
 
+window.validateFirstAccessPassword = function () {
+    const password = document.getElementById('fam-password')?.value || '';
+    const confirmPassword = document.getElementById('fam-confirm-password')?.value || '';
+    const btn = document.getElementById('fam-btn');
+
+    const hasLength = password.length >= 8;
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+
+    const critLength = document.getElementById('fam-crit-length');
+    const critLetter = document.getElementById('fam-crit-letter');
+    const critNumber = document.getElementById('fam-crit-number');
+    if (critLength) critLength.classList.toggle('ok', hasLength);
+    if (critLetter) critLetter.classList.toggle('ok', hasLetter);
+    if (critNumber) critNumber.classList.toggle('ok', hasNumber);
+
+    const strengthWrap = document.getElementById('fam-strength-wrap');
+    const bar1 = document.getElementById('fam-bar-1');
+    const bar2 = document.getElementById('fam-bar-2');
+    const bar3 = document.getElementById('fam-bar-3');
+    const strengthLabel = document.getElementById('fam-strength-label');
+
+    if (password.length > 0) {
+        if (strengthWrap) strengthWrap.style.display = 'block';
+        const strength = [hasLength, hasLetter, hasNumber].filter(Boolean).length;
+        const level = strength < 2 ? 1 : strength;
+        const colors = { 1: '#ef4444', 2: '#f59e0b', 3: '#22c55e' };
+        const labels = { 1: 'Fraca', 2: 'Média', 3: 'Forte' };
+        const inactive = '#e5e7eb';
+        const color = colors[level];
+        if (bar1) bar1.style.background = level >= 1 ? color : inactive;
+        if (bar2) bar2.style.background = level >= 2 ? color : inactive;
+        if (bar3) bar3.style.background = level >= 3 ? color : inactive;
+        if (strengthLabel) {
+            strengthLabel.textContent = labels[level];
+            strengthLabel.style.color = color;
+        }
+    } else {
+        if (strengthWrap) strengthWrap.style.display = 'none';
+    }
+
+    const passErr = document.getElementById('fam-password-err');
+    const confirmErr = document.getElementById('fam-confirm-password-err');
+
+    if (password && !hasLength) {
+        if (passErr) passErr.textContent = 'Senha deve ter no mínimo 8 caracteres.';
+    } else {
+        if (passErr) passErr.textContent = '';
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+        if (confirmErr) confirmErr.textContent = 'As senhas não coincidem.';
+    } else {
+        if (confirmErr) confirmErr.textContent = '';
+    }
+
+    const allCriteriaMet = hasLength && hasLetter && hasNumber;
+    if (btn) {
+        btn.disabled = !password || !confirmPassword || !allCriteriaMet || password !== confirmPassword;
+    }
+};
+
 window.submitFirstAccess = function (userEmail) {
-    const dept         = document.getElementById('fam-dept').value.trim();
-    const role         = document.getElementById('fam-role').value.trim();
-    const contractType = document.getElementById('fam-contract').value;
-    const admission    = document.getElementById('fam-admission').value;
+    const password = document.getElementById('fam-password').value;
+    const confirmPassword = document.getElementById('fam-confirm-password').value;
 
-    document.getElementById('fam-dept-err').textContent     = dept         ? '' : 'Informe o setor.';
-    document.getElementById('fam-role-err').textContent     = role         ? '' : 'Informe o cargo.';
-    document.getElementById('fam-contract-err').textContent = contractType ? '' : 'Selecione o tipo de contrato.';
-    document.getElementById('fam-admission-err').textContent = admission   ? '' : 'Informe a data.';
-    if (!dept || !role || !contractType || !admission) return;
+    let hasError = false;
 
-    const btn  = document.getElementById('fam-btn');
+    if (!password || password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        document.getElementById('fam-password-err').textContent = 'A senha deve ter no mínimo 8 caracteres, letras e números.';
+        hasError = true;
+    } else {
+        document.getElementById('fam-password-err').textContent = '';
+    }
+
+    if (password !== confirmPassword) {
+        document.getElementById('fam-confirm-password-err').textContent = 'As senhas não coincidem.';
+        hasError = true;
+    } else {
+        document.getElementById('fam-confirm-password-err').textContent = '';
+    }
+
+    if (hasError) return;
+
+    const btn = document.getElementById('fam-btn');
     const text = document.getElementById('fam-btn-text');
     const spin = document.getElementById('fam-spinner');
-    btn.disabled = true; text.style.opacity = '0'; spin.style.display = 'block';
+    btn.disabled = true;
+    text.style.opacity = '0';
+    spin.style.display = 'block';
 
     setTimeout(() => {
         const users = getUsers();
-        const idx   = users.findIndex(u => u.email.toLowerCase() === userEmail.toLowerCase());
+        const idx = users.findIndex(u => u.email.toLowerCase() === userEmail.toLowerCase());
+
         if (idx !== -1) {
-            users[idx] = {
-                ...users[idx],
-                dept,
-                role,
-                contractType,  
-                admissionDate: admission,
-                firstAccess: false,
-            };
+            users[idx].password = password;
+            users[idx].firstAccess = false;
+            users[idx].status = 'Ativo';
             saveUsers(users);
-            const { password: _pw, ...session } = users[idx];
-            localStorage.setItem('nexus_session', JSON.stringify(session));
+
+            const modal = document.getElementById('first-access-modal');
+            if (modal) {
+                modal.classList.remove('fam-visible');
+                setTimeout(() => modal.remove(), 300);
+            }
+
+            loginStep = 1;
+            const loginUser = document.getElementById('login-user');
+            const loginPass = document.getElementById('login-pass');
+            const passSection = document.getElementById('login-pass-section');
+            const btnLoginText = document.getElementById('btn-login-text');
+            if (loginUser) loginUser.value = '';
+            if (loginPass) loginPass.value = '';
+            if (passSection) passSection.style.display = 'none';
+            if (btnLoginText) btnLoginText.textContent = 'Continuar';
+
+            showToast('Senha definida com sucesso! Faça seu login para continuar.', 'success');
+            setTimeout(() => loginUser?.focus(), 400);
         }
-        window.location.href = '../screens/inicio-colaborador.html';
     }, 900);
 };
 
-window.selectSignupProfile = function (type, el) {
-    selectedSignupProfile = type;
-    document.querySelectorAll('#form-signup .profile-card').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-};
+function syncLastAccess(user) {
+    if (user.profile !== 'colaborador') return;
 
-window.handleSignup = function () {
-    const name  = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim().toLowerCase();
-    const pass  = document.getElementById('signup-pass').value;
+    const employees = JSON.parse(localStorage.getItem('nexus_employees') || '[]');
+    const empIndex = employees.findIndex(e =>
+        e.email?.toLowerCase() === user.email.toLowerCase() ||
+        e.cpf === user.cpf ||
+        e.id === user.employeeId
+    );
 
-    if (!selectedSignupProfile)                               { showToast('Selecione um perfil.',                  'error'); return; }
-    if (!name)                                                { showToast('Informe seu nome.',                     'error'); return; }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Informe um e-mail válido.',             'error'); return; }
-    if (!pass || pass.length < 8)                             { showToast('Senha deve ter ao menos 8 caracteres.', 'error'); return; }
+    if (empIndex !== -1) {
+        employees[empIndex].lastAccess = new Date().toISOString();
+        localStorage.setItem('nexus_employees', JSON.stringify(employees));
 
-    const users = getUsers();
-    if (users.find(u => u.email === email && u.profile === selectedSignupProfile)) {
-        showToast('E-mail já cadastrado neste perfil.', 'error');
-        return;
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'nexus_employees',
+            newValue: JSON.stringify(employees),
+            oldValue: null,
+            storageArea: localStorage
+        }));
     }
-
-    users.push({
-        name, email, password: pass,
-        profile:       selectedSignupProfile,
-        role:          selectedSignupProfile === 'rh' ? 'Analista de RH' : 'Colaborador',
-        dept:          selectedSignupProfile === 'rh' ? 'Recursos Humanos' : '',
-        contractType:  selectedSignupProfile === 'rh' ? null : '',  
-        admissionDate: new Date().toISOString().split('T')[0],
-        status:        'Ativo',
-        phone:         '',
-        bio:           '',
-        avatarColor:   randomColor(),
-        firstAccess:   selectedSignupProfile === 'colaborador',
-    });
-    saveUsers(users);
-
-    const btn  = document.getElementById('btn-signup');
-    const text = document.getElementById('btn-signup-text');
-    const spin = document.getElementById('spinner-signup');
-    if (btn)  btn.disabled       = true;
-    if (text) text.style.opacity = '0';
-    if (spin) spin.style.display = 'block';
-
-    showToast('Cadastro realizado com sucesso!', 'success');
-
-    setTimeout(() => {
-        if (btn)  btn.disabled       = false;
-        if (text) text.style.opacity = '1';
-        if (spin) spin.style.display = 'none';
-
-        document.getElementById('signup-name').value  = '';
-        document.getElementById('signup-email').value = '';
-        document.getElementById('signup-pass').value  = '';
-        selectedSignupProfile = null;
-        document.querySelectorAll('#form-signup .profile-card').forEach(c => c.classList.remove('selected'));
-
-        selectedProfileType = users[users.length - 1].profile;
-        switchTab('login');
-        goToLogin();
-    }, 1800);
-};
-
-function randomColor() {
-    const colors = ['#6366f1','#8b5cf6','#ec4899','#10b981','#f59e0b','#3b82f6','#ef4444'];
-    return colors[Math.floor(Math.random() * colors.length)];
 }
 
-window.onSignupPasswordInput = function (val) {
-    const wrap = document.getElementById('strength-wrap');
-    if (!wrap) return;
-    wrap.style.display = val.length > 0 ? 'block' : 'none';
+window.setUserBlocked = function (targetId, block) {
+    const users = getUsers();
+    const idx = users.findIndex(u => u.id === targetId);
 
-    const checks = {
-        len:   val.length >= 8,
-        upper: /[A-Z]/.test(val),
-        num:   /[0-9]/.test(val),
-        sym:   /[^A-Za-z0-9]/.test(val),
+    if (idx === -1) {
+        return { ok: false, message: 'Usuário não encontrado.' };
+    }
+
+    users[idx].status = block ? 'Bloqueado' : 'Ativo';
+    saveUsers(users);
+
+    if (users[idx].profile === 'colaborador') {
+        const employees = JSON.parse(localStorage.getItem('nexus_employees') || '[]');
+        const empIndex = employees.findIndex(e =>
+            e.email?.toLowerCase() === users[idx].email.toLowerCase() ||
+            e.cpf === users[idx].cpf ||
+            e.id === users[idx].employeeId
+        );
+
+        if (empIndex !== -1) {
+            employees[empIndex].status = block ? 'Inativo' : 'Ativo';
+            localStorage.setItem('nexus_employees', JSON.stringify(employees));
+        }
+    }
+
+    return {
+        ok: true,
+        message: block
+            ? `${users[idx].name} foi bloqueado com sucesso.`
+            : `${users[idx].name} foi reativado com sucesso.`,
     };
-
-    const score  = Object.values(checks).filter(Boolean).length;
-    const colors = ['#ef4444','#f59e0b','#3b82f6','#10b981'];
-    const labels = ['Muito fraca','Fraca','Boa','Forte'];
-
-    [1,2,3,4].forEach(i => {
-        const bar = document.getElementById('pw-bar-' + i);
-        if (bar) bar.style.background = i <= score ? colors[score - 1] : '';
-    });
-
-    const lbl = document.getElementById('pw-strength-label');
-    if (lbl) { lbl.textContent = score > 0 ? labels[score - 1] : ''; lbl.style.color = colors[score - 1] || ''; }
-
-    Object.entries(checks).forEach(([k, ok]) => {
-        document.getElementById('c-' + k)?.classList.toggle('ok', ok);
-    });
 };
 
 function setForgotStep(step) {
     forgotStep = step;
-    [1,2,3,4].forEach(i => {
+    [1, 2, 3, 4].forEach(i => {
         const panel = document.getElementById('forgot-s' + i);
-        const dot   = document.getElementById('fdot-' + i);
+        const dot = document.getElementById('fdot-' + i);
         if (panel) panel.style.display = i === step ? 'block' : 'none';
-        if (dot)   dot.classList.toggle('active', i <= step);
+        if (dot) dot.classList.toggle('active', i <= step);
     });
 }
+
+window.backToLogin = function () {
+    switchTab('login');
+    setForgotStep(1);
+    document.getElementById('forgot-email').value = '';
+    forgotEmail = '';
+    forgotCode = '';
+    clearInterval(resendInterval);
+};
 
 window.forgotSendCode = function () {
     const email = document.getElementById('forgot-email')?.value.trim().toLowerCase();
@@ -334,8 +506,15 @@ window.forgotSendCode = function () {
         return;
     }
 
+    const users = getUsers();
+    const userExists = users.some(u => u.email.toLowerCase() === email);
+    if (!userExists) {
+        if (errEl) errEl.textContent = 'E-mail não encontrado no sistema.';
+        return;
+    }
+
     forgotEmail = email;
-    forgotCode  = String(Math.floor(100000 + Math.random() * 900000));
+    forgotCode = String(Math.floor(100000 + Math.random() * 900000));
     console.info('[Nexus DEV] Código OTP:', forgotCode);
 
     setForgotBtnLoading('btn-forgot-send', 'btn-forgot-send-text', 'spin-forgot-send', true);
@@ -349,15 +528,6 @@ window.forgotSendCode = function () {
     }, 1200);
 };
 
-function setForgotBtnLoading(btnId, textId, spinId, on) {
-    const btn  = document.getElementById(btnId);
-    const text = document.getElementById(textId);
-    const spin = document.getElementById(spinId);
-    if (btn)  btn.disabled       = on;
-    if (text) text.style.opacity = on ? '0' : '1';
-    if (spin) spin.style.display = on ? 'block' : 'none';
-}
-
 window.forgotClearErr = function (errId, input) {
     const err = document.getElementById(errId);
     if (err) err.textContent = '';
@@ -365,7 +535,7 @@ window.forgotClearErr = function (errId, input) {
 };
 
 window.otpInput = function (el, idx) {
-    el.value = el.value.replace(/\D/g,'').slice(0,1);
+    el.value = el.value.replace(/\D/g, '').slice(0, 1);
     if (el.value && idx < 5) document.getElementById('otp' + (idx + 1))?.focus();
     checkOtpComplete();
 };
@@ -377,21 +547,24 @@ window.otpKey = function (e, idx) {
 
 window.otpPaste = function (e) {
     e.preventDefault();
-    const digits = (e.clipboardData.getData('text') || '').replace(/\D/g,'').slice(0,6);
-    digits.split('').forEach((d, i) => { const inp = document.getElementById('otp' + i); if (inp) inp.value = d; });
+    const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+    digits.split('').forEach((d, i) => {
+        const inp = document.getElementById('otp' + i);
+        if (inp) inp.value = d;
+    });
     checkOtpComplete();
     document.getElementById('otp' + Math.min(digits.length, 5))?.focus();
 };
 
 function checkOtpComplete() {
-    const complete = [0,1,2,3,4,5].every(i => (document.getElementById('otp' + i)?.value || '') !== '');
+    const complete = [0, 1, 2, 3, 4, 5].every(i => (document.getElementById('otp' + i)?.value || '') !== '');
     const btn = document.getElementById('btn-otp-verify');
     if (btn) btn.disabled = !complete;
 }
 
 window.forgotVerifyOtp = function () {
-    const entered = [0,1,2,3,4,5].map(i => document.getElementById('otp' + i)?.value || '').join('');
-    const errEl   = document.getElementById('otp-err');
+    const entered = [0, 1, 2, 3, 4, 5].map(i => document.getElementById('otp' + i)?.value || '').join('');
+    const errEl = document.getElementById('otp-err');
 
     setForgotBtnLoading('btn-otp-verify', 'btn-otp-text', 'spin-otp', true);
 
@@ -403,7 +576,10 @@ window.forgotVerifyOtp = function () {
             setForgotStep(3);
         } else {
             if (errEl) errEl.textContent = 'Código incorreto. Tente novamente.';
-            [0,1,2,3,4,5].forEach(i => { const inp = document.getElementById('otp' + i); if (inp) inp.value = ''; });
+            [0, 1, 2, 3, 4, 5].forEach(i => {
+                const inp = document.getElementById('otp' + i);
+                if (inp) inp.value = '';
+            });
             document.getElementById('otp0')?.focus();
         }
     }, 900);
@@ -417,9 +593,12 @@ window.forgotResend = function () {
 };
 
 function startResendTimer(seconds) {
-    const link  = document.getElementById('resend-link');
+    const link = document.getElementById('resend-link');
     const timer = document.getElementById('resend-timer');
-    if (link)  { link.style.pointerEvents = 'none'; link.style.opacity = '0.4'; }
+    if (link) {
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.4';
+    }
     if (timer) timer.textContent = `(${seconds}s)`;
 
     clearInterval(resendInterval);
@@ -429,14 +608,17 @@ function startResendTimer(seconds) {
         if (timer) timer.textContent = s > 0 ? `(${s}s)` : '';
         if (s <= 0) {
             clearInterval(resendInterval);
-            if (link) { link.style.pointerEvents = ''; link.style.opacity = '1'; }
+            if (link) {
+                link.style.pointerEvents = '';
+                link.style.opacity = '1';
+            }
         }
     }, 1000);
 }
 
 window.forgotValidatePass = function () {
-    const np  = document.getElementById('new-pass')?.value    || '';
-    const cp  = document.getElementById('confirm-pass')?.value || '';
+    const np = document.getElementById('new-pass')?.value || '';
+    const cp = document.getElementById('confirm-pass')?.value || '';
     const btn = document.getElementById('btn-reset');
     const err = document.getElementById('confirm-pass-err');
     const match = np.length >= 8 && np === cp;
@@ -453,8 +635,11 @@ window.forgotReset = function () {
     setTimeout(() => {
         setForgotBtnLoading('btn-reset', 'btn-reset-text', 'spin-reset', false);
         const users = getUsers();
-        const idx   = users.findIndex(u => u.email.toLowerCase() === forgotEmail);
-        if (idx !== -1) { users[idx].password = np; saveUsers(users); }
+        const idx = users.findIndex(u => u.email.toLowerCase() === forgotEmail);
+        if (idx !== -1) {
+            users[idx].password = np;
+            saveUsers(users);
+        }
         setForgotStep(4);
     }, 1200);
 };
@@ -463,26 +648,41 @@ window.togglePw = function (inputId, btn) {
     const input = document.getElementById(inputId);
     if (!input) return;
     const show = input.type === 'password';
-    input.type        = show ? 'text' : 'password';
+    input.type = show ? 'text' : 'password';
     btn.style.opacity = show ? '1' : '0.5';
 };
 
-function showToast(msg, type = 'success') {
-    const toast = document.getElementById('toast');
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.className   = `toast toast--${type} show`;
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    [1,2,3,4].forEach(i => {
+    [1, 2, 3, 4].forEach(i => {
         const p = document.getElementById('forgot-s' + i);
         if (p) p.style.display = i === 1 ? 'block' : 'none';
     });
 
     document.getElementById('login-user')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('login-pass')?.focus();
+        if (e.key === 'Enter') {
+            if (selectedProfileType === 'colaborador' && loginStep === 1) {
+                handleLogin();
+            } else {
+                document.getElementById('login-pass')?.focus();
+            }
+        }
+    });
+
+    document.getElementById('login-user')?.addEventListener('input', () => {
+        if (loginStep === 2) {
+            loginStep = 1;
+            const passSection = document.getElementById('login-pass-section');
+            if (passSection) passSection.style.display = 'none';
+            const btnLoginText = document.getElementById('btn-login-text');
+            if (btnLoginText) btnLoginText.textContent = 'Continuar';
+            const loginPass = document.getElementById('login-pass');
+            if (loginPass) loginPass.value = '';
+        }
+    });
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'nexus_users' || event.key === 'nexus_employees') {
+            console.log('[Nexus Login] Dados sincronizados de outra aba:', event.key);
+        }
     });
 });
