@@ -782,6 +782,9 @@ window.updateStatus = function (newStatus) {
 
     if (index !== -1) {
         employees[index].status = newStatus;
+        if (newStatus === 'Inativo' && !employees[index].terminationDate) {
+            employees[index].terminationDate = new Date().toISOString().split('T')[0];
+        }
         saveAndRefresh();
         
         const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');

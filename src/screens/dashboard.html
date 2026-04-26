@@ -76,11 +76,15 @@
             </div>
         </aside>
 
-        <div class="main-wrapper">
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <div class="main-wrapper" id="main-wrapper">
             <header class="topbar">
                 <div class="topbar-left">
+                    <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <h1 class="page-title">Dashboard</h1>
-                    <p class="page-subtitle" id="current-date"></p>
                 </div>
             </header>
 
@@ -112,6 +116,7 @@
                         </div>
                     </div>
                 </section>
+
 
                 <section class="charts-grid">
                     <div class="card chart-card">
