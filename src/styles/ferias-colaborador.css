@@ -817,6 +817,8 @@ button {
     .form-row-2 { grid-template-columns:1fr; }
     .page-body { padding:16px; gap:18px; }
     .section-header-row { flex-wrap:wrap; gap:10px; }
+    .btn-logout span { display: none; }
+    .btn-logout { padding: 8px 10px; }
 }
 
 @media (max-width:480px) {

@@ -1177,6 +1177,9 @@ select.form-input { cursor: pointer; }
         width: 100% !important;
     }
 
+    .btn-add { display: none; }
+    .btn-fab { display: inline-flex; }
+
     .kpi-grid { grid-template-columns: 1fr 1fr; }
     .gantt-label-col, .gantt-row-label { width: 110px; }
     .gantt-wrap { overflow-x: auto; }
@@ -1184,9 +1187,12 @@ select.form-input { cursor: pointer; }
 
 @media (max-width: 640px) {
     .page-body { padding: 14px; gap: 12px; }
-    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-    .kpi-label { font-size: 10px; }
-    .kpi-value { font-size: 22px; }
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .kpi-card { flex-direction: column; padding: 10px 6px; gap: 4px; align-items: center; justify-content: center; }
+    .kpi-label { display: none; }
+    .kpi-icon { width: 34px; height: 34px; font-size: 15px; }
+    .kpi-body { align-items: center; gap: 0; }
+    .kpi-value { font-size: 20px; }
 
     .tabs-bar { width: 100%; }
     .tab-btn { flex: 1; justify-content: center; padding: 8px 10px; font-size: 12.5px; }
@@ -1208,7 +1214,10 @@ select.form-input { cursor: pointer; }
 }
 
 @media (max-width: 400px) {
-    .kpi-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .kpi-card { padding: 8px 4px; }
+    .kpi-icon { width: 28px; height: 28px; font-size: 13px; }
+    .kpi-value { font-size: 18px; }
     .topbar { padding: 0 14px; }
     .page-title { font-size: 1rem; }
     .modal-card { border-radius: 12px; }
