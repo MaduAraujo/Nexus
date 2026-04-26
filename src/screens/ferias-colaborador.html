@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Minhas Férias</title>
+    <title>Nexus — Solicitar Férias</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/ferias-colaborador.css">
@@ -21,13 +21,13 @@
         <nav class="sidebar-nav">
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="inicio-colaborador.html" class="nav-link">
+                    <a href="../screens/inicio-colaborador.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-home"></i></span>
                         <span class="nav-text">Início</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="perfil-colaborador.html" class="nav-link">
+                    <a href="../screens/perfil-colaborador.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-user"></i></span>
                         <span class="nav-text">Meu Perfil</span>
                     </a>
@@ -36,12 +36,6 @@
                     <a href="#" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                         <span class="nav-text">Holerites</span>
-                    </a>
-                </li>
-                <li class="nav-item active">
-                    <a href="ferias-colaborador.html" class="nav-link active">
-                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
-                        <span class="nav-text">Minhas Férias</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -54,12 +48,6 @@
                     <a href="#" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-envelope"></i></span>
                         <span class="nav-text">Comunicados</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="ponto-colaborador.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-clock"></i></span>
-                        <span class="nav-text">Banco de Horas</span>
                     </a>
                 </li>
             </ul>
@@ -83,7 +71,7 @@
                 <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
                     <i class="fas fa-bars"></i>
                 </button>
-                <h1 class="page-title">Minhas Férias</h1>
+                <h1 class="page-title">Solicitar Férias</h1>
             </div>
             <div class="topbar-right">
                 <button class="btn-logout" onclick="logout()">
@@ -95,8 +83,6 @@
 
         <main class="content">
             <div class="page-body">
-
-                <!-- ── Summary Cards ── -->
                 <div class="summary-grid">
                     <div class="summary-card summary-card--blue">
                         <div class="summary-icon-wrap summary-icon--blue">
@@ -130,7 +116,6 @@
                     </div>
                 </div>
 
-                <!-- ── Section header ── -->
                 <div class="section-header-row">
                     <h2 class="section-title">Histórico de Férias</h2>
                     <button class="btn-solicitar" id="btn-solicitar" onclick="openRequestModal()">
@@ -139,7 +124,6 @@
                     </button>
                 </div>
 
-                <!-- ── Timeline ── -->
                 <div class="timeline-section">
                     <div class="timeline-card">
                         <div class="timeline-head">
@@ -159,7 +143,6 @@
                     </div>
                 </div>
 
-                <!-- ── History List ── -->
                 <div class="history-wrap">
                     <div id="history-list">
                         <div class="empty-state" id="history-empty">
@@ -169,13 +152,11 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
 </div>
 
-<!-- ══ Modal: Solicitar Férias ══ -->
 <div class="modal-overlay" id="request-modal" onclick="handleOverlayClick(event,'request-modal')">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-head">
@@ -227,7 +208,6 @@
                 <textarea id="req-obs" class="form-textarea" rows="3"
                     placeholder="Ex: prefiro iniciar após o dia 15, ou tenho compromisso específico..."></textarea>
             </div>
-
             <div class="modal-alert" id="modal-alert"></div>
         </div>
 
@@ -241,7 +221,6 @@
     </div>
 </div>
 
-<!-- ══ Modal: Motivo de Recusa ══ -->
 <div class="modal-overlay" id="detail-modal" onclick="handleOverlayClick(event,'detail-modal')">
     <div class="modal-card modal-card--sm" role="dialog" aria-modal="true">
         <div class="modal-head">
@@ -262,7 +241,6 @@
         </div>
     </div>
 </div>
-
 <div id="toast-container" class="toast-container"></div>
 <script src="../javascript/ferias-colaborador.js"></script>
 </body>
