@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderGantt();
     populateEmployeeSelect();
     setupSearchListeners();
+    setupRealtimeSync();
 });
 
 function setTodayDate() {
@@ -161,7 +162,7 @@ function renderTable() {
         const endFmt   = formatDate(v.endDate);
         const badge    = buildBadge(v.status);
         const actions  = buildActions(v);
-        const financ   = v.abono
+        const financ   = (v.abono || v.hasAbono)
             ? `<span class="badge-abono"><i class="fas fa-coins"></i> Abono</span>`
             : `<span class="badge-no-abono">—</span>`;
 
@@ -587,6 +588,19 @@ function clearAlert(id) {
     if (!el) return;
     el.className = 'modal-alert';
     el.textContent = '';
+}
+
+/* ════════════════════════════
+   Realtime sync
+════════════════════════════ */
+function setupRealtimeSync() {
+    window.addEventListener('storage', (e) => {
+        if (e.key !== VACATIONS_KEY) return;
+        autoExpireVacations();
+        loadKPIs();
+        renderTable();
+        renderGantt();
+    });
 }
 
 /* ════════════════════════════
