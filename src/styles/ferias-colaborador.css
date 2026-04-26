@@ -812,8 +812,16 @@ button {
     .sidebar-overlay.active { display:block; }
     .main-wrapper { margin-left:0; width:100%; }
     .main-wrapper.sidebar-collapsed { margin-left:0; width:100%; }
-    .topbar-menu-btn { display:flex; }
-    .summary-grid { grid-template-columns:1fr; }
+    .topbar { padding: 0 18px; }
+    .topbar-menu-btn { display:flex; align-items:center; }
+    .summary-grid { grid-template-columns:repeat(3,1fr); gap:8px; }
+    .summary-card { flex-direction:column; padding:10px 6px; gap:4px; align-items:center; justify-content:center; overflow:hidden; }
+    .summary-label { display:none; }
+    .summary-sub { display:none; }
+    .summary-icon-wrap { width:34px; height:34px; min-width:34px; font-size:0.9rem; border-radius:8px; }
+    .summary-body { align-items:center; width:100%; }
+    .summary-value { font-size:1rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .summary-value--sm { font-size:0.72rem; }
     .form-row-2 { grid-template-columns:1fr; }
     .page-body { padding:16px; gap:18px; }
     .section-header-row { flex-wrap:wrap; gap:10px; }
