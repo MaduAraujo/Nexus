@@ -302,25 +302,6 @@ ul { list-style: none; }
     to   { opacity: 1; transform: translateY(0); }
 }
 
-.section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.section-header h2 {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-main);
-}
-
-.section-header i {
-    color: var(--accent);
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
 .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -470,7 +451,6 @@ ul { list-style: none; }
 @media (max-width: 768px) {
     .topbar { padding: 0 18px; }
     .topbar-menu-btn { display: flex; }
-    .page-subtitle { display: none; }
 
     .sidebar {
         transform: translateX(-100%);
