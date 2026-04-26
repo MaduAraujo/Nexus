@@ -651,6 +651,7 @@ ul {
     justify-content: center;
     flex-shrink: 0;
 }
+
 .emp-name { font-weight: 600; font-size: 13.5px; }
 .emp-dept { font-size: 11.5px; color: var(--text-subtle); }
 
@@ -874,6 +875,7 @@ ul {
     padding: 40px 0;
     color: var(--text-subtle);
 }
+
 .gantt-empty i { font-size: 26px; opacity: .5; }
 
 .modal-overlay {
@@ -994,6 +996,7 @@ select.form-input { cursor: pointer; }
     width: 100%;
     min-height: 72px;
 }
+
 .form-textarea:focus { border-color: var(--border-focus); background: #fff; }
 .form-textarea::placeholder { color: var(--text-subtle); }
 

@@ -38,9 +38,9 @@ body {
     overflow-x: hidden;
 }
 
-html { 
-    scroll-behavior: smooth; 
-    -webkit-text-size-adjust: 100%; 
+html {
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
 }
 
 .layout {
