@@ -426,20 +426,22 @@ ul {
 .btn-fab:active { transform: scale(0.93); }
 
 .btn-add {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     background: var(--accent);
     color: #fff;
-    font-size: 13.5px;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 9px;
+    font-size: 0.875rem;
     font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
+    cursor: pointer;
     transition: background var(--transition), transform var(--transition);
 }
 
-.btn-add:hover { background: var(--accent-hover); transform: translateY(-1px); }
-.btn-add i { font-size: 12px; }
+.btn-primary:hover  { background: var(--accent-hover); box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4); }
+.btn-add i { font-size: 16px; }
 
 .content { flex: 1; overflow-y: auto; }
 .page-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
