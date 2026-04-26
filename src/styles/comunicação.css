@@ -511,7 +511,6 @@ body {
 
 .send-button.sent-success i { animation: scaleCheck 0.3s ease-out; }
 
-/* ── Tabela (desktop) ────────────────────────────────────── */
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -599,7 +598,6 @@ body {
     transform: scale(1.05);
 }
 
-/* ── Cards mobile ────────────────────────────────────────── */
 .messages-cards {
     display: none;
     flex-direction: column;
@@ -683,7 +681,6 @@ body {
 
 .msg-card-actions { flex-shrink: 0; }
 
-/* ── Modal ───────────────────────────────────────────────── */
 .modal-overlay {
     display: none;
     position: fixed;
@@ -800,7 +797,6 @@ body {
 #sent-messages-section { width: 100%; }
 #sent-messages-section .message-card { width: 100%; }
 
-/* ── Responsividade ──────────────────────────────────────── */
 @media (max-width: 1280px) {
     .content { padding: 32px 28px; }
 }
@@ -853,11 +849,9 @@ body {
 
     .destination-grid { grid-template-columns: 1fr 1fr; }
 
-    /* Troca tabela → cards no mobile */
     .table-container  { display: none; }
     .messages-cards   { display: flex; }
 
-    /* Remove borda/radius do wrapper quando exibe cards soltos */
     #sent-messages-section .message-card {
         background: transparent;
         border: none;
