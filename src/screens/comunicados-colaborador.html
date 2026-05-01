@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Comunicados</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/comunicados-colaborador.css">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/inicio-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Início</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/perfil-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-user"></i></span>
+                        <span class="nav-text">Meu Perfil</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="../screens/comunicados-colaborador.html" class="nav-link active">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicados</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="sidebar-avatar">?</div>
+                <div class="user-info">
+                    <p class="user-name" id="sidebar-name">—</p>
+                    <p class="user-role" id="sidebar-role">Colaborador</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Comunicados</h1>
+            </div>
+            <div class="topbar-right">
+                <span class="unread-badge hidden" id="unread-badge">
+                    <i class="fas fa-bell"></i>
+                    <span id="unread-count">0</span> não lido(s)
+                </span>
+                <button class="btn-logout" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--blue"><i class="fas fa-bullhorn"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-total">0</span>
+                            <span class="stat-label">Total de comunicados</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--purple"><i class="fas fa-globe"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-todos">0</span>
+                            <span class="stat-label">Para todos</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon--green"><i class="fas fa-building"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-dept">0</span>
+                            <span class="stat-label">Para o seu departamento</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="search-input" placeholder="Buscar comunicado…">
+                        <button class="search-clear hidden" id="search-clear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="filter-tabs">
+                        <button class="filter-btn active" data-filter="todos-vis">Todos</button>
+                        <button class="filter-btn" data-filter="nao-lidos">Não lidos</button>
+                    </div>
+                </div>
+
+                <div id="comunicados-list"></div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="../javascript/comunicados-colaborador.js"></script>
+</body>
+</html>

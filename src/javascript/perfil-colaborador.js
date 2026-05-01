@@ -169,7 +169,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function calcBancoHoras() {
+        const pad0   = n => String(n).padStart(2, '0');
+        const diffMin = (a, b) => { if (!a || !b) return 0; return Math.round((new Date(b) - new Date(a)) / 60000); };
+        const minToStr = min => { const abs = Math.abs(min); return `${Math.floor(abs / 60)}h ${pad0(abs % 60)}min`; };
+
+        const contractType = (session.contractType || 'clt').toLowerCase();
+        const jornadaMin   = (contractType === 'estagio' || contractType === 'aprendiz') ? 360
+                           : contractType === 'pj' ? null : 480;
+
+        let records = {};
+        try { records = JSON.parse(localStorage.getItem(`nexus_ponto_${session.email}`) || '{}'); } catch {}
+
+        const valueEl = document.getElementById('prof-banco-value');
+        const noteEl  = document.getElementById('prof-banco-note');
+        const iconEl  = document.getElementById('banco-icon');
+
+        if (jornadaMin === null) {
+            let totalWorked = 0;
+            let diasCompletos = 0;
+            Object.values(records).forEach(rec => {
+                if (!rec || !rec.entrada || !rec.saida) return;
+                const worked = rec.saida_almoco
+                    ? diffMin(rec.entrada, rec.saida_almoco) + (rec.retorno_almoco ? diffMin(rec.retorno_almoco, rec.saida) : 0)
+                    : diffMin(rec.entrada, rec.saida);
+                totalWorked += worked;
+                diasCompletos++;
+            });
+            if (valueEl) valueEl.textContent = minToStr(totalWorked);
+            if (noteEl)  noteEl.textContent  = `${diasCompletos} dia(s) registrado(s) — PJ`;
+            if (iconEl)  iconEl.className    = 'prof-highlight-icon prof-icon--blue';
+            return;
+        }
+
+        let totalMin = 0, diasCompletos = 0;
+        Object.values(records).forEach(rec => {
+            if (!rec || !rec.entrada || !rec.saida) return;
+            const worked = rec.saida_almoco
+                ? diffMin(rec.entrada, rec.saida_almoco) + (rec.retorno_almoco ? diffMin(rec.retorno_almoco, rec.saida) : 0)
+                : diffMin(rec.entrada, rec.saida);
+            totalMin += worked - jornadaMin;
+            diasCompletos++;
+        });
+
+        if (diasCompletos === 0) {
+            if (valueEl) valueEl.textContent = '0h 00min';
+            if (noteEl)  noteEl.textContent  = 'Nenhum dia finalizado';
+            if (iconEl)  iconEl.className    = 'prof-highlight-icon prof-icon--purple';
+            return;
+        }
+
+        const sign = totalMin > 0 ? '+' : totalMin < 0 ? '-' : '';
+        const cls  = totalMin > 0 ? 'prof-icon--green' : totalMin < 0 ? 'prof-icon--red' : 'prof-icon--purple';
+        if (valueEl) valueEl.textContent = `${sign}${minToStr(totalMin)}`;
+        if (noteEl)  noteEl.textContent  = `Saldo de ${diasCompletos} dia(s) registrado(s)`;
+        if (iconEl)  iconEl.className    = `prof-highlight-icon ${cls}`;
+    }
+
     applySession();
+    calcBancoHoras();
     buildColorSwatches();
     loadNotifPrefs();
 
@@ -369,18 +427,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const NOTIF_KEY = 'nexus_notif_' + session.email;
 
+    const NOTIF_DEFAULTS = {
+        comunicados: true,
+        holerite:    true,
+        ferias:      true,
+        horas:       false,
+        seguranca:   true,
+    };
+
     function loadNotifPrefs() {
         try {
-            const prefs = JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}');
-            ['comunicados','holerite','ferias','horas','seguranca'].forEach(k => { const el = document.getElementById('notif-' + k); if (el && k in prefs) el.checked = prefs[k]; });
+            const saved = JSON.parse(localStorage.getItem(NOTIF_KEY));
+            const prefs = (saved && typeof saved === 'object') ? saved : {};
+
+            const merged = { ...NOTIF_DEFAULTS, ...prefs };
+
+            Object.entries(merged).forEach(([k, v]) => {
+                const el = document.getElementById('notif-' + k);
+                if (el) el.checked = v;
+            });
+
+            // Garante que os defaults ficam salvos na primeira visita
+            if (!saved) localStorage.setItem(NOTIF_KEY, JSON.stringify(merged));
         } catch {}
     }
 
     window.saveNotifPref = function (key, value) {
         try {
-            const prefs = JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}');
-            prefs[key] = value; localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
-            showToast(value ? 'Notificação ativada.' : 'Notificação desativada.', 'success');
+            const saved = JSON.parse(localStorage.getItem(NOTIF_KEY));
+            const prefs = (saved && typeof saved === 'object') ? saved : { ...NOTIF_DEFAULTS };
+            prefs[key] = value;
+            localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+            showToast(value ? 'Notificação ativada.' : 'Notificação desativada.', value ? 'success' : 'error');
         } catch {}
     };
 

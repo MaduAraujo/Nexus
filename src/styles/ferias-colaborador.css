@@ -423,7 +423,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     .btn-logout { padding:8px 10px; }
     .btn-back span { display:none; }
     .btn-back { padding:8px 10px; }
-    .summary-grid { grid-template-columns:repeat(3,1fr); gap:8px; }
+    .summary-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
     .summary-card { flex-direction:column; padding:10px 6px; gap:4px; align-items:center; justify-content:center; overflow:hidden; }
     .summary-label { display:none; }
     .summary-sub { display:none; }

@@ -75,11 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function initials(name) { return (name||'?').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join(''); }
 
     function calcWorkedMin(rec) {
-        if (isFalta(rec)) return 0;
-        let total = 0;
-        if (rec.entrada) { const f = rec.saida_almoco || rec.saida; if (f) total += diffMin(rec.entrada, f); }
-        if (rec.retorno_almoco && rec.saida) total += diffMin(rec.retorno_almoco, rec.saida);
-        return total;
+        if (!rec || !rec.entrada) return 0;
+        if (rec.saida_almoco) {
+            const morning   = diffMin(rec.entrada, rec.saida_almoco);
+            const afternoon = (rec.retorno_almoco && rec.saida)
+                ? diffMin(rec.retorno_almoco, rec.saida) : 0;
+            return morning + afternoon;
+        }
+        return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
     }
 
     function calcSaldoMin(rec) {
@@ -380,35 +383,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSaldo() {
         const records    = getRecords();
         const jornadaMin = getJornadaMin();
-        let totalMin = 0, hasDias = false;
+        let totalMin = 0, diasCompletos = 0;
 
         Object.values(records).forEach(rec => {
             if (isFalta(rec)) return;
             const s = calcSaldoMin(rec);
-            if (s !== null) { totalMin += s; hasDias = true; }
+            if (s !== null) { totalMin += s; diasCompletos++; }
         });
 
         const icon = $('saldo-icon'), val = $('saldo-value'), sub = $('saldo-sub');
 
         if (jornadaMin === null) {
             let totalWorked = 0;
-            Object.values(records).forEach(rec => { if (!isFalta(rec)) totalWorked += calcWorkedMin(rec); });
+            Object.values(records).forEach(rec => {
+                if (!isFalta(rec) && rec.saida) totalWorked += calcWorkedMin(rec);
+            });
             if (icon) icon.className = 'saldo-icon positivo';
             if (val)  { val.textContent = minToStr(totalWorked); val.className = 'saldo-value'; }
-            if (sub)  sub.textContent = 'Total de horas registradas (PJ — sem jornada definida)';
+            if (sub)  sub.textContent = `Total registrado em ${diasCompletos} dia(s) — PJ`;
             return;
         }
 
-        if (!hasDias) {
-            if (val) val.textContent = '0h 00min';
-            if (sub) sub.textContent = 'Nenhum dia registrado';
+        if (diasCompletos === 0) {
+            if (icon) icon.className = 'saldo-icon';
+            if (val)  { val.textContent = '0h 00min'; val.className = 'saldo-value'; }
+            if (sub)  sub.textContent = 'Nenhum dia finalizado';
             return;
         }
 
-        const sign = totalMin >= 0 ? '+' : '-';
-        if (icon) icon.className = `saldo-icon ${totalMin >= 0 ? 'positivo' : 'negativo'}`;
-        if (val)  { val.textContent = `${sign}${minToStr(totalMin)}`; val.className = `saldo-value ${totalMin >= 0 ? 'positivo' : 'negativo'}`; }
-        if (sub)  sub.textContent = 'Saldo acumulado de todos os dias';
+        const sign = totalMin > 0 ? '+' : totalMin < 0 ? '-' : '';
+        const cls  = totalMin > 0 ? 'positivo' : totalMin < 0 ? 'negativo' : 'positivo';
+        if (icon) icon.className = `saldo-icon ${cls}`;
+        if (val)  { val.textContent = `${sign}${minToStr(totalMin)}`; val.className = `saldo-value ${totalMin !== 0 ? cls : ''}`; }
+        if (sub)  sub.textContent = `Saldo acumulado de ${diasCompletos} dia(s) registrado(s)`;
     }
 
     function renderStats() {

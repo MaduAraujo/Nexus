@@ -243,7 +243,7 @@ html {
 
 .page-body { display: flex; flex-direction: column; gap: 22px; }
 
-.hero-row { display:grid; grid-template-columns:280px 1fr; gap:16px; }
+.hero-row { display:grid; grid-template-columns:360px 1fr; gap:16px; }
 
 .saldo-card { background:linear-gradient(135deg,#1e1b4b 0%,#312e81 55%,#4338ca 100%); border-radius:16px; padding:28px 24px; display:flex; align-items:center; gap:20px; box-shadow:0 8px 32px rgba(99,102,241,.22); position:relative; overflow:hidden; }
 .saldo-card::before { content:''; position:absolute; top:-50px; right:-50px; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,.05); pointer-events:none; }
@@ -712,10 +712,19 @@ html {
 
 @media(max-width:1280px) { .content { padding:28px; } }
 @media(max-width:1024px) { .content { padding:24px; } }
-@media(max-width:960px)  { .hero-row { grid-template-columns:1fr; } }
-@media(max-width:900px)  { .stats-row { grid-template-columns:repeat(2,1fr); } }
+
+@media(max-width:960px) {
+    .hero-row { grid-template-columns:1fr; }
+    .saldo-card { padding:22px 20px; gap:16px; }
+    .saldo-value { font-size:1.6rem; }
+}
+
+@media(max-width:900px) { .stats-row { grid-template-columns:repeat(2,1fr); } }
 
 @media(max-width:768px) {
+    .sidebar { transform: translateX(-100%); width: var(--sidebar-w) !important; box-shadow: none; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 28px rgba(0,0,0,.3); }
+    .main-wrapper, .main-wrapper.sidebar-collapsed { margin-left: 0 !important; width: 100% !important; }
     .topbar-menu-btn { display:flex; align-items:center; }
     .topbar { padding:0 18px; }
     .btn-logout span { display:none; }
@@ -736,6 +745,16 @@ html {
     .map-info-item { min-width:120px; }
     .map-area { height:160px; }
     .historico-header { margin-left: 6px; }
+
+    .saldo-card { padding:18px 16px; gap:12px; }
+    .saldo-icon { width:44px; height:44px; font-size:1.1rem; border-radius:12px; }
+    .saldo-value { font-size:1.4rem; }
+    .saldo-sub { font-size:.7rem; }
+
+    .timeline-steps { grid-template-columns:1fr 14px 1fr 14px 1fr 14px 1fr; padding:10px 6px; gap:2px; }
+    .ts-dot { width:30px; height:30px; font-size:.68rem; }
+    .ts-label { font-size:.52rem; letter-spacing:0; }
+    .ts-time { font-size:.62rem; }
 }
 
 @media(max-width:360px) {
@@ -744,29 +763,27 @@ html {
     .page-title { font-size:0.95rem; }
     .stats-row { grid-template-columns:repeat(2,1fr); gap:8px; }
     .map-area { height:140px; }
+
+    .saldo-card { padding:16px 14px; gap:10px; }
+    .saldo-icon { width:38px; height:38px; font-size:1rem; }
+    .saldo-value { font-size:1.25rem; }
+
+    .timeline-steps { grid-template-columns:1fr 10px 1fr 10px 1fr 10px 1fr; padding:8px 4px; }
+    .ts-dot { width:26px; height:26px; font-size:.6rem; }
+    .ts-label { display:none; }
+    .ts-time { font-size:.58rem; }
 }
 
 @media (max-width: 600px) {
-    .burnout-header   { padding: 12px 14px; gap: 10px; }
-    .burnout-item     { padding: 12px 14px; gap: 10px; }
-    .burnout-titulo   { font-size: .86rem; }
+    .burnout-header    { padding: 12px 14px; gap: 10px; }
+    .burnout-item      { padding: 12px 14px; gap: 10px; }
+    .burnout-titulo    { font-size: .86rem; }
     .burnout-badge-icon { width: 34px; height: 34px; font-size: .88rem; }
 }
- 
-@media (max-width: 400px) {
-    .burnout-item     { flex-direction: column; gap: 8px; }
-    .burnout-item-icon { width: 28px; height: 28px; }
-}
 
-@media (max-width: 768px) {
-    .sidebar { transform: translateX(-100%); width: var(--sidebar-w) !important; box-shadow: none; }
-    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 28px rgba(0,0,0,.3); }
-    .main-wrapper,
-    .main-wrapper.sidebar-collapsed { margin-left: 0 !important; width: 100% !important; }
-    .topbar-menu-btn { display: flex; align-items: center; }
-    .topbar { padding: 0 18px; }
-    .btn-logout span { display: none; }
-    .btn-logout { padding: 8px 10px; }
+@media (max-width: 400px) {
+    .burnout-item      { flex-direction: column; gap: 8px; }
+    .burnout-item-icon { width: 28px; height: 28px; }
 }
 
 @keyframes fadeIn  { from{opacity:0}                              to{opacity:1} }

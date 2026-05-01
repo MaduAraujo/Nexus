@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileSelectedName = document.getElementById('file-selected-name');
 
     const STORAGE_KEY       = 'nexus_arquivos';
+    const STORAGE_KEY_COLAB = 'nexus_docs_colaborador';
     const SIDEBAR_STATE_KEY = 'sidebarState_arquivos';
 
     let activeTab    = 'admissional';
@@ -109,8 +110,80 @@ document.addEventListener('DOMContentLoaded', () => {
         return { cls: 'file-icon--other', icon: 'fa-file' };
     }
 
+    function loadColabDocs() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_COLAB) || '[]'); }
+        catch { return []; }
+    }
+
+    const statusMap = {
+        pendente: { cls: 'badge-status--pendente', label: 'Pendente',  icon: 'fa-clock' },
+        aprovado: { cls: 'badge-status--aprovado', label: 'Aprovado',  icon: 'fa-check-circle' },
+        recusado: { cls: 'badge-status--recusado', label: 'Recusado',  icon: 'fa-times-circle' },
+    };
+
     function renderTable() {
         const q = searchInput?.value.toLowerCase().trim() || '';
+        updateStats();
+
+        if (activeTab === 'colaborador') {
+            const colabDocs = loadColabDocs();
+            const filtered = q
+                ? colabDocs.filter(d => d.name.toLowerCase().includes(q) || d.employee.toLowerCase().includes(q) || d.tipo.toLowerCase().includes(q))
+                : colabDocs;
+
+            if (filtered.length === 0) {
+                filesTbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>Nenhum documento de colaborador</p>
+                                <span>${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</span>
+                            </div>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            filesTbody.innerHTML = filtered.map(d => {
+                const { cls, icon } = getFileIcon(d.name);
+                const st = statusMap[d.status] || statusMap.pendente;
+                return `
+                    <tr>
+                        <td>
+                            <div class="file-name-cell">
+                                <div class="file-icon ${cls}"><i class="fas ${icon}"></i></div>
+                                <div>
+                                    <div class="file-name" title="${d.name}">${d.name}</div>
+                                    <div class="file-employee">${d.tipo}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${d.employee}</td>
+                        <td>
+                            <span class="badge-status ${st.cls}">
+                                <i class="fas ${st.icon}"></i> ${st.label}
+                            </span>
+                        </td>
+                        <td class="file-date">${d.date}</td>
+                        <td class="file-size">${d.size}</td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn-icon btn-icon--approve" title="Aprovar" onclick="approveColabDoc(${d.id})">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn-icon btn-icon--reject" title="Recusar" onclick="rejectColabDoc(${d.id})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <button class="btn-icon btn-icon--delete" title="Excluir" onclick="deleteColabDoc(${d.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            }).join('');
+            return;
+        }
 
         const filtered = arquivos.filter(f => {
             if (f.tab !== activeTab) return false;
@@ -119,8 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
                    f.employee.toLowerCase().includes(q) ||
                    f.tipo.toLowerCase().includes(q);
         });
-
-        updateStats();
 
         if (filtered.length === 0) {
             filesTbody.innerHTML = `
@@ -172,10 +243,42 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStats() {
         const admCount  = arquivos.filter(f => f.tab === 'admissional').length;
         const demCount  = arquivos.filter(f => f.tab === 'demissional').length;
-        document.getElementById('total-count').textContent       = arquivos.length;
+        document.getElementById('total-count').textContent       = arquivos.length + loadColabDocs().length;
         document.getElementById('admissional-count').textContent = admCount;
         document.getElementById('demissional-count').textContent = demCount;
     }
+
+    function updateColabDoc(id, status) {
+        try {
+            const all = JSON.parse(localStorage.getItem(STORAGE_KEY_COLAB) || '[]');
+            const idx = all.findIndex(d => d.id === id);
+            if (idx === -1) return;
+            all[idx].status = status;
+            localStorage.setItem(STORAGE_KEY_COLAB, JSON.stringify(all));
+        } catch (e) { console.error(e); }
+    }
+
+    window.approveColabDoc = (id) => {
+        updateColabDoc(id, 'aprovado');
+        renderTable();
+        showToast('Documento aprovado!', 'O status foi atualizado para Aprovado.', 'success');
+    };
+
+    window.rejectColabDoc = (id) => {
+        updateColabDoc(id, 'recusado');
+        renderTable();
+        showToast('Documento recusado', 'O status foi atualizado para Recusado.', 'error');
+    };
+
+    window.deleteColabDoc = (id) => {
+        if (!confirm('Deseja realmente excluir este documento?')) return;
+        try {
+            const all = JSON.parse(localStorage.getItem(STORAGE_KEY_COLAB) || '[]');
+            localStorage.setItem(STORAGE_KEY_COLAB, JSON.stringify(all.filter(d => d.id !== id)));
+        } catch (e) { console.error(e); }
+        renderTable();
+        showToast('Documento excluído!', 'O arquivo foi removido com sucesso.', 'error');
+    };
 
     window.viewFile = (id) => {
         const f = arquivos.find(a => a.id === id);
@@ -275,6 +378,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     uploadModal?.addEventListener('click', (e) => { if (e.target === uploadModal) closeUploadModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeUploadModal(); if (isMobile()) closeMobileSidebar(); } });
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY_COLAB) renderTable();
+    });
 
     function showToast(title, msg, type = 'success') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle' };

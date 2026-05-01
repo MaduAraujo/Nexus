@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const session = (() => {
+    let session = (() => {
         try {
             const s = localStorage.getItem('nexus_session');
             return s ? JSON.parse(s) : null;
@@ -33,11 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    topbarMenuBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
-    });
-
+    topbarMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); });
     sidebarOverlay?.addEventListener('click', closeMobileSidebar);
 
     if (!isMobile() && localStorage.getItem(SIDEBAR_KEY) === 'collapsed') {
@@ -48,11 +44,17 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMobile()) closeMobileSidebar(); });
 
-    const initials = session.name
-        .split(' ')
-        .slice(0, 2)
-        .map(w => w[0]?.toUpperCase() || '')
-        .join('');
+    // ── Helpers ──
+    const PINK = '#ec4899';
+
+    const getInitials = (name) =>
+        (name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+
+    const formatDate = (str) => {
+        if (!str) return '—';
+        const [y, m, d] = str.split('-');
+        return `${d}/${m}/${y}`;
+    };
 
     const greeting = (() => {
         const h = new Date().getHours();
@@ -61,48 +63,71 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Boa noite';
     })();
 
-    const formatDate = (str) => {
-        if (!str) return '—';
-        const [y, m, d] = str.split('-');
-        return `${d}/${m}/${y}`;
-    };
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
 
-    const sidebarAvatar = document.getElementById('sidebar-avatar');
-    const sidebarName   = document.getElementById('sidebar-name');
-    const sidebarRole   = document.getElementById('sidebar-role');
-    if (sidebarAvatar) sidebarAvatar.textContent = initials;
-    if (sidebarName)   sidebarName.textContent   = session.name;
-    if (sidebarRole)   sidebarRole.textContent   = session.role || 'Colaborador';
+    const escapeHTML = (str) => String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-    const welcomeAvatar   = document.getElementById('welcome-avatar');
-    const welcomeGreeting = document.getElementById('welcome-greeting');
-    const welcomeName     = document.getElementById('welcome-name');
-    const welcomeMeta     = document.getElementById('welcome-meta');
-    const welcomeStatus   = document.getElementById('welcome-status');
-    const welcomeBadge    = document.getElementById('welcome-badge');
+    // ── Render central ──
+    function renderAll(s) {
+        const ini   = getInitials(s.name);
+        const color = s.avatarColor || PINK;
 
-    if (welcomeAvatar)   welcomeAvatar.textContent   = initials;
-    if (welcomeGreeting) welcomeGreeting.textContent = greeting + ',';
-    if (welcomeName)     welcomeName.textContent      = session.name;
-    if (welcomeMeta)     welcomeMeta.textContent      = `${session.role || '—'} · ${session.dept || '—'}`;
-    if (welcomeStatus)   welcomeStatus.textContent    = session.status || 'Ativo';
+        // Sidebar footer
+        const sidebarAvatar = document.getElementById('sidebar-avatar');
+        const sidebarName   = document.getElementById('sidebar-name');
+        const sidebarRole   = document.getElementById('sidebar-role');
+        if (sidebarAvatar) {
+            sidebarAvatar.textContent        = ini;
+            sidebarAvatar.style.background   = color;
+        }
+        if (sidebarName) sidebarName.textContent = s.name || '—';
+        if (sidebarRole) sidebarRole.textContent = s.role || 'Colaborador';
 
-    if (welcomeBadge) {
-        const dot = welcomeBadge.querySelector('i');
-        if (session.status === 'Ativo' && dot) dot.style.color = '#4ade80';
-        else if (session.status === 'Férias' && dot) dot.style.color = '#facc15';
-        else if (dot) dot.style.color = '#f87171';
+        // Welcome banner — suporta foto
+        const welcomeAvatar   = document.getElementById('welcome-avatar');
+        const welcomeGreeting = document.getElementById('welcome-greeting');
+        const welcomeName     = document.getElementById('welcome-name');
+        const welcomeMeta     = document.getElementById('welcome-meta');
+        const welcomeStatus   = document.getElementById('welcome-status');
+        const welcomeBadge    = document.getElementById('welcome-badge');
+
+        if (welcomeAvatar) {
+            if (s.avatarPhoto) {
+                welcomeAvatar.style.backgroundImage    = `url(${s.avatarPhoto})`;
+                welcomeAvatar.style.backgroundSize     = 'cover';
+                welcomeAvatar.style.backgroundPosition = 'center';
+                welcomeAvatar.style.background         = '';
+                welcomeAvatar.textContent              = '';
+            } else {
+                welcomeAvatar.style.backgroundImage = '';
+                welcomeAvatar.style.background      = color;
+                welcomeAvatar.textContent           = ini;
+            }
+        }
+
+        if (welcomeGreeting) welcomeGreeting.textContent = greeting + ',';
+        if (welcomeName)     welcomeName.textContent     = s.name || '—';
+        if (welcomeMeta)     welcomeMeta.textContent     = `${s.role || '—'} · ${s.dept || '—'}`;
+        if (welcomeStatus)   welcomeStatus.textContent   = s.status || 'Ativo';
+
+        if (welcomeBadge) {
+            const dot = welcomeBadge.querySelector('i');
+            if (dot) dot.style.color = s.status === 'Ativo' ? '#4ade80' : s.status === 'Férias' ? '#facc15' : '#f87171';
+        }
+
+        // Info cards
+        set('info-role',      s.role);
+        set('info-dept',      s.dept);
+        set('info-admission', formatDate(s.admissionDate));
+        set('info-email',     s.email);
+
+        renderComunicados(s.dept);
     }
 
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
-    set('info-role',      session.role);
-    set('info-dept',      session.dept);
-    set('info-admission', formatDate(session.admissionDate));
-    set('info-email',     session.email);
-
-    const comunicadosList = document.getElementById('comunicados-list');
-
-    function renderComunicados() {
+    function renderComunicados(dept) {
+        const comunicadosList = document.getElementById('comunicados-list');
         if (!comunicadosList) return;
 
         let mensagens = [];
@@ -110,9 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const saved = localStorage.getItem('nexus_messages');
             if (saved) {
                 const all = JSON.parse(saved);
-                mensagens = all.filter(m =>
-                    m.destino === 'Todos' || m.destino === session.dept
-                ).slice(0, 5); 
+                mensagens = all.filter(m => m.destino === 'Todos' || m.destino === dept).slice(0, 5);
             }
         } catch { mensagens = []; }
 
@@ -138,50 +161,52 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`).join('');
     }
 
-    const escapeHTML = (str) => String(str)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    renderAll(session);
 
-    renderComunicados();
-
-    // ── Real-time sync: atualiza tela quando RH altera dados do colaborador ──
+    // ── Sync em tempo real ──
     window.addEventListener('storage', (event) => {
-        if (event.key !== 'nexus_users') return;
-        try {
-            const users = JSON.parse(event.newValue || '[]');
-            const updatedUser = users.find(u => u.email === session.email);
-            if (!updatedUser) return;
 
-            const SYNC_FIELDS = ['name','role','dept','status','admissionDate','contractType'];
-            const changed = SYNC_FIELDS.some(k => updatedUser[k] !== session[k]);
-            if (!changed) return;
+        // Alterações feitas pelo próprio colaborador (perfil, avatar, nome…)
+        if (event.key === 'nexus_session') {
+            try {
+                const updated = JSON.parse(event.newValue || 'null');
+                if (!updated || updated.email !== session.email) return;
+                session = updated;
+                renderAll(session);
+            } catch {}
+            return;
+        }
 
-            if (updatedUser.status === 'Inativo' || updatedUser.status === 'Bloqueado') {
-                showToast('Conta desativada pelo RH', 'warning', 'Você será desconectado em instantes.');
-                setTimeout(() => { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; }, 2500);
-                return;
-            }
+        // Alterações feitas pelo RH
+        if (event.key === 'nexus_users') {
+            try {
+                const users = JSON.parse(event.newValue || '[]');
+                const updatedUser = users.find(u => u.email === session.email);
+                if (!updatedUser) return;
 
-            const { password: _pw, ...cleanUser } = updatedUser;
-            const newSession = { ...session, ...cleanUser };
-            localStorage.setItem('nexus_session', JSON.stringify(newSession));
+                const SYNC_FIELDS = ['name','role','dept','status','admissionDate','contractType'];
+                const changed = SYNC_FIELDS.some(k => updatedUser[k] !== session[k]);
+                if (!changed) return;
 
-            const newInitials = (newSession.name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
-            if (sidebarAvatar) sidebarAvatar.textContent = newInitials;
-            if (sidebarName)   sidebarName.textContent   = newSession.name || '—';
-            if (sidebarRole)   sidebarRole.textContent   = newSession.role || 'Colaborador';
-            if (welcomeAvatar) welcomeAvatar.textContent = newInitials;
-            if (welcomeName)   welcomeName.textContent   = newSession.name || '—';
-            if (welcomeMeta)   welcomeMeta.textContent   = `${newSession.role || '—'} · ${newSession.dept || '—'}`;
-            if (welcomeStatus) welcomeStatus.textContent = newSession.status || 'Ativo';
+                if (updatedUser.status === 'Inativo' || updatedUser.status === 'Bloqueado') {
+                    showToast('Conta desativada pelo RH', 'warning', 'Você será desconectado em instantes.');
+                    setTimeout(() => { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; }, 2500);
+                    return;
+                }
 
-            set('info-role',      newSession.role);
-            set('info-dept',      newSession.dept);
-            set('info-admission', formatDate(newSession.admissionDate));
-            set('info-email',     newSession.email);
+                const { password: _pw, ...cleanUser } = updatedUser;
+                session = { ...session, ...cleanUser };
+                localStorage.setItem('nexus_session', JSON.stringify(session));
+                renderAll(session);
+                showToast('Perfil atualizado', 'success', 'Suas informações foram atualizadas pelo RH.');
+            } catch {}
+            return;
+        }
 
-            showToast('Perfil atualizado', 'success', 'Suas informações foram atualizadas pelo RH.');
-        } catch {}
+        // Novo comunicado enviado pelo RH
+        if (event.key === 'nexus_messages') {
+            renderComunicados(session.dept);
+        }
     });
 
     window.logout = function () {

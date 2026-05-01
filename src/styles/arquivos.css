@@ -490,6 +490,20 @@ body {
 .badge-tipo--admissional { background: var(--success-bg); color: #065f46; }
 .badge-tipo--demissional { background: var(--danger-bg);  color: #991b1b; }
 
+.badge-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 50px;
+    font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+}
+.badge-status--pendente { background: #fef3c7; color: #92400e; }
+.badge-status--aprovado { background: var(--success-bg); color: #065f46; }
+.badge-status--recusado { background: var(--danger-bg);  color: #991b1b; }
+
+.btn-icon--approve { background: #dcfce7; color: #16a34a; }
+.btn-icon--approve:hover { background: #16a34a; color: #fff; }
+.btn-icon--reject  { background: #fef3c7; color: #d97706; }
+.btn-icon--reject:hover  { background: #d97706; color: #fff; }
+
 .file-date { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
 .file-size { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
 

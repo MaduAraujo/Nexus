@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Meus Documentos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/documentos-colaborador.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <a href="../screens/inicio-colaborador.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Voltar</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="content">
+
+        <!-- Seletor mobile -->
+        <div class="mobile-doc-select" id="mobile-doc-select">
+            <label class="mobile-doc-label">
+                <i class="fas fa-folder-open"></i>
+                Documento
+            </label>
+            <select class="doc-select-input" id="doc-select-mobile" onchange="selectDocById(this.value)">
+                <option value="">Selecione um documento...</option>
+            </select>
+        </div>
+
+        <!-- Layout dois painéis -->
+        <div class="docs-layout">
+
+            <!-- ── Painel esquerdo: lista ── -->
+            <div class="doc-list-panel" id="doc-list-panel">
+                <div class="doc-list-header">
+                    <h3 class="doc-list-title">
+                        <i class="fas fa-folder-open"></i>
+                        Documentos
+                    </h3>
+                    <span class="doc-count-badge" id="doc-count-badge">0</span>
+                </div>
+                <div class="doc-list" id="doc-list">
+                    <!-- gerado via JS -->
+                </div>
+            </div>
+
+            <!-- ── Painel direito: detalhe ── -->
+            <div class="doc-panel" id="doc-panel">
+
+                <!-- Estado vazio -->
+                <div class="doc-empty" id="doc-empty">
+                    <div class="doc-empty-icon">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <p class="doc-empty-title">Selecione um documento</p>
+                    <p class="doc-empty-sub">Escolha um documento na lista ao lado para visualizar os detalhes.</p>
+                    <button class="btn-upload-empty" onclick="openUploadModal()">
+                        <i class="fas fa-upload"></i> Enviar Documento
+                    </button>
+                </div>
+
+                <!-- Detalhe do documento -->
+                <div class="doc-wrap hidden" id="doc-wrap">
+
+                    <!-- Barra de ações -->
+                    <div class="doc-actions" id="doc-actions">
+                        <div class="doc-actions-info">
+                            <span class="doc-actions-name" id="action-doc-name">—</span>
+                            <span class="doc-status-badge" id="action-status-badge">
+                                <i class="fas fa-clock"></i> Pendente
+                            </span>
+                        </div>
+                        <div class="doc-actions-btns">
+                            <button class="btn-delete-doc" onclick="deleteSelectedDoc()">
+                                <i class="fas fa-trash"></i>
+                                <span>Remover</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Documento estilizado -->
+                    <div class="doc-card" id="doc-card">
+
+                        <!-- Cabeçalho -->
+                        <div class="doc-card-header">
+                            <div class="doc-company">
+                                <div class="doc-logo">Ne<span>x</span>us</div>
+                                <div class="doc-company-info">
+                                    <p class="doc-company-name">Nexus Recursos Humanos Ltda.</p>
+                                    <p class="doc-company-detail">Gestão de Documentos do Colaborador</p>
+                                </div>
+                            </div>
+                            <div class="doc-title-block">
+                                <p class="doc-title-label">DOCUMENTO DO COLABORADOR</p>
+                                <p class="doc-tipo-value" id="detail-tipo">—</p>
+                            </div>
+                        </div>
+
+                        <!-- Grid de informações -->
+                        <div class="doc-info-grid">
+                            <div class="doc-field">
+                                <span class="doc-field-label">Colaborador</span>
+                                <span class="doc-field-value" id="detail-employee">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Tipo de Documento</span>
+                                <span class="doc-field-value" id="detail-tipo2">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Data de Envio</span>
+                                <span class="doc-field-value" id="detail-date">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Tamanho</span>
+                                <span class="doc-field-value" id="detail-size">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Nome do Arquivo</span>
+                                <span class="doc-field-value" id="detail-filename">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Status</span>
+                                <span class="doc-field-value" id="detail-status">—</span>
+                            </div>
+                        </div>
+
+                        <!-- Preview do arquivo -->
+                        <div class="doc-preview-area">
+                            <div class="doc-preview-icon" id="detail-file-icon">
+                                <i class="fas fa-file"></i>
+                            </div>
+                            <div class="doc-preview-info">
+                                <p class="doc-preview-name" id="detail-preview-name">—</p>
+                                <p class="doc-preview-meta" id="detail-preview-meta">—</p>
+                            </div>
+                        </div>
+
+                        <!-- Rodapé -->
+                        <div class="doc-card-footer">
+                            <div class="doc-footer-left">
+                                <div class="assinatura-line"></div>
+                                <p class="assinatura-label">Assinatura do Colaborador</p>
+                            </div>
+                            <div class="doc-footer-right">
+                                <p class="doc-footer-note">
+                                    <i class="fas fa-lock"></i>
+                                    Enviado em <span id="detail-footer-date">—</span>. Aguardando análise do RH.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de envio -->
+    <div class="modal-overlay" id="upload-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-upload"></i> Enviar Documento</h3>
+                <button class="close-modal" onclick="closeUploadModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo de Documento</label>
+                    <select id="upload-tipo">
+                        <option value="" disabled selected>Selecione o tipo</option>
+                        <option value="RG">RG</option>
+                        <option value="CPF">CPF</option>
+                        <option value="Comprovante de Residência">Comprovante de Residência</option>
+                        <option value="Carteira de Trabalho">Carteira de Trabalho</option>
+                        <option value="Diploma">Diploma</option>
+                        <option value="Certificado">Certificado</option>
+                        <option value="Exame Médico">Exame Médico</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Arquivo</label>
+                    <div class="drop-zone" id="drop-zone">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Arraste o arquivo ou <span>clique para selecionar</span></p>
+                        <small>PDF, DOCX, JPG — máx. 50 MB</small>
+                        <input type="file" id="file-input" accept=".pdf,.docx,.jpg,.jpeg,.png" hidden>
+                    </div>
+                    <div class="file-selected hidden" id="file-selected">
+                        <i class="fas fa-file-check"></i>
+                        <span id="file-selected-name"></span>
+                        <button onclick="clearFileInput()"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUploadModal()">Cancelar</button>
+                <button class="btn-primary" onclick="submitUpload()">
+                    <i class="fas fa-upload"></i> Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="../javascript/documentos-colaborador.js"></script>
+</body>
+</html>
