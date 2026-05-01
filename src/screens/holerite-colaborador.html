@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus — Holerites</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/holerite-colaborador.css">
+</head>
+<body>
+
+    <header class="topbar no-print">
+        <div class="topbar-left">
+            <a href="../screens/inicio-colaborador.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Voltar</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="content">
+
+        <!-- Seletor mobile de mês -->
+        <div class="mobile-month-select no-print" id="mobile-month-select">
+            <label class="mobile-month-label">
+                <i class="fas fa-calendar-alt"></i>
+                Competência
+            </label>
+            <select class="month-select-input" id="month-select-mobile" onchange="selectPayslipById(this.value)">
+                <option value="">Selecione o mês...</option>
+            </select>
+        </div>
+
+        <!-- Layout de duas colunas -->
+        <div class="holerite-layout">
+
+            <!-- ── Painel esquerdo: lista de meses ── -->
+            <div class="month-list-panel no-print" id="month-list-panel">
+                <div class="month-list-header">
+                    <h3 class="month-list-title">
+                        <i class="fas fa-calendar-alt"></i>
+                        Competências
+                    </h3>
+                    <span class="month-count-badge" id="month-count-badge">0</span>
+                </div>
+                <div class="month-list" id="month-list">
+                    <!-- Gerado via JS -->
+                </div>
+            </div>
+
+            <!-- ── Painel direito: detalhe do holerite ── -->
+            <div class="payslip-panel" id="payslip-panel">
+
+                <!-- Estado vazio -->
+                <div class="payslip-empty" id="payslip-empty">
+                    <div class="payslip-empty-icon">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
+                    <p class="payslip-empty-title">Selecione um mês</p>
+                    <p class="payslip-empty-sub">Escolha uma competência na lista ao lado para visualizar seu holerite.</p>
+                </div>
+
+                <!-- Documento do holerite -->
+                <div class="payslip-wrap hidden" id="payslip-wrap">
+
+                    <!-- Barra de ações (não imprime) -->
+                    <div class="payslip-actions no-print" id="payslip-actions">
+                        <div class="payslip-actions-info">
+                            <span class="payslip-competencia-label" id="action-competencia">—</span>
+                            <span class="payslip-status-badge published">
+                                <i class="fas fa-check-circle"></i> Publicado
+                            </span>
+                        </div>
+                        <div class="payslip-actions-btns">
+                            <button class="btn-print" onclick="printPayslip()">
+                                <i class="fas fa-print"></i>
+                                <span>Imprimir</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ══════════ DOCUMENTO HOLERITE ══════════ -->
+                    <div class="payslip-doc" id="payslip-doc">
+
+                        <!-- Cabeçalho da empresa -->
+                        <div class="doc-header">
+                            <div class="doc-company">
+                                <div class="doc-logo">Ne<span>x</span>us</div>
+                                <div class="doc-company-info">
+                                    <p class="doc-company-name">Nexus Recursos Humanos Ltda.</p>
+                                    <p class="doc-company-detail">CNPJ: 00.000.000/0001-00</p>
+                                    <p class="doc-company-detail">São Paulo, SP — Brasil</p>
+                                </div>
+                            </div>
+                            <div class="doc-title-block">
+                                <p class="doc-title">RECIBO DE PAGAMENTO DE SALÁRIO</p>
+                                <p class="doc-competencia" id="doc-competencia">—</p>
+                            </div>
+                        </div>
+
+                        <!-- Dados do funcionário -->
+                        <div class="doc-employee-grid">
+                            <div class="doc-field">
+                                <span class="doc-field-label">Funcionário</span>
+                                <span class="doc-field-value" id="doc-name">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Matrícula</span>
+                                <span class="doc-field-value" id="doc-matricula">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Cargo / Função</span>
+                                <span class="doc-field-value" id="doc-cargo">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Departamento</span>
+                                <span class="doc-field-value" id="doc-dept">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Admissão</span>
+                                <span class="doc-field-value" id="doc-admissao">—</span>
+                            </div>
+                            <div class="doc-field">
+                                <span class="doc-field-label">Tipo de Contrato</span>
+                                <span class="doc-field-value" id="doc-contrato">—</span>
+                            </div>
+                        </div>
+
+                        <!-- Tabelas de proventos e descontos -->
+                        <div class="doc-tables">
+
+                            <!-- Proventos -->
+                            <div class="doc-table-section">
+                                <div class="doc-table-header proventos-header">
+                                    <i class="fas fa-plus-circle"></i> Proventos
+                                </div>
+                                <table class="doc-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-cod">Cód.</th>
+                                            <th class="col-desc">Descrição</th>
+                                            <th class="col-ref">Referência</th>
+                                            <th class="col-val">Valor (R$)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="proventos-tbody"></tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td colspan="3" class="total-label">Total de Proventos</td>
+                                            <td class="total-value" id="total-proventos">R$ 0,00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <!-- Descontos -->
+                            <div class="doc-table-section">
+                                <div class="doc-table-header descontos-header">
+                                    <i class="fas fa-minus-circle"></i> Descontos
+                                </div>
+                                <table class="doc-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-cod">Cód.</th>
+                                            <th class="col-desc">Descrição</th>
+                                            <th class="col-ref">Referência</th>
+                                            <th class="col-val">Valor (R$)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="descontos-tbody"></tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td colspan="3" class="total-label">Total de Descontos</td>
+                                            <td class="total-value danger" id="total-descontos">R$ 0,00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                        </div>
+
+                        <!-- Salário líquido -->
+                        <div class="doc-liquido">
+                            <div class="doc-liquido-label">Salário Líquido</div>
+                            <div class="doc-liquido-value" id="doc-liquido">R$ 0,00</div>
+                        </div>
+
+                        <!-- Rodapé -->
+                        <div class="doc-footer">
+                            <div class="doc-footer-assinatura">
+                                <div class="assinatura-line"></div>
+                                <p class="assinatura-label">Assinatura do Funcionário</p>
+                            </div>
+                            <div class="doc-footer-info">
+                                <p class="doc-footer-note">
+                                    <i class="fas fa-lock"></i>
+                                    Documento confidencial. Competência: <span id="doc-validade">—</span>.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- ═══════════════════════════════════ -->
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="../javascript/holerite-colaborador.js"></script>
+</body>
+</html>

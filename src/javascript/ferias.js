@@ -16,6 +16,7 @@ let editingId      = null;
 document.addEventListener('DOMContentLoaded', () => {
     setTodayDate();
     setupSidebar();
+    loadRhSidebar();
     autoExpireVacations();
     loadKPIs();
     renderTable();
@@ -24,6 +25,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearchListeners();
     setupRealtimeSync();
 });
+
+function loadRhSidebar() {
+    try {
+        const s = JSON.parse(localStorage.getItem('nexus_session') || 'null');
+        const nameEl   = document.getElementById('rh-sidebar-name');
+        const roleEl   = document.getElementById('rh-sidebar-role');
+        const avatarEl = document.getElementById('rh-sidebar-avatar');
+        if (!nameEl) return;
+        const name = (s && s.name) ? s.name : 'Administrador';
+        const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'RH';
+        nameEl.textContent   = name;
+        if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
+        if (avatarEl) avatarEl.textContent = initials;
+    } catch {}
+}
 
 function setTodayDate() {
     const el = document.getElementById('today-date');

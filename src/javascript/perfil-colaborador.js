@@ -173,6 +173,33 @@ document.addEventListener('DOMContentLoaded', () => {
     buildColorSwatches();
     loadNotifPrefs();
 
+    // ── Real-time sync: atualiza perfil quando RH altera dados do colaborador ──
+    window.addEventListener('storage', (event) => {
+        if (event.key !== 'nexus_users') return;
+        try {
+            const users = JSON.parse(event.newValue || '[]');
+            const updatedUser = users.find(u => u.email === session.email);
+            if (!updatedUser) return;
+
+            const SYNC_FIELDS = ['name','role','dept','status','admissionDate','contractType','salary','phone','salaryType','workLoad'];
+            const changed = SYNC_FIELDS.some(k => updatedUser[k] !== session[k]);
+            if (!changed) return;
+
+            if (updatedUser.status === 'Inativo' || updatedUser.status === 'Bloqueado') {
+                showToast('Conta desativada pelo RH', 'error', 'Você será desconectado em instantes.');
+                setTimeout(() => { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; }, 2500);
+                return;
+            }
+
+            const { password: _pw, ...cleanUser } = updatedUser;
+            session = { ...session, ...cleanUser };
+            localStorage.setItem('nexus_session', JSON.stringify(session));
+            applySession();
+            buildColorSwatches();
+            showToast('Perfil atualizado pelo RH', 'success', 'Suas informações foram atualizadas.');
+        } catch {}
+    });
+
     window.switchPTab = function (btn, tabId) {
         document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.ptab-panel').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
@@ -219,8 +246,36 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
             const idx   = users.findIndex(u => u.email === session.email);
-            if (idx !== -1) { users[idx] = { ...users[idx], ...fields }; localStorage.setItem('nexus_users', JSON.stringify(users)); }
+            if (idx !== -1) {
+                users[idx] = { ...users[idx], ...fields };
+                localStorage.setItem('nexus_users', JSON.stringify(users));
+                window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'nexus_users',
+                    newValue: JSON.stringify(users),
+                    storageArea: localStorage
+                }));
+            }
         } catch {}
+        // Sync name/phone back to nexus_employees so RH sees updates in real-time
+        if (fields.name !== undefined || fields.phone !== undefined) {
+            try {
+                const employees = JSON.parse(localStorage.getItem('nexus_employees') || '[]');
+                const empIdx = employees.findIndex(e =>
+                    e.email?.toLowerCase() === session.email.toLowerCase() ||
+                    e.id === session.employeeId
+                );
+                if (empIdx !== -1) {
+                    if (fields.name  !== undefined) employees[empIdx].name    = fields.name;
+                    if (fields.phone !== undefined) employees[empIdx].telefone = fields.phone;
+                    localStorage.setItem('nexus_employees', JSON.stringify(employees));
+                    window.dispatchEvent(new StorageEvent('storage', {
+                        key: 'nexus_employees',
+                        newValue: JSON.stringify(employees),
+                        storageArea: localStorage
+                    }));
+                }
+            } catch {}
+        }
     }
 
     function positionFloating(el, anchor) {

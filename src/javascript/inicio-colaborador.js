@@ -144,6 +144,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderComunicados();
 
+    // ── Real-time sync: atualiza tela quando RH altera dados do colaborador ──
+    window.addEventListener('storage', (event) => {
+        if (event.key !== 'nexus_users') return;
+        try {
+            const users = JSON.parse(event.newValue || '[]');
+            const updatedUser = users.find(u => u.email === session.email);
+            if (!updatedUser) return;
+
+            const SYNC_FIELDS = ['name','role','dept','status','admissionDate','contractType'];
+            const changed = SYNC_FIELDS.some(k => updatedUser[k] !== session[k]);
+            if (!changed) return;
+
+            if (updatedUser.status === 'Inativo' || updatedUser.status === 'Bloqueado') {
+                showToast('Conta desativada pelo RH', 'warning', 'Você será desconectado em instantes.');
+                setTimeout(() => { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; }, 2500);
+                return;
+            }
+
+            const { password: _pw, ...cleanUser } = updatedUser;
+            const newSession = { ...session, ...cleanUser };
+            localStorage.setItem('nexus_session', JSON.stringify(newSession));
+
+            const newInitials = (newSession.name || '?').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+            if (sidebarAvatar) sidebarAvatar.textContent = newInitials;
+            if (sidebarName)   sidebarName.textContent   = newSession.name || '—';
+            if (sidebarRole)   sidebarRole.textContent   = newSession.role || 'Colaborador';
+            if (welcomeAvatar) welcomeAvatar.textContent = newInitials;
+            if (welcomeName)   welcomeName.textContent   = newSession.name || '—';
+            if (welcomeMeta)   welcomeMeta.textContent   = `${newSession.role || '—'} · ${newSession.dept || '—'}`;
+            if (welcomeStatus) welcomeStatus.textContent = newSession.status || 'Ativo';
+
+            set('info-role',      newSession.role);
+            set('info-dept',      newSession.dept);
+            set('info-admission', formatDate(newSession.admissionDate));
+            set('info-email',     newSession.email);
+
+            showToast('Perfil atualizado', 'success', 'Suas informações foram atualizadas pelo RH.');
+        } catch {}
+    });
+
     window.logout = function () {
         localStorage.removeItem('nexus_session');
         window.location.href = '../screens/login.html';

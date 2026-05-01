@@ -62,6 +62,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
 
+    // Carrega info do RH na sidebar
+    (() => {
+        try {
+            const s = JSON.parse(localStorage.getItem('nexus_session') || 'null');
+            const nameEl   = document.getElementById('rh-sidebar-name');
+            const roleEl   = document.getElementById('rh-sidebar-role');
+            const avatarEl = document.getElementById('rh-sidebar-avatar');
+            if (!nameEl) return;
+            const name = (s && s.name) ? s.name : 'Administrador';
+            const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'RH';
+            nameEl.textContent   = name;
+            if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
+            if (avatarEl) avatarEl.textContent = initials;
+        } catch {}
+    })();
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

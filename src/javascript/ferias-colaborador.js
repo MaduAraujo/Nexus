@@ -9,77 +9,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = '../screens/login.html';
         return;
     }
-    setupSidebar();
-    initUserUI();
     autoExpireVacations();
     loadSummary();
     renderHistory();
     renderTimeline();
     setupRealtimeSync();
 });
-
-// ── Sidebar ──────────────────────────────────────────
-
-function setupSidebar() {
-    const sidebar    = document.getElementById('sidebar');
-    const toggle     = document.getElementById('sidebar-toggle');
-    const menuBtn    = document.getElementById('topbar-menu-btn');
-    const overlay    = document.getElementById('sidebar-overlay');
-    const wrapper    = document.getElementById('main-wrapper');
-
-    if (!sidebar) return;
-    const isMobile = () => window.innerWidth <= 768;
-
-    const saved = localStorage.getItem('sidebarState_colab');
-    if (!isMobile() && saved === 'collapsed') {
-        sidebar.classList.add('collapsed');
-        wrapper?.classList.add('sidebar-collapsed');
-    }
-
-    toggle?.addEventListener('click', e => {
-        e.stopPropagation();
-        if (isMobile()) {
-            sidebar.classList.toggle('open');
-            overlay?.classList.toggle('active', sidebar.classList.contains('open'));
-        } else {
-            const col = sidebar.classList.toggle('collapsed');
-            wrapper?.classList.toggle('sidebar-collapsed', col);
-            localStorage.setItem('sidebarState_colab', col ? 'collapsed' : 'expanded');
-        }
-    });
-
-    menuBtn?.addEventListener('click', e => {
-        e.stopPropagation();
-        sidebar.classList.toggle('open');
-        overlay?.classList.toggle('active', sidebar.classList.contains('open'));
-    });
-
-    overlay?.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
-    });
-
-    window.addEventListener('resize', () => {
-        if (!isMobile()) {
-            sidebar.classList.remove('open');
-            overlay?.classList.remove('active');
-        }
-    });
-}
-
-function initUserUI() {
-    const name  = session.name || '—';
-    const role  = session.role || 'Colaborador';
-    const color = session.avatarColor || '#6366f1';
-    const initials = name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
-
-    const avatarEl = document.getElementById('sidebar-avatar');
-    if (avatarEl) { avatarEl.textContent = initials; avatarEl.style.background = color; }
-    const nameEl = document.getElementById('sidebar-name');
-    if (nameEl) nameEl.textContent = name;
-    const roleEl = document.getElementById('sidebar-role');
-    if (roleEl) roleEl.textContent = role;
-}
 
 // ── Vacation calculation ──────────────────────────────
 

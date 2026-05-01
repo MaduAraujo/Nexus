@@ -126,6 +126,15 @@ window.handleLogin = function () {
         setLoginLoading(true);
         setTimeout(() => {
             setLoginLoading(false);
+            const emailVal = document.getElementById('login-user')?.value.trim().toLowerCase() || '';
+            const rhSession = {
+                profile: 'rh',
+                name: 'Administrador',
+                role: 'Recursos Humanos',
+                email: emailVal || 'rh@nexus.com',
+                avatarColor: '#6366f1'
+            };
+            localStorage.setItem('nexus_session', JSON.stringify(rhSession));
             window.location.href = '../screens/dashboard.html';
         }, 800);
         return;

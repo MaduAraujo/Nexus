@@ -9,78 +9,16 @@
     <link rel="stylesheet" href="../styles/ponto-colaborador.css">
 </head>
 <body>
-<div class="layout">
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo-name">Ne<span class="x">x</span>us</div>
-            <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Colapsar menu">
-                <i class="fas fa-bars"></i>
-            </button>
+    <header class="topbar">
+        <div class="topbar-left">
+            <a href="../screens/inicio-colaborador.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Voltar</span>
+            </a>
         </div>
-        <nav class="sidebar-nav">
-            <ul class="nav-list">
-                <li class="nav-item">
-                    <a href="../screens/inicio-colaborador.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-home"></i></span>
-                        <span class="nav-text">Início</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/perfil-colaborador.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-user"></i></span>
-                        <span class="nav-text">Meu Perfil</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                        <span class="nav-text">Holerites</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
-                        <span class="nav-text">Meus Documentos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-                        <span class="nav-text">Comunicados</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="user-avatar" id="sidebar-avatar">?</div>
-                <div class="user-info">
-                    <p class="user-name" id="sidebar-name">—</p>
-                    <p class="user-role" id="sidebar-role">Colaborador</p>
-                </div>
-            </div>
-        </div>
-    </aside>
+    </header>
 
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-    <div class="main-wrapper">
-        <header class="topbar">
-            <div class="topbar-left">
-                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="page-title">Banco de Horas</h1>
-            </div>
-            <div class="topbar-right">
-                <button class="btn-logout" onclick="logout()" title="Sair">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </button>
-            </div>
-        </header>
-
-        <main class="content">
+    <main class="content">
             <div class="page-body">
 
                 <div class="hero-row">
@@ -267,9 +205,7 @@
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
+    </main>
 
 <div class="modal-overlay" id="modal-confirmar">
     <div class="modal-content modal-sm">
