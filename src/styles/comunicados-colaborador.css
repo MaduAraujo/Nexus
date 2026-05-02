@@ -55,7 +55,7 @@ body {
     background-color: var(--bg-sidebar);
     color: var(--text-on-dark);
     display: flex; flex-direction: column;
-    position: fixed; height: 100vh; top: 0; left: 0;
+    position: fixed; height: 100%; top: 0; left: 0;
     z-index: 1000;
     transition: width var(--speed) var(--ease), transform var(--speed) var(--ease);
     overflow: hidden;
