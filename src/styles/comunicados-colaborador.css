@@ -437,7 +437,7 @@ body {
     .toolbar { flex-direction: column; align-items: stretch; }
     .search-wrapper { max-width: 100%; }
     .filter-tabs { justify-content: center; }
-    #comunicados-list { grid-template-columns: 1fr; }
+    #comunicados-list { grid-template-columns: repeat(2, 1fr); }
     .comunicado-card { padding: 14px 16px; gap: 12px; }
     .comunicado-icon-wrap { width: 38px; height: 38px; font-size: .88rem; }
     .unread-badge { font-size: .72rem; padding: 5px 10px; }
