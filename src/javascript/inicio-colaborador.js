@@ -79,8 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const sidebarName   = document.getElementById('sidebar-name');
         const sidebarRole   = document.getElementById('sidebar-role');
         if (sidebarAvatar) {
-            sidebarAvatar.textContent        = ini;
-            sidebarAvatar.style.background   = color;
+            if (s.avatarPhoto) {
+                sidebarAvatar.style.background = `url(${s.avatarPhoto}) center/cover`;
+                sidebarAvatar.textContent = '';
+            } else {
+                sidebarAvatar.style.background = color;
+                sidebarAvatar.textContent = ini;
+            }
         }
         if (sidebarName) sidebarName.textContent = s.name || '—';
         if (sidebarRole) sidebarRole.textContent = s.role || 'Colaborador';

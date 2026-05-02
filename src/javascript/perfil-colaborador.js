@@ -105,7 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const ini   = initials(session.name);
 
         const sidebarAvatar = document.getElementById('sidebar-avatar');
-        if (sidebarAvatar) { sidebarAvatar.textContent = ini; sidebarAvatar.style.background = color; }
+        if (sidebarAvatar) {
+            if (session.avatarPhoto) {
+                sidebarAvatar.style.background = `url(${session.avatarPhoto}) center/cover`;
+                sidebarAvatar.textContent = '';
+            } else {
+                sidebarAvatar.style.background = color;
+                sidebarAvatar.textContent = ini;
+            }
+        }
         setEl('sidebar-name', session.name);
         setEl('sidebar-role', session.role || 'Colaborador');
 
@@ -391,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeAvatarMenu();
         session = { ...session, avatarPhoto: null };
         localStorage.setItem('nexus_session', JSON.stringify(session));
-        syncUsersRecord({ avatarPhoto: null }); applySession(); showToast('Foto removida.', 'success');
+        syncUsersRecord({ avatarPhoto: null }); applySession(); showToast('Foto removida.', 'error');
     };
 
     window.openColorPicker = function () {

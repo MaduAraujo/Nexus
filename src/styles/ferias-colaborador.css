@@ -127,7 +127,20 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ── Summary Cards ─────────────────────────────── */
 
-.summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.summary-grid {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+}
+
+.summary-card {
+    flex: 1 0 220px;
+    scroll-snap-align: start;
+}
 
 .summary-card {
     background: var(--bg-white);
@@ -423,14 +436,14 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
     .btn-logout { padding:8px 10px; }
     .btn-back span { display:none; }
     .btn-back { padding:8px 10px; }
-    .summary-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
-    .summary-card { flex-direction:column; padding:10px 6px; gap:4px; align-items:center; justify-content:center; overflow:hidden; }
+    .summary-grid { gap:10px; }
+    .summary-card { flex: 0 0 200px; flex-direction:column; padding:14px 12px; gap:6px; align-items:center; justify-content:center; }
     .summary-label { display:none; }
     .summary-sub { display:none; }
     .summary-icon-wrap { width:34px; height:34px; min-width:34px; font-size:0.9rem; border-radius:8px; }
     .summary-body { align-items:center; width:100%; }
-    .summary-value { font-size:1rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-    .summary-value--sm { font-size:0.72rem; }
+    .summary-value { font-size:1.1rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .summary-value--sm { font-size:0.78rem; }
     .form-row-2 { grid-template-columns:1fr; }
     .page-body { padding:16px; gap:18px; }
     .section-header-row { flex-wrap:wrap; gap:10px; }

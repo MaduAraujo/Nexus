@@ -42,11 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && isMobile()) closeSidebar(); });
 
     // Sidebar user info
-    const ini = (session.name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
+    const ini   = (session.name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
+    const color = session.avatarColor || '#6366f1';
     const sidebarAvatar = document.getElementById('sidebar-avatar');
     const sidebarName   = document.getElementById('sidebar-name');
     const sidebarRole   = document.getElementById('sidebar-role');
-    if (sidebarAvatar) { sidebarAvatar.textContent = ini; if (session.avatarColor) sidebarAvatar.style.background = session.avatarColor; }
+    if (sidebarAvatar) {
+        if (session.avatarPhoto) {
+            sidebarAvatar.style.background = `url(${session.avatarPhoto}) center/cover`;
+            sidebarAvatar.textContent = '';
+        } else {
+            sidebarAvatar.style.background = color;
+            sidebarAvatar.textContent = ini;
+        }
+    }
     if (sidebarName)   sidebarName.textContent = session.name || '—';
     if (sidebarRole)   sidebarRole.textContent = session.role || 'Colaborador';
 

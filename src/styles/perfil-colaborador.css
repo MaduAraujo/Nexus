@@ -574,18 +574,22 @@ html {
     flex-direction: row;
     gap: 12px;
     margin-top: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
 }
 
 .prof-highlight-card {
-    background: var(--bg-page); 
+    background: var(--bg-page);
     border-radius: 10px;
     border: 1px solid var(--border-color);
-    padding: 14px 16px; 
-    display: flex; 
-    align-items: flex-start; 
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
     gap: 12px;
-    min-width: 0;
-    flex: 1;
+    flex: 1 0 180px;
+    scroll-snap-align: start;
 }
 
 .prof-highlight-icon {
@@ -626,25 +630,8 @@ html {
 }
 
 @media (max-width: 640px) {
-    .prof-highlights {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        overflow-x: visible;
-        flex-wrap: unset;
-        gap: 10px;
-    }
-
-    .prof-highlight-card {
-        flex: none;
-        width: 100%;
-        min-width: 0;
-    }
-}
-
-@media (max-width: 380px) {
-    .prof-highlights {
-        grid-template-columns: 1fr;
-    }
+    .prof-highlights { gap: 10px; }
+    .prof-highlight-card { flex: 0 0 160px; }
 }
 
 .prof-readonly-note {

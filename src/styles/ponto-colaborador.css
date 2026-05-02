@@ -729,6 +729,8 @@ html {
     .topbar { padding:0 18px; }
     .btn-logout span { display:none; }
     .btn-logout { padding:8px 10px; }
+    .btn-back span { display:none; }
+    .btn-back { padding:8px 10px; }
     .content { padding:20px 14px; }
     .map-info-bar { gap:10px; }
     .map-info-val { max-width:120px; }
