@@ -106,7 +106,7 @@ async function inviteEmployee(email) {
         },
         body: JSON.stringify({
             email,
-            redirectTo: `${window.location.origin}/src/screens/login.html`,
+            redirectTo: new URL('login.html', window.location.href).href,
         }),
     });
     if (!res.ok) {
@@ -602,10 +602,22 @@ function setupFormListener() {
                 if (error) throw error;
                 const newEmp = dbToEmployee(inserted);
                 employees.unshift(newEmp);
-                // Convida o colaborador por e-mail
-                inviteEmployee(empData.email).catch(err => {
+                // Convida o colaborador, cria perfil e vincula auth_user_id
+                try {
+                    const invite = await inviteEmployee(empData.email);
+                    if (invite?.id) {
+                        await sb.from('profiles').insert({
+                            id:          invite.id,
+                            profile:     'colaborador',
+                            employee_id: inserted.id
+                        });
+                        await sb.from('employees')
+                            .update({ auth_user_id: invite.id })
+                            .eq('id', inserted.id);
+                    }
+                } catch (err) {
                     console.warn('[Nexus] Convite não enviado:', err.message);
-                });
+                }
             }
 
             const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';

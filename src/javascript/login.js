@@ -275,15 +275,28 @@ window.togglePw = function (inputId, btn) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
 
-    // Detecta retorno do link de redefinição enviado por e-mail
-    sb.auth.onAuthStateChange((event) => {
+    // Detecta retorno de link de redefinição ou convite por e-mail
+    sb.auth.onAuthStateChange(async (event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
             switchTab('forgot');
             window.setForgotStep(3);
+            return;
+        }
+        // Colaborador chegou via link de convite — já tem sessão ativa
+        if (event === 'SIGNED_IN' && session) {
+            const { data: profile } = await sb.from('profiles')
+                .select('profile')
+                .eq('id', session.user.id)
+                .single();
+            if (profile?.profile === 'colaborador') {
+                window.location.href = '../screens/inicio-colaborador.html';
+            } else if (profile?.profile === 'rh') {
+                window.location.href = '../screens/dashboard.html';
+            }
         }
     });
 
-    // Redireciona se já houver sessão ativa
+    // Redireciona se já houver sessão ativa (usuário voltou à página logado)
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
         const { data: profile } = await sb.from('profiles')

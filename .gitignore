@@ -1,6 +1,3 @@
-# Configuração do Supabase (contém URL e chave do projeto)
-src/javascript/supabase-client.js
-
 # Supabase CLI temp files (contém IDs internos do projeto)
 supabase/.temp/
 
