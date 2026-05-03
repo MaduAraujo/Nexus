@@ -1,14 +1,27 @@
-document.addEventListener('DOMContentLoaded', () => {
-    let session = (() => {
-        try { return JSON.parse(localStorage.getItem('nexus_session') || 'null'); }
-        catch { return null; }
-    })();
+document.addEventListener('DOMContentLoaded', async () => {
+    // ── Auth ──
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = '../screens/login.html'; return; }
 
-    if (!session || session.profile === 'rh') {
+    const { data: profile } = await sb.from('profiles')
+        .select('profile, employee_id')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
         window.location.href = '../screens/login.html';
         return;
     }
 
+    const myEmployeeId = profile.employee_id;
+    const myProfile    = profile.profile;
+
+    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
+    if (!emp) { window.location.href = '../screens/login.html'; return; }
+
+    let myEmployee = emp;
+
+    // ── Sidebar toggle (estado de UI) ──
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
@@ -42,87 +55,75 @@ document.addEventListener('DOMContentLoaded', () => {
     const setInput   = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
 
     function calcFeriasInfo(contractType, admissionDate) {
-    const type = (contractType || '').toLowerCase();
+        const type = (contractType || '').toLowerCase();
 
-    if (type === 'pj') {
-        return { icon: 'prof-icon--orange', value: 'Negociado', note: 'Contrato PJ: dias negociados entre as partes' };
+        if (type === 'pj') {
+            return { icon: 'prof-icon--orange', value: 'Negociado', note: 'Contrato PJ: dias negociados entre as partes' };
+        }
+
+        if (type === 'temporário' || type === 'temporario') {
+            return { icon: 'prof-icon--gray', value: 'Não aplicável', note: 'Contrato temporário não garante férias' };
+        }
+
+        if (!admissionDate) {
+            return { icon: 'prof-icon--green', value: '—', note: 'Data de admissão não informada' };
+        }
+
+        const adm  = new Date(admissionDate + 'T00:00:00');
+        const hoje = new Date();
+
+        let mesesCompletos = (hoje.getFullYear() - adm.getFullYear()) * 12 + (hoje.getMonth() - adm.getMonth());
+        if (hoje.getDate() < adm.getDate()) mesesCompletos = Math.max(0, mesesCompletos - 1);
+
+        const periodosCompletos   = Math.floor(mesesCompletos / 12);
+        const mesesNoPeriodoAtual = mesesCompletos % 12;
+        const diasAcumulados      = Math.min(Math.floor(mesesNoPeriodoAtual * 2.5), 30);
+        const diasDisponiveis     = periodosCompletos * 30;
+
+        const proximoAniversario = new Date(adm);
+        proximoAniversario.setFullYear(adm.getFullYear() + periodosCompletos + 1);
+        const mesesParaProximo = Math.round((proximoAniversario - hoje) / (1000 * 60 * 60 * 24 * 30.44));
+
+        if (mesesCompletos < 12) {
+            return { icon: 'prof-icon--green', value: `${diasAcumulados} dias acumulados`, note: `Faltam ${12 - mesesCompletos} mês(es)` };
+        }
+
+        if (diasDisponiveis > 0) {
+            return {
+                icon:  'prof-icon--green',
+                value: `${diasDisponiveis} dias disponíveis`,
+                note:  mesesNoPeriodoAtual > 0
+                    ? `+ ${diasAcumulados} dias acumulados no período atual`
+                    : `Próximo vencimento em ${mesesParaProximo} mês(es)`
+            };
+        }
+
+        return { icon: 'prof-icon--green', value: `${diasAcumulados} dias acumulados`, note: `Próximo vencimento em ${mesesParaProximo} mês(es)` };
     }
-
-    if (type === 'temporário' || type === 'temporario') {
-        return { icon: 'prof-icon--gray', value: 'Não aplicável', note: 'Contrato temporário não garante férias' };
-    }
-
-    if (!admissionDate) {
-        return { icon: 'prof-icon--green', value: '—', note: 'Data de admissão não informada' };
-    }
-
-    const adm  = new Date(admissionDate + 'T00:00:00');
-    const hoje = new Date();
-
-    let mesesCompletos = (hoje.getFullYear() - adm.getFullYear()) * 12 + (hoje.getMonth() - adm.getMonth());
-    
-    if (hoje.getDate() < adm.getDate()) mesesCompletos = Math.max(0, mesesCompletos - 1);
-
-    const periodosCompletos  = Math.floor(mesesCompletos / 12); 
-    const mesesNoPeriodoAtual = mesesCompletos % 12;             
-
-    const diasAcumulados = Math.min(Math.floor(mesesNoPeriodoAtual * 2.5), 30);
-
-    const diasDisponiveisAnteriores = periodosCompletos * 30;
-
-    const proximoAniversario = new Date(adm);
-    proximoAniversario.setFullYear(adm.getFullYear() + periodosCompletos + 1);
-    const mesesParaProximo = Math.round((proximoAniversario - hoje) / (1000 * 60 * 60 * 24 * 30.44));
-
-    if (mesesCompletos < 12) {
-        const faltam = 12 - mesesCompletos;
-        return {
-            icon:  'prof-icon--green',
-            value: `${diasAcumulados} dias acumulados`,
-            note:  `Faltam ${faltam} mês(es)`
-        };
-    }
-
-    if (diasDisponiveisAnteriores > 0) {
-        return {
-            icon:  'prof-icon--green',
-            value: `${diasDisponiveisAnteriores} dias disponíveis`,
-            note:  mesesNoPeriodoAtual > 0
-                ? `+ ${diasAcumulados} dias acumulados no período atual`
-                : `Próximo vencimento em ${mesesParaProximo} mês(es)`
-        };
-    }
-    
-    return {
-        icon:  'prof-icon--green',
-        value: `${diasAcumulados} dias acumulados`,
-        note:  `Próximo vencimento em ${mesesParaProximo} mês(es)`
-    };
-}
 
     function applySession() {
-        const color = session.avatarColor || '#6366f1';
-        const ini   = initials(session.name);
+        const color = myEmployee.avatar_color || '#6366f1';
+        const ini   = initials(myEmployee.name);
 
         const sidebarAvatar = document.getElementById('sidebar-avatar');
         if (sidebarAvatar) {
-            if (session.avatarPhoto) {
-                sidebarAvatar.style.background = `url(${session.avatarPhoto}) center/cover`;
+            if (myEmployee.avatar_url) {
+                sidebarAvatar.style.background = `url(${myEmployee.avatar_url}) center/cover`;
                 sidebarAvatar.textContent = '';
             } else {
                 sidebarAvatar.style.background = color;
                 sidebarAvatar.textContent = ini;
             }
         }
-        setEl('sidebar-name', session.name);
-        setEl('sidebar-role', session.role || 'Colaborador');
+        setEl('sidebar-name', myEmployee.name);
+        setEl('sidebar-role', myEmployee.role || 'Colaborador');
 
         const avatarImg = document.getElementById('profile-avatar-img');
         const avatarDiv = document.getElementById('profile-avatar');
         const removeBtn = document.getElementById('avatar-menu-remove');
 
-        if (session.avatarPhoto) {
-            avatarImg?.classList.remove('hidden'); if (avatarImg) avatarImg.src = session.avatarPhoto;
+        if (myEmployee.avatar_url) {
+            avatarImg?.classList.remove('hidden'); if (avatarImg) avatarImg.src = myEmployee.avatar_url;
             avatarDiv?.classList.add('hidden');
             if (removeBtn) removeBtn.style.display = 'flex';
         } else {
@@ -132,78 +133,81 @@ document.addEventListener('DOMContentLoaded', () => {
             if (removeBtn) removeBtn.style.display = 'none';
         }
 
-        setEl('profile-hero-name', session.name);
-        setEl('profile-hero-sub',  `${session.role || '—'} · ${session.dept || '—'}`);
+        setEl('profile-hero-name', myEmployee.name);
+        setEl('profile-hero-sub',  `${myEmployee.role || '—'} · ${myEmployee.dept || '—'}`);
 
         const badge = document.getElementById('profile-status-badge');
         if (badge) {
-            const sc = session.status === 'Ativo' ? '#4ade80' : session.status === 'Férias' ? '#facc15' : '#f87171';
-            badge.innerHTML = `<i class="fas fa-circle" style="color:${sc}"></i> ${session.status || 'Ativo'}`;
+            const sc = myEmployee.status === 'Ativo' ? '#4ade80' : myEmployee.status === 'Férias' ? '#facc15' : '#f87171';
+            badge.innerHTML = `<i class="fas fa-circle" style="color:${sc}"></i> ${myEmployee.status || 'Ativo'}`;
         }
 
-        setEl('view-name',  session.name);
-        setEl('view-email', session.email);
-        setEl('view-phone', session.phone || 'Não informado');
-        setEl('view-bio',   session.bio   || 'Nenhuma descrição adicionada.');
+        setEl('view-name',  myEmployee.name);
+        setEl('view-email', myEmployee.email);
+        setEl('view-phone', myEmployee.telefone || 'Não informado');
+        setEl('view-bio',   myEmployee.bio      || 'Nenhuma descrição adicionada.');
 
-        setEl('prof-role',      session.role    || '—');
-        setEl('prof-dept',      session.dept    || '—');
-        setEl('prof-admission', formatDate(session.admissionDate));
-        setEl('prof-status',    session.status  || 'Ativo');
-        setEl('prof-profile',   session.profile === 'rh' ? 'RH' : 'Colaborador');
+        setEl('prof-role',      myEmployee.role           || '—');
+        setEl('prof-dept',      myEmployee.dept           || '—');
+        setEl('prof-admission', formatDate(myEmployee.admission_date));
+        setEl('prof-status',    myEmployee.status         || 'Ativo');
+        setEl('prof-profile',   myProfile === 'rh' ? 'RH' : 'Colaborador');
 
-        if (session.admissionDate) {
-            const adm   = new Date(session.admissionDate);
-            const hoje  = new Date();
-            const days  = Math.floor((hoje - adm) / 86400000);
+        if (myEmployee.admission_date) {
+            const adm    = new Date(myEmployee.admission_date);
+            const hoje   = new Date();
+            const days   = Math.floor((hoje - adm) / 86400000);
             const months = Math.floor(days / 30);
             const years  = Math.floor(months / 12);
-            let tenure = years > 0 ? `${years} ano${years > 1 ? 's' : ''} e ${months % 12} mês(es)` : months > 0 ? `${months} mês(es)` : `${days} dia(s)`;
+            const tenure = years > 0 ? `${years} ano${years > 1 ? 's' : ''} e ${months % 12} mês(es)` : months > 0 ? `${months} mês(es)` : `${days} dia(s)`;
             setEl('prof-tenure', tenure);
             setEl('prof-days',   days.toLocaleString('pt-BR'));
         }
 
-        const feriasInfo = calcFeriasInfo(session.contractType, session.admissionDate);
-
+        const feriasInfo = calcFeriasInfo(myEmployee.contract_type, myEmployee.admission_date);
         const feriasCard = document.getElementById('prof-highlight-ferias');
         if (feriasCard) {
             const iconEl  = feriasCard.querySelector('.prof-highlight-icon');
             const valueEl = feriasCard.querySelector('.prof-highlight-value');
             const noteEl  = feriasCard.querySelector('.prof-highlight-note');
-
-            if (iconEl)  { iconEl.className = `prof-highlight-icon ${feriasInfo.icon}`; }
+            if (iconEl)  iconEl.className    = `prof-highlight-icon ${feriasInfo.icon}`;
             if (valueEl) valueEl.textContent = feriasInfo.value;
             if (noteEl)  noteEl.textContent  = feriasInfo.note;
         }
     }
 
-    function calcBancoHoras() {
-        const pad0   = n => String(n).padStart(2, '0');
+    async function calcBancoHoras() {
+        const pad0    = n => String(n).padStart(2, '0');
         const diffMin = (a, b) => { if (!a || !b) return 0; return Math.round((new Date(b) - new Date(a)) / 60000); };
         const minToStr = min => { const abs = Math.abs(min); return `${Math.floor(abs / 60)}h ${pad0(abs % 60)}min`; };
 
-        const contractType = (session.contractType || 'clt').toLowerCase();
+        const contractType = (myEmployee.contract_type || 'clt').toLowerCase();
         const jornadaMin   = (contractType === 'estagio' || contractType === 'aprendiz') ? 360
                            : contractType === 'pj' ? null : 480;
 
-        let records = {};
-        try { records = JSON.parse(localStorage.getItem(`nexus_ponto_${session.email}`) || '{}'); } catch {}
+        const [{ data: records }, { data: adjustments }] = await Promise.all([
+            sb.from('time_records').select('*').eq('employee_id', myEmployeeId),
+            sb.from('bank_adjustments').select('*').eq('employee_id', myEmployeeId).is('deleted_at', null)
+        ]);
+
+        const adjMinutes = (adjustments || []).reduce((sum, a) =>
+            sum + (a.tipo === 'credito' ? a.minutos : -a.minutos), 0);
 
         const valueEl = document.getElementById('prof-banco-value');
         const noteEl  = document.getElementById('prof-banco-note');
         const iconEl  = document.getElementById('banco-icon');
 
         if (jornadaMin === null) {
-            let totalWorked = 0;
-            let diasCompletos = 0;
-            Object.values(records).forEach(rec => {
-                if (!rec || !rec.entrada || !rec.saida) return;
+            let totalWorked = 0, diasCompletos = 0;
+            (records || []).forEach(rec => {
+                if (!rec.entrada || !rec.saida) return;
                 const worked = rec.saida_almoco
                     ? diffMin(rec.entrada, rec.saida_almoco) + (rec.retorno_almoco ? diffMin(rec.retorno_almoco, rec.saida) : 0)
                     : diffMin(rec.entrada, rec.saida);
                 totalWorked += worked;
                 diasCompletos++;
             });
+            totalWorked += adjMinutes;
             if (valueEl) valueEl.textContent = minToStr(totalWorked);
             if (noteEl)  noteEl.textContent  = `${diasCompletos} dia(s) registrado(s) — PJ`;
             if (iconEl)  iconEl.className    = 'prof-highlight-icon prof-icon--blue';
@@ -211,16 +215,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let totalMin = 0, diasCompletos = 0;
-        Object.values(records).forEach(rec => {
-            if (!rec || !rec.entrada || !rec.saida) return;
+        (records || []).forEach(rec => {
+            if (!rec.entrada || !rec.saida) return;
             const worked = rec.saida_almoco
                 ? diffMin(rec.entrada, rec.saida_almoco) + (rec.retorno_almoco ? diffMin(rec.retorno_almoco, rec.saida) : 0)
                 : diffMin(rec.entrada, rec.saida);
             totalMin += worked - jornadaMin;
             diasCompletos++;
         });
+        totalMin += adjMinutes;
 
-        if (diasCompletos === 0) {
+        if (diasCompletos === 0 && adjMinutes === 0) {
             if (valueEl) valueEl.textContent = '0h 00min';
             if (noteEl)  noteEl.textContent  = 'Nenhum dia finalizado';
             if (iconEl)  iconEl.className    = 'prof-highlight-icon prof-icon--purple';
@@ -235,36 +240,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applySession();
-    calcBancoHoras();
+    await calcBancoHoras();
     buildColorSwatches();
     loadNotifPrefs();
 
-    // ── Real-time sync: atualiza perfil quando RH altera dados do colaborador ──
-    window.addEventListener('storage', (event) => {
-        if (event.key !== 'nexus_users') return;
-        try {
-            const users = JSON.parse(event.newValue || '[]');
-            const updatedUser = users.find(u => u.email === session.email);
-            if (!updatedUser) return;
-
-            const SYNC_FIELDS = ['name','role','dept','status','admissionDate','contractType','salary','phone','salaryType','workLoad'];
-            const changed = SYNC_FIELDS.some(k => updatedUser[k] !== session[k]);
-            if (!changed) return;
-
-            if (updatedUser.status === 'Inativo' || updatedUser.status === 'Bloqueado') {
+    // ── Realtime: RH atualiza dados do colaborador ──
+    sb.channel('perfil-colab')
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'employees',
+            filter: `id=eq.${myEmployeeId}`
+        }, async (payload) => {
+            const updated = payload.new;
+            if (updated.status === 'Inativo' || updated.status === 'Bloqueado') {
                 showToast('Conta desativada pelo RH', 'error', 'Você será desconectado em instantes.');
-                setTimeout(() => { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; }, 2500);
+                setTimeout(async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; }, 2500);
                 return;
             }
-
-            const { password: _pw, ...cleanUser } = updatedUser;
-            session = { ...session, ...cleanUser };
-            localStorage.setItem('nexus_session', JSON.stringify(session));
+            myEmployee = { ...myEmployee, ...updated };
             applySession();
             buildColorSwatches();
-            showToast('Perfil atualizado pelo RH', 'success', 'Suas informações foram atualizadas.');
-        } catch {}
-    });
+            await calcBancoHoras();
+            showToast('Perfil atualizado pelo RH', 'success');
+        })
+        .subscribe();
 
     window.switchPTab = function (btn, tabId) {
         document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
@@ -284,7 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editing) {
             view?.classList.add('hidden'); form?.classList.remove('hidden');
             if (btn) btn.innerHTML = '<i class="fas fa-times"></i> Cancelar';
-            setInput('edit-name', session.name); setInput('edit-phone', session.phone); setInput('edit-bio', session.bio);
+            setInput('edit-name',  myEmployee.name);
+            setInput('edit-phone', myEmployee.telefone);
+            setInput('edit-bio',   myEmployee.bio);
         } else { cancelEditInfo(); }
     };
 
@@ -296,53 +298,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.innerHTML = '<i class="fas fa-pen"></i> Editar';
     };
 
-    window.saveInfo = function () {
+    window.saveInfo = async function () {
         const name  = document.getElementById('edit-name')?.value.trim()  || '';
         const phone = document.getElementById('edit-phone')?.value.trim() || '';
         const bio   = document.getElementById('edit-bio')?.value.trim()   || '';
         if (!name) { showToast('Informe o nome.', 'warning'); return; }
-        session = { ...session, name, phone, bio };
-        localStorage.setItem('nexus_session', JSON.stringify(session));
-        syncUsersRecord({ name, phone, bio });
-        applySession(); cancelEditInfo();
+
+        const { error } = await sb.from('employees')
+            .update({ name, telefone: phone, bio })
+            .eq('id', myEmployeeId);
+
+        if (error) { showToast('Erro ao salvar.', 'error'); return; }
+
+        myEmployee = { ...myEmployee, name, telefone: phone, bio };
+        applySession();
+        cancelEditInfo();
         showToast('Perfil atualizado!', 'success');
     };
-
-    function syncUsersRecord(fields) {
-        try {
-            const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
-            const idx   = users.findIndex(u => u.email === session.email);
-            if (idx !== -1) {
-                users[idx] = { ...users[idx], ...fields };
-                localStorage.setItem('nexus_users', JSON.stringify(users));
-                window.dispatchEvent(new StorageEvent('storage', {
-                    key: 'nexus_users',
-                    newValue: JSON.stringify(users),
-                    storageArea: localStorage
-                }));
-            }
-        } catch {}
-        // Sync name/phone back to nexus_employees so RH sees updates in real-time
-        if (fields.name !== undefined || fields.phone !== undefined) {
-            try {
-                const employees = JSON.parse(localStorage.getItem('nexus_employees') || '[]');
-                const empIdx = employees.findIndex(e =>
-                    e.email?.toLowerCase() === session.email.toLowerCase() ||
-                    e.id === session.employeeId
-                );
-                if (empIdx !== -1) {
-                    if (fields.name  !== undefined) employees[empIdx].name    = fields.name;
-                    if (fields.phone !== undefined) employees[empIdx].telefone = fields.phone;
-                    localStorage.setItem('nexus_employees', JSON.stringify(employees));
-                    window.dispatchEvent(new StorageEvent('storage', {
-                        key: 'nexus_employees',
-                        newValue: JSON.stringify(employees),
-                        storageArea: localStorage
-                    }));
-                }
-            } catch {}
-        }
-    }
 
     function positionFloating(el, anchor) {
         const rect = anchor.getBoundingClientRect();
@@ -386,20 +358,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file.type.startsWith('image/')) { showToast('Selecione uma imagem válida.', 'error'); return; }
         if (file.size > 2 * 1024 * 1024) { showToast('Imagem deve ter no máximo 2 MB.', 'warning'); return; }
         const reader = new FileReader();
-        reader.onload = e => {
-            session = { ...session, avatarPhoto: e.target.result };
-            localStorage.setItem('nexus_session', JSON.stringify(session));
-            syncUsersRecord({ avatarPhoto: e.target.result });
-            applySession(); showToast('Foto atualizada!', 'success');
+        reader.onload = async e => {
+            const base64 = e.target.result;
+            const { error } = await sb.from('employees').update({ avatar_url: base64 }).eq('id', myEmployeeId);
+            if (error) { showToast('Erro ao salvar foto.', 'error'); return; }
+            myEmployee = { ...myEmployee, avatar_url: base64 };
+            applySession();
+            showToast('Foto atualizada!', 'success');
         };
-        reader.readAsDataURL(file); event.target.value = '';
+        reader.readAsDataURL(file);
+        event.target.value = '';
     };
 
-    window.removePhoto = function () {
+    window.removePhoto = async function () {
         closeAvatarMenu();
-        session = { ...session, avatarPhoto: null };
-        localStorage.setItem('nexus_session', JSON.stringify(session));
-        syncUsersRecord({ avatarPhoto: null }); applySession(); showToast('Foto removida.', 'error');
+        const { error } = await sb.from('employees').update({ avatar_url: null }).eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao remover foto.', 'error'); return; }
+        myEmployee = { ...myEmployee, avatar_url: null };
+        applySession();
+        showToast('Foto removida.', 'error');
     };
 
     window.openColorPicker = function () {
@@ -416,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildColorSwatches() {
         const container = document.getElementById('color-swatches'); if (!container) return;
         container.innerHTML = '';
-        const current = session.avatarColor || '#6366f1';
+        const current = myEmployee.avatar_color || '#6366f1';
         AVATAR_COLORS.forEach(color => {
             const sw = document.createElement('div');
             sw.className = 'color-swatch' + (color === current ? ' active' : '');
@@ -426,36 +403,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function selectAvatarColor(color) {
-        session = { ...session, avatarColor: color, avatarPhoto: null };
-        localStorage.setItem('nexus_session', JSON.stringify(session));
-        syncUsersRecord({ avatarColor: color, avatarPhoto: null });
-        applySession(); buildColorSwatches(); closeColorPicker(); showToast('Cor atualizada!', 'success');
+    async function selectAvatarColor(color) {
+        const { error } = await sb.from('employees')
+            .update({ avatar_color: color, avatar_url: null })
+            .eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao salvar cor.', 'error'); return; }
+        myEmployee = { ...myEmployee, avatar_color: color, avatar_url: null };
+        applySession(); buildColorSwatches(); closeColorPicker();
+        showToast('Cor atualizada!', 'success');
     }
 
-    const NOTIF_KEY = 'nexus_notif_' + session.email;
+    // Notificações são preferências de UI — localStorage é adequado
+    const NOTIF_KEY = 'nexus_notif_' + myEmployee.email;
 
-    const NOTIF_DEFAULTS = {
-        comunicados: true,
-        holerite:    true,
-        ferias:      true,
-        horas:       false,
-        seguranca:   true,
-    };
+    const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true };
 
     function loadNotifPrefs() {
         try {
-            const saved = JSON.parse(localStorage.getItem(NOTIF_KEY));
-            const prefs = (saved && typeof saved === 'object') ? saved : {};
-
-            const merged = { ...NOTIF_DEFAULTS, ...prefs };
-
-            Object.entries(merged).forEach(([k, v]) => {
-                const el = document.getElementById('notif-' + k);
-                if (el) el.checked = v;
-            });
-
-            // Garante que os defaults ficam salvos na primeira visita
+            const saved  = JSON.parse(localStorage.getItem(NOTIF_KEY));
+            const merged = { ...NOTIF_DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+            Object.entries(merged).forEach(([k, v]) => { const el = document.getElementById('notif-' + k); if (el) el.checked = v; });
             if (!saved) localStorage.setItem(NOTIF_KEY, JSON.stringify(merged));
         } catch {}
     }
@@ -478,19 +445,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn  = document.getElementById('btn-change-pw');
         if (btn) btn.disabled = !(curr && np.length >= 8 && np === cp);
         if (!msg) return;
-        if (!cp)             { msg.textContent = ''; msg.className = 'pw-match-msg'; }
-        else if (np !== cp)  { msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
+        if (!cp)              { msg.textContent = ''; msg.className = 'pw-match-msg'; }
+        else if (np !== cp)   { msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
         else if (np.length < 8){ msg.textContent = 'Mínimo 8 caracteres.'; msg.className = 'pw-match-msg err'; }
-        else                 { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
+        else                  { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
     };
 
-    window.changePassword = function () {
+    window.changePassword = async function () {
         const curr = document.getElementById('curr-pass')?.value || '';
         const np   = document.getElementById('new-pass-profile')?.value || '';
-        const users = JSON.parse(localStorage.getItem('nexus_users') || '[]');
-        const idx   = users.findIndex(u => u.email === session.email);
-        if (idx === -1 || users[idx].password !== curr) { showToast('Senha atual incorreta.', 'error'); return; }
-        users[idx].password = np; localStorage.setItem('nexus_users', JSON.stringify(users));
+
+        // Verifica senha atual antes de alterar
+        const { error: authError } = await sb.auth.signInWithPassword({ email: myEmployee.email, password: curr });
+        if (authError) { showToast('Senha atual incorreta.', 'error'); return; }
+
+        const { error } = await sb.auth.updateUser({ password: np });
+        if (error) { showToast('Erro ao alterar senha. Tente novamente.', 'error'); return; }
+
         ['curr-pass','new-pass-profile','confirm-pass-profile'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const btn = document.getElementById('btn-change-pw'); if (btn) btn.disabled = true;
         const msg = document.getElementById('pw-match-msg'); if (msg) { msg.textContent = ''; msg.className = 'pw-match-msg'; }
@@ -503,8 +474,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const icon = btn.querySelector('i'); if (icon) icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
     };
 
-    window.logout    = function () { localStorage.removeItem('nexus_session'); window.location.href = '../screens/login.html'; };
-    window.logoutAll = function () { localStorage.removeItem('nexus_session'); showToast('Sessões encerradas.', 'success'); setTimeout(() => window.location.href = '../screens/login.html', 1200); };
+    window.logout = async function () { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
+    window.logoutAll = async function () { await sb.auth.signOut(); showToast('Sessões encerradas.', 'success'); setTimeout(() => window.location.href = '../screens/login.html', 1200); };
 
     window.showToast = function (title, type = 'success', msg = '') {
         const container = document.getElementById('toast-container'); if (!container) return;

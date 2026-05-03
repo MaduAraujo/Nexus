@@ -1,0 +1,19 @@
+# Configuração do Supabase (contém URL e chave do projeto)
+src/javascript/supabase-client.js
+
+# Supabase CLI temp files (contém IDs internos do projeto)
+supabase/.temp/
+
+# Variáveis de ambiente locais
+.env
+.env.local
+.env*.local
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/settings.json
+*.suo
+*.user

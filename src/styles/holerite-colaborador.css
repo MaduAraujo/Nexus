@@ -214,6 +214,7 @@ body {
     font-size: .72rem; font-weight: 700;
 }
 .payslip-status-badge.published { background: var(--success-bg); color: #065f46; }
+.payslip-status-badge.paid      { background: #eff6ff; color: #1d4ed8; }
 .payslip-actions-btns { display: flex; gap: 8px; }
 
 .btn-print {

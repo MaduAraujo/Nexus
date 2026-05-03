@@ -133,7 +133,7 @@
 
             <div id="forgot-s1">
                 <p class="form-title">Esqueceu sua senha?</p>
-                <p class="form-subtitle">Informe seu e-mail cadastrado e enviaremos um código de verificação.</p>
+                <p class="form-subtitle">Informe seu e-mail cadastrado e enviaremos um link de redefinição.</p>
                 <div class="field">
                     <label>E-mail</label>
                     <div class="field-input-wrap">
@@ -148,31 +148,24 @@
                     <p class="field-error" id="forgot-email-err"></p>
                 </div>
                 <button class="btn-submit" id="btn-forgot-send" onclick="forgotSendCode()">
-                    <span id="btn-forgot-send-text">Enviar código</span>
+                    <span id="btn-forgot-send-text">Enviar link</span>
                     <div class="spinner" id="spin-forgot-send"></div>
                 </button>
             </div>
 
             <div id="forgot-s2" class="forgot-step-panel">
-                <p class="form-title">Verifique seu e-mail</p>
-                <p class="form-subtitle">Enviamos um código de 6 dígitos para <strong id="forgot-email-shown"></strong></p>
-                <div class="otp-wrap">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp0" oninput="otpInput(this,0)" onkeydown="otpKey(event,0)" onpaste="otpPaste(event)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp1" oninput="otpInput(this,1)" onkeydown="otpKey(event,1)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp2" oninput="otpInput(this,2)" onkeydown="otpKey(event,2)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp3" oninput="otpInput(this,3)" onkeydown="otpKey(event,3)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp4" oninput="otpInput(this,4)" onkeydown="otpKey(event,4)">
-                    <input type="text" inputmode="numeric" maxlength="1" class="otp-input" id="otp5" oninput="otpInput(this,5)" onkeydown="otpKey(event,5)">
+                <div class="forgot-success-icon" style="background:#eef2ff;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
                 </div>
-                <p class="field-error" id="otp-err"></p>
-                <p class="resend-row">
-                    Não recebeu? <a id="resend-link" onclick="forgotResend()">Reenviar</a>
-                    <span id="resend-timer"></span>
+                <p class="form-title">Verifique seu e-mail</p>
+                <p class="form-subtitle">Enviamos um link de redefinição para <strong id="forgot-email-shown"></strong>. Clique no link para criar sua nova senha.</p>
+                <p style="font-size:0.78rem;color:#9ca3af;margin-top:0.5rem;text-align:center;">
+                    Não recebeu? Verifique o spam ou
+                    <a href="#" onclick="setForgotStep(1); return false;">tente novamente</a>.
                 </p>
-                <button class="btn-submit" id="btn-otp-verify" onclick="forgotVerifyOtp()" disabled>
-                    <span id="btn-otp-text">Verificar</span>
-                    <div class="spinner" id="spin-otp"></div>
-                </button>
             </div>
 
             <div id="forgot-s3" class="forgot-step-panel">
@@ -234,6 +227,8 @@
     </div>
 </div>
 <div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
 <script src="../javascript/login.js"></script>
 </body>
 </html>

@@ -39,21 +39,21 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="../screens/banco-horas-rh.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                        <span class="nav-text">Gestão de Horas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="../screens/arquivos.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
                         <span class="nav-text">Arquivos</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="../screens/pagamentos.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                         <span class="nav-text">Pagamentos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
-                        <span class="nav-text">Analisar Currículo</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -72,6 +72,9 @@
                     <p class="user-name" id="rh-sidebar-name">Administrador</p>
                     <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
                 </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </aside>
@@ -867,6 +870,8 @@
     </div>
 </div>
 <div id="toast-container" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
 <script src="../javascript/colaboradores.js"></script>
 </body>
 </html>

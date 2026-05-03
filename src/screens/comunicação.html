@@ -39,21 +39,21 @@
                     </a>
                 </li>
                     <li class="nav-item">
+                        <a href="../screens/banco-horas-rh.html" class="nav-link">
+                            <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                            <span class="nav-text">Gestão de Horas</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="../screens/arquivos.html" class="nav-link">
                             <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
                             <span class="nav-text">Arquivos</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" class="nav-link">
+                        <a href="../screens/pagamentos.html" class="nav-link">
                             <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                             <span class="nav-text">Pagamentos</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-robot"></i></span>
-                            <span class="nav-text">Analisar Currículo</span>
                         </a>
                     </li>
                     <li class="nav-item active">
@@ -72,6 +72,9 @@
                         <p class="user-name" id="rh-sidebar-name">Administrador</p>
                         <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
                     </div>
+                    <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
                 </div>
             </div>
         </aside>
@@ -126,7 +129,18 @@
                         <h2 class="section-title">Histórico de Avisos</h2>
                         <p class="section-description">Gerencie as mensagens enviadas anteriormente.</p>
                     </section>
-                    
+
+                    <div class="history-filters">
+                        <button class="hist-chip hist-chip--active" data-dest="todos" onclick="setHistFilter(this)">Todos</button>
+                        <button class="hist-chip" data-dest="Todos"          onclick="setHistFilter(this)">Para Todos</button>
+                        <button class="hist-chip" data-dest="TI"             onclick="setHistFilter(this)">TI</button>
+                        <button class="hist-chip" data-dest="RH"             onclick="setHistFilter(this)">RH</button>
+                        <button class="hist-chip" data-dest="Financeiro"     onclick="setHistFilter(this)">Financeiro</button>
+                        <button class="hist-chip" data-dest="Marketing"      onclick="setHistFilter(this)">Marketing</button>
+                        <button class="hist-chip" data-dest="Jurídico"       onclick="setHistFilter(this)">Jurídico</button>
+                        <button class="hist-chip" data-dest="Administrativo" onclick="setHistFilter(this)">Administrativo</button>
+                    </div>
+
                     <div class="message-card">
                         <div class="table-container">
                             <table class="messages-table">
@@ -135,6 +149,7 @@
                                         <th>Data</th>
                                         <th>Mensagem</th>
                                         <th>Destino</th>
+                                        <th>Leituras</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -182,6 +197,8 @@
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../javascript/supabase-client.js"></script>
     <script src="../javascript/comunicação.js"></script>
 </body>
 </html>

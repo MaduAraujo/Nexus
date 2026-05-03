@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Pagamentos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/pagamentos.css" />
+</head>
+<body>
+<div class="layout">
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/dashboard.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/colaboradores.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Colaboradores</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/ferias.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
+                        <span class="nav-text">Gestão de Férias</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/banco-horas-rh.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                        <span class="nav-text">Gestão de Horas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/arquivos.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Arquivos</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="../screens/pagamentos.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Pagamentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/comunicação.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicação Interna</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name" id="rh-sidebar-name">Administrador</p>
+                    <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
+                </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper" id="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Pagamentos</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="month-picker-wrap">
+                    <i class="fas fa-calendar-alt"></i>
+                    <input type="month" id="month-picker" title="Selecionar competência" />
+                </div>
+                <div class="export-dropdown" id="export-dropdown">
+                    <button class="btn-export" id="btn-export">
+                        <i class="fas fa-download"></i>
+                        <span>Exportar</span>
+                        <i class="fas fa-chevron-down export-chevron"></i>
+                    </button>
+                    <div class="export-menu" id="export-menu">
+                        <button class="export-option" id="export-excel">
+                            <i class="fas fa-file-excel"></i> Excel (.xlsx)
+                        </button>
+                        <button class="export-option" id="export-pdf">
+                            <i class="fas fa-file-pdf"></i> PDF (.pdf)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+
+            <!-- KPIs -->
+            <div class="kpi-grid">
+                <div class="kpi-card kpi--bruto">
+                    <div class="kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Folha Bruta</span>
+                        <span class="kpi-value" id="kpi-bruto">—</span>
+                        <span class="kpi-sub">competência selecionada</span>
+                    </div>
+                </div>
+                <div class="kpi-card kpi--liquido">
+                    <div class="kpi-icon"><i class="fas fa-hand-holding-dollar"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Total Líquido</span>
+                        <span class="kpi-value" id="kpi-liquido">—</span>
+                        <span class="kpi-sub">a pagar aos colaboradores</span>
+                    </div>
+                </div>
+                <div class="kpi-card kpi--colab">
+                    <div class="kpi-icon"><i class="fas fa-users"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Na Folha</span>
+                        <span class="kpi-value" id="kpi-colab">—</span>
+                        <span class="kpi-sub">colaboradores ativos</span>
+                    </div>
+                </div>
+                <div class="kpi-card kpi--status">
+                    <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">Pagos</span>
+                        <span class="kpi-value" id="kpi-pagos">—</span>
+                        <span class="kpi-sub" id="kpi-status-sub">holerites quitados</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs-bar">
+                <button class="tab-btn active" onclick="switchTab(this,'folha')">
+                    <i class="fas fa-table-list"></i> Folha do Mês
+                </button>
+                <button class="tab-btn" onclick="switchTab(this,'holerites')">
+                    <i class="fas fa-file-invoice"></i> Holerites
+                </button>
+            </div>
+
+            <!-- Tab: Folha do Mês -->
+            <div class="tab-panel active" id="tab-folha">
+                <div class="folha-toolbar">
+                    <div class="filters-bar">
+                        <div class="search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="search-input" placeholder="Buscar colaborador..." oninput="applySearch()">
+                        </div>
+                        <select class="dept-select" id="dept-filter" onchange="applySearch()">
+                            <option value="">Todos os departamentos</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button class="btn-secondary" onclick="gerarTodosHolerites()">
+                            <i class="fas fa-wand-magic-sparkles"></i> Gerar Todos
+                        </button>
+                        <button class="btn-primary" onclick="marcarTodosPagos()">
+                            <i class="fas fa-check-double"></i> Marcar Todos como Pagos
+                        </button>
+                    </div>
+                </div>
+
+                <div class="summary-row" id="summary-row">
+                    <div class="summary-item">
+                        <span class="summary-label">Salários Brutos</span>
+                        <span class="summary-value blue" id="sum-bruto">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total INSS</span>
+                        <span class="summary-value red" id="sum-inss">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total IRRF</span>
+                        <span class="summary-value red" id="sum-irrf">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Benefícios</span>
+                        <span class="summary-value blue" id="sum-benef">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total a Pagar</span>
+                        <span class="summary-value green" id="sum-liquido">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="req-table">
+                        <thead>
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>Contrato</th>
+                                <th>Salário Bruto</th>
+                                <th>INSS</th>
+                                <th>IRRF</th>
+                                <th>Benefícios</th>
+                                <th>Líquido</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="folha-tbody"></tbody>
+                    </table>
+                </div>
+                <p class="table-count" id="folha-count"></p>
+            </div>
+
+            <!-- Tab: Holerites -->
+            <div class="tab-panel" id="tab-holerites">
+                <div class="filters-bar">
+                    <div class="search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-hol" placeholder="Buscar colaborador..." oninput="applyHolSearch()">
+                    </div>
+                    <select class="dept-select" id="dept-hol-filter" onchange="applyHolSearch()">
+                        <option value="">Todos os departamentos</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table class="req-table">
+                        <thead>
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>Competência</th>
+                                <th>Líquido</th>
+                                <th>Status Holerite</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hol-tbody"></tbody>
+                    </table>
+                </div>
+                <p class="table-count" id="hol-count"></p>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Modal: Visualizar Holerite -->
+<div class="modal-overlay" id="slip-modal" onclick="handleOverlayClick(event,'slip-modal')">
+    <div class="modal-card modal-card--lg">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div>
+                    <h3 class="modal-title">Holerite</h3>
+                    <p class="modal-sub" id="slip-modal-sub">—</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal('slip-modal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="slip-modal-body"></div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('slip-modal')">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/pagamentos.js"></script>
+</body>
+</html>

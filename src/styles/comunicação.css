@@ -229,6 +229,16 @@ body {
 
 .user-card:hover { background: rgba(255, 255, 255, 0.06); }
 
+.sidebar-logout-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; flex-shrink: 0; margin-left: auto;
+    border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+    background: transparent; color: #9ca3af; font-size: .95rem;
+    cursor: pointer; transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.sidebar-logout-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.25); }
+.sidebar.collapsed .sidebar-logout-btn { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+
 .user-avatar {
     width: 36px;
     height: 36px;
@@ -299,6 +309,17 @@ body {
     gap: 14px;
     min-width: 0;
 }
+
+.btn-logout {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.07); color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 8px 14px; border-radius: 8px;
+    font-size: .875rem; font-weight: 500; cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    white-space: nowrap;
+}
+.btn-logout:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
 .topbar-right {
     display: flex;
@@ -793,6 +814,37 @@ body {
 .dest-card:hover i { color: #fff; }
 
 .hidden { display: none !important; }
+
+.history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.hist-chip {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hist-chip:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.hist-chip--active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+.reads-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6366f1;
+}
+.reads-badge i { font-size: 11px; }
 
 #sent-messages-section { width: 100%; }
 #sent-messages-section .message-card { width: 100%; }

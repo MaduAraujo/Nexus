@@ -38,21 +38,21 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="../screens/banco-horas-rh.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                        <span class="nav-text">Gestão de Horas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="../screens/arquivos.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
                         <span class="nav-text">Arquivos</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="../screens/pagamentos.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                         <span class="nav-text">Pagamentos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
-                        <span class="nav-text">Analisar Currículo</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -70,6 +70,9 @@
                     <p class="user-name" id="rh-sidebar-name">Administrador</p>
                     <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
                 </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </aside>
@@ -281,6 +284,16 @@
             <button class="modal-close" onclick="closeRejectModal()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
+            <div class="form-group" style="margin-bottom:10px">
+                <label class="form-label" style="margin-bottom:6px">Motivos frequentes</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período conflita com férias de outro colaborador do mesmo departamento.')">Conflito de equipe</button>
+                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período insuficiente de antecedência (mínimo 30 dias).')">Antecedência insuficiente</button>
+                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Saldo de dias disponível insuficiente para o período solicitado.')">Saldo insuficiente</button>
+                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período solicitado coincide com prazo crítico do projeto.')">Prazo crítico</button>
+                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Necessidade operacional do setor no período solicitado.')">Necessidade operacional</button>
+                </div>
+            </div>
             <div class="form-group">
                 <label class="form-label" for="reject-reason">Motivo <span style="color:#ef4444">*</span></label>
                 <textarea id="reject-reason" class="form-textarea" rows="3" placeholder="Explique o motivo da recusa ao colaborador..."></textarea>
@@ -314,6 +327,8 @@
     </div>
 </div>
 <div id="toast-container" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
 <script src="../javascript/ferias.js"></script>
 </body>
 </html>

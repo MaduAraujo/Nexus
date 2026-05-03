@@ -1,55 +1,44 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const session = (() => {
-        try {
-            const s = localStorage.getItem('nexus_session');
-            return s ? JSON.parse(s) : null;
-        } catch { return null; }
-    })();
+document.addEventListener('DOMContentLoaded', async () => {
+    // ── Auth ──
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = '../screens/login.html'; return; }
 
-    if (!session || session.profile === 'rh') {
+    const { data: profile } = await sb.from('profiles')
+        .select('profile, employee_id')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
         window.location.href = '../screens/login.html';
         return;
     }
 
-    const STORAGE_KEY = 'nexus_docs_colaborador';
+    const myEmployeeId = profile.employee_id;
 
-    const docList        = document.getElementById('doc-list');
-    const docCountBadge  = document.getElementById('doc-count-badge');
-    const docEmpty       = document.getElementById('doc-empty');
-    const docWrap        = document.getElementById('doc-wrap');
-    const uploadModal    = document.getElementById('upload-modal');
-    const dropZone       = document.getElementById('drop-zone');
-    const fileInput      = document.getElementById('file-input');
-    const fileSelected   = document.getElementById('file-selected');
+    const { data: emp } = await sb.from('employees').select('name, avatar_color').eq('id', myEmployeeId).single();
+
+    const docList          = document.getElementById('doc-list');
+    const docCountBadge    = document.getElementById('doc-count-badge');
+    const docEmpty         = document.getElementById('doc-empty');
+    const docWrap          = document.getElementById('doc-wrap');
+    const uploadModal      = document.getElementById('upload-modal');
+    const dropZone         = document.getElementById('drop-zone');
+    const fileInput        = document.getElementById('file-input');
+    const fileSelected     = document.getElementById('file-selected');
     const fileSelectedName = document.getElementById('file-selected-name');
-    const mobileSelect   = document.getElementById('doc-select-mobile');
+    const mobileSelect     = document.getElementById('doc-select-mobile');
 
+    let myDocs       = [];
     let selectedFile = null;
     let selectedId   = null;
 
-    // ── Helpers de storage ──
-    function loadDocs() {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            return all.filter(d => d.employeeEmail === session.email);
-        } catch { return []; }
-    }
-
-    function saveDoc(doc) {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            all.unshift(doc);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-        } catch (e) { console.error(e); }
-    }
-
-    function removeDoc(id) {
-        try {
-            const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(
-                all.filter(d => !(d.id === id && d.employeeEmail === session.email))
-            ));
-        } catch (e) { console.error(e); }
+    // ── Busca documentos do colaborador ──
+    async function refreshDocs() {
+        const { data } = await sb.from('documents')
+            .select('*')
+            .eq('employee_id', myEmployeeId)
+            .order('created_at', { ascending: false });
+        myDocs = data || [];
     }
 
     // ── Ícone por extensão ──
@@ -70,14 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Renderiza lista ──
     function renderList() {
-        const docs = loadDocs();
-        docCountBadge.textContent = docs.length;
+        if (docCountBadge) docCountBadge.textContent = myDocs.length;
 
-        // Atualiza select mobile
-        mobileSelect.innerHTML = '<option value="">Selecione um documento...</option>' +
-            docs.map(d => `<option value="${d.id}"${d.id === selectedId ? ' selected' : ''}>${d.name}</option>`).join('');
+        if (mobileSelect) {
+            mobileSelect.innerHTML = '<option value="">Selecione um documento...</option>' +
+                myDocs.map(d => `<option value="${d.id}"${d.id === selectedId ? ' selected' : ''}>${d.name}</option>`).join('');
+        }
 
-        if (docs.length === 0) {
+        if (!docList) return;
+
+        if (myDocs.length === 0) {
             docList.innerHTML = `
                 <div class="doc-list-empty">
                     <i class="fas fa-folder-open"></i>
@@ -88,17 +79,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        docList.innerHTML = docs.map(d => {
+        docList.innerHTML = myDocs.map(d => {
             const { cls, fa } = getIconInfo(d.name);
-            const st = statusMap[d.status] || statusMap.pendente;
+            const st   = statusMap[d.status] || statusMap.pendente;
+            const date = new Date(d.created_at).toLocaleDateString('pt-BR');
             return `
-                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" onclick="selectDocById(${d.id})">
+                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" onclick="selectDocById('${d.id}')">
                     <div class="doc-card-icon doc-card-icon--${cls}">
                         <i class="fas ${fa}"></i>
                     </div>
                     <div class="doc-card-body">
                         <span class="doc-card-name" title="${d.name}">${d.name}</span>
-                        <span class="doc-card-tipo">${d.tipo} · ${d.date}</span>
+                        <span class="doc-card-tipo">${d.tipo} · ${date}</span>
                     </div>
                     <span class="doc-card-status doc-card-status--${st.cls}">
                         <i class="fas ${st.icon}"></i> ${st.label}
@@ -106,12 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
         }).join('');
 
-        // Mantém seleção atual se ainda existir
-        if (selectedId && docs.find(d => d.id === selectedId)) {
-            showDocDetail(docs.find(d => d.id === selectedId));
-        } else {
-            showEmptyPanel();
-        }
+        const current = selectedId ? myDocs.find(d => d.id === selectedId) : null;
+        if (current) showDocDetail(current);
+        else showEmptyPanel();
     }
 
     // ── Painel vazio ──
@@ -128,60 +117,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const st = statusMap[doc.status] || statusMap.pendente;
         const { cls: iconCls, fa: iconFa } = getIconInfo(doc.name);
+        const date = new Date(doc.created_at).toLocaleDateString('pt-BR');
 
-        // Barra de ações
-        const nameEl   = document.getElementById('action-doc-name');
-        const badgeEl  = document.getElementById('action-status-badge');
+        const nameEl  = document.getElementById('action-doc-name');
+        const badgeEl = document.getElementById('action-status-badge');
         if (nameEl)  nameEl.textContent = doc.name;
         if (badgeEl) {
             badgeEl.className = `doc-status-badge ${st.cls}`;
             badgeEl.innerHTML = `<i class="fas ${st.icon}"></i> ${st.label}`;
         }
 
-        // Info grid
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
-        set('detail-employee', doc.employee);
-        set('detail-tipo',     doc.tipo);
-        set('detail-tipo2',    doc.tipo);
-        set('detail-date',     doc.date);
-        set('detail-size',     doc.size);
-        set('detail-filename', doc.name);
-        set('detail-footer-date', doc.date);
+        set('detail-employee',    emp?.name || '—');
+        set('detail-tipo',        doc.tipo);
+        set('detail-tipo2',       doc.tipo);
+        set('detail-date',        date);
+        set('detail-size',        doc.size_label);
+        set('detail-filename',    doc.name);
+        set('detail-footer-date', date);
 
-        // Status no grid
         const statusEl = document.getElementById('detail-status');
         if (statusEl) {
             statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;background:${st.cls === 'aprovado' ? '#dcfce7' : st.cls === 'recusado' ? '#fee2e2' : '#fef3c7'};color:${st.cls === 'aprovado' ? '#065f46' : st.cls === 'recusado' ? '#991b1b' : '#92400e'}"><i class="fas ${st.icon}"></i> ${st.label}</span>`;
         }
 
-        // Preview
         const previewIcon = document.getElementById('detail-file-icon');
         if (previewIcon) {
             previewIcon.className = `doc-preview-icon doc-preview-icon--${iconCls}`;
             previewIcon.innerHTML = `<i class="fas ${iconFa}"></i>`;
         }
         set('detail-preview-name', doc.name);
-        set('detail-preview-meta', `${doc.tipo} · ${doc.size} · Enviado em ${doc.date}`);
+        set('detail-preview-meta', `${doc.tipo} · ${doc.size_label || '—'} · Enviado em ${date}`);
     }
 
     // ── Seleção por ID ──
     window.selectDocById = (id) => {
-        const numId = Number(id);
-        if (!numId) { showEmptyPanel(); return; }
-        const docs = loadDocs();
-        const doc  = docs.find(d => d.id === numId);
+        if (!id) { showEmptyPanel(); return; }
+        const doc = myDocs.find(d => d.id === id);
         if (!doc) { showEmptyPanel(); return; }
-        selectedId = numId;
+        selectedId = id;
         renderList();
         showDocDetail(doc);
     };
 
     // ── Remoção do doc selecionado ──
-    window.deleteSelectedDoc = () => {
+    window.deleteSelectedDoc = async () => {
         if (!selectedId) return;
         if (!confirm('Deseja realmente remover este documento?')) return;
-        removeDoc(selectedId);
+
+        const doc = myDocs.find(d => d.id === selectedId);
+
+        if (doc?.storage_path) {
+            await sb.storage.from('documents').remove([doc.storage_path]);
+        }
+
+        await sb.from('documents').delete().eq('id', selectedId);
         selectedId = null;
+        await refreshDocs();
         renderList();
         showToast('Documento removido', 'O arquivo foi removido com sucesso.');
     };
@@ -195,7 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.closeUploadModal = () => {
         uploadModal?.classList.remove('open');
         document.body.style.overflow = '';
-        document.getElementById('upload-tipo').value = '';
+        const tipoEl = document.getElementById('upload-tipo');
+        if (tipoEl) tipoEl.value = '';
         clearFileInput();
     };
 
@@ -231,34 +224,62 @@ document.addEventListener('DOMContentLoaded', () => {
         dropZone?.classList.remove('hidden');
     };
 
-    window.submitUpload = () => {
-        const tipo = document.getElementById('upload-tipo').value;
+    window.submitUpload = async () => {
+        const tipo = document.getElementById('upload-tipo')?.value;
         if (!tipo)         { showToast('Campo obrigatório', 'Selecione o tipo de documento.', 'warning'); return; }
         if (!selectedFile) { showToast('Campo obrigatório', 'Selecione um arquivo para enviar.', 'warning'); return; }
 
         const sizeKB    = Math.round(selectedFile.size / 1024);
         const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
 
-        const doc = {
-            id:            Date.now(),
-            name:          selectedFile.name,
-            employee:      session.name,
-            employeeEmail: session.email,
-            tipo,
-            date:          new Date().toLocaleDateString('pt-BR'),
-            size:          sizeLabel,
-            status:        'pendente'
-        };
+        const storagePath = `${myEmployeeId}/${Date.now()}_${selectedFile.name}`;
+        let uploadedPath  = null;
 
-        saveDoc(doc);
-        selectedId = doc.id;
+        const { error: uploadError } = await sb.storage
+            .from('documents')
+            .upload(storagePath, selectedFile, { contentType: selectedFile.type });
+
+        if (!uploadError) uploadedPath = storagePath;
+
+        const { data: inserted, error: insertError } = await sb.from('documents').insert({
+            name:         selectedFile.name,
+            employee_id:  myEmployeeId,
+            tipo,
+            size_label:   sizeLabel,
+            storage_path: uploadedPath,
+            source:       'colaborador',
+            status:       'pendente',
+            created_by:   user.id
+        }).select().single();
+
+        if (insertError) {
+            if (uploadedPath) await sb.storage.from('documents').remove([uploadedPath]);
+            showToast('Erro ao enviar documento.', 'Tente novamente.', 'error');
+            return;
+        }
+
+        selectedId = inserted.id;
         closeUploadModal();
+        await refreshDocs();
         renderList();
-        showToast('Documento enviado!', `${doc.name} foi enviado para análise do RH.`);
+        showToast('Documento enviado!', `${inserted.name} foi enviado para análise do RH.`);
     };
 
     uploadModal?.addEventListener('click', (e) => { if (e.target === uploadModal) closeUploadModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUploadModal(); });
+
+    // ── Realtime: RH atualiza status de documento ──
+    sb.channel('docs-colab')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'documents',
+            filter: `employee_id=eq.${myEmployeeId}`
+        }, async () => {
+            await refreshDocs();
+            renderList();
+        })
+        .subscribe();
 
     // ── Toast ──
     function showToast(title, msg, type = 'success') {
@@ -287,15 +308,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Logout ──
-    window.logout = () => {
-        localStorage.removeItem('nexus_session');
+    window.logout = async () => {
+        await sb.auth.signOut();
         window.location.href = '../screens/login.html';
     };
 
-    // Recarrega quando RH atualiza status
-    window.addEventListener('storage', (e) => {
-        if (e.key === STORAGE_KEY) renderList();
-    });
-
+    // ── Init ──
+    await refreshDocs();
     renderList();
 });

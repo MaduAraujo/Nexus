@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Banco de Horas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/banco-horas-rh.css" />
+</head>
+<body>
+<div class="layout">
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="../screens/dashboard.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/colaboradores.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Colaboradores</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/ferias.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
+                        <span class="nav-text">Gestão de Férias</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="../screens/banco-horas-rh.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
+                        <span class="nav-text">Gestão de Horas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/arquivos.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+                        <span class="nav-text">Arquivos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/pagamentos.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                        <span class="nav-text">Pagamentos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/comunicação.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+                        <span class="nav-text">Comunicação Interna</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name" id="rh-sidebar-name">Administrador</p>
+                    <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
+                </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper" id="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Banco de Horas</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="month-picker-wrap">
+                    <i class="fas fa-calendar-alt"></i>
+                    <input type="month" id="month-picker" title="Selecionar mês" />
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi--extras">
+                        <div class="kpi-icon"><i class="fas fa-arrow-up-right-dots"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Total H. Extras</span>
+                            <span class="kpi-value" id="kpi-total-extras">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--faltas">
+                        <div class="kpi-icon"><i class="fas fa-arrow-down-right-dots"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Total H. em Falta</span>
+                            <span class="kpi-value" id="kpi-total-faltas">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--count-pos">
+                        <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Saldo Positivo</span>
+                            <span class="kpi-value" id="kpi-count-pos">0</span>
+                            <span class="kpi-sub">colaboradores</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--count-neg">
+                        <div class="kpi-icon"><i class="fas fa-circle-exclamation"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Saldo Negativo</span>
+                            <span class="kpi-value" id="kpi-count-neg">0</span>
+                            <span class="kpi-sub">colaboradores</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--critico">
+                        <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Saldo Crítico (&gt;20h neg.)</span>
+                            <span class="kpi-value" id="kpi-count-critico">0</span>
+                            <span class="kpi-sub">requerem atenção</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tabs-bar">
+                    <button class="tab-btn active" data-tab="banco" onclick="switchTab(this,'banco')">
+                        <i class="fas fa-clock-rotate-left"></i> Banco de Horas
+                    </button>
+                    <button class="tab-btn" data-tab="auditoria" onclick="switchTab(this,'auditoria')">
+                        <i class="fas fa-scroll"></i> Auditoria
+                    </button>
+                </div>
+
+                <div class="tab-panel active" id="tab-banco">
+                    <div class="filters-bar">
+                        <div class="search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="search-input" placeholder="Buscar colaborador..." oninput="applyFilters()">
+                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="filter-chips">
+                            <button class="chip chip--active" data-filter="todos"    onclick="setFilter(this)">Todos</button>
+                            <button class="chip"              data-filter="positivo" onclick="setFilter(this)">Saldo Positivo</button>
+                            <button class="chip"              data-filter="negativo" onclick="setFilter(this)">Saldo Negativo</button>
+                            <button class="chip"              data-filter="zerado"   onclick="setFilter(this)">Zerado / PJ</button>
+                            <button class="chip chip--alert"  data-filter="critico"  onclick="setFilter(this)"><i class="fas fa-triangle-exclamation"></i> Crítico</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="req-table">
+                            <thead>
+                                <tr>
+                                    <th>Colaborador</th>
+                                    <th>Tipo</th>
+                                    <th>Jornada</th>
+                                    <th>Dias Reg.</th>
+                                    <th>H. Extras</th>
+                                    <th>H. em Falta</th>
+                                    <th>Saldo do Mês</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="banco-tbody">
+                                <tr id="empty-row">
+                                    <td colspan="8">
+                                        <div class="table-empty">
+                                            <i class="fas fa-clock-rotate-left"></i>
+                                            <p>Nenhum colaborador ativo encontrado.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="table-count" id="table-count"></p>
+                </div>
+
+                <div class="tab-panel" id="tab-auditoria">
+                    <div class="filters-bar audit-filters-bar">
+                        <div class="audit-emp-row">
+                            <div class="form-group" style="min-width:200px">
+                                <label class="form-label">Colaborador</label>
+                                <select id="audit-emp-select" class="form-input" onchange="renderAuditTable()">
+                                    <option value="all">Todos os colaboradores</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Mês</label>
+                                <input type="month" id="audit-month" class="form-input" onchange="renderAuditTable()">
+                            </div>
+                        </div>
+                        <div class="filter-chips">
+                            <button class="chip chip--active" data-audit-tipo="todos"       onclick="setAuditTipo(this)">Todos</button>
+                            <button class="chip"              data-audit-tipo="ponto"        onclick="setAuditTipo(this)">Registros de Ponto</button>
+                            <button class="chip"              data-audit-tipo="ajuste_banco" onclick="setAuditTipo(this)">Ajustes Banco</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="req-table">
+                            <thead>
+                                <tr>
+                                    <th>Data / Hora</th>
+                                    <th>Colaborador</th>
+                                    <th>Tipo</th>
+                                    <th>Evento</th>
+                                    <th>Valor</th>
+                                    <th>Operador</th>
+                                    <th>Justificativa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-tbody">
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="table-empty">
+                                            <i class="fas fa-scroll"></i>
+                                            <p>Nenhum registro de auditoria encontrado.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="table-count" id="audit-count"></p>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ── Modal: Detalhes ─────────────────────────────────────────── -->
+<div class="modal-overlay" id="detail-modal" onclick="handleOverlayClick(event,'detail-modal')">
+    <div class="modal-card modal-card--lg">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-chart-column"></i></div>
+                <div>
+                    <h3 class="modal-title">Banco de Horas — Detalhes</h3>
+                    <p class="modal-sub" id="detail-sub">Histórico de ponto e ajustes</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeDetailModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="detail-body"></div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeDetailModal()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Ajuste Manual ────────────────────────────────────── -->
+<div class="modal-overlay" id="adjust-modal" onclick="handleOverlayClick(event,'adjust-modal')">
+    <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-pen-to-square"></i></div>
+                <div>
+                    <h3 class="modal-title">Lançar Ajuste Manual</h3>
+                    <p class="modal-sub" id="adjust-sub">Crédito ou débito de horas</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeAdjustModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Tipo de Ajuste</label>
+                <select id="adjust-tipo" class="form-input">
+                    <option value="credito">Crédito — adicionar horas ao banco</option>
+                    <option value="debito">Débito — descontar horas do banco</option>
+                </select>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label class="form-label" for="adjust-horas">Horas</label>
+                    <input type="number" id="adjust-horas" class="form-input" min="0" max="99" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="adjust-min">Minutos</label>
+                    <input type="number" id="adjust-min" class="form-input" min="0" max="59" placeholder="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="adjust-data">Data de Referência</label>
+                <input type="date" id="adjust-data" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
+                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..."></textarea>
+            </div>
+            <div class="modal-alert" id="adjust-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeAdjustModal()">Cancelar</button>
+            <button class="btn-confirm" onclick="submitAdjust()">
+                <i class="fas fa-check"></i> Lançar Ajuste
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/banco-horas-rh.js"></script>
+</body>
+</html>

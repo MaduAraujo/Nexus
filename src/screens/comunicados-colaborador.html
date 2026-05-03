@@ -46,6 +46,9 @@
                     <p class="user-name" id="sidebar-name">—</p>
                     <p class="user-role" id="sidebar-role">Colaborador</p>
                 </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </aside>
@@ -120,6 +123,8 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
 <script src="../javascript/comunicados-colaborador.js"></script>
 </body>
 </html>

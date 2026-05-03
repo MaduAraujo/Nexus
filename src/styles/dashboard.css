@@ -192,6 +192,16 @@ ul { list-style: none; }
 
 .user-card:hover { background: rgba(255,255,255,.06); }
 
+.sidebar-logout-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; flex-shrink: 0; margin-left: auto;
+    border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+    background: transparent; color: #9ca3af; font-size: .95rem;
+    cursor: pointer; transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.sidebar-logout-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.25); }
+.sidebar.collapsed .sidebar-logout-btn { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+
 .user-avatar {
     width: 36px; height: 36px;
     background: var(--accent);
@@ -352,6 +362,39 @@ ul { list-style: none; }
     line-height: 1.1;
 }
 
+.card-delta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-height: 14px;
+}
+.card-delta.up   { color: #16a34a; }
+.card-delta.down { color: #ef4444; }
+
+.metrics-extra {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.metric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+    background: var(--bg-white);
+    box-shadow: var(--shadow-sm);
+}
+.metric-pill strong { font-weight: 700; }
+.metric-pill--turnover { color: #6366f1; }
+.metric-pill--turnover i { color: #6366f1; }
+.metric-pill--absent   { color: #f59e0b; }
+.metric-pill--absent   i { color: #f59e0b; }
+
 .charts-grid {
     display: grid;
     grid-template-columns: 1.4fr 1fr;
@@ -495,6 +538,108 @@ ul { list-style: none; }
     .card-info h2 { font-size: 1.35rem; }
     .chart-container { height: 200px; }
     .department-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ════════════════════════════
+   Export button & dropdown
+════════════════════════════ */
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-logout {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.07); color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 8px 14px; border-radius: 8px;
+    font-size: .875rem; font-weight: 500; cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    white-space: nowrap;
+}
+.btn-logout:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+.export-dropdown {
+    position: relative;
+}
+
+.btn-export {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.15s;
+}
+
+.btn-export:hover  { background: var(--accent-hover); }
+.btn-export:active { transform: scale(0.97); }
+
+.export-chevron {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+.export-chevron.rotated { transform: rotate(180deg); }
+
+.export-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    min-width: 168px;
+    z-index: 1100;
+    animation: menuIn 0.15s ease-out;
+}
+
+.export-menu.open { display: block; }
+
+@keyframes menuIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.export-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 7px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-main);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+
+.export-option:hover { background: var(--accent-light); color: var(--accent); }
+
+.export-option .fa-file-excel { color: #16a34a; }
+.export-option .fa-file-pdf   { color: #ef4444; }
+.export-option:hover i         { color: var(--accent); }
+
+@media (max-width: 480px) {
+    .btn-export span { display: none; }
+    .btn-export { padding: 8px 12px; }
 }
 
 @media (max-width: 360px) {

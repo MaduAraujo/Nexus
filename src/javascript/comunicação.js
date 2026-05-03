@@ -1,285 +1,184 @@
-document.addEventListener('DOMContentLoaded', () => {
+/* comunicação.js — Supabase */
+
+document.addEventListener('DOMContentLoaded', async () => {
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     const mainWrapper    = document.querySelector('.main-wrapper');
-
     const messageInput   = document.getElementById('message-text');
     const mainToggleBtn  = document.getElementById('main-toggle-btn');
     const fabBtn         = document.getElementById('btn-fab');
     const modal          = document.getElementById('destinationModal');
     const sectionWrite   = document.getElementById('write-section');
     const sectionHistory = document.getElementById('sent-messages-section');
-    const messagesList   = document.getElementById('messages-list');   
-    const messagesCards  = document.getElementById('messages-cards'); 
+    const messagesList   = document.getElementById('messages-list');
+    const messagesCards  = document.getElementById('messages-cards');
 
-    const STORAGE_KEY       = 'nexus_messages';
-    const SIDEBAR_STATE_KEY = 'sidebarState_comunicacao';
+    // ─── Session ─────────────────────────────────────────────
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = '../screens/login.html'; return; }
+    const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
+    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
 
-    const defaultMessages = [
-        { id: 1, data: '15/04/2026', texto: 'Bem-vindos ao novo portal Nexus!', destino: 'Todos' },
-        { id: 2, data: '16/04/2026', texto: 'Lembrete: Atualização de sistemas hoje às 22h.', destino: 'TI' }
-    ];
+    const displayName = user.email?.split('@')[0] || 'Administrador';
+    const nameEl   = document.getElementById('rh-sidebar-name');
+    const roleEl   = document.getElementById('rh-sidebar-role');
+    const avatarEl = document.getElementById('rh-sidebar-avatar');
+    if (nameEl)   nameEl.textContent   = displayName;
+    if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
+    if (avatarEl) avatarEl.textContent = displayName.slice(0, 2).toUpperCase();
 
-    let dbMensagens = (() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            return saved ? JSON.parse(saved) : defaultMessages;
-        } catch { return defaultMessages; }
-    })();
+    window.logout = async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
 
-    function salvarMensagens() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(dbMensagens)); }
-        catch (e) { console.error('Erro ao salvar:', e); }
-    }
-
-    const escapeHTML = (str) => String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
-    const isMobile = () => window.innerWidth <= 768;
-
-    function openMobileSidebar() {
-        sidebar?.classList.add('open');
-        sidebarOverlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeMobileSidebar() {
-        sidebar?.classList.remove('open');
-        sidebarOverlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-
-    sidebarToggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isMobile()) {
-            sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
-        } else {
-            const collapsed = sidebar?.classList.toggle('collapsed');
-            mainWrapper?.classList.toggle('sidebar-collapsed', collapsed);
-            localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? 'collapsed' : 'expanded');
-        }
-    });
-
-    topbarMenuBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
-    });
-
-    sidebarOverlay?.addEventListener('click', closeMobileSidebar);
-
-    if (!isMobile() && localStorage.getItem(SIDEBAR_STATE_KEY) === 'collapsed') {
-        sidebar?.classList.add('collapsed');
-        mainWrapper?.classList.add('sidebar-collapsed');
-    }
-
-    window.addEventListener('resize', () => {
-        if (!isMobile()) closeMobileSidebar();
-    });
-
-    // Carrega info do RH na sidebar
-    (() => {
-        try {
-            const s = JSON.parse(localStorage.getItem('nexus_session') || 'null');
-            const nameEl   = document.getElementById('rh-sidebar-name');
-            const roleEl   = document.getElementById('rh-sidebar-role');
-            const avatarEl = document.getElementById('rh-sidebar-avatar');
-            if (!nameEl) return;
-            const name = (s && s.name) ? s.name : 'Administrador';
-            const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'RH';
-            nameEl.textContent   = name;
-            if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
-            if (avatarEl) avatarEl.textContent = initials;
-        } catch {}
-    })();
-
+    // ─── State ───────────────────────────────────────────────
+    let dbMensagens  = [];
+    let readCountMap = {};
+    let histFilter   = 'todos';
     let currentSection = 'writing';
 
+    // ─── Data ────────────────────────────────────────────────
+    async function loadMessages() {
+        const [{ data: msgs }, { data: reads }] = await Promise.all([
+            sb.from('messages').select('*').order('created_at', { ascending: false }),
+            sb.from('message_reads').select('message_id'),
+        ]);
+        dbMensagens  = msgs || [];
+        readCountMap = {};
+        (reads || []).forEach(r => { readCountMap[r.message_id] = (readCountMap[r.message_id] || 0) + 1; });
+    }
+
+    const countReads = (id)  => readCountMap[id] || 0;
+    const escHTML    = (s)   => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const fmtDate    = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+
+    // ─── Sidebar ─────────────────────────────────────────────
+    const isMobile  = () => window.innerWidth <= 768;
+    const openSide  = () => { sidebar?.classList.add('open');    sidebarOverlay?.classList.add('active');    document.body.style.overflow = 'hidden'; };
+    const closeSide = () => { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; };
+    sidebarToggle?.addEventListener('click', e => { e.stopPropagation(); isMobile() ? (sidebar?.classList.contains('open') ? closeSide() : openSide()) : (() => { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); })(); });
+    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeSide() : openSide(); });
+    sidebarOverlay?.addEventListener('click', closeSide);
+    window.addEventListener('resize', () => { if (!isMobile()) closeSide(); });
+
+    // ─── Section toggle ───────────────────────────────────────
     function switchToHistory() {
         currentSection = 'history';
         if (sectionWrite)   sectionWrite.style.display   = 'none';
         if (sectionHistory) sectionHistory.style.display = 'block';
-
-        if (mainToggleBtn) {
-            mainToggleBtn.setAttribute('data-current', 'history');
-            const span = mainToggleBtn.querySelector('span');
-            const icon = mainToggleBtn.querySelector('i');
-            if (span) span.textContent = 'Novo Comunicado';
-            if (icon) icon.className   = 'fas fa-plus';
-        }
-
-        if (fabBtn) {
-            fabBtn.setAttribute('aria-label', 'Novo Comunicado');
-            fabBtn.innerHTML = '<i class="fas fa-plus"></i>';
-        }
-
+        if (mainToggleBtn) { const s = mainToggleBtn.querySelector('span'); const i = mainToggleBtn.querySelector('i'); if (s) s.textContent = 'Novo Comunicado'; if (i) i.className = 'fas fa-plus'; }
+        if (fabBtn) { fabBtn.innerHTML = '<i class="fas fa-plus"></i>'; }
         renderizarMensagens();
     }
-
     function switchToWriting() {
         currentSection = 'writing';
         if (sectionWrite)   sectionWrite.style.display   = 'block';
         if (sectionHistory) sectionHistory.style.display = 'none';
-
-        if (mainToggleBtn) {
-            mainToggleBtn.setAttribute('data-current', 'writing');
-            const span = mainToggleBtn.querySelector('span');
-            const icon = mainToggleBtn.querySelector('i');
-            if (span) span.textContent = 'Comunicados Enviados';
-            if (icon) icon.className   = 'fas fa-history';
-        }
-
-        if (fabBtn) {
-            fabBtn.setAttribute('aria-label', 'Comunicados Enviados');
-            fabBtn.innerHTML = '<i class="fas fa-history"></i>';
-        }
+        if (mainToggleBtn) { const s = mainToggleBtn.querySelector('span'); const i = mainToggleBtn.querySelector('i'); if (s) s.textContent = 'Comunicados Enviados'; if (i) i.className = 'fas fa-history'; }
+        if (fabBtn) { fabBtn.innerHTML = '<i class="fas fa-history"></i>'; }
     }
+    mainToggleBtn?.addEventListener('click', () => currentSection === 'writing' ? switchToHistory() : switchToWriting());
+    fabBtn?.addEventListener('click',        () => currentSection === 'writing' ? switchToHistory() : switchToWriting());
 
-    function toggleSection() {
-        currentSection === 'writing' ? switchToHistory() : switchToWriting();
-    }
+    // ─── Modal ────────────────────────────────────────────────
+    window.openModal  = () => { if (!messageInput?.value.trim()) { alert('Por favor, digite uma mensagem.'); messageInput?.focus(); return; } if (modal) modal.style.display = 'flex'; };
+    window.closeModal = () => { if (modal) modal.style.display = 'none'; };
 
-    mainToggleBtn?.addEventListener('click', toggleSection);
-    fabBtn?.addEventListener('click', toggleSection);
-
-    window.openModal = () => {
-        if (!messageInput?.value.trim()) {
-            alert('Por favor, digite uma mensagem.');
-            messageInput?.focus();
-            return;
-        }
-        if (modal) modal.style.display = 'flex';
-    };
-
-    window.closeModal = () => {
-        if (modal) modal.style.display = 'none';
-    };
-
-    window.confirmSend = (setor) => {
+    window.confirmSend = async (setor) => {
         const texto = messageInput?.value.trim();
         if (!texto) return;
-
-        const novaMsg = {
-            id:      Date.now(),
-            data:    new Date().toLocaleDateString('pt-BR'),
-            texto,
-            destino: setor
-        };
-
-        dbMensagens.unshift(novaMsg);
-        salvarMensagens();
+        const { data, error } = await sb.from('messages').insert({ texto, destino: setor, created_by: user.id }).select().single();
+        if (error) { console.error('[Nexus] confirmSend:', error); return; }
+        dbMensagens.unshift(data);
+        readCountMap[data.id] = 0;
         window.closeModal();
-
         const sendBtn = document.querySelector('.send-button');
         if (sendBtn) {
             const original = sendBtn.innerHTML;
-            sendBtn.classList.add('sent-success');
-            sendBtn.innerHTML = '<i class="fas fa-check"></i> Enviado!';
-            sendBtn.disabled  = true;
-
-            setTimeout(() => {
-                sendBtn.classList.remove('sent-success');
-                sendBtn.innerHTML = original;
-                sendBtn.disabled  = false;
-                if (messageInput) messageInput.value = '';
-            }, 2000);
-        } else {
-            if (messageInput) messageInput.value = '';
-        }
-
+            sendBtn.classList.add('sent-success'); sendBtn.innerHTML = '<i class="fas fa-check"></i> Enviado!'; sendBtn.disabled = true;
+            setTimeout(() => { sendBtn.classList.remove('sent-success'); sendBtn.innerHTML = original; sendBtn.disabled = false; if (messageInput) messageInput.value = ''; }, 2000);
+        } else { if (messageInput) messageInput.value = ''; }
         if (currentSection === 'history') renderizarMensagens();
     };
 
-    function renderizarMensagens() {
-        renderizarTabela();
-        renderizarCards();
-    }
+    // ─── Filter ───────────────────────────────────────────────
+    window.setHistFilter = function (btn) {
+        document.querySelectorAll('.hist-chip').forEach(c => c.classList.remove('hist-chip--active'));
+        btn.classList.add('hist-chip--active');
+        histFilter = btn.dataset.dest;
+        renderizarMensagens();
+    };
+    const filteredMsgs = () => histFilter === 'todos' ? dbMensagens : dbMensagens.filter(m => m.destino === histFilter);
+
+    // ─── Render ───────────────────────────────────────────────
+    function renderizarMensagens() { renderizarTabela(); renderizarCards(); }
 
     function renderizarTabela() {
         if (!messagesList) return;
-
-        if (dbMensagens.length === 0) {
-            messagesList.innerHTML = `
-                <tr>
-                    <td colspan="4" style="text-align:center;padding:32px;opacity:.6;">
-                        Nenhum comunicado encontrado.
-                    </td>
-                </tr>`;
-            return;
-        }
-
-        messagesList.innerHTML = dbMensagens.map(msg => {
-            const textoSafe = escapeHTML(msg.texto);
-            return `
-                <tr>
-                    <td>${escapeHTML(msg.data)}</td>
-                    <td><div class="message-preview" title="${textoSafe}">${textoSafe}</div></td>
-                    <td><span class="badge-dest">${escapeHTML(msg.destino)}</span></td>
-                    <td>
-                        <button class="delete-btn" data-id="${msg.id}" aria-label="Excluir">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
+        const msgs = filteredMsgs();
+        if (!msgs.length) { messagesList.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;opacity:.6;">Nenhum comunicado encontrado.</td></tr>`; return; }
+        messagesList.innerHTML = msgs.map(m => {
+            const t = escHTML(m.texto); const reads = countReads(m.id);
+            return `<tr>
+                <td>${escHTML(fmtDate(m.created_at))}</td>
+                <td><div class="message-preview" title="${t}">${t}</div></td>
+                <td><span class="badge-dest">${escHTML(m.destino)}</span></td>
+                <td><span class="reads-badge">${reads > 0 ? `<i class="fas fa-eye"></i> ${reads}` : '<span style="opacity:.4">—</span>'}</span></td>
+                <td><button class="delete-btn" data-id="${m.id}" aria-label="Excluir"><i class="fas fa-trash"></i></button></td>
+            </tr>`;
         }).join('');
     }
 
     function renderizarCards() {
         if (!messagesCards) return;
-
-        if (dbMensagens.length === 0) {
-            messagesCards.innerHTML = `
-                <div style="text-align:center;padding:32px;opacity:.6;font-size:14px;color:var(--text-secondary);">
-                    Nenhum comunicado encontrado.
-                </div>`;
-            return;
-        }
-
-        messagesCards.innerHTML = dbMensagens.map(msg => {
-            const textoSafe = escapeHTML(msg.texto);
-            return `
-                <div class="msg-card-item">
-                    <div class="msg-card-body">
-                        <div class="msg-card-top">
-                            <span class="msg-card-date">${escapeHTML(msg.data)}</span>
-                            <span class="msg-card-dest">${escapeHTML(msg.destino)}</span>
-                        </div>
-                        <div class="msg-card-text" title="${textoSafe}">${textoSafe}</div>
+        const msgs = filteredMsgs();
+        if (!msgs.length) { messagesCards.innerHTML = `<div style="text-align:center;padding:32px;opacity:.6;font-size:14px;">Nenhum comunicado encontrado.</div>`; return; }
+        messagesCards.innerHTML = msgs.map(m => {
+            const t = escHTML(m.texto); const reads = countReads(m.id);
+            return `<div class="msg-card-item">
+                <div class="msg-card-body">
+                    <div class="msg-card-top">
+                        <span class="msg-card-date">${escHTML(fmtDate(m.created_at))}</span>
+                        <span class="msg-card-dest">${escHTML(m.destino)}</span>
+                        ${reads > 0 ? `<span class="reads-badge"><i class="fas fa-eye"></i> ${reads}</span>` : ''}
                     </div>
-                    <div class="msg-card-actions">
-                        <button class="delete-btn" data-id="${msg.id}" aria-label="Excluir">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>`;
+                    <div class="msg-card-text" title="${t}">${t}</div>
+                </div>
+                <div class="msg-card-actions"><button class="delete-btn" data-id="${m.id}" aria-label="Excluir"><i class="fas fa-trash"></i></button></div>
+            </div>`;
         }).join('');
     }
 
-    function handleDelete(e) {
+    async function handleDelete(e) {
         const btn = e.target.closest('.delete-btn');
         if (!btn) return;
-        const id = Number(btn.dataset.id);
-        if (confirm('Deseja realmente excluir este comunicado?')) {
-            dbMensagens = dbMensagens.filter(m => m.id !== id);
-            salvarMensagens();
-            renderizarMensagens();
-        }
+        const id = btn.dataset.id;
+        if (!confirm('Deseja realmente excluir este comunicado?')) return;
+        await sb.from('messages').delete().eq('id', id);
+        dbMensagens = dbMensagens.filter(m => m.id !== id);
+        delete readCountMap[id];
+        renderizarMensagens();
     }
 
     messagesList?.addEventListener('click', handleDelete);
     messagesCards?.addEventListener('click', handleDelete);
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            window.closeModal();
-            if (isMobile()) closeMobileSidebar();
-        }
-    });
+    // ─── Realtime ─────────────────────────────────────────────
+    sb.channel('messages-rh')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
+            await loadMessages();
+            if (currentSection === 'history') renderizarMensagens();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reads' }, async () => {
+            const { data: reads } = await sb.from('message_reads').select('message_id');
+            readCountMap = {};
+            (reads || []).forEach(r => { readCountMap[r.message_id] = (readCountMap[r.message_id] || 0) + 1; });
+            if (currentSection === 'history') renderizarMensagens();
+        })
+        .subscribe();
 
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) window.closeModal();
-    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { window.closeModal(); if (isMobile()) closeSide(); } });
+    window.addEventListener('click', e => { if (e.target === modal) window.closeModal(); });
 
+    await loadMessages();
 });

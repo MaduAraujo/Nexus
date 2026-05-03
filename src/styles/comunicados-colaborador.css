@@ -162,6 +162,16 @@ body {
 }
 .user-card:hover { background: rgba(255,255,255,0.06); }
 
+.sidebar-logout-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; flex-shrink: 0; margin-left: auto;
+    border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+    background: transparent; color: #9ca3af; font-size: .95rem;
+    cursor: pointer; transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+.sidebar-logout-btn:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.25); }
+.sidebar.collapsed .sidebar-logout-btn { opacity: 0; pointer-events: none; width: 0; overflow: hidden; }
+
 .user-avatar {
     width: 36px; height: 36px;
     background: var(--accent); border-radius: 8px;
