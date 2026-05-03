@@ -131,54 +131,60 @@ window.handleLogin = async function () {
 
     setLoginLoading(true);
 
-    const { data, error } = await sb.auth.signInWithPassword({
-        email: emailInput,
-        password: passInput
-    });
+    try {
+        const { data, error } = await sb.auth.signInWithPassword({
+            email: emailInput,
+            password: passInput
+        });
 
-    if (error) {
-        setLoginLoading(false);
-        if (error.message === 'Email not confirmed') {
-            showToast('Confirme seu e-mail antes de acessar.', 'error');
-        } else {
-            showToast('E-mail ou senha incorretos.', 'error');
+        if (error) {
+            setLoginLoading(false);
+            if (error.message === 'Email not confirmed') {
+                showToast('Confirme seu e-mail antes de acessar.', 'error');
+            } else {
+                showToast('E-mail ou senha incorretos.', 'error');
+            }
+            return;
         }
-        return;
-    }
 
-    const { data: profile, error: profileError } = await sb.from('profiles')
-        .select('profile, employee_id')
-        .eq('id', data.user.id)
-        .single();
+        const { data: profile, error: profileError } = await sb.from('profiles')
+            .select('profile, employee_id')
+            .eq('id', data.user.id)
+            .single();
 
-    if (profileError || !profile) {
-        await sb.auth.signOut();
+        if (profileError || !profile) {
+            await sb.auth.signOut();
+            setLoginLoading(false);
+            showToast('Perfil não encontrado. Entre em contato com o RH.', 'error');
+            return;
+        }
+
+        if (profile.profile !== selectedProfileType) {
+            await sb.auth.signOut();
+            setLoginLoading(false);
+            showToast(
+                selectedProfileType === 'rh'
+                    ? 'Este e-mail não tem acesso ao painel de RH.'
+                    : 'Este e-mail não tem acesso à área de colaborador.',
+                'error'
+            );
+            return;
+        }
+
+        if (profile.profile === 'colaborador' && profile.employee_id) {
+            await sb.from('employees')
+                .update({ last_access: new Date().toISOString() })
+                .eq('id', profile.employee_id);
+        }
+
+        window.location.href = profile.profile === 'rh'
+            ? '../screens/dashboard.html'
+            : '../screens/inicio-colaborador.html';
+
+    } catch (err) {
         setLoginLoading(false);
-        showToast('Perfil não encontrado. Entre em contato com o RH.', 'error');
-        return;
+        showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
     }
-
-    if (profile.profile !== selectedProfileType) {
-        await sb.auth.signOut();
-        setLoginLoading(false);
-        showToast(
-            selectedProfileType === 'rh'
-                ? 'Este e-mail não tem acesso ao painel de RH.'
-                : 'Este e-mail não tem acesso à área de colaborador.',
-            'error'
-        );
-        return;
-    }
-
-    if (profile.profile === 'colaborador' && profile.employee_id) {
-        await sb.from('employees')
-            .update({ last_access: new Date().toISOString() })
-            .eq('id', profile.employee_id);
-    }
-
-    window.location.href = profile.profile === 'rh'
-        ? '../screens/dashboard.html'
-        : '../screens/inicio-colaborador.html';
 };
 
 // ─── Forgot password ─────────────────────────────────────────
