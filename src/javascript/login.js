@@ -71,9 +71,9 @@ window.goToLogin = function () {
         if (pill) pill.innerHTML = '<span class="profile-pill colab-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaborador</span>';
         if (title) title.textContent = 'Olá, colaborador!';
         if (subtitle) subtitle.textContent = 'Acesse sua área pessoal';
-        if (passSection) passSection.style.display = 'none';
-        if (btnLoginText) btnLoginText.textContent = 'Continuar';
-        loginStep = 1;
+        if (passSection) passSection.style.display = '';
+        if (btnLoginText) btnLoginText.textContent = 'Entrar';
+        loginStep = 2;
     }
 };
 
@@ -298,16 +298,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'Enter') handleLogin();
     });
 
-    // Reseta para step 1 se colaborador editar o e-mail depois de ver o campo de senha
-    document.getElementById('login-user')?.addEventListener('input', () => {
-        if (loginStep === 2 && selectedProfileType === 'colaborador') {
-            loginStep = 1;
-            const passSection = document.getElementById('login-pass-section');
-            if (passSection) passSection.style.display = 'none';
-            const btnLoginText = document.getElementById('btn-login-text');
-            if (btnLoginText) btnLoginText.textContent = 'Continuar';
-            const loginPass = document.getElementById('login-pass');
-            if (loginPass) loginPass.value = '';
-        }
-    });
 });
