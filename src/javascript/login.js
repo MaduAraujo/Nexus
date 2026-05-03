@@ -275,29 +275,28 @@ window.togglePw = function (inputId, btn) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
 
-    // Detecta retorno de link de redefinição ou convite por e-mail
-    sb.auth.onAuthStateChange(async (event, session) => {
+    // Detecta se chegou via link de convite (capturado antes do SDK limpar o hash)
+    const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
+
+    // Detecta retorno do link de redefinição enviado por e-mail
+    sb.auth.onAuthStateChange((event) => {
         if (event === 'PASSWORD_RECOVERY') {
             switchTab('forgot');
             window.setForgotStep(3);
-            return;
-        }
-        // Colaborador chegou via link de convite — já tem sessão ativa
-        if (event === 'SIGNED_IN' && session) {
-            const { data: profile } = await sb.from('profiles')
-                .select('profile')
-                .eq('id', session.user.id)
-                .single();
-            if (profile?.profile === 'colaborador') {
-                window.location.href = '../screens/inicio-colaborador.html';
-            } else if (profile?.profile === 'rh') {
-                window.location.href = '../screens/dashboard.html';
-            }
         }
     });
 
-    // Redireciona se já houver sessão ativa (usuário voltou à página logado)
     const { data: { session } } = await sb.auth.getSession();
+
+    // Primeiro acesso via link de convite
+    if (isInvite && session) {
+        document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+        document.getElementById('form-first-access').classList.add('active');
+        document.getElementById('first-access-email').value = session.user.email || '';
+        return;
+    }
+
+    // Redireciona se já houver sessão ativa (usuário voltou à página logado)
     if (session) {
         const { data: profile } = await sb.from('profiles')
             .select('profile')
@@ -317,4 +316,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'Enter') handleLogin();
     });
 
+    // ── Primeiro acesso: modal de criação de senha ──
+    window.openCreatePasswordModal = function () {
+        const modal = document.getElementById('create-pass-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('fam-visible')));
+        setTimeout(() => document.getElementById('create-pass-new')?.focus(), 150);
+    };
+
+    window.validateCreatePass = function () {
+        const np  = document.getElementById('create-pass-new')?.value    || '';
+        const cp  = document.getElementById('create-pass-confirm')?.value || '';
+        const err = document.getElementById('create-pass-err');
+        const btn = document.getElementById('btn-create-pass');
+        const valid = np.length >= 8 && np === cp;
+        if (btn) btn.disabled = !valid;
+        if (!err) return;
+        if (!cp)             err.textContent = '';
+        else if (np.length < 8) err.textContent = 'Mínimo 8 caracteres.';
+        else if (np !== cp)  err.textContent = 'As senhas não coincidem.';
+        else                 err.textContent = '';
+    };
+
+    window.submitCreatePass = async function () {
+        const np   = document.getElementById('create-pass-new')?.value || '';
+        const btn  = document.getElementById('btn-create-pass');
+        const text = document.getElementById('btn-create-pass-text');
+        const spin = document.getElementById('spin-create-pass');
+        if (!np || np.length < 8) return;
+
+        if (btn)  btn.disabled       = true;
+        if (text) text.style.opacity = '0';
+        if (spin) spin.style.display = 'block';
+
+        const { error } = await sb.auth.updateUser({ password: np });
+
+        if (error) {
+            if (btn)  btn.disabled       = false;
+            if (text) text.style.opacity = '1';
+            if (spin) spin.style.display = 'none';
+            const err = document.getElementById('create-pass-err');
+            if (err) err.textContent = 'Erro ao criar senha. Tente novamente.';
+            return;
+        }
+
+        window.location.href = '../screens/inicio-colaborador.html';
+    };
 });
