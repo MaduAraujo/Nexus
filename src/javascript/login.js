@@ -239,7 +239,12 @@ window.forgotClearErr = function (errId, input) {
 };
 
 window.backToLogin = function () {
-    switchTab('login');
+    // Se não há perfil selecionado (ex: veio de link de recuperação), volta à seleção
+    if (!selectedProfileType) {
+        goToProfileSelection();
+    } else {
+        switchTab('login');
+    }
     window.setForgotStep(1);
     const el = document.getElementById('forgot-email');
     if (el) el.value = '';
@@ -258,7 +263,7 @@ window.forgotSendCode = async function () {
     setForgotBtnLoading('btn-forgot-send', 'btn-forgot-send-text', 'spin-forgot-send', true);
 
     const { error } = await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href.split('#')[0]
+        redirectTo: window.location.origin + window.location.pathname,
     });
 
     setForgotBtnLoading('btn-forgot-send', 'btn-forgot-send-text', 'spin-forgot-send', false);
@@ -319,9 +324,9 @@ window.togglePw = function (inputId, btn) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
 
+    // Detecção de convite pelo hash (implicit flow) OU pela metadata (PKCE flow)
     const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
 
-    // Definido aqui para estar disponível independente do caminho tomado
     window.openCreatePasswordModal = function () {
         const modal = document.getElementById('create-pass-modal');
         if (!modal) return;
@@ -338,10 +343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const valid = np.length >= 8 && np === cp;
         if (btn) btn.disabled = !valid;
         if (!err) return;
-        if (!cp)             err.textContent = '';
+        if (!cp)                err.textContent = '';
         else if (np.length < 8) err.textContent = 'Mínimo 8 caracteres.';
-        else if (np !== cp)  err.textContent = 'As senhas não coincidem.';
-        else                 err.textContent = '';
+        else if (np !== cp)     err.textContent = 'As senhas não coincidem.';
+        else                    err.textContent = '';
     };
 
     window.submitCreatePass = async function () {
@@ -355,7 +360,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (text) text.style.opacity = '0';
         if (spin) spin.style.display = 'block';
 
-        const { error } = await sb.auth.updateUser({ password: np });
+        // Salva a senha e limpa a flag de primeiro acesso
+        const { error } = await sb.auth.updateUser({
+            password: np,
+            data: { first_access_pending: false },
+        });
 
         if (error) {
             if (btn)  btn.disabled       = false;
@@ -367,7 +376,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         await sb.auth.signOut();
-        window.location.href = window.location.href.split('#')[0];
+        // Redireciona para a página de login limpa (sem hash/query params)
+        window.location.href = window.location.origin + window.location.pathname;
     };
 
     function setupFirstAccess(authSession) {
@@ -380,26 +390,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         validateFirstAccessEmail();
     }
 
-    // No mobile o SDK pode entregar a sessão via onAuthStateChange antes do getSession()
+    function isFirstAccessSession(authSession) {
+        if (!authSession?.user) return false;
+        // Detecção primária: metadata definida pela edge function ao criar convite
+        if (authSession.user.user_metadata?.first_access_pending) return true;
+        // Detecção secundária: hash da URL com type=invite (implicit flow)
+        return isInvite;
+    }
+
+    // O SDK pode entregar a sessão via onAuthStateChange antes do getSession()
     sb.auth.onAuthStateChange((event, authSession) => {
         if (event === 'PASSWORD_RECOVERY') {
             switchTab('forgot');
             window.setForgotStep(3);
             return;
         }
-        if (event === 'SIGNED_IN' && isInvite) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && isFirstAccessSession(authSession)) {
             setupFirstAccess(authSession);
         }
     });
 
     const { data: { session } } = await sb.auth.getSession();
 
-    if (isInvite && session?.user) {
-        setupFirstAccess(session);
-        return;
-    }
-
     if (session?.user) {
+        if (isFirstAccessSession(session)) {
+            setupFirstAccess(session);
+            return;
+        }
+
         const { data: profile } = await sb.from('profiles')
             .select('profile')
             .eq('id', session.user.id)

@@ -51,6 +51,7 @@ serve(async (req) => {
 
     const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirectTo || Deno.env.get("SUPABASE_URL"),
+      data: { first_access_pending: true },
     });
 
     if (error) {

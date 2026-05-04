@@ -98,16 +98,18 @@ async function fetchEmployees() {
 
 async function inviteEmployee(email) {
     const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Sessão expirada. Faça login novamente.');
+
+    // Monta URL de redirect apontando para login.html a partir da raiz do site
+    const loginUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '/login.html');
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-employee`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-            email,
-            redirectTo: new URL('login.html', window.location.href).href,
-        }),
+        body: JSON.stringify({ email, redirectTo: loginUrl }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
