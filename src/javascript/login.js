@@ -2,6 +2,7 @@ let selectedProfileType = null;
 let loginStep = 1;
 let _firstAccessSession = null;
 let _faDebounce = null;
+let _isPasswordRecovery = false;
 
 // ─── UI Utilities ────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -401,6 +402,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // O SDK pode entregar a sessão via onAuthStateChange antes do getSession()
     sb.auth.onAuthStateChange((event, authSession) => {
         if (event === 'PASSWORD_RECOVERY') {
+            _isPasswordRecovery = true;
             switchTab('forgot');
             window.setForgotStep(3);
             return;
@@ -411,6 +413,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const { data: { session } } = await sb.auth.getSession();
+
+    if (_isPasswordRecovery) return;
 
     if (session?.user) {
         if (isFirstAccessSession(session)) {
