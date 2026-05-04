@@ -319,51 +319,9 @@ window.togglePw = function (inputId, btn) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
 
-    // Detecta se chegou via link de convite (capturado antes do SDK limpar o hash)
     const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
 
-    // Detecta retorno do link de redefinição enviado por e-mail
-    sb.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
-            switchTab('forgot');
-            window.setForgotStep(3);
-        }
-    });
-
-    const { data: { session } } = await sb.auth.getSession();
-
-    // Primeiro acesso via link de convite
-    if (isInvite && session) {
-        document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
-        document.getElementById('form-first-access').classList.add('active');
-        const faEmailInput = document.getElementById('first-access-email');
-        if (faEmailInput) faEmailInput.value = session.user.email || '';
-        _firstAccessSession = session;
-        validateFirstAccessEmail();
-        return;
-    }
-
-    // Redireciona se já houver sessão ativa (usuário voltou à página logado)
-    if (session) {
-        const { data: profile } = await sb.from('profiles')
-            .select('profile')
-            .eq('id', session.user.id)
-            .single();
-        if (profile?.profile === 'rh') {
-            window.location.href = '../screens/dashboard.html';
-            return;
-        }
-        if (profile?.profile === 'colaborador') {
-            window.location.href = '../screens/inicio-colaborador.html';
-            return;
-        }
-    }
-
-    document.getElementById('login-user')?.addEventListener('keydown', e => {
-        if (e.key === 'Enter') handleLogin();
-    });
-
-    // ── Primeiro acesso: modal de criação de senha ──
+    // Definido aqui para estar disponível independente do caminho tomado
     window.openCreatePasswordModal = function () {
         const modal = document.getElementById('create-pass-modal');
         if (!modal) return;
@@ -411,4 +369,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         await sb.auth.signOut();
         window.location.href = window.location.href.split('#')[0];
     };
+
+    function setupFirstAccess(authSession) {
+        if (!authSession?.user || _firstAccessSession) return;
+        document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+        document.getElementById('form-first-access')?.classList.add('active');
+        const faEmailInput = document.getElementById('first-access-email');
+        if (faEmailInput) faEmailInput.value = authSession.user.email ?? '';
+        _firstAccessSession = authSession;
+        validateFirstAccessEmail();
+    }
+
+    // No mobile o SDK pode entregar a sessão via onAuthStateChange antes do getSession()
+    sb.auth.onAuthStateChange((event, authSession) => {
+        if (event === 'PASSWORD_RECOVERY') {
+            switchTab('forgot');
+            window.setForgotStep(3);
+            return;
+        }
+        if (event === 'SIGNED_IN' && isInvite) {
+            setupFirstAccess(authSession);
+        }
+    });
+
+    const { data: { session } } = await sb.auth.getSession();
+
+    if (isInvite && session?.user) {
+        setupFirstAccess(session);
+        return;
+    }
+
+    if (session?.user) {
+        const { data: profile } = await sb.from('profiles')
+            .select('profile')
+            .eq('id', session.user.id)
+            .single();
+        if (profile?.profile === 'rh') {
+            window.location.href = '../screens/dashboard.html';
+            return;
+        }
+        if (profile?.profile === 'colaborador') {
+            window.location.href = '../screens/inicio-colaborador.html';
+            return;
+        }
+    }
+
+    document.getElementById('login-user')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') handleLogin();
+    });
 });
