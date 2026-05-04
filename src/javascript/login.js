@@ -42,36 +42,32 @@ window.setForgotStep = function (step) {
 };
 
 // ─── Primeiro acesso: validação de e-mail ────────────────────
-async function validateFirstAccessEmail() {
+function validateFirstAccessEmail() {
     const email = document.getElementById('first-access-email')?.value.trim().toLowerCase();
     const btn = document.getElementById('btn-first-access');
     const err = document.getElementById('first-access-email-err');
 
+    if (btn) btn.disabled = true;
+    if (err) err.textContent = '';
+
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        if (btn) btn.disabled = true;
-        if (err) err.textContent = '';
         return;
     }
 
-    if (_firstAccessSession && email !== _firstAccessSession.user.email.toLowerCase()) {
-        if (btn) btn.disabled = true;
+    const sessionEmail = _firstAccessSession?.user?.email?.toLowerCase();
+
+    if (!sessionEmail) {
+        if (err) err.textContent = 'Sessão inválida. Solicite um novo convite ao RH.';
+        return;
+    }
+
+    if (email !== sessionEmail) {
         if (err) err.textContent = 'Utilize o e-mail do convite recebido.';
         return;
     }
 
-    const { data: profile } = await sb.from('profiles')
-        .select('employee_id')
-        .eq('id', _firstAccessSession.user.id)
-        .maybeSingle();
-
-    if (!profile?.employee_id) {
-        if (btn) btn.disabled = true;
-        if (err) err.textContent = 'E-mail não cadastrado. Entre em contato com o RH.';
-        return;
-    }
-
+    // O próprio link de convite valida que o e-mail está cadastrado
     if (btn) btn.disabled = false;
-    if (err) err.textContent = '';
 }
 
 window.onFirstAccessEmailInput = function () {
