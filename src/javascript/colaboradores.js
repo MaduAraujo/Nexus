@@ -100,8 +100,9 @@ async function inviteEmployee(email) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Sessão expirada. Faça login novamente.');
 
-    // Monta URL de redirect apontando para login.html a partir da raiz do site
-    const loginUrl = window.location.origin + window.location.pathname.replace(/\/[^/]+$/, '/login.html');
+    // Sempre usa a URL de produção no redirectTo — o colaborador clica no link
+    // pelo email (celular/outro PC), então localhost ou file:// não funcionaria.
+    const loginUrl = 'https://nexus-nine-zeta.vercel.app/src/screens/login.html';
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-employee`, {
         method: 'POST',
