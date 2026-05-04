@@ -616,7 +616,8 @@ function setupFormListener() {
                             .eq('id', inserted.id);
                     }
                 } catch (err) {
-                    console.warn('[Nexus] Convite não enviado:', err.message);
+                    console.error('[Nexus] Convite não enviado:', err.message);
+                    showToast('Aviso de Convite', `Colaborador cadastrado, mas o e-mail de acesso não foi enviado: ${err.message}`, 'warning');
                 }
             }
 
