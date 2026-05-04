@@ -1,5 +1,7 @@
 let selectedProfileType = null;
 let loginStep = 1;
+let _firstAccessSession = null;
+let _faDebounce = null;
 
 // ─── UI Utilities ────────────────────────────────────────────
 function showToast(msg, type = 'success') {
@@ -37,6 +39,52 @@ window.setForgotStep = function (step) {
         if (panel) panel.style.display = i === step ? 'block' : 'none';
         if (dot) dot.classList.toggle('active', i <= step);
     });
+};
+
+// ─── Primeiro acesso: validação de e-mail ────────────────────
+async function validateFirstAccessEmail() {
+    const email = document.getElementById('first-access-email')?.value.trim().toLowerCase();
+    const btn = document.getElementById('btn-first-access');
+    const err = document.getElementById('first-access-email-err');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (btn) btn.disabled = true;
+        if (err) err.textContent = '';
+        return;
+    }
+
+    if (_firstAccessSession && email !== _firstAccessSession.user.email.toLowerCase()) {
+        if (btn) btn.disabled = true;
+        if (err) err.textContent = 'Utilize o e-mail do convite recebido.';
+        return;
+    }
+
+    const { data: profile } = await sb.from('profiles')
+        .select('employee_id')
+        .eq('id', _firstAccessSession.user.id)
+        .maybeSingle();
+
+    if (!profile?.employee_id) {
+        if (btn) btn.disabled = true;
+        if (err) err.textContent = 'E-mail não cadastrado. Entre em contato com o RH.';
+        return;
+    }
+
+    if (btn) btn.disabled = false;
+    if (err) err.textContent = '';
+}
+
+window.onFirstAccessEmailInput = function () {
+    clearTimeout(_faDebounce);
+    const email = document.getElementById('first-access-email')?.value.trim();
+    const btn = document.getElementById('btn-first-access');
+    const err = document.getElementById('first-access-email-err');
+    if (!email) {
+        if (btn) btn.disabled = true;
+        if (err) err.textContent = '';
+        return;
+    }
+    _faDebounce = setTimeout(validateFirstAccessEmail, 600);
 };
 
 // ─── Profile selection ───────────────────────────────────────
@@ -292,7 +340,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isInvite && session) {
         document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
         document.getElementById('form-first-access').classList.add('active');
-        document.getElementById('first-access-email').value = session.user.email || '';
+        const faEmailInput = document.getElementById('first-access-email');
+        if (faEmailInput) faEmailInput.value = session.user.email || '';
+        _firstAccessSession = session;
+        validateFirstAccessEmail();
         return;
     }
 
@@ -361,6 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        window.location.href = '../screens/inicio-colaborador.html';
+        await sb.auth.signOut();
+        window.location.href = window.location.href.split('#')[0];
     };
 });
