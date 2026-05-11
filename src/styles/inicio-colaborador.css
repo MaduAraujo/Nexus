@@ -441,6 +441,12 @@ body {
     gap: 18px;
     z-index: 1;
     min-width: 0;
+    flex: 1;
+}
+
+.welcome-text {
+    flex: 1;
+    min-width: 0;
 }
 
 .welcome-avatar {
@@ -471,8 +477,8 @@ body {
 .welcome-name-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .welcome-name {
