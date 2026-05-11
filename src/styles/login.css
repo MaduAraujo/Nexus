@@ -802,7 +802,7 @@ body {
         display: flex;
         flex-direction: column;
         padding: 4rem 1.5rem 1.5rem;
-        overflow: hidden;
+        overflow-y: auto;
     }
 
     #form-signup.active {

@@ -1,8 +1,6 @@
 # Supabase CLI temp files (contém IDs internos do projeto)
 supabase/.temp/
 
-# Credenciais do cliente Supabase (usar supabase-client.example.js como base)
-src/javascript/supabase-client.js
 
 # Variáveis de ambiente locais
 .env
