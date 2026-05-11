@@ -1,4 +1,4 @@
-// ─── State ───────────────────────────────────────────────────
+﻿// ─── State ───────────────────────────────────────────────────
 let employees = [];
 let currentEmployeeId = null; // UUID string
 let currentStep = 1;
@@ -34,6 +34,8 @@ function dbToEmployee(row) {
         valeTransporte: row.vale_transporte ? 'sim' : 'nao',
         valorPassagem: row.valor_passagem,
         conducoesdia: row.conducoes_dia,
+        valeRefeicao: row.vale_refeicao,
+        valeAlimentacao: row.vale_alimentacao,
         formaPagamento: row.forma_pagamento,
         tipoChavePix: row.tipo_chave_pix,
         chavePix: row.chave_pix,
@@ -75,6 +77,8 @@ function employeeToDb(emp) {
         vale_transporte: emp.valeTransporte === 'sim',
         valor_passagem: emp.valeTransporte === 'sim' ? parseVal(emp.valorPassagem) : null,
         conducoes_dia: emp.valeTransporte === 'sim' ? (parseInt(emp.conducoesdia) || null) : null,
+        vale_refeicao: parseVal(emp.valeRefeicao) || null,
+        vale_alimentacao: parseVal(emp.valeAlimentacao) || null,
         forma_pagamento: emp.formaPagamento || null,
         tipo_chave_pix: emp.formaPagamento === 'pix' ? (emp.tipoChavePix || null) : null,
         chave_pix: emp.formaPagamento === 'pix' ? (emp.chavePix || null) : null,
@@ -154,18 +158,16 @@ async function loadRhSidebar() {
         .eq('id', user.id)
         .single();
 
-    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
+    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
 
     const nameEl   = document.getElementById('rh-sidebar-name');
     const roleEl   = document.getElementById('rh-sidebar-role');
     const avatarEl = document.getElementById('rh-sidebar-avatar');
     if (!nameEl) return;
 
-    const displayName = user.email?.split('@')[0] || 'Administrador';
-    const initials = displayName.slice(0, 2).toUpperCase();
-    nameEl.textContent = displayName;
+    nameEl.textContent = 'Administrador';
     if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = initials;
+    if (avatarEl) avatarEl.textContent = 'ADM';
 }
 
 async function logout() {
@@ -354,18 +356,22 @@ window.openDrawer = function (id) {
     const emp = employees.find(e => e.id === id);
     if (!emp) return;
     currentEmployeeId = emp.id;
+
+    const avatarEl = document.getElementById('drawer-avatar');
+    if (avatarEl) {
+        const initials = emp.name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+        avatarEl.textContent       = initials;
+        avatarEl.style.background  = emp.avatarColor || '#6366f1';
+    }
+
     document.getElementById('view-name').textContent     = emp.name;
-    document.getElementById('view-role').textContent     = emp.role          || '-';
-    document.getElementById('view-dept').textContent     = emp.dept          || '-';
+    document.getElementById('view-role').textContent     = emp.role         || '—';
+    document.getElementById('view-dept').textContent     = emp.dept         || '—';
     document.getElementById('view-salary').textContent   = formatCurrency(emp.salary);
     document.getElementById('view-date').textContent     = formatDateBR(emp.admissionDate);
-    document.getElementById('view-contract').textContent = emp.contractType  || '-';
-    document.getElementById('view-email').textContent    = emp.email         || '-';
-    const statusBadge = document.getElementById('view-status');
-    if (statusBadge) {
-        statusBadge.textContent = emp.status;
-        statusBadge.className   = `badge ${getBadgeClass(emp.status)}`;
-    }
+    document.getElementById('view-contract').textContent = emp.contractType || '—';
+    document.getElementById('view-email').textContent    = emp.email        || '—';
+
     document.getElementById('employee-drawer').classList.add('active');
     document.getElementById('drawer-overlay').classList.add('active');
 };
@@ -373,39 +379,44 @@ window.openDrawer = function (id) {
 window.closeDrawer = function () {
     document.getElementById('employee-drawer').classList.remove('active');
     document.getElementById('drawer-overlay').classList.remove('active');
-    document.getElementById('drawer-dropdown').classList.remove('show');
-    backToMainMenu();
+    closeDropdownMenu();
 };
 
 window.toggleDropdown = function (event) {
     event.stopPropagation();
-    document.getElementById('drawer-dropdown').classList.toggle('show');
+    const dd = document.getElementById('drawer-dropdown');
+    if (dd) dd.classList.toggle('show');
+};
+
+function closeDropdownMenu() {
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+}
+
+window.backToMainMenu = function () {
+    document.getElementById('main-menu-options')?.classList.remove('hidden');
+    document.getElementById('status-submenu-options')?.classList.add('hidden');
 };
 
 window.showStatusSubmenu = function () {
     const emp = employees.find(e => e.id === currentEmployeeId);
     if (!emp) return;
-    const mainMenu       = document.getElementById('main-menu-options');
-    const submenu        = document.getElementById('status-submenu-options');
     const dynamicOptions = document.getElementById('dynamic-status-options');
+    if (!dynamicOptions) return;
     dynamicOptions.innerHTML = '';
     if (emp.status === 'Ativo') {
-        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Inativo')"><i class="fas fa-user-slash"></i> Inativo</a>`;
-        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>`;
+        dynamicOptions.innerHTML =
+            `<a href="javascript:void(0)" onclick="updateStatus('Inativo')"><i class="fas fa-user-slash"></i> Inativo</a>` +
+            `<a href="javascript:void(0)" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>`;
+    } else if (emp.status === 'Férias') {
+        dynamicOptions.innerHTML =
+            `<a href="javascript:void(0)" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar das Férias</a>`;
+    } else if (emp.status === 'Inativo') {
+        dynamicOptions.innerHTML =
+            `<p style="padding:10px 16px;font-size:12px;color:#999;margin:0;">Status Inativo é permanente.</p>`;
     }
-    if (emp.status === 'Férias') {
-        dynamicOptions.innerHTML += `<a href="#" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar das Férias</a>`;
-    }
-    if (emp.status === 'Inativo') {
-        dynamicOptions.innerHTML = '<div style="padding:10px 16px;font-size:12px;color:#999;">Status Inativo é permanente.</div>';
-    }
-    mainMenu.classList.add('hidden');
-    submenu.classList.remove('hidden');
-};
-
-window.backToMainMenu = function () {
-    document.getElementById('main-menu-options')?.classList.remove('hidden');
-    document.getElementById('status-submenu-options')?.classList.add('hidden');
+    document.getElementById('main-menu-options')?.classList.add('hidden');
+    document.getElementById('status-submenu-options')?.classList.remove('hidden');
 };
 
 window.updateStatus = async function (newStatus) {
@@ -450,12 +461,6 @@ window.handleDeleteEmployee = async function () {
     showToast('Colaborador Excluído!', 'O colaborador foi removido do sistema.', 'error');
 };
 
-window.addEventListener('click', (event) => {
-    if (!event.target.closest('.dropdown')) {
-        document.getElementById('drawer-dropdown')?.classList.remove('show');
-        backToMainMenu();
-    }
-});
 
 // ─── Form ─────────────────────────────────────────────────────
 
@@ -558,6 +563,8 @@ function setupFormListener() {
             valeTransporte,
             valorPassagem: valeTransporte === 'sim' ? (document.getElementById('valor-passagem')?.value || '') : '',
             conducoesdia: valeTransporte === 'sim' ? (document.getElementById('conducoes-dia')?.value || '') : '',
+            valeRefeicao: document.getElementById('ben-vale-refeicao')?.value || '',
+            valeAlimentacao: document.getElementById('ben-vale-alimentacao')?.value || '',
             formaPagamento,
             tipoChavePix: formaPagamento === 'pix' ? (document.getElementById('tipo-chave-pix')?.value || '') : '',
             chavePix: formaPagamento === 'pix' ? (document.getElementById('chave-pix')?.value || '') : '',
@@ -643,12 +650,23 @@ function setupFormListener() {
 
 // ─── Edit employee ────────────────────────────────────────────
 
-window.handleEditFromDrawer = function () { closeDrawer(); editEmployee(currentEmployeeId); };
+window.handleEditFromDrawer = function () {
+    const id = currentEmployeeId;
+    closeDrawer();
+    if (id) editEmployee(id);
+};
 
 window.editEmployee = function (id) {
     const emp = employees.find(e => e.id === id);
     if (!emp) return;
     toggleForm();
+
+    // garante que a aba "Dados Obrigatórios" esteja ativa ao editar
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.tab-btn[onclick*="tab-obrigatorios"]')?.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-obrigatorios')?.classList.add('active');
+
     document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Colaborador';
     document.getElementById('employee-id').value   = emp.id;
     document.getElementById('name').value           = emp.name          || '';
@@ -680,6 +698,8 @@ window.editEmployee = function (id) {
         if (document.getElementById('valor-passagem')) document.getElementById('valor-passagem').value = emp.valorPassagem || '';
         if (document.getElementById('conducoes-dia'))  document.getElementById('conducoes-dia').value  = emp.conducoesdia  || '';
     }
+    if (document.getElementById('ben-vale-refeicao'))   document.getElementById('ben-vale-refeicao').value   = emp.valeRefeicao   || '';
+    if (document.getElementById('ben-vale-alimentacao')) document.getElementById('ben-vale-alimentacao').value = emp.valeAlimentacao || '';
     if (emp.formaPagamento) {
         const r = document.querySelector(`input[name="forma-pagamento"][value="${emp.formaPagamento}"]`);
         if (r) { r.checked = true; r.dispatchEvent(new Event('change')); }
@@ -986,6 +1006,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupConditionalFields();
     setupSidebarToggle();
     setupRealtimeSync();
+
+    // Para propagação de cliques dentro do dropdown (evita fechar ao interagir)
+    document.getElementById('drawer-dropdown')?.addEventListener('click', e => e.stopPropagation());
+
+    // Fecha o dropdown ao clicar fora dele
+    document.addEventListener('click', () => closeDropdownMenu());
+
+    // Fecha o drawer com Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            closeDropdownMenu();
+            closeDrawer();
+        }
+    });
+
     updateCount();
     resetStepper();
 });

@@ -3,7 +3,7 @@
     --accent-hover:  #4f46e5;
     --accent-light:  rgba(99, 102, 241, 0.12);
 
-    --bg-page:    #f0f1f5;
+    --bg-page:    #f0f2f8;
     --bg-white:   #ffffff;
     --bg-sidebar: #0d0e12;
     --bg-topbar:  #0d0e12;
@@ -612,6 +612,7 @@ html {
 .prof-icon--green  { background: var(--success-bg); color: var(--success); }
 .prof-icon--purple { background: #ede9fe;           color: #8b5cf6; }
 .prof-icon--orange { background: var(--warning-bg); color: var(--warning); }
+.prof-icon--red    { background: var(--danger-bg);  color: var(--danger); }
 .prof-icon--gray   { background: #f1f5f9;           color: #64748b; }
 
 .prof-highlight-body {

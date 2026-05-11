@@ -74,7 +74,7 @@ function initials(name) { return (name||'?').split(' ').slice(0,2).map(w=>w[0]?.
 
 function getJornadaMin() {
     const tipo = (myEmployee?.contract_type || 'clt').toLowerCase();
-    if (tipo === 'estagio' || tipo === 'aprendiz') return 6 * 60;
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
     if (tipo === 'pj') return null;
     return 8 * 60;
 }

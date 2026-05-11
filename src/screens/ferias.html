@@ -4,88 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexus — Gestão de Férias</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/ferias.css" />
+    <style>
+        .main-wrapper { margin-left: 0 !important; width: 100% !important; }
+        .btn-back { display: inline-flex; align-items: center; gap: 8px; color: #9ca3af; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 6px 10px; border-radius: 8px; transition: color 0.2s, background 0.2s; }
+        .btn-back:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .btn-back i { font-size: 0.8rem; }
+    </style>
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo-name">Ne<span class="x">x</span>us</div>
-            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
-        <nav class="sidebar-nav">
-            <ul class="nav-list">
-                <li class="nav-item">
-                    <a href="../screens/dashboard.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-                        <span class="nav-text">Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/colaboradores.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-users"></i></span>
-                        <span class="nav-text">Colaboradores</span>
-                    </a>
-                </li>
-                <li class="nav-item active">
-                    <a href="../screens/ferias.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
-                        <span class="nav-text">Gestão de Férias</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/banco-horas-rh.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
-                        <span class="nav-text">Gestão de Horas</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/arquivos.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
-                        <span class="nav-text">Arquivos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/pagamentos.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                        <span class="nav-text">Pagamentos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/comunicação.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-                        <span class="nav-text">Comunicação Interna</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
-                <div class="user-info">
-                    <p class="user-name" id="rh-sidebar-name">Administrador</p>
-                    <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
-                </div>
-                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
-        </div>
-    </aside>
-
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-    <div class="main-wrapper" id="main-wrapper">
+    <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar">
             <div class="topbar-left">
-                <button class="topbar-menu-btn" id="topbar-menu-btn">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="page-title">Gestão de Férias</h1>
+                <a href="../screens/inicio-rh.html" class="btn-back">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Voltar</span>
+                </a>
             </div>
             <div class="topbar-right">
                 <button class="btn-add" onclick="openAddModal()">
@@ -103,6 +40,7 @@
                         <div class="kpi-body">
                             <span class="kpi-label">Aguardando Aprovação</span>
                             <span class="kpi-value" id="kpi-pending">0</span>
+                            <span class="kpi-sub">solicitações pendentes</span>
                         </div>
                     </div>
                     <div class="kpi-card kpi--upcoming">
@@ -110,6 +48,7 @@
                         <div class="kpi-body">
                             <span class="kpi-label">Saem nos próximos 15 dias</span>
                             <span class="kpi-value" id="kpi-upcoming">0</span>
+                            <span class="kpi-sub">colaboradores</span>
                         </div>
                     </div>
                     <div class="kpi-card kpi--active">
@@ -117,13 +56,15 @@
                         <div class="kpi-body">
                             <span class="kpi-label">Atualmente de férias</span>
                             <span class="kpi-value" id="kpi-active">0</span>
+                            <span class="kpi-sub">colaboradores</span>
                         </div>
                     </div>
                     <div class="kpi-card kpi--risk">
-                        <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Vencem em até 60 dias</span>
                             <span class="kpi-value" id="kpi-risk">0</span>
+                            <span class="kpi-sub">prazo a vencer</span>
                         </div>
                     </div>
                 </div>
@@ -144,15 +85,25 @@
                             <input type="text" id="search-input" placeholder="Buscar..." oninput="applyFilters()">
                             <button class="search-clear hidden" id="search-clear" onclick="clearSearch()"><i class="fas fa-times"></i></button>
                         </div>
-                        <div class="filter-chips">
-                            <button class="chip chip--active" data-filter="todos"     onclick="setFilter(this)">Todos</button>
-                            <button class="chip"              data-filter="pendente"  onclick="setFilter(this)">Pendente</button>
-                            <button class="chip"              data-filter="aprovado"  onclick="setFilter(this)">Aprovado</button>
-                            <button class="chip"              data-filter="concluido" onclick="setFilter(this)">Concluído</button>
-                            <button class="chip"              data-filter="recusado"  onclick="setFilter(this)">Recusado</button>
-                            <button class="chip chip--alert"  data-filter="risco"     onclick="setFilter(this)">
-                                <i class="fas fa-exclamation-triangle"></i> Risco Vencimento
+                        <div class="filter-dropdown" id="filter-dropdown">
+                            <button class="btn-filter" id="btn-filter">
+                                <i class="fas fa-sliders"></i>
+                                <span id="filter-label">Filtro</span>
+                                <i class="fas fa-chevron-down filter-chevron" id="filter-chevron"></i>
                             </button>
+                            <div class="filter-dropdown-menu" id="filter-dropdown-menu">
+                                <p class="filter-dropdown-title">Filtrar por status</p>
+                                <div class="filter-dropdown-chips">
+                                    <button class="chip chip--active" data-filter="todos"     onclick="setFilter(this)">Todos</button>
+                                    <button class="chip"              data-filter="pendente"  onclick="setFilter(this)">Pendente</button>
+                                    <button class="chip"              data-filter="aprovado"  onclick="setFilter(this)">Aprovado</button>
+                                    <button class="chip"              data-filter="concluido" onclick="setFilter(this)">Concluído</button>
+                                    <button class="chip"              data-filter="recusado"  onclick="setFilter(this)">Recusado</button>
+                                    <button class="chip chip--alert"  data-filter="risco"     onclick="setFilter(this)">
+                                        <i class="fas fa-triangle-exclamation"></i> Risco Vencimento
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

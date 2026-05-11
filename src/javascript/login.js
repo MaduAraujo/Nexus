@@ -1,10 +1,9 @@
-let selectedProfileType = null;
+﻿let selectedProfileType = null;
 let loginStep = 1;
 let _firstAccessSession = null;
 let _faDebounce = null;
 let _isPasswordRecovery = false;
 
-// ─── UI Utilities ────────────────────────────────────────────
 function showToast(msg, type = 'success') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -42,7 +41,6 @@ window.setForgotStep = function (step) {
     });
 };
 
-// ─── Primeiro acesso: validação de e-mail ────────────────────
 function validateFirstAccessEmail() {
     const email = document.getElementById('first-access-email')?.value.trim().toLowerCase();
     const btn = document.getElementById('btn-first-access');
@@ -67,7 +65,6 @@ function validateFirstAccessEmail() {
         return;
     }
 
-    // O próprio link de convite valida que o e-mail está cadastrado
     if (btn) btn.disabled = false;
 }
 
@@ -84,7 +81,6 @@ window.onFirstAccessEmailInput = function () {
     _faDebounce = setTimeout(validateFirstAccessEmail, 600);
 };
 
-// ─── Profile selection ───────────────────────────────────────
 window.selectProfile = function (type, el) {
     selectedProfileType = type;
     document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
@@ -105,10 +101,10 @@ window.goToLogin = function () {
     const loginPass = document.getElementById('login-pass');
     if (loginPass) loginPass.value = '';
 
-    if (selectedProfileType === 'rh') {
-        if (pill) pill.innerHTML = '<span class="profile-pill rh-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> RH</span>';
+    if (selectedProfileType === 'Administrador') {
+        if (pill) pill.innerHTML = '<span class="profile-pill rh-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Administrador</span>';
         if (title) title.textContent = 'Bem-vindo de volta';
-        if (subtitle) subtitle.textContent = 'Acesse o painel de Recursos Humanos';
+        if (subtitle) subtitle.textContent = 'Acesse o painel Administrativo';
         if (passSection) passSection.style.display = '';
         if (btnLoginText) btnLoginText.textContent = 'Entrar';
         loginStep = 2;
@@ -154,7 +150,6 @@ function showPasswordStep() {
     setTimeout(() => loginPass?.focus(), 50);
 }
 
-// ─── Login ───────────────────────────────────────────────────
 window.handleLogin = async function () {
     const emailInput = document.getElementById('login-user').value.trim().toLowerCase();
     const passInput = document.getElementById('login-pass').value;
@@ -208,8 +203,8 @@ window.handleLogin = async function () {
             await sb.auth.signOut();
             setLoginLoading(false);
             showToast(
-                selectedProfileType === 'rh'
-                    ? 'Este e-mail não tem acesso ao painel de RH.'
+                selectedProfileType === 'Administrador'
+                    ? 'Este e-mail não tem acesso ao painel Administrativo.'
                     : 'Este e-mail não tem acesso à área de colaborador.',
                 'error'
             );
@@ -222,8 +217,8 @@ window.handleLogin = async function () {
                 .eq('id', profile.employee_id);
         }
 
-        window.location.href = profile.profile === 'rh'
-            ? '../screens/dashboard.html'
+        window.location.href = profile.profile === 'Administrador'
+            ? '../screens/inicio-rh.html'
             : '../screens/inicio-colaborador.html';
 
     } catch (err) {
@@ -232,7 +227,6 @@ window.handleLogin = async function () {
     }
 };
 
-// ─── Forgot password ─────────────────────────────────────────
 window.forgotClearErr = function (errId, input) {
     const err = document.getElementById(errId);
     if (err) err.textContent = '';
@@ -240,7 +234,6 @@ window.forgotClearErr = function (errId, input) {
 };
 
 window.backToLogin = function () {
-    // Se não há perfil selecionado (ex: veio de link de recuperação), volta à seleção
     if (!selectedProfileType) {
         goToProfileSelection();
     } else {
@@ -321,11 +314,9 @@ window.togglePw = function (inputId, btn) {
     btn.style.opacity = show ? '1' : '0.5';
 };
 
-// ─── Initialization ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
 
-    // Detecção de convite pelo hash (implicit flow) OU pela metadata (PKCE flow)
     const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
 
     window.openCreatePasswordModal = function () {
@@ -361,7 +352,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (text) text.style.opacity = '0';
         if (spin) spin.style.display = 'block';
 
-        // Salva a senha e limpa a flag de primeiro acesso
         const { error } = await sb.auth.updateUser({
             password: np,
             data: { first_access_pending: false },
@@ -377,7 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         await sb.auth.signOut();
-        // Redireciona para a página de login limpa (sem hash/query params)
         window.location.href = window.location.origin + window.location.pathname;
     };
 
@@ -393,13 +382,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function isFirstAccessSession(authSession) {
         if (!authSession?.user) return false;
-        // Detecção primária: metadata definida pela edge function ao criar convite
+        
         if (authSession.user.user_metadata?.first_access_pending) return true;
-        // Detecção secundária: hash da URL com type=invite (implicit flow)
+        
         return isInvite;
     }
 
-    // O SDK pode entregar a sessão via onAuthStateChange antes do getSession()
     sb.auth.onAuthStateChange((event, authSession) => {
         if (event === 'PASSWORD_RECOVERY') {
             _isPasswordRecovery = true;
@@ -426,8 +414,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             .select('profile')
             .eq('id', session.user.id)
             .single();
-        if (profile?.profile === 'rh') {
-            window.location.href = '../screens/dashboard.html';
+        if (profile?.profile === 'Administrador') {
+            window.location.href = '../screens/inicio-rh.html';
             return;
         }
         if (profile?.profile === 'colaborador') {

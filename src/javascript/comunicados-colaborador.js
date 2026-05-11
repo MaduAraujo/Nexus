@@ -36,16 +36,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeSide() : openSide(); });
     sidebarOverlay?.addEventListener('click', closeSide);
     window.addEventListener('resize', () => { if (!isMobile()) closeSide(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && isMobile()) closeSide(); });
 
     window.logout = async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
 
+    // ─── Helpers ─────────────────────────────────────────────
+    const DEST_ICON_MAP = {
+        'Todos':          { icon: 'fa-globe',       cls: 'dest--todos' },
+        'TI':             { icon: 'fa-code',         cls: 'dest--ti'   },
+        'RH':             { icon: 'fa-user-tie',     cls: 'dest--rh'   },
+        'Financeiro':     { icon: 'fa-dollar-sign',  cls: 'dest--fin'  },
+        'Marketing':      { icon: 'fa-ad',           cls: 'dest--mkt'  },
+        'Jurídico':       { icon: 'fa-gavel',        cls: 'dest--jur'  },
+        'Administrativo': { icon: 'fa-building',     cls: 'dest--adm'  },
+    };
+
+    const escHTML  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const fmtDate  = iso => new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const timeAgo  = iso => {
+        const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+        if (diff < 60)     return 'agora mesmo';
+        if (diff < 3600)   return `há ${Math.floor(diff / 60)}min`;
+        if (diff < 86400)  return `há ${Math.floor(diff / 3600)}h`;
+        if (diff < 172800) return 'ontem';
+        return fmtDate(iso);
+    };
+
+    const PREVIEW_LEN = 220;
+
     // ─── State ───────────────────────────────────────────────
-    const searchInput  = document.getElementById('search-input');
-    const searchClear  = document.getElementById('search-clear');
-    const lista        = document.getElementById('comunicados-list');
-    const unreadBadge  = document.getElementById('unread-badge');
-    const unreadCount  = document.getElementById('unread-count');
+    const searchInput    = document.getElementById('search-input');
+    const searchClear    = document.getElementById('search-clear');
+    const lista          = document.getElementById('comunicados-list');
+    const unreadBadge    = document.getElementById('unread-badge');
+    const unreadCount    = document.getElementById('unread-count');
+    const btnMarcarTodos = document.getElementById('btn-marcar-todos');
     let filtroAtivo = 'todos-vis';
     let allMsgs     = [];
     let lidos       = new Set();
@@ -77,21 +101,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
     }
 
-    const escHTML = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    // ─── Modal ───────────────────────────────────────────────
+    const msgModal = document.getElementById('msg-modal');
+
+    function openModal(msg) {
+        const destInfo = DEST_ICON_MAP[msg.destino] || { icon: 'fa-users', cls: 'dest--outros' };
+        const iconEl = document.getElementById('modal-icon');
+        const destEl = document.getElementById('modal-dest');
+        const dateEl = document.getElementById('modal-date');
+        const bodyEl = document.getElementById('modal-body');
+
+        iconEl.className = `comunicado-icon-wrap ${destInfo.cls}`;
+        iconEl.innerHTML = `<i class="fas fa-bullhorn"></i>`;
+        destEl.className = `comunicado-dest ${destInfo.cls}`;
+        destEl.innerHTML = `<i class="fas ${destInfo.icon}"></i> ${escHTML(msg.destino)}`;
+        dateEl.innerHTML = `<i class="fas fa-clock"></i> ${timeAgo(msg.created_at)} &mdash; ${fmtDate(msg.created_at)}`;
+        bodyEl.textContent = msg.texto;
+
+        msgModal?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        msgModal?.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    document.getElementById('modal-close')?.addEventListener('click', closeModal);
+    document.getElementById('modal-close-btn')?.addEventListener('click', closeModal);
+    msgModal?.addEventListener('click', e => { if (e.target === msgModal) closeModal(); });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            if (msgModal && !msgModal.classList.contains('hidden')) { closeModal(); return; }
+            if (isMobile()) closeSide();
+        }
+    });
 
     // ─── Render ───────────────────────────────────────────────
     function render() {
-        const q = searchInput?.value.toLowerCase().trim() || '';
-        const naoLidos = allMsgs.filter(m => !lidos.has(m.id)).length;
+        const q       = searchInput?.value.toLowerCase().trim() || '';
+        const naoLidosCount = allMsgs.filter(m => !lidos.has(m.id)).length;
 
         document.getElementById('stat-total').textContent = allMsgs.length;
         document.getElementById('stat-todos').textContent = allMsgs.filter(m => m.destino === 'Todos').length;
         document.getElementById('stat-dept').textContent  = allMsgs.filter(m => m.destino !== 'Todos').length;
 
         if (unreadBadge && unreadCount) {
-            unreadBadge.classList.toggle('hidden', naoLidos === 0);
-            unreadCount.textContent = naoLidos;
+            unreadBadge.classList.toggle('hidden', naoLidosCount === 0);
+            unreadCount.textContent = naoLidosCount;
         }
+        btnMarcarTodos?.classList.toggle('hidden', naoLidosCount === 0);
 
         let filtered = filtroAtivo === 'nao-lidos' ? allMsgs.filter(m => !lidos.has(m.id)) : allMsgs;
         if (q) filtered = filtered.filter(m => m.texto.toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
@@ -101,42 +161,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const destIconMap = {
-            'Todos': { icon:'fa-globe', cls:'dest--todos' }, 'TI': { icon:'fa-code', cls:'dest--ti' },
-            'RH': { icon:'fa-user-tie', cls:'dest--rh' }, 'Financeiro': { icon:'fa-dollar-sign', cls:'dest--fin' },
-            'Marketing': { icon:'fa-ad', cls:'dest--mkt' }, 'Jurídico': { icon:'fa-gavel', cls:'dest--jur' },
-            'Administrativo': { icon:'fa-building', cls:'dest--adm' },
-        };
-
-        const fmtDate = iso => new Date(iso).toLocaleDateString('pt-BR');
-
         lista.innerHTML = filtered.map(m => {
             const lido     = lidos.has(m.id);
-            const destInfo = destIconMap[m.destino] || { icon:'fa-users', cls:'dest--outros' };
+            const destInfo = DEST_ICON_MAP[m.destino] || { icon: 'fa-users', cls: 'dest--outros' };
+            const preview  = m.texto.length > PREVIEW_LEN ? m.texto.slice(0, PREVIEW_LEN) + '…' : m.texto;
+            const hasMore  = m.texto.length > PREVIEW_LEN;
             return `
-                <div class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}">
+                <article class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}" role="button" tabindex="0">
                     <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas fa-bullhorn"></i></div>
                     <div class="comunicado-body">
                         <div class="comunicado-top">
                             <div class="comunicado-meta">
-                                <span class="comunicado-data"><i class="fas fa-calendar-alt"></i> ${escHTML(fmtDate(m.created_at))}</span>
                                 <span class="comunicado-dest ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i> ${escHTML(m.destino)}</span>
+                                ${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}
                             </div>
-                            ${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}
+                            <span class="comunicado-data"><i class="fas fa-clock"></i> ${timeAgo(m.created_at)}</span>
                         </div>
-                        <p class="comunicado-texto">${escHTML(m.texto)}</p>
+                        <p class="comunicado-preview">${escHTML(preview)}</p>
+                        <span class="card-read-more"><i class="fas fa-arrow-right"></i> ${lido ? 'Ver comunicado' : 'Ler comunicado'}</span>
                     </div>
-                </div>`;
+                </article>`;
         }).join('');
 
         lista.querySelectorAll('.comunicado-card').forEach(card => {
-            card.addEventListener('click', async () => {
-                const id = card.dataset.id;
+            const activate = async () => {
+                const id  = card.dataset.id;
+                const msg = allMsgs.find(m => String(m.id) === id);
+                if (msg) openModal(msg);
                 if (!lidos.has(id)) {
                     await marcarLido(id);
                     render();
                 }
-            });
+            };
+            card.addEventListener('click', activate);
+            card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
         });
     }
 
@@ -155,6 +213,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         render();
     });
     searchClear?.addEventListener('click', () => { searchInput.value = ''; searchClear.classList.add('hidden'); render(); });
+
+    btnMarcarTodos?.addEventListener('click', async () => {
+        await marcarTodosLidos();
+        render();
+    });
 
     // ─── Realtime ─────────────────────────────────────────────
     sb.channel('messages-colab')

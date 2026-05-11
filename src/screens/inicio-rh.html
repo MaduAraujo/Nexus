@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus — Painel RH</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/inicio-colaborador.css" />
+    <link rel="stylesheet" href="../styles/inicio-rh.css" />
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-name">Ne<span class="x">x</span>us</div>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item active">
+                    <a href="../screens/inicio-rh.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Início</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="../screens/alertas.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+                        <span class="nav-text">Central de Alertas</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
+                <div class="user-info">
+                    <p class="user-name" id="rh-sidebar-name">Administrador</p>
+                    <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
+                </div>
+                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <div class="main-wrapper" id="main-wrapper">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Minha Área</h1>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="page-body">
+                <div class="welcome-banner">
+                    <div class="welcome-deco welcome-deco--1"></div>
+                    <div class="welcome-deco welcome-deco--2"></div>
+                    <div class="welcome-deco welcome-deco--3"></div>
+                    <div class="welcome-left">
+                        <div class="welcome-avatar" id="welcome-avatar">RH</div>
+                        <div class="welcome-text">
+                            <p class="welcome-greeting" id="welcome-greeting">Olá!</p>
+                            <p class="welcome-name" id="welcome-name">Administrador</p>
+                        </div>
+                    </div>
+                    <div class="welcome-right">
+                        <div class="welcome-badge">
+                            <i class="fas fa-circle"></i>
+                            <span>Ativo</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-title-row">
+                    <h2 class="section-title">
+                        <span class="section-title-accent"></span>
+                        Acesso Rápido
+                    </h2>
+                </div>
+
+                <div class="quick-actions">
+                    <button class="quick-card quick-card--blue" onclick="window.location.href='../screens/dashboard.html'">
+                        <i class="fas fa-chart-pie quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Dashboard</span>
+                            <span class="quick-desc">Indicadores e métricas</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--purple" onclick="window.location.href='../screens/colaboradores.html'">
+                        <i class="fas fa-users quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Colaboradores</span>
+                            <span class="quick-desc">Gerenciar equipe</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--green" onclick="window.location.href='../screens/ferias.html'">
+                        <i class="fas fa-umbrella-beach quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Gestão de Férias</span>
+                            <span class="quick-desc">Aprovar e controlar</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--orange" onclick="window.location.href='../screens/banco-horas-rh.html'">
+                        <i class="fas fa-clock-rotate-left quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Gestão de Horas</span>
+                            <span class="quick-desc">Banco de horas</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--blue" onclick="window.location.href='../screens/arquivos.html'">
+                        <i class="fas fa-folder-open quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Arquivos</span>
+                            <span class="quick-desc">Documentos e arquivos</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--green" onclick="window.location.href='../screens/pagamentos.html'">
+                        <i class="fas fa-file-invoice-dollar quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Pagamentos</span>
+                            <span class="quick-desc">Folha e holerites</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                    <button class="quick-card quick-card--purple" onclick="window.location.href='../screens/comunicação.html'">
+                        <i class="fas fa-envelope quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Comunicação Interna</span>
+                            <span class="quick-desc">Enviar comunicados</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/inicio-rh.js"></script>
+</body>
+</html>

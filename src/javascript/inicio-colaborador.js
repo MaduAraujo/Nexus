@@ -54,6 +54,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMobile()) closeMobileSidebar(); });
 
+    // ── Date display ──
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+    const dateEl = document.getElementById('topbar-date-text');
+    if (dateEl) dateEl.textContent = dateFormatted.replace('.', '').replace(/^\w/, c => c.toUpperCase());
+    const welcomeDateEl = document.getElementById('welcome-date-text');
+    if (welcomeDateEl) welcomeDateEl.textContent = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
     // ── Helpers ──
     const PINK = '#ec4899';
 

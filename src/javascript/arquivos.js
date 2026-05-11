@@ -1,6 +1,4 @@
-/* arquivos.js — Supabase */
-
-document.addEventListener('DOMContentLoaded', async () => {
+﻿document.addEventListener('DOMContentLoaded', async () => {
     const sidebar        = document.getElementById('sidebar');
     const sidebarToggle  = document.getElementById('sidebar-toggle');
     const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
@@ -15,30 +13,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fileSelected   = document.getElementById('file-selected');
     const fileSelectedName = document.getElementById('file-selected-name');
 
-    // ─── Session ─────────────────────────────────────────────
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = '../screens/login.html'; return; }
     const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
+    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
 
-    const displayName = user.email?.split('@')[0] || 'Administrador';
     const nameEl   = document.getElementById('rh-sidebar-name');
     const roleEl   = document.getElementById('rh-sidebar-role');
     const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (nameEl)   nameEl.textContent   = displayName;
+    if (nameEl)   nameEl.textContent   = 'Administrador';
     if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = displayName.slice(0, 2).toUpperCase();
+    if (avatarEl) avatarEl.textContent = 'ADM';
 
     window.logout = async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
 
-    // ─── State ───────────────────────────────────────────────
     let activeTab    = 'admissional';
     let selectedFile = null;
     let employees    = [];
     let rhDocs       = [];
     let colabDocs    = [];
 
-    // ─── Sidebar ─────────────────────────────────────────────
     const isMobile  = () => window.innerWidth <= 768;
     const openSide  = () => { sidebar?.classList.add('open');    sidebarOverlay?.classList.add('active');    document.body.style.overflow = 'hidden'; };
     const closeSide = () => { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; };
@@ -47,7 +41,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     sidebarOverlay?.addEventListener('click', closeSide);
     window.addEventListener('resize', () => { if (!isMobile()) closeSide(); });
 
-    // ─── Data ────────────────────────────────────────────────
     async function loadData() {
         const [{ data: empData }, { data: docData }] = await Promise.all([
             sb.from('employees').select('id,name,dept').neq('status','Inativo').order('name'),
@@ -55,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ]);
         employees = empData || [];
         const all = docData || [];
-        rhDocs    = all.filter(d => d.source === 'rh');
+        rhDocs    = all.filter(d => d.source === 'Administrador');
         colabDocs = all.filter(d => d.source === 'colaborador');
     }
 
@@ -75,26 +68,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const statusMap = {
-        pendente: { cls:'badge-status--pendente', label:'Pendente',  icon:'fa-clock' },
-        aprovado: { cls:'badge-status--aprovado', label:'Aprovado',  icon:'fa-check-circle' },
-        recusado: { cls:'badge-status--recusado', label:'Recusado',  icon:'fa-times-circle' },
+        pendente: { cls:'badge--pendente', label:'Pendente',  icon:'fa-clock' },
+        aprovado: { cls:'badge--aprovado', label:'Aprovado',  icon:'fa-check-circle' },
+        recusado: { cls:'badge--recusado', label:'Recusado',  icon:'fa-times-circle' },
     };
 
-    // ─── Render ───────────────────────────────────────────────
     function renderTable() {
         const q = searchInput?.value.toLowerCase().trim() || '';
         updateStats();
 
         if (activeTab === 'colaborador') {
             const filtered = q ? colabDocs.filter(d => (d.name||'').toLowerCase().includes(q) || empName(d.employee_id).toLowerCase().includes(q) || (d.tipo||'').toLowerCase().includes(q)) : colabDocs;
-            if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-users"></i><p>Nenhum documento de colaborador</p><span>${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</span></div></td></tr>`; return; }
+            if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-users"></i></div><p class="empty-state-title">Nenhum documento de colaborador</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</p></div></td></tr>`; return; }
             filesTbody.innerHTML = filtered.map(d => {
                 const { cls, icon } = getFileIcon(d.name);
                 const st = statusMap[d.status] || statusMap.pendente;
                 return `<tr>
-                    <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${d.name}">${d.name}</div><div class="file-employee">${d.tipo||''}</div></div></div></td>
+                    <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${d.name}">${d.name}</div><div class="file-meta">${d.tipo||''}</div></div></div></td>
                     <td>${empName(d.employee_id)}</td>
-                    <td><span class="badge-status ${st.cls}"><i class="fas ${st.icon}"></i> ${st.label}</span></td>
+                    <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${st.label}</span></td>
                     <td class="file-date">${fmtDate(d.created_at)}</td>
                     <td class="file-size">${d.size_label||'—'}</td>
                     <td><div class="actions-cell">
@@ -113,16 +105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return (f.name||'').toLowerCase().includes(q) || empName(f.employee_id).toLowerCase().includes(q) || (f.tipo||'').toLowerCase().includes(q);
         });
 
-        if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-folder-open"></i><p>Nenhum arquivo encontrado</p><span>${q ? `Nenhum resultado para "${q}"` : 'Clique em "Enviar Arquivo" para adicionar'}</span></div></td></tr>`; return; }
+        if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><p class="empty-state-title">Nenhum arquivo encontrado</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Clique em "Enviar Arquivo" para adicionar'}</p></div></td></tr>`; return; }
 
         filesTbody.innerHTML = filtered.map(f => {
             const { cls, icon } = getFileIcon(f.name);
-            const badgeCls   = f.category === 'admissional' ? 'badge-tipo--admissional' : 'badge-tipo--demissional';
+            const badgeCls   = f.category === 'admissional' ? 'badge--admissional' : 'badge--demissional';
             const badgeLabel = f.category === 'admissional' ? 'Admissional' : 'Demissional';
             return `<tr>
-                <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${f.name}">${f.name}</div><div class="file-employee">${f.tipo||''}</div></div></div></td>
+                <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${f.name}">${f.name}</div><div class="file-meta">${f.tipo||''}</div></div></div></td>
                 <td>${empName(f.employee_id)}</td>
-                <td><span class="badge-tipo ${badgeCls}">${badgeLabel}</span></td>
+                <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
                 <td class="file-date">${fmtDate(f.created_at)}</td>
                 <td class="file-size">${f.size_label||'—'}</td>
                 <td><div class="actions-cell">
@@ -139,7 +131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('demissional-count').textContent = rhDocs.filter(f => f.category === 'demissional').length;
     }
 
-    // ─── Tab switching ────────────────────────────────────────
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -154,9 +145,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchInput?.addEventListener('input', () => { searchClear?.classList.toggle('hidden', !searchInput.value.trim()); renderTable(); });
     searchClear?.addEventListener('click', () => { searchInput.value = ''; searchClear.classList.add('hidden'); renderTable(); });
 
-    // ─── Ações colaborador ────────────────────────────────────
     window.approveColabDoc = async (id) => {
-        await sb.from('documents').update({ status: 'aprovado' }).eq('id', id);
+        const { error } = await sb.from('documents').update({ status: 'aprovado' }).eq('id', id);
+        if (error) { showToast('Erro', 'Não foi possível aprovar o documento.', 'error'); return; }
         const doc = colabDocs.find(d => d.id === id);
         if (doc) doc.status = 'aprovado';
         renderTable();
@@ -164,7 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.rejectColabDoc = async (id) => {
-        await sb.from('documents').update({ status: 'recusado' }).eq('id', id);
+        const { error } = await sb.from('documents').update({ status: 'recusado' }).eq('id', id);
+        if (error) { showToast('Erro', 'Não foi possível recusar o documento.', 'error'); return; }
         const doc = colabDocs.find(d => d.id === id);
         if (doc) doc.status = 'recusado';
         renderTable();
@@ -172,9 +164,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.deleteColabDoc = async (id, storagePath) => {
-        if (!confirm('Deseja realmente excluir este documento?')) return;
+        if (!confirmDelete()) return;
         if (storagePath) await sb.storage.from('documents').remove([storagePath]);
-        await sb.from('documents').delete().eq('id', id);
+        const { error } = await sb.from('documents').delete().eq('id', id);
+        if (error) { showToast('Erro', 'Não foi possível excluir o documento.', 'error'); return; }
         colabDocs = colabDocs.filter(d => d.id !== id);
         renderTable();
         showToast('Documento excluído!', 'O arquivo foi removido com sucesso.', 'error');
@@ -187,15 +180,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.deleteFile = async (id, storagePath) => {
-        if (!confirm('Deseja realmente excluir este arquivo?')) return;
+        if (!confirmDelete()) return;
         if (storagePath) await sb.storage.from('documents').remove([storagePath]);
-        await sb.from('documents').delete().eq('id', id);
+        const { error } = await sb.from('documents').delete().eq('id', id);
+        if (error) { showToast('Erro', 'Não foi possível excluir o arquivo.', 'error'); return; }
         rhDocs = rhDocs.filter(f => f.id !== id);
         renderTable();
-        showToast('Arquivo Excluído!', 'O arquivo foi removido com sucesso.', 'error');
+        showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
     };
 
-    // ─── Upload modal ─────────────────────────────────────────
     function populateEmployeeSelect() {
         const sel = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
         if (!sel) return;
@@ -261,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const { data: inserted, error: dbError } = await sb.from('documents').insert({
             name: selectedFile.name, employee_id: finalEmpId, category, tipo,
-            size_label: sizeLabel, storage_path: storagePath, source: 'rh', created_by: user.id
+            size_label: sizeLabel, storage_path: storagePath, source: 'Administrador', created_by: user.id
         }).select().single();
 
         if (dbError) { showToast('Erro ao salvar', 'Arquivo enviado mas não foi possível salvar os dados.', 'error'); return; }
@@ -277,7 +270,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     uploadModal?.addEventListener('click', e => { if (e.target === uploadModal) closeUploadModal(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeUploadModal(); if (isMobile()) closeSide(); } });
 
-    // ─── Realtime ─────────────────────────────────────────────
     sb.channel('documents-rh')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, async () => {
             await loadData();
@@ -285,7 +277,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
         .subscribe();
 
-    // ─── Toast ────────────────────────────────────────────────
+    function confirmDelete() {
+        return window.confirm('Deseja realmente excluir este arquivo? Esta ação não pode ser desfeita.');
+    }
+
     function showToast(title, msg, type = 'success') {
         const icons = { success:'fa-check', error:'fa-times', warning:'fa-exclamation-triangle' };
         let container = document.getElementById('toast-container');
@@ -298,7 +293,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 4000);
     }
 
-    // ─── Init ─────────────────────────────────────────────────
     await loadData();
     renderTable();
 });

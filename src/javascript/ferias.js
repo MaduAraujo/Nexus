@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════
    ferias.js — Gestão de Férias (RH) — Supabase
    ════════════════════════════════════════════ */
 
@@ -60,16 +60,15 @@ async function loadRhSidebar() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = '../screens/login.html'; return; }
     const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
+    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
 
     const nameEl   = document.getElementById('rh-sidebar-name');
     const roleEl   = document.getElementById('rh-sidebar-role');
     const avatarEl = document.getElementById('rh-sidebar-avatar');
     if (!nameEl) return;
-    const displayName = user.email?.split('@')[0] || 'Administrador';
-    nameEl.textContent   = displayName;
+    nameEl.textContent   = 'Administrador';
     if (roleEl)   roleEl.textContent   = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = displayName.slice(0, 2).toUpperCase();
+    if (avatarEl) avatarEl.textContent = 'ADM';
 }
 
 async function logout() {
@@ -234,11 +233,46 @@ function applyFilters(list) {
 }
 
 window.setFilter = function (btn) {
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip--active'));
+    document.querySelectorAll('.filter-dropdown-chips .chip').forEach(c => c.classList.remove('chip--active'));
     btn.classList.add('chip--active');
     currentFilter = btn.dataset.filter;
+    updateFilterBtn();
+    closeFilterDropdown();
     renderTable();
 };
+
+const FILTER_LABELS = { todos: 'Filtro', pendente: 'Pendente', aprovado: 'Aprovado', concluido: 'Concluído', recusado: 'Recusado', risco: 'Risco Vencimento' };
+
+function updateFilterBtn() {
+    const label   = document.getElementById('filter-label');
+    const btnEl   = document.getElementById('btn-filter');
+    if (label) label.textContent = FILTER_LABELS[currentFilter] ?? 'Filtro';
+    btnEl?.classList.toggle('filtered', currentFilter !== 'todos');
+}
+
+function openFilterDropdown() {
+    document.getElementById('btn-filter')?.classList.add('open');
+    document.getElementById('filter-dropdown-menu')?.classList.add('open');
+    document.getElementById('filter-chevron')?.classList.add('open');
+}
+
+function closeFilterDropdown() {
+    document.getElementById('btn-filter')?.classList.remove('open');
+    document.getElementById('filter-dropdown-menu')?.classList.remove('open');
+    document.getElementById('filter-chevron')?.classList.remove('open');
+}
+
+function setupFilterDropdown() {
+    const btn  = document.getElementById('btn-filter');
+    const menu = document.getElementById('filter-dropdown-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        menu.classList.contains('open') ? closeFilterDropdown() : openFilterDropdown();
+    });
+    menu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', closeFilterDropdown);
+}
 
 window.clearSearch = function () {
     document.getElementById('search-input').value = '';
@@ -469,7 +503,10 @@ function renderGantt() {
     const totalDays = (yearEnd - yearStart) / 86400000 + 1;
 
     const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    document.getElementById('gantt-months').innerHTML = months.map(m => `<div class="gantt-month-cell">${m}</div>`).join('');
+    const currentMonthIdx = new Date().getMonth();
+    document.getElementById('gantt-months').innerHTML = months.map((m, i) =>
+        `<div class="gantt-month-cell${i === currentMonthIdx ? ' current' : ''}">${m}</div>`
+    ).join('');
 
     const toShow = vacations.filter(v =>
         (v.status === 'aprovado' || v.status === 'concluido') &&
@@ -564,7 +601,8 @@ function showToast(msg, type = 'success') {
     toast.className = `toast ${type}`;
     toast.innerHTML = `<i class="fas ${icons[type] || icons.success} toast-icon"></i><span>${escHtml(msg)}</span>`;
     container.appendChild(toast);
-    setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
+    setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3500);
 }
 
 // ─── Utils ────────────────────────────────────────────────────
@@ -586,5 +624,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderGantt();
     populateEmployeeSelect();
     setupSearchListeners();
+    setupFilterDropdown();
     setupRealtimeSync();
 });

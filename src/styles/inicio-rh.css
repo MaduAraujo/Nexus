@@ -1,0 +1,14 @@
+.welcome-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.section-title-row {
+    margin-top: 16px;
+}
+
+.quick-actions .quick-card:nth-child(5) { animation-delay: 0.32s; }
+.quick-actions .quick-card:nth-child(6) { animation-delay: 0.38s; }
+.quick-actions .quick-card:nth-child(7) { animation-delay: 0.44s; }

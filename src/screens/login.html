@@ -23,13 +23,12 @@
             <div class="logo-name">Ne<span class="x">x</span>us</div>
         </div>
 
-        <!-- ── Primeiro acesso (link de convite) ── -->
         <div id="form-first-access" class="form-section">
             <div class="first-access-badge">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 Primeiro acesso
             </div>
-            <p class="form-title" style="margin-top:1rem;">Bem-vindo ao Nexus!</p>
+            <p class="form-title form-title--spaced">Bem-vindo ao Nexus!</p>
             <p class="form-subtitle">Seu acesso foi ativado. Confirme seu e-mail para criar uma senha de acesso.</p>
             <div class="field">
                 <label>E-mail</label>
@@ -53,7 +52,7 @@
             <p class="form-subtitle">Selecione seu perfil para continuar</p>
 
             <div class="profile-grid">
-                <div class="profile-card rh" onclick="selectProfile('rh', this)">
+                <div class="profile-card rh" onclick="selectProfile('Administrador', this)">
                     <div class="profile-check">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
@@ -179,15 +178,15 @@
             </div>
 
             <div id="forgot-s2" class="forgot-step-panel">
-                <div class="forgot-success-icon" style="background:#eef2ff;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5">
+                <div class="forgot-success-icon forgot-success-icon--email">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                         <polyline points="22,6 12,13 2,6"/>
                     </svg>
                 </div>
                 <p class="form-title">Verifique seu e-mail</p>
                 <p class="form-subtitle">Enviamos um link de redefinição para <strong id="forgot-email-shown"></strong>. Clique no link para criar sua nova senha.</p>
-                <p style="font-size:0.78rem;color:#9ca3af;margin-top:0.5rem;text-align:center;">
+                <p class="forgot-resend-hint">
                     Não recebeu? Verifique o spam ou
                     <a href="#" onclick="setForgotStep(1); return false;">tente novamente</a>.
                 </p>
@@ -251,7 +250,7 @@
         </div>
     </div>
 </div>
-<!-- ── Modal: criar senha (primeiro acesso) ── -->
+
 <div id="create-pass-modal" class="fam-overlay">
     <div class="fam-card">
         <div class="fam-header">

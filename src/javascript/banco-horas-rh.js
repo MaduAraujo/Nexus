@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════════════════
    banco-horas-rh.js — Gestão de Banco de Horas — Supabase
    ════════════════════════════════════════════════════════ */
 
@@ -23,23 +23,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = '../screens/login.html'; return; }
     const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
+    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
     rhUser = user;
 
-    const displayName = user.email?.split('@')[0] || 'Administrador';
-    setText('rh-sidebar-name',   displayName);
+    setText('rh-sidebar-name',   'Administrador');
     setText('rh-sidebar-role',   'Recursos Humanos');
-    setText('rh-sidebar-avatar', displayName.slice(0, 2).toUpperCase());
+    setText('rh-sidebar-avatar', 'ADM');
 
     setupSidebar();
 
     const now = new Date();
     currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
-    const mp = $('month-picker');
-    if (mp) { mp.value = currentMonth; mp.addEventListener('change', () => { currentMonth = mp.value; refresh(); }); }
+    setupCustomMonthPicker();
 
     await refresh();
     await initAuditTab();
+    setupFilterDropdown();
     setupRealtimeSync();
 });
 
@@ -94,7 +93,7 @@ async function refresh() {
 
 function getJornadaMin(contractType) {
     const tipo = (contractType || 'clt').toLowerCase();
-    if (tipo === 'estagio' || tipo === 'aprendiz') return 6 * 60;
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
     if (tipo === 'pj') return null;
     return 8 * 60;
 }
@@ -187,7 +186,47 @@ function buildRow(d) {
 
 // ─── Filtros ──────────────────────────────────────────────────
 
-window.setFilter = function (btn) { document.querySelectorAll('.filter-chips .chip').forEach(c=>c.classList.remove('chip--active')); btn.classList.add('chip--active'); currentFilter=btn.dataset.filter; renderTable(); };
+const FILTER_LABELS_BH = { todos: 'Filtro', positivo: 'Saldo Positivo', negativo: 'Saldo Negativo', zerado: 'Zerado / PJ', critico: 'Crítico' };
+
+function updateFilterBtn() {
+    const label = $('filter-label');
+    const btn   = $('btn-filter');
+    if (label) label.textContent = FILTER_LABELS_BH[currentFilter] ?? 'Filtro';
+    btn?.classList.toggle('filtered', currentFilter !== 'todos');
+}
+
+function openFilterDropdown() {
+    $('btn-filter')?.classList.add('open');
+    $('filter-dropdown-menu')?.classList.add('open');
+    $('filter-chevron')?.classList.add('open');
+}
+
+function closeFilterDropdown() {
+    $('btn-filter')?.classList.remove('open');
+    $('filter-dropdown-menu')?.classList.remove('open');
+    $('filter-chevron')?.classList.remove('open');
+}
+
+function setupFilterDropdown() {
+    const btn  = $('btn-filter');
+    const menu = $('filter-dropdown-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        menu.classList.contains('open') ? closeFilterDropdown() : openFilterDropdown();
+    });
+    menu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', closeFilterDropdown);
+}
+
+window.setFilter = function (btn) {
+    document.querySelectorAll('.filter-dropdown-chips .chip').forEach(c => c.classList.remove('chip--active'));
+    btn.classList.add('chip--active');
+    currentFilter = btn.dataset.filter;
+    updateFilterBtn();
+    closeFilterDropdown();
+    renderTable();
+};
 window.applyFilters = function () { const inp=$('search-input'); currentSearch=inp?inp.value.trim():''; const clr=$('search-clear'); if(clr)clr.classList.toggle('hidden',!currentSearch); renderTable(); };
 window.clearSearch  = function () { const inp=$('search-input'); if(inp)inp.value=''; currentSearch=''; const clr=$('search-clear'); if(clr)clr.classList.add('hidden'); renderTable(); };
 
@@ -303,7 +342,7 @@ window.submitAdjust = async function () {
     await sb.from('activity_logs').insert({
         employee_id: adjustingEmpId, tipo:'ajuste_banco', acao:tipo, date:data,
         minutos:total, operator_email:rhUser?.email, operator_name:rhUser?.email?.split('@')[0]||'RH',
-        operator_profile:'rh', justificativa:just
+        operator_profile:'Administrador', justificativa:just
     });
 
     closeModal('adjust-modal');
@@ -317,7 +356,7 @@ window.deleteAjuste = async function (empId, adjId) {
     await sb.from('activity_logs').insert({
         employee_id: empId, tipo:'ajuste_banco', acao:'exclusao', date:isoDate(new Date()),
         operator_email:rhUser?.email, operator_name:rhUser?.email?.split('@')[0]||'RH',
-        operator_profile:'rh', justificativa:`Exclusão do ajuste #${adjId}`
+        operator_profile:'Administrador', justificativa:`Exclusão do ajuste #${adjId}`
     });
     if (bankAdjMap[empId]) bankAdjMap[empId] = bankAdjMap[empId].filter(a => a.id !== adjId);
     showToast('Ajuste removido.', 'info');
@@ -373,7 +412,7 @@ function buildAuditRow(e) {
     if(e.tipo==='ponto'&&e.valor_registrado){const dt=new Date(e.valor_registrado);valorHTML=`<span style="font-weight:600">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}</span>`;}
     else if(e.tipo==='ajuste_banco'&&e.minutos){const sign=e.acao==='credito'?'+':'-';const cls=e.acao==='credito'?'color:#16a34a':'color:#dc2626';valorHTML=`<span style="font-weight:700;${cls}">${sign}${minToStr(e.minutos)}</span>`;}
     const tipoBadge=e.tipo==='ponto'?`<span class="audit-badge audit-badge--ponto">Ponto</span>`:`<span class="audit-badge audit-badge--banco">Banco</span>`;
-    const perfilBadge=e.operator_profile==='rh'?`<span class="audit-badge audit-badge--rh">RH</span>`:`<span class="audit-badge audit-badge--colab">Colaborador</span>`;
+    const perfilBadge=e.operator_profile==='Administrador'?`<span class="audit-badge audit-badge--rh">RH</span>`:`<span class="audit-badge audit-badge--colab">Colaborador</span>`;
     return`<tr><td style="white-space:nowrap;font-size:12.5px">${tsStr}</td><td><div class="emp-cell"><div class="emp-avatar" style="background:${color};width:28px;height:28px;font-size:10px;border-radius:50%">${ini}</div><div><p class="emp-name" style="font-size:12.5px">${empName}</p><p class="emp-dept">${empDept}</p></div></div></td><td>${tipoBadge}</td><td style="font-size:13px;font-weight:500">${acaoLabel}</td><td>${valorHTML}</td><td style="font-size:12.5px">${e.operator_name||e.operator_email||'—'} ${perfilBadge}</td><td style="font-size:12px;color:var(--text-secondary);max-width:180px">${e.justificativa||'—'}</td></tr>`;
 }
 
@@ -385,6 +424,76 @@ function setupRealtimeSync() {
         .on('postgres_changes', { event:'*', schema:'public', table:'bank_adjustments' }, async () => { await refresh(); })
         .on('postgres_changes', { event:'*', schema:'public', table:'employees' }, async () => { await refresh(); })
         .subscribe();
+}
+
+// ─── Custom Month Picker ──────────────────────────────────────
+
+function setupCustomMonthPicker() {
+    const MESES_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const MESES_LONG  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    const btn      = $('month-picker-btn');
+    const dropdown = $('month-picker-dropdown');
+    const chevron  = $('month-picker-chevron');
+    const yearEl   = $('mpd-year');
+    const monthsEl = $('mpd-months');
+    const prevBtn  = $('mpd-prev-year');
+    const nextBtn  = $('mpd-next-year');
+    if (!btn || !dropdown) return;
+
+    let pickerYear = new Date().getFullYear();
+
+    function updateLabel() {
+        const [y, m] = currentMonth.split('-');
+        const el = $('month-picker-label');
+        if (el) el.textContent = `${MESES_LONG[parseInt(m) - 1]} de ${y}`;
+    }
+
+    function renderMonths() {
+        const now = new Date();
+        const [selY, selM] = currentMonth.split('-');
+        yearEl.textContent = pickerYear;
+        monthsEl.innerHTML = MESES_SHORT.map((name, i) => {
+            const m = i + 1;
+            const isSelected = parseInt(selY) === pickerYear && parseInt(selM) === m;
+            const isCurrent  = now.getFullYear() === pickerYear && now.getMonth() + 1 === m;
+            let cls = 'mpd-month';
+            if (isSelected) cls += ' selected';
+            if (isCurrent)  cls += ' current';
+            return `<button class="${cls}" data-m="${pad0(m)}">${name}</button>`;
+        }).join('');
+        monthsEl.querySelectorAll('.mpd-month').forEach(el => {
+            el.addEventListener('click', () => {
+                currentMonth = `${pickerYear}-${el.dataset.m}`;
+                updateLabel();
+                closeDropdown();
+                refresh();
+            });
+        });
+    }
+
+    function openDropdown() {
+        const [y] = currentMonth.split('-');
+        pickerYear = parseInt(y);
+        renderMonths();
+        dropdown.classList.add('open');
+        btn.classList.add('open');
+        chevron.classList.add('open');
+    }
+
+    function closeDropdown() {
+        dropdown.classList.remove('open');
+        btn.classList.remove('open');
+        chevron.classList.remove('open');
+    }
+
+    btn.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.contains('open') ? closeDropdown() : openDropdown(); });
+    prevBtn.addEventListener('click', e => { e.stopPropagation(); pickerYear--; renderMonths(); });
+    nextBtn.addEventListener('click', e => { e.stopPropagation(); pickerYear++; renderMonths(); });
+    dropdown.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', closeDropdown);
+
+    updateLabel();
 }
 
 // ─── Sidebar / Modal / Toast ──────────────────────────────────

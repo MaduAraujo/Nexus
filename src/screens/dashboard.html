@@ -7,103 +7,49 @@
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/dashboard.css" />
+    <style>
+        .main-wrapper { margin-left: 0 !important; width: 100% !important; }
+        .btn-back { display: inline-flex; align-items: center; gap: 8px; color: #9ca3af; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 6px 10px; border-radius: 8px; transition: color 0.2s, background 0.2s; }
+        .btn-back:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .btn-back i { font-size: 0.8rem; }
+    </style>
 </head>
 <body>
     <div class="layout">
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo-name">Ne<span class="x">x</span>us</div>
-                <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-
-            <nav class="sidebar-nav">
-                <ul class="nav-list">
-                    <li class="nav-item active">
-                        <a href="../screens/dashboard.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-                            <span class="nav-text">Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/colaboradores.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-users"></i></span>
-                            <span class="nav-text">Colaboradores</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/ferias.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
-                            <span class="nav-text">Gestão de Férias</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/banco-horas-rh.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
-                            <span class="nav-text">Gestão de Horas</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/arquivos.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
-                            <span class="nav-text">Arquivos</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/pagamentos.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                            <span class="nav-text">Pagamentos</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../screens/comunicação.html" class="nav-link">
-                            <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-                            <span class="nav-text">Comunicação Interna</span>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-card">
-                    <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
-                    <div class="user-info">
-                        <p class="user-name" id="rh-sidebar-name">Administrador</p>
-                        <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
-                    </div>
-                    <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
-                </div>
-            </div>
-        </aside>
-
-        <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-        <div class="main-wrapper" id="main-wrapper">
+        <div class="main-wrapper" style="margin-left:0;width:100%">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1 class="page-title">Dashboard</h1>
+                    <a href="../screens/inicio-rh.html" class="btn-back">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Voltar</span>
+                    </a>
                 </div>
                 <div class="topbar-right">
                     <div class="export-dropdown" id="export-dropdown">
                         <button class="btn-export" id="btn-export">
-                            <i class="fas fa-download"></i>
+                            <i class="fas fa-arrow-up-from-bracket"></i>
                             <span>Exportar</span>
                             <i class="fas fa-chevron-down export-chevron"></i>
                         </button>
                         <div class="export-menu" id="export-menu">
+                            <p class="export-menu-label">Formato de exportação</p>
                             <button class="export-option" id="export-excel">
-                                <i class="fas fa-file-excel"></i>
-                                Excel (.xlsx)
+                                <div class="export-option-icon export-option-icon--excel">
+                                    <i class="fas fa-table"></i>
+                                </div>
+                                <div class="export-option-body">
+                                    <span class="export-option-title">Excel</span>
+                                    <span class="export-option-sub">.xlsx — Planilha editável</span>
+                                </div>
                             </button>
                             <button class="export-option" id="export-pdf">
-                                <i class="fas fa-file-pdf"></i>
-                                PDF (.pdf)
+                                <div class="export-option-icon export-option-icon--pdf">
+                                    <i class="fas fa-file-lines"></i>
+                                </div>
+                                <div class="export-option-body">
+                                    <span class="export-option-title">PDF</span>
+                                    <span class="export-option-sub">.pdf — Documento imprimível</span>
+                                </div>
                             </button>
                         </div>
                     </div>

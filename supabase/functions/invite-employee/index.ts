@@ -36,8 +36,8 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (profile?.profile !== "rh") {
-      return new Response(JSON.stringify({ error: "Acesso restrito ao RH" }), {
+    if (profile?.profile !== "Administrador") {
+      return new Response(JSON.stringify({ error: "Acesso restrito ao Administrador" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

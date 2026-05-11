@@ -1,4 +1,13 @@
-document.addEventListener('DOMContentLoaded', async () => {
+﻿document.addEventListener('DOMContentLoaded', async () => {
+    // ── Tab switching — definido primeiro, sempre disponível ──
+    window.switchPTab = function (btn, tabId) {
+        document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.ptab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.getElementById('ptab-' + tabId);
+        if (panel) panel.classList.add('active');
+    };
+
     // ── Auth ──
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = '../screens/login.html'; return; }
@@ -21,38 +30,174 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let myEmployee = emp;
 
-    // ── Sidebar toggle (estado de UI) ──
-    const sidebar        = document.getElementById('sidebar');
-    const sidebarToggle  = document.getElementById('sidebar-toggle');
-    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const mainWrapper    = document.querySelector('.main-wrapper');
-    const SIDEBAR_KEY    = 'sidebarState_colab';
-
-    const isMobile = () => window.innerWidth <= 768;
-
-    function openMobileSidebar()  { sidebar?.classList.add('open'); sidebarOverlay?.classList.add('active'); document.body.style.overflow = 'hidden'; }
-    function closeMobileSidebar() { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; }
-
-    sidebarToggle?.addEventListener('click', e => {
-        e.stopPropagation();
-        if (isMobile()) { sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); }
-        else { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); localStorage.setItem(SIDEBAR_KEY, c ? 'collapsed' : 'expanded'); }
-    });
-
-    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); });
-    sidebarOverlay?.addEventListener('click', closeMobileSidebar);
-
-    if (!isMobile() && localStorage.getItem(SIDEBAR_KEY) === 'collapsed') { sidebar?.classList.add('collapsed'); mainWrapper?.classList.add('sidebar-collapsed'); }
-    window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMobileSidebar(); closeAvatarMenu(); closeColorPicker(); } });
-
-    const AVATAR_COLORS = ['#6366f1','#8b5cf6','#ec4899','#10b981','#f59e0b','#3b82f6','#ef4444','#14b8a6','#f97316','#84cc16'];
+    // ── Constantes e helpers ──
+    const AVATAR_COLORS  = ['#6366f1','#8b5cf6','#ec4899','#10b981','#f59e0b','#3b82f6','#ef4444','#14b8a6','#f97316','#84cc16'];
+    const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true };
 
     const initials   = n => (n || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
     const formatDate = s => { if (!s) return '—'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
     const setEl      = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || '—'; };
     const setInput   = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+
+    let editing = false;
+
+    // ── Handlers globais — todos definidos antes de qualquer await que possa falhar ──
+
+    window.showToast = function (title, type = 'success', msg = '') {
+        const container = document.getElementById('toast-container'); if (!container) return;
+        const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || 'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${title}</p>${msg ? `<p class="toast-msg">${msg}</p>` : ''}</div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide'); setTimeout(()=>this.closest('.toast').remove(),300)"><i class="fas fa-times"></i></button>`;
+        container.appendChild(toast);
+        requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
+        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3500);
+    };
+
+    window.toggleEditInfo = function () {
+        editing = true;
+        const view = document.getElementById('info-view');
+        const form = document.getElementById('info-edit');
+        const btn  = document.getElementById('btn-edit-info');
+        view?.classList.add('hidden'); form?.classList.remove('hidden');
+        if (btn) btn.style.display = 'none';
+        setInput('edit-name',  myEmployee.name);
+        setInput('edit-phone', myEmployee.telefone);
+        setInput('edit-bio',   myEmployee.bio);
+    };
+
+    window.cancelEditInfo = function () {
+        editing = false;
+        document.getElementById('info-view')?.classList.remove('hidden');
+        document.getElementById('info-edit')?.classList.add('hidden');
+        const btn = document.getElementById('btn-edit-info');
+        if (btn) btn.style.display = '';
+    };
+
+    window.saveInfo = async function () {
+        const name  = document.getElementById('edit-name')?.value.trim()  || '';
+        const phone = document.getElementById('edit-phone')?.value.trim() || '';
+        const bio   = document.getElementById('edit-bio')?.value.trim()   || '';
+        if (!name) { showToast('Informe o nome.', 'warning'); return; }
+
+        const { error } = await sb.from('employees')
+            .update({ name, telefone: phone, bio })
+            .eq('id', myEmployeeId);
+
+        if (error) { showToast('Erro ao salvar.', 'error'); return; }
+
+        myEmployee = { ...myEmployee, name, telefone: phone, bio };
+        applySession();
+        window.cancelEditInfo();
+        showToast('Perfil atualizado!', 'success');
+    };
+
+    window.toggleAvatarMenu = function () {
+        const menu   = document.getElementById('avatar-menu');
+        const picker = document.getElementById('color-picker');
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!menu || !btn) return;
+        picker?.classList.remove('open');
+        if (menu.classList.contains('open')) { menu.classList.remove('open'); }
+        else { menu.classList.add('open'); positionFloating(menu, btn); }
+    };
+
+    window.triggerPhotoUpload = function () {
+        document.getElementById('avatar-menu')?.classList.remove('open');
+        document.getElementById('photo-input')?.click();
+    };
+
+    window.handlePhotoUpload = async function (event) {
+        const file = event.target.files?.[0]; if (!file) return;
+        if (!file.type.startsWith('image/')) { showToast('Selecione uma imagem válida.', 'error'); return; }
+        if (file.size > 10 * 1024 * 1024) { showToast('Imagem deve ter no máximo 10 MB.', 'warning'); return; }
+
+        const storagePath = `${myEmployeeId}`;
+        const { error: uploadError } = await sb.storage.from('avatars').upload(storagePath, file, { upsert: true, contentType: file.type });
+        if (uploadError) { showToast('Erro ao enviar foto.', 'error'); return; }
+
+        const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(storagePath);
+        const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+
+        const { error } = await sb.from('employees').update({ avatar_url: avatarUrl }).eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao salvar foto.', 'error'); return; }
+
+        myEmployee = { ...myEmployee, avatar_url: avatarUrl };
+        applySession();
+        showToast('Foto atualizada!', 'success');
+        event.target.value = '';
+    };
+
+    window.removePhoto = async function () {
+        document.getElementById('avatar-menu')?.classList.remove('open');
+        await sb.storage.from('avatars').remove([`${myEmployeeId}`]);
+        const { error } = await sb.from('employees').update({ avatar_url: null }).eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao remover foto.', 'error'); return; }
+        myEmployee = { ...myEmployee, avatar_url: null };
+        applySession();
+        showToast('Foto removida.', 'error');
+    };
+
+    window.openColorPicker = function () {
+        const picker = document.getElementById('color-picker');
+        const btn    = document.getElementById('avatar-edit-btn');
+        if (!picker || !btn) return;
+        document.getElementById('avatar-menu')?.classList.remove('open');
+        if (picker.classList.contains('open')) { picker.classList.remove('open'); }
+        else { picker.classList.add('open'); positionFloating(picker, btn); }
+    };
+
+    window.saveNotifPref = async function (key, value) {
+        const current = (myEmployee.notif_prefs && typeof myEmployee.notif_prefs === 'object')
+            ? { ...myEmployee.notif_prefs }
+            : { ...NOTIF_DEFAULTS };
+        current[key] = value;
+        const { error } = await sb.from('employees').update({ notif_prefs: current }).eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao salvar preferência.', 'error'); return; }
+        myEmployee = { ...myEmployee, notif_prefs: current };
+        showToast(value ? 'Notificação ativada.' : 'Notificação desativada.', value ? 'success' : 'error');
+    };
+
+    window.checkNewPass = function () {
+        const curr = document.getElementById('curr-pass')?.value || '';
+        const np   = document.getElementById('new-pass-profile')?.value || '';
+        const cp   = document.getElementById('confirm-pass-profile')?.value || '';
+        const msg  = document.getElementById('pw-match-msg');
+        const btn  = document.getElementById('btn-change-pw');
+        if (btn) btn.disabled = !(curr && np.length >= 8 && np === cp);
+        if (!msg) return;
+        if (!cp)               { msg.textContent = ''; msg.className = 'pw-match-msg'; }
+        else if (np !== cp)    { msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
+        else if (np.length < 8){ msg.textContent = 'Mínimo 8 caracteres.'; msg.className = 'pw-match-msg err'; }
+        else                   { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
+    };
+
+    window.changePassword = async function () {
+        const curr = document.getElementById('curr-pass')?.value || '';
+        const np   = document.getElementById('new-pass-profile')?.value || '';
+
+        const { error: authError } = await sb.auth.signInWithPassword({ email: myEmployee.email, password: curr });
+        if (authError) { showToast('Senha atual incorreta.', 'error'); return; }
+
+        const { error } = await sb.auth.updateUser({ password: np });
+        if (error) { showToast('Erro ao alterar senha. Tente novamente.', 'error'); return; }
+
+        ['curr-pass','new-pass-profile','confirm-pass-profile'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const btn = document.getElementById('btn-change-pw'); if (btn) btn.disabled = true;
+        const msg = document.getElementById('pw-match-msg'); if (msg) { msg.textContent = ''; msg.className = 'pw-match-msg'; }
+        showToast('Senha alterada com sucesso!', 'success');
+    };
+
+    window.togglePwSmall = function (inputId, btn) {
+        const input = document.getElementById(inputId); if (!input) return;
+        const show = input.type === 'password'; input.type = show ? 'text' : 'password';
+        const icon = btn.querySelector('i'); if (icon) icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    };
+
+    window.logout    = async function () { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
+    window.logoutAll = async function () { await sb.auth.signOut(); showToast('Sessões encerradas.', 'success'); setTimeout(() => window.location.href = '../screens/login.html', 1200); };
+
+    // ── Funções internas ──
 
     function calcFeriasInfo(contractType, admissionDate) {
         const type = (contractType || '').toLowerCase();
@@ -147,11 +292,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         setEl('view-phone', myEmployee.telefone || 'Não informado');
         setEl('view-bio',   myEmployee.bio      || 'Nenhuma descrição adicionada.');
 
-        setEl('prof-role',      myEmployee.role           || '—');
-        setEl('prof-dept',      myEmployee.dept           || '—');
+        setEl('prof-role',      myEmployee.role  || '—');
+        setEl('prof-dept',      myEmployee.dept  || '—');
         setEl('prof-admission', formatDate(myEmployee.admission_date));
-        setEl('prof-status',    myEmployee.status         || 'Ativo');
-        setEl('prof-profile',   myProfile === 'rh' ? 'RH' : 'Colaborador');
+        setEl('prof-status',    myEmployee.status || 'Ativo');
+        setEl('prof-profile',   myProfile === 'Administrador' ? 'Administrador' : 'Colaborador');
 
         if (myEmployee.admission_date) {
             const adm    = new Date(myEmployee.admission_date);
@@ -177,12 +322,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function calcBancoHoras() {
-        const pad0    = n => String(n).padStart(2, '0');
-        const diffMin = (a, b) => { if (!a || !b) return 0; return Math.round((new Date(b) - new Date(a)) / 60000); };
+        const pad0     = n => String(n).padStart(2, '0');
+        const diffMin  = (a, b) => { if (!a || !b) return 0; return Math.round((new Date(b) - new Date(a)) / 60000); };
         const minToStr = min => { const abs = Math.abs(min); return `${Math.floor(abs / 60)}h ${pad0(abs % 60)}min`; };
 
         const contractType = (myEmployee.contract_type || 'clt').toLowerCase();
-        const jornadaMin   = (contractType === 'estagio' || contractType === 'aprendiz') ? 360
+        const jornadaMin   = (contractType === 'estagio' || contractType === 'estágio' || contractType === 'aprendiz') ? 360
                            : contractType === 'pj' ? null : 480;
 
         const [{ data: records }, { data: adjustments }] = await Promise.all([
@@ -239,6 +384,103 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (iconEl)  iconEl.className    = `prof-highlight-icon ${cls}`;
     }
 
+    function positionFloating(el, anchor) {
+        const rect = anchor.getBoundingClientRect();
+        const margin = 8;
+        let top  = rect.bottom + margin;
+        let left = rect.left;
+        const w = el.offsetWidth || 196;
+        if (left + w > window.innerWidth - 12) left = window.innerWidth - w - 12;
+        const h = el.offsetHeight || 160;
+        if (top + h > window.innerHeight - 12) top = rect.top - h - margin;
+        el.style.top  = top  + 'px';
+        el.style.left = left + 'px';
+    }
+
+    function closeAvatarMenu() { document.getElementById('avatar-menu')?.classList.remove('open'); }
+    function closeColorPicker() { document.getElementById('color-picker')?.classList.remove('open'); }
+
+    function buildColorSwatches() {
+        const container = document.getElementById('color-swatches'); if (!container) return;
+        container.innerHTML = '';
+        const current = myEmployee.avatar_color || '#6366f1';
+        AVATAR_COLORS.forEach(color => {
+            const sw = document.createElement('div');
+            sw.className = 'color-swatch' + (color === current ? ' active' : '');
+            sw.style.background = color; sw.title = color;
+            sw.addEventListener('click', () => selectAvatarColor(color));
+            container.appendChild(sw);
+        });
+    }
+
+    async function selectAvatarColor(color) {
+        const { error } = await sb.from('employees')
+            .update({ avatar_color: color, avatar_url: null })
+            .eq('id', myEmployeeId);
+        if (error) { showToast('Erro ao salvar cor.', 'error'); return; }
+        myEmployee = { ...myEmployee, avatar_color: color, avatar_url: null };
+        applySession(); buildColorSwatches(); closeColorPicker();
+        showToast('Cor atualizada!', 'success');
+    }
+
+    function loadNotifPrefs() {
+        const prefs = (myEmployee.notif_prefs && typeof myEmployee.notif_prefs === 'object')
+            ? { ...NOTIF_DEFAULTS, ...myEmployee.notif_prefs }
+            : { ...NOTIF_DEFAULTS };
+        Object.entries(prefs).forEach(([k, v]) => { const el = document.getElementById('notif-' + k); if (el) el.checked = v; });
+    }
+
+    // ── Sidebar toggle ──
+    const sidebar        = document.getElementById('sidebar');
+    const sidebarToggle  = document.getElementById('sidebar-toggle');
+    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const mainWrapper    = document.querySelector('.main-wrapper');
+    const SIDEBAR_KEY    = 'sidebarState_colab';
+
+    const isMobile = () => window.innerWidth <= 768;
+
+    function openMobileSidebar()  { sidebar?.classList.add('open'); sidebarOverlay?.classList.add('active'); document.body.style.overflow = 'hidden'; }
+    function closeMobileSidebar() { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; }
+
+    sidebarToggle?.addEventListener('click', e => {
+        e.stopPropagation();
+        if (isMobile()) { sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); }
+        else { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); localStorage.setItem(SIDEBAR_KEY, c ? 'collapsed' : 'expanded'); }
+    });
+
+    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); });
+    sidebarOverlay?.addEventListener('click', closeMobileSidebar);
+
+    if (!isMobile() && localStorage.getItem(SIDEBAR_KEY) === 'collapsed') { sidebar?.classList.add('collapsed'); mainWrapper?.classList.add('sidebar-collapsed'); }
+    window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMobileSidebar(); closeAvatarMenu(); closeColorPicker(); } });
+
+    // ── Fechar menus ao clicar fora ──
+    document.addEventListener('click', e => {
+        const menu   = document.getElementById('avatar-menu');
+        const picker = document.getElementById('color-picker');
+        if (menu?.classList.contains('open')   && !e.target.closest('#avatar-menu')   && !e.target.closest('#avatar-edit-btn')) closeAvatarMenu();
+        if (picker?.classList.contains('open') && !e.target.closest('#color-picker')  && !e.target.closest('#avatar-edit-btn') && !e.target.closest('#avatar-menu')) closeColorPicker();
+    });
+
+    window.addEventListener('scroll', () => {
+        const btn = document.getElementById('avatar-edit-btn'); if (!btn) return;
+        const m = document.getElementById('avatar-menu');
+        const p = document.getElementById('color-picker');
+        if (m?.classList.contains('open')) positionFloating(m, btn);
+        if (p?.classList.contains('open')) positionFloating(p, btn);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        const btn = document.getElementById('avatar-edit-btn'); if (!btn) return;
+        const m = document.getElementById('avatar-menu');
+        const p = document.getElementById('color-picker');
+        if (m?.classList.contains('open')) positionFloating(m, btn);
+        if (p?.classList.contains('open')) positionFloating(p, btn);
+    });
+
+    // ── Inicializar ──
     applySession();
     await calcBancoHoras();
     buildColorSwatches();
@@ -265,226 +507,4 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Perfil atualizado pelo RH', 'success');
         })
         .subscribe();
-
-    window.switchPTab = function (btn, tabId) {
-        document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.ptab-panel').forEach(p => { p.classList.remove('active'); p.classList.add('hidden'); });
-        btn.classList.add('active');
-        const panel = document.getElementById('ptab-' + tabId);
-        if (panel) { panel.classList.remove('hidden'); panel.classList.add('active'); }
-    };
-
-    let editing = false;
-
-    window.toggleEditInfo = function () {
-        editing = !editing;
-        const view = document.getElementById('info-view');
-        const form = document.getElementById('info-edit');
-        const btn  = document.getElementById('btn-edit-info');
-        if (editing) {
-            view?.classList.add('hidden'); form?.classList.remove('hidden');
-            if (btn) btn.innerHTML = '<i class="fas fa-times"></i> Cancelar';
-            setInput('edit-name',  myEmployee.name);
-            setInput('edit-phone', myEmployee.telefone);
-            setInput('edit-bio',   myEmployee.bio);
-        } else { cancelEditInfo(); }
-    };
-
-    window.cancelEditInfo = function () {
-        editing = false;
-        document.getElementById('info-view')?.classList.remove('hidden');
-        document.getElementById('info-edit')?.classList.add('hidden');
-        const btn = document.getElementById('btn-edit-info');
-        if (btn) btn.innerHTML = '<i class="fas fa-pen"></i> Editar';
-    };
-
-    window.saveInfo = async function () {
-        const name  = document.getElementById('edit-name')?.value.trim()  || '';
-        const phone = document.getElementById('edit-phone')?.value.trim() || '';
-        const bio   = document.getElementById('edit-bio')?.value.trim()   || '';
-        if (!name) { showToast('Informe o nome.', 'warning'); return; }
-
-        const { error } = await sb.from('employees')
-            .update({ name, telefone: phone, bio })
-            .eq('id', myEmployeeId);
-
-        if (error) { showToast('Erro ao salvar.', 'error'); return; }
-
-        myEmployee = { ...myEmployee, name, telefone: phone, bio };
-        applySession();
-        cancelEditInfo();
-        showToast('Perfil atualizado!', 'success');
-    };
-
-    function positionFloating(el, anchor) {
-        const rect = anchor.getBoundingClientRect();
-        const margin = 8;
-        let top  = rect.bottom + margin;
-        let left = rect.left;
-        const w = el.offsetWidth || 196;
-        if (left + w > window.innerWidth - 12) left = window.innerWidth - w - 12;
-        const h = el.offsetHeight || 160;
-        if (top + h > window.innerHeight - 12) top = rect.top - h - margin;
-        el.style.top  = top  + 'px';
-        el.style.left = left + 'px';
-    }
-
-    window.toggleAvatarMenu = function () {
-        const menu   = document.getElementById('avatar-menu');
-        const picker = document.getElementById('color-picker');
-        const btn    = document.getElementById('avatar-edit-btn');
-        if (!menu || !btn) return;
-        picker?.classList.remove('open');
-        if (menu.classList.contains('open')) { menu.classList.remove('open'); }
-        else { menu.classList.add('open'); positionFloating(menu, btn); }
-    };
-
-    function closeAvatarMenu() { document.getElementById('avatar-menu')?.classList.remove('open'); }
-
-    document.addEventListener('click', e => {
-        const menu   = document.getElementById('avatar-menu');
-        const picker = document.getElementById('color-picker');
-        if (menu?.classList.contains('open')   && !e.target.closest('#avatar-menu')   && !e.target.closest('#avatar-edit-btn')) closeAvatarMenu();
-        if (picker?.classList.contains('open') && !e.target.closest('#color-picker')  && !e.target.closest('#avatar-edit-btn') && !e.target.closest('#avatar-menu')) closeColorPicker();
-    });
-
-    window.addEventListener('scroll',  () => { const btn = document.getElementById('avatar-edit-btn'); if (!btn) return; const m = document.getElementById('avatar-menu'); const p = document.getElementById('color-picker'); if (m?.classList.contains('open')) positionFloating(m, btn); if (p?.classList.contains('open')) positionFloating(p, btn); }, { passive: true });
-    window.addEventListener('resize',  () => { const btn = document.getElementById('avatar-edit-btn'); if (!btn) return; const m = document.getElementById('avatar-menu'); const p = document.getElementById('color-picker'); if (m?.classList.contains('open')) positionFloating(m, btn); if (p?.classList.contains('open')) positionFloating(p, btn); });
-
-    window.triggerPhotoUpload = function () { closeAvatarMenu(); document.getElementById('photo-input')?.click(); };
-
-    window.handlePhotoUpload = function (event) {
-        const file = event.target.files?.[0]; if (!file) return;
-        if (!file.type.startsWith('image/')) { showToast('Selecione uma imagem válida.', 'error'); return; }
-        if (file.size > 2 * 1024 * 1024) { showToast('Imagem deve ter no máximo 2 MB.', 'warning'); return; }
-        const reader = new FileReader();
-        reader.onload = async e => {
-            const base64 = e.target.result;
-            const { error } = await sb.from('employees').update({ avatar_url: base64 }).eq('id', myEmployeeId);
-            if (error) { showToast('Erro ao salvar foto.', 'error'); return; }
-            myEmployee = { ...myEmployee, avatar_url: base64 };
-            applySession();
-            showToast('Foto atualizada!', 'success');
-        };
-        reader.readAsDataURL(file);
-        event.target.value = '';
-    };
-
-    window.removePhoto = async function () {
-        closeAvatarMenu();
-        const { error } = await sb.from('employees').update({ avatar_url: null }).eq('id', myEmployeeId);
-        if (error) { showToast('Erro ao remover foto.', 'error'); return; }
-        myEmployee = { ...myEmployee, avatar_url: null };
-        applySession();
-        showToast('Foto removida.', 'error');
-    };
-
-    window.openColorPicker = function () {
-        const picker = document.getElementById('color-picker');
-        const btn    = document.getElementById('avatar-edit-btn');
-        if (!picker || !btn) return;
-        document.getElementById('avatar-menu')?.classList.remove('open');
-        if (picker.classList.contains('open')) { picker.classList.remove('open'); }
-        else { picker.classList.add('open'); positionFloating(picker, btn); }
-    };
-
-    function closeColorPicker() { document.getElementById('color-picker')?.classList.remove('open'); }
-
-    function buildColorSwatches() {
-        const container = document.getElementById('color-swatches'); if (!container) return;
-        container.innerHTML = '';
-        const current = myEmployee.avatar_color || '#6366f1';
-        AVATAR_COLORS.forEach(color => {
-            const sw = document.createElement('div');
-            sw.className = 'color-swatch' + (color === current ? ' active' : '');
-            sw.style.background = color; sw.title = color;
-            sw.addEventListener('click', () => selectAvatarColor(color));
-            container.appendChild(sw);
-        });
-    }
-
-    async function selectAvatarColor(color) {
-        const { error } = await sb.from('employees')
-            .update({ avatar_color: color, avatar_url: null })
-            .eq('id', myEmployeeId);
-        if (error) { showToast('Erro ao salvar cor.', 'error'); return; }
-        myEmployee = { ...myEmployee, avatar_color: color, avatar_url: null };
-        applySession(); buildColorSwatches(); closeColorPicker();
-        showToast('Cor atualizada!', 'success');
-    }
-
-    // Notificações são preferências de UI — localStorage é adequado
-    const NOTIF_KEY = 'nexus_notif_' + myEmployee.email;
-
-    const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true };
-
-    function loadNotifPrefs() {
-        try {
-            const saved  = JSON.parse(localStorage.getItem(NOTIF_KEY));
-            const merged = { ...NOTIF_DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
-            Object.entries(merged).forEach(([k, v]) => { const el = document.getElementById('notif-' + k); if (el) el.checked = v; });
-            if (!saved) localStorage.setItem(NOTIF_KEY, JSON.stringify(merged));
-        } catch {}
-    }
-
-    window.saveNotifPref = function (key, value) {
-        try {
-            const saved = JSON.parse(localStorage.getItem(NOTIF_KEY));
-            const prefs = (saved && typeof saved === 'object') ? saved : { ...NOTIF_DEFAULTS };
-            prefs[key] = value;
-            localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
-            showToast(value ? 'Notificação ativada.' : 'Notificação desativada.', value ? 'success' : 'error');
-        } catch {}
-    };
-
-    window.checkNewPass = function () {
-        const curr = document.getElementById('curr-pass')?.value || '';
-        const np   = document.getElementById('new-pass-profile')?.value || '';
-        const cp   = document.getElementById('confirm-pass-profile')?.value || '';
-        const msg  = document.getElementById('pw-match-msg');
-        const btn  = document.getElementById('btn-change-pw');
-        if (btn) btn.disabled = !(curr && np.length >= 8 && np === cp);
-        if (!msg) return;
-        if (!cp)              { msg.textContent = ''; msg.className = 'pw-match-msg'; }
-        else if (np !== cp)   { msg.textContent = 'As senhas não coincidem.'; msg.className = 'pw-match-msg err'; }
-        else if (np.length < 8){ msg.textContent = 'Mínimo 8 caracteres.'; msg.className = 'pw-match-msg err'; }
-        else                  { msg.textContent = 'Senhas coincidem ✓'; msg.className = 'pw-match-msg ok'; }
-    };
-
-    window.changePassword = async function () {
-        const curr = document.getElementById('curr-pass')?.value || '';
-        const np   = document.getElementById('new-pass-profile')?.value || '';
-
-        // Verifica senha atual antes de alterar
-        const { error: authError } = await sb.auth.signInWithPassword({ email: myEmployee.email, password: curr });
-        if (authError) { showToast('Senha atual incorreta.', 'error'); return; }
-
-        const { error } = await sb.auth.updateUser({ password: np });
-        if (error) { showToast('Erro ao alterar senha. Tente novamente.', 'error'); return; }
-
-        ['curr-pass','new-pass-profile','confirm-pass-profile'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        const btn = document.getElementById('btn-change-pw'); if (btn) btn.disabled = true;
-        const msg = document.getElementById('pw-match-msg'); if (msg) { msg.textContent = ''; msg.className = 'pw-match-msg'; }
-        showToast('Senha alterada com sucesso!', 'success');
-    };
-
-    window.togglePwSmall = function (inputId, btn) {
-        const input = document.getElementById(inputId); if (!input) return;
-        const show = input.type === 'password'; input.type = show ? 'text' : 'password';
-        const icon = btn.querySelector('i'); if (icon) icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
-    };
-
-    window.logout = async function () { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
-    window.logoutAll = async function () { await sb.auth.signOut(); showToast('Sessões encerradas.', 'success'); setTimeout(() => window.location.href = '../screens/login.html', 1200); };
-
-    window.showToast = function (title, type = 'success', msg = '') {
-        const container = document.getElementById('toast-container'); if (!container) return;
-        const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || 'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${title}</p>${msg ? `<p class="toast-msg">${msg}</p>` : ''}</div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide'); setTimeout(()=>this.closest('.toast').remove(),300)"><i class="fas fa-times"></i></button>`;
-        container.appendChild(toast);
-        requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3500);
-    };
 });

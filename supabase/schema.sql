@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS employees (
   agencia             TEXT,
   conta               TEXT,
   avatar_color        TEXT,
+  avatar_url          TEXT,
+  bio                 TEXT,
+  vale_refeicao       NUMERIC(10,2),
+  vale_alimentacao    NUMERIC(10,2),
   last_access         TIMESTAMPTZ,
   auth_user_id        UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -50,7 +54,7 @@ CREATE TRIGGER employees_updated_at
 
 CREATE TABLE IF NOT EXISTS profiles (
   id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  profile     TEXT NOT NULL CHECK (profile IN ('rh', 'colaborador')),
+  profile     TEXT NOT NULL CHECK (profile IN ('Administrador', 'colaborador')),
   employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -174,7 +178,7 @@ CREATE TABLE IF NOT EXISTS documents (
   tipo         TEXT NOT NULL,
   size_label   TEXT,
   storage_path TEXT,            
-  source       TEXT DEFAULT 'rh' CHECK (source IN ('rh','colaborador')),
+  source       TEXT DEFAULT 'Administrador' CHECK (source IN ('Administrador','colaborador')),
   status       TEXT DEFAULT 'pendente' CHECK (status IN ('pendente','aprovado','recusado')),
   created_by   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ DEFAULT NOW()
@@ -217,6 +221,40 @@ CREATE TABLE IF NOT EXISTS bank_adjustments (
 
 CREATE INDEX IF NOT EXISTS bank_adj_emp_idx ON bank_adjustments(employee_id, date DESC);
 
+-- ── Tabelas de IA (via migrations 003–006) ──────────────────────
+
+CREATE TABLE IF NOT EXISTS ai_analysis_cache (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key   TEXT NOT NULL DEFAULT 'latest',
+  summary     TEXT NOT NULL DEFAULT '',
+  alerts      JSONB NOT NULL DEFAULT '[]',
+  health_score INTEGER,
+  analyzed_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(cache_key)
+);
+
+CREATE TABLE IF NOT EXISTS ai_analysis_history (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  summary      TEXT NOT NULL DEFAULT '',
+  health_score INTEGER,
+  alerts       JSONB NOT NULL DEFAULT '[]',
+  analyzed_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_chat_history (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  role       TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_decision_memory (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE employees          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vacations          ENABLE ROW LEVEL SECURITY;
@@ -230,11 +268,15 @@ ALTER TABLE message_reads      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payslips           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_adjustments   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_analysis_cache  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_analysis_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_chat_history    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_decision_memory ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION is_rh()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
-    SELECT 1 FROM profiles WHERE id = auth.uid() AND profile = 'rh'
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND profile = 'Administrador'
   );
 $$ LANGUAGE sql SECURITY DEFINER;
 
@@ -298,6 +340,11 @@ CREATE POLICY "rh_bankadj_all"       ON bank_adjustments FOR ALL USING (is_rh())
 CREATE POLICY "colabo_bankadj_own"   ON bank_adjustments FOR SELECT
   USING (employee_id = my_employee_id());
 
+CREATE POLICY "rh_cache_all"   ON ai_analysis_cache   FOR ALL USING (is_rh());
+CREATE POLICY "rh_history_all" ON ai_analysis_history FOR ALL USING (is_rh());
+CREATE POLICY "rh_chat_all"    ON ai_chat_history     FOR ALL USING (is_rh());
+CREATE POLICY "rh_memory_all"  ON ai_decision_memory  FOR ALL USING (is_rh());
+
 CREATE POLICY "rh_storage_all" ON storage.objects FOR ALL
   USING (bucket_id = 'documents' AND is_rh());
 
@@ -309,6 +356,18 @@ CREATE POLICY "colabo_storage_own" ON storage.objects FOR SELECT
 
 CREATE POLICY "colabo_storage_upload" ON storage.objects FOR INSERT
   WITH CHECK (
+    bucket_id = 'documents' AND
+    (storage.foldername(name))[1] = my_employee_id()::TEXT
+  );
+
+CREATE POLICY "colabo_storage_delete" ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'documents' AND
+    (storage.foldername(name))[1] = my_employee_id()::TEXT
+  );
+
+CREATE POLICY "colabo_storage_update" ON storage.objects FOR UPDATE
+  USING (
     bucket_id = 'documents' AND
     (storage.foldername(name))[1] = my_employee_id()::TEXT
   );

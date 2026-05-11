@@ -1,96 +1,31 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus — Colaboradores</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/colaboradores.css">
+    <style>
+        .main-wrapper { margin-left: 0 !important; width: 100% !important; }
+        .btn-back { display: inline-flex; align-items: center; gap: 8px; color: #9ca3af; text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 6px 10px; border-radius: 8px; transition: color 0.2s, background 0.2s; }
+        .btn-back:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .btn-back i { font-size: 0.8rem; }
+    </style>
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo-name">Ne<span class="x">x</span>us</div>
-            <button class="sidebar-toggle" id="sidebar-toggle">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <ul class="nav-list">
-                <li class="nav-item">
-                    <a href="../screens/dashboard.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-                        <span class="nav-text">Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item active">
-                    <a href="../screens/colaboradores.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-users"></i></span>
-                        <span class="nav-text">Colaboradores</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/ferias.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-umbrella-beach"></i></span>
-                        <span class="nav-text">Gestão de Férias</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/banco-horas-rh.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-clock-rotate-left"></i></span>
-                        <span class="nav-text">Gestão de Horas</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/arquivos.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
-                        <span class="nav-text">Arquivos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/pagamentos.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                        <span class="nav-text">Pagamentos</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="../screens/comunicação.html" class="nav-link">
-                        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-                        <span class="nav-text">Comunicação Interna</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        
-        <div class="sidebar-footer">
-            <div class="user-card">
-                <div class="user-avatar" id="rh-sidebar-avatar">RH</div>
-                <div class="user-info">
-                    <p class="user-name" id="rh-sidebar-name">Administrador</p>
-                    <p class="user-role" id="rh-sidebar-role">Recursos Humanos</p>
-                </div>
-                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
-        </div>
-    </aside>
-
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-    <div class="main-wrapper">
+    <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar">
             <div class="topbar-left">
-                <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1 class="page-title">Colaboradores</h1>
+                <a href="../screens/inicio-rh.html" class="btn-back">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Voltar</span>
+                </a>
             </div>
             <div class="header-actions">
-                <button class="btn-primary" id="btn-open-form" onclick="toggleForm()">
+                <button class="btn-topbar" id="btn-open-form" onclick="toggleForm()">
                     <i class="fas fa-user-plus"></i>
                     <span>Novo Colaborador</span>
                 </button>
@@ -209,7 +144,7 @@
                                 </div>
                                 <div class="form-actions">
                                     <button type="button" onclick="toggleForm()" class="btn-secondary">Cancelar</button>
-                                    <button type="submit" id="btn-save-simple" class="btn-primary">
+                                    <button type="button" id="btn-save-simple" class="btn-primary">
                                         <i class="fas fa-check"></i> Cadastrar
                                     </button>
                                 </div>
@@ -780,35 +715,35 @@
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
     <div id="employee-drawer" class="drawer">
+
+        <!-- ── Header ──────────────────────────────── -->
         <div class="drawer-header">
-            <div class="header-content">
-                <div class="avatar-placeholder" id="drawer-avatar"><i class="fas fa-user"></i></div>
-                <div class="header-text">
-                    <h2 id="view-name">—</h2>
-                    <p id="view-role" class="subtitle">Cargo</p>
-                </div>
-            </div>
-            <div class="drawer-controls">
-                <div class="dropdown">
-                    <button class="btn-options" onclick="toggleDropdown(event)" aria-label="Opções">
+            <div class="drawer-header-actions">
+                <!-- menu ⋮ -->
+                <div class="dropdown" id="drawer-dropdown-wrap">
+                    <button class="btn-options" id="btn-drawer-options"
+                            onclick="toggleDropdown(event)"
+                            aria-label="Mais opções">
                         <i class="fas fa-ellipsis-v"></i>
                     </button>
                     <div id="drawer-dropdown" class="dropdown-content">
+                        <!-- menu principal -->
                         <div id="main-menu-options">
-                            <a href="#" onclick="handleEditFromDrawer()">
+                            <a href="javascript:void(0)" onclick="handleEditFromDrawer()">
                                 <i class="fas fa-edit"></i> Editar Dados
                             </a>
-                            <a href="#" onclick="showStatusSubmenu()" class="btn-submenu">
+                            <a href="javascript:void(0)" onclick="showStatusSubmenu()" class="btn-submenu">
                                 <i class="fas fa-sync-alt"></i> Alterar Status
                                 <i class="fas fa-chevron-right icon-arrow"></i>
                             </a>
                             <div class="dropdown-divider"></div>
-                            <a href="#" onclick="handleDeleteEmployee()" class="text-danger">
+                            <a href="javascript:void(0)" onclick="handleDeleteEmployee()" class="text-danger">
                                 <i class="fas fa-trash-alt"></i> Excluir Colaborador
                             </a>
                         </div>
+                        <!-- submenu status -->
                         <div id="status-submenu-options" class="hidden">
-                            <a href="#" onclick="backToMainMenu()" class="btn-back">
+                            <a href="javascript:void(0)" onclick="event.stopPropagation(); backToMainMenu()" class="btn-back">
                                 <i class="fas fa-arrow-left"></i> Voltar
                             </a>
                             <div class="dropdown-divider"></div>
@@ -816,41 +751,60 @@
                         </div>
                     </div>
                 </div>
+                <!-- fechar -->
                 <button class="btn-close-drawer" onclick="closeDrawer()" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+
+            <!-- perfil -->
+            <div class="drawer-profile">
+                <div class="avatar-placeholder" id="drawer-avatar">ME</div>
+                <div class="drawer-profile-text">
+                    <h2 id="view-name">—</h2>
+                    <p id="view-role" class="drawer-role">—</p>
+                </div>
+            </div>
         </div>
+
+        <!-- ── Body ────────────────────────────────── -->
         <div class="drawer-body">
-            <div class="drawer-info-group">
-                <div class="info-item">
-                    <div class="info-icon"><i class="fas fa-building"></i></div>
-                    <div>
-                        <strong>Departamento</strong>
-                        <p id="view-dept">—</p>
+            <div class="drawer-section">
+                <p class="drawer-section-label"><i class="fas fa-briefcase"></i> Vínculo</p>
+                <div class="drawer-grid">
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-building"></i></div>
+                        <div>
+                            <strong>Departamento</strong>
+                            <p id="view-dept">—</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-file-signature"></i></div>
+                        <div>
+                            <strong>Contrato</strong>
+                            <p id="view-contract">—</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <div>
+                            <strong>Admissão</strong>
+                            <p id="view-date">—</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-money-bill-wave"></i></div>
+                        <div>
+                            <strong>Salário</strong>
+                            <p id="view-salary">—</p>
+                        </div>
                     </div>
                 </div>
-                <div class="info-item">
-                    <div class="info-icon"><i class="fas fa-money-bill-wave"></i></div>
-                    <div>
-                        <strong>Salário</strong>
-                        <p id="view-salary">—</p>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <div class="info-icon"><i class="fas fa-calendar-alt"></i></div>
-                    <div>
-                        <strong>Data de Admissão</strong>
-                        <p id="view-date">—</p>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <div class="info-icon"><i class="fas fa-file-signature"></i></div>
-                    <div>
-                        <strong>Tipo de Contrato</strong>
-                        <p id="view-contract">—</p>
-                    </div>
-                </div>
+            </div>
+
+            <div class="drawer-section">
+                <p class="drawer-section-label"><i class="fas fa-address-card"></i> Contato</p>
                 <div class="info-item">
                     <div class="info-icon"><i class="fas fa-envelope"></i></div>
                     <div>
@@ -858,15 +812,10 @@
                         <p id="view-email">—</p>
                     </div>
                 </div>
-                <div class="info-item">
-                    <div class="info-icon"><i class="fas fa-id-badge"></i></div>
-                    <div>
-                        <strong>Status</strong>
-                        <span id="view-status" class="badge">—</span>
-                    </div>
-                </div>
             </div>
         </div>
+
+
     </div>
 </div>
 <div id="toast-container" class="toast-container"></div>

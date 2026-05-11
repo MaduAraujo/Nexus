@@ -49,6 +49,7 @@ async function loadPayslips() {
     const { data } = await sb.from('payslips')
         .select('*')
         .eq('employee_id', myEmployeeId)
+        .eq('status', 'pago')
         .order('mes', { ascending: false });
     holerites = data || [];
     renderMonthList();
@@ -65,7 +66,7 @@ function renderMonthList() {
     if (badge) badge.textContent = holerites.length;
     list.innerHTML = '';
     if (!holerites.length) {
-        list.innerHTML = `<div style="padding:20px;font-size:.84rem;color:var(--text-muted);text-align:center;">Nenhum holerite disponível.<br>O RH ainda não gerou holerites para sua conta.</div>`;
+        list.innerHTML = `<div style="padding:20px;font-size:.84rem;color:var(--text-muted);text-align:center;">Nenhum holerite disponível.<br>Seus holerites aparecerão aqui após a confirmação do pagamento pelo RH.</div>`;
         return;
     }
     holerites.forEach(h => {

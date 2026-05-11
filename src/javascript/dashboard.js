@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════
    dashboard.js — Dashboard RH — Supabase
    ════════════════════════════════════════════ */
 
@@ -21,11 +21,10 @@ async function loadRhSidebar() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = '../screens/login.html'; return; }
     const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-    if (profile?.profile !== 'rh') { window.location.href = '../screens/login.html'; return; }
-    const displayName = user.email?.split('@')[0] || 'Administrador';
-    setText('rh-sidebar-name',   displayName);
+    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
+    setText('rh-sidebar-name',   'Administrador');
     setText('rh-sidebar-role',   'Recursos Humanos');
-    setText('rh-sidebar-avatar', displayName.slice(0, 2).toUpperCase());
+    setText('rh-sidebar-avatar', 'ADM');
 }
 
 async function loadData() {
