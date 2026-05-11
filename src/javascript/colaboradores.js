@@ -641,7 +641,8 @@ function setupFormListener() {
             toggleForm();
         } catch (err) {
             console.error('[Nexus] save employee:', err);
-            showToast('Erro!', 'Não foi possível salvar. Tente novamente.', 'error');
+            const detail = err?.message || err?.details || err?.code || 'Tente novamente.';
+            showToast('Erro!', detail, 'error');
         } finally {
             btns.forEach(b => b.disabled = false);
         }
