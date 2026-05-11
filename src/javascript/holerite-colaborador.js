@@ -33,9 +33,12 @@ function loadSidebarInfo() {
     const avatarEl = document.getElementById('sidebar-avatar');
     const nameEl   = document.getElementById('sidebar-name');
     const roleEl   = document.getElementById('sidebar-role');
-    if (avatarEl) { avatarEl.style.background = color; avatarEl.textContent = ini; }
-    if (nameEl)   nameEl.textContent = name;
-    if (roleEl)   roleEl.textContent = myEmployee.role || 'Colaborador';
+    if (avatarEl) {
+        if (myEmployee.avatar_url) { avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`; avatarEl.textContent = ''; }
+        else { avatarEl.style.background = color; avatarEl.textContent = ini; }
+    }
+    if (nameEl) nameEl.textContent = name;
+    if (roleEl) roleEl.textContent = myEmployee.role || 'Colaborador';
 }
 
 window.logout = async function () {

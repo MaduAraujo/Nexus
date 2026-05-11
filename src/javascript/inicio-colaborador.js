@@ -116,15 +116,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (welcomeAvatar) {
             if (e.avatar_url) {
-                welcomeAvatar.style.backgroundImage    = `url(${e.avatar_url})`;
-                welcomeAvatar.style.backgroundSize     = 'cover';
-                welcomeAvatar.style.backgroundPosition = 'center';
-                welcomeAvatar.style.background         = '';
-                welcomeAvatar.textContent              = '';
+                welcomeAvatar.style.background = `url(${e.avatar_url}) center/cover`;
+                welcomeAvatar.textContent = '';
             } else {
-                welcomeAvatar.style.backgroundImage = '';
-                welcomeAvatar.style.background      = color;
-                welcomeAvatar.textContent           = ini;
+                welcomeAvatar.style.background = color;
+                welcomeAvatar.textContent = ini;
             }
         }
 

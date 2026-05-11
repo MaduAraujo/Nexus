@@ -15,7 +15,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const myEmployeeId = profile.employee_id;
 
-    const { data: emp } = await sb.from('employees').select('name, avatar_color').eq('id', myEmployeeId).single();
+    const { data: emp } = await sb.from('employees').select('name, role, avatar_color, avatar_url').eq('id', myEmployeeId).single();
+    const _ini   = (emp?.name || '?').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
+    const _color = emp?.avatar_color || '#6366f1';
+    const _av    = document.getElementById('sidebar-avatar');
+    if (_av) {
+        if (emp?.avatar_url) { _av.style.background = `url(${emp.avatar_url}) center/cover`; _av.textContent = ''; }
+        else { _av.style.background = _color; _av.textContent = _ini; }
+    }
+    const _nm = document.getElementById('sidebar-name'); if (_nm) _nm.textContent = emp?.name || '—';
+    const _rl = document.getElementById('sidebar-role'); if (_rl) _rl.textContent = emp?.role || 'Colaborador';
 
     const docList          = document.getElementById('doc-list');
     const docCountBadge    = document.getElementById('doc-count-badge');

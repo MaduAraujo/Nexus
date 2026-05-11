@@ -113,7 +113,10 @@ function nextStep(rec) {
 function initSidebar() {
     const color = myEmployee.avatar_color || '#6366f1';
     const ini   = initials(myEmployee.name);
-    const av = $('sidebar-avatar'); if (av) { av.textContent = ini; av.style.background = color; }
+    const av = $('sidebar-avatar'); if (av) {
+        if (myEmployee.avatar_url) { av.style.background = `url(${myEmployee.avatar_url}) center/cover`; av.textContent = ''; }
+        else { av.style.background = color; av.textContent = ini; }
+    }
     const nm = $('sidebar-name');   if (nm) nm.textContent = myEmployee.name || '—';
     const rl = $('sidebar-role');   if (rl) rl.textContent = myEmployee.role || 'Colaborador';
 

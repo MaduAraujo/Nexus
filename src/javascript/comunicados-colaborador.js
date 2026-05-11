@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { data: profile } = await sb.from('profiles').select('profile, employee_id').eq('id', user.id).single();
     if (profile?.profile !== 'colaborador' || !profile.employee_id) { window.location.href = '../screens/login.html'; return; }
 
-    const { data: employee } = await sb.from('employees').select('id,name,role,dept,avatar_color').eq('id', profile.employee_id).single();
+    const { data: employee } = await sb.from('employees').select('id,name,role,dept,avatar_color,avatar_url').eq('id', profile.employee_id).single();
     if (!employee) { window.location.href = '../screens/login.html'; return; }
 
     const myEmployeeId = employee.id;
@@ -20,7 +20,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sidebarAvatar = document.getElementById('sidebar-avatar');
     const sidebarName   = document.getElementById('sidebar-name');
     const sidebarRole   = document.getElementById('sidebar-role');
-    if (sidebarAvatar) { sidebarAvatar.style.background = color; sidebarAvatar.textContent = ini; }
+    if (sidebarAvatar) {
+        if (employee.avatar_url) { sidebarAvatar.style.background = `url(${employee.avatar_url}) center/cover`; sidebarAvatar.textContent = ''; }
+        else { sidebarAvatar.style.background = color; sidebarAvatar.textContent = ini; }
+    }
     if (sidebarName)   sidebarName.textContent = employee.name || '—';
     if (sidebarRole)   sidebarRole.textContent = employee.role || 'Colaborador';
 
