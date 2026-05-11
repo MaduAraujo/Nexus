@@ -166,20 +166,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        comunicadosList.innerHTML = lista.map((m, i) => {
-            const dateStr = new Date(m.created_at).toLocaleDateString('pt-BR');
-            return `
+        comunicadosList.innerHTML = lista.map((m, i) => `
             <div class="comunicado-item" style="animation-delay: ${i * 0.06}s">
                 <div class="comunicado-icon"><i class="fas fa-bullhorn"></i></div>
                 <div class="comunicado-body">
                     <p class="comunicado-text">${escapeHTML(m.texto)}</p>
                     <div class="comunicado-meta">
-                        <span class="comunicado-date"><i class="fas fa-calendar-alt" style="margin-right:4px;opacity:0.6"></i>${dateStr}</span>
                         <span class="comunicado-dest">${escapeHTML(m.destino)}</span>
                     </div>
                 </div>
-            </div>`;
-        }).join('');
+            </div>`).join('');
     }
 
     renderAll(myEmployee);
