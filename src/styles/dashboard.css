@@ -532,11 +532,15 @@ ul { list-style: none; }
     .cards { gap: 8px; }
     .card { padding: 10px 8px; gap: 6px; flex-direction: column; align-items: center; justify-content: center; }
     .card-label { display: none; }
+    .card-delta { display: none; }
     .card-icon { width: 32px; height: 32px; font-size: 0.9rem; border-radius: 8px; }
     .card-info { align-items: center; }
     .card-info h2 { font-size: 1.35rem; }
     .chart-container { height: 200px; }
     .department-grid { grid-template-columns: 1fr 1fr; }
+    .metrics-extra { flex-wrap: nowrap; gap: 8px; }
+    .metric-pill { flex: 1; min-width: 0; padding: 7px 10px; font-size: 11.5px; gap: 6px; }
+    .metric-pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ════════════════════════════
