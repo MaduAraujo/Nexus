@@ -1020,14 +1020,13 @@ body {
     .page-body { padding: 12px; gap: 14px; }
 
     .welcome-banner {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
         padding: 20px 18px;
     }
 
-    .welcome-right    { flex-direction: row; align-items: center; gap: 8px; }
-    .welcome-left     { gap: 14px; }
+    .welcome-left     { gap: 12px; }
     .welcome-avatar   { width: 46px; height: 46px; font-size: 1rem; border-radius: 12px; }
     .welcome-name     { font-size: 1rem; }
     .welcome-meta     { font-size: 0.74rem; }
