@@ -474,13 +474,6 @@ body {
     margin-bottom: 2px;
 }
 
-.welcome-name-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
 .welcome-name {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1.3rem;
@@ -518,6 +511,8 @@ body {
     font-weight: 700;
     color: #fff;
     white-space: nowrap;
+    flex-shrink: 0;
+    z-index: 1;
 }
 
 .welcome-badge i {
