@@ -14,32 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const myEmployeeId = employee.id;
     const myDept       = employee.dept || '';
 
-    // ─── Sidebar ─────────────────────────────────────────────
-    const ini   = (employee.name || '?').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
-    const color = employee.avatar_color || '#6366f1';
-    const sidebarAvatar = document.getElementById('sidebar-avatar');
-    const sidebarName   = document.getElementById('sidebar-name');
-    const sidebarRole   = document.getElementById('sidebar-role');
-    if (sidebarAvatar) {
-        if (employee.avatar_url) { sidebarAvatar.style.background = `url(${employee.avatar_url}) center/cover`; sidebarAvatar.textContent = ''; }
-        else { sidebarAvatar.style.background = color; sidebarAvatar.textContent = ini; }
-    }
-    if (sidebarName)   sidebarName.textContent = employee.name || '—';
-    if (sidebarRole)   sidebarRole.textContent = employee.role || 'Colaborador';
-
-    const sidebar        = document.getElementById('sidebar');
-    const sidebarToggle  = document.getElementById('sidebar-toggle');
-    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const mainWrapper    = document.querySelector('.main-wrapper');
-    const isMobile       = () => window.innerWidth <= 768;
-    const openSide       = () => { sidebar?.classList.add('open');    sidebarOverlay?.classList.add('active');    document.body.style.overflow = 'hidden'; };
-    const closeSide      = () => { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; };
-    sidebarToggle?.addEventListener('click', e => { e.stopPropagation(); isMobile() ? (sidebar?.classList.contains('open') ? closeSide() : openSide()) : (() => { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); })(); });
-    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeSide() : openSide(); });
-    sidebarOverlay?.addEventListener('click', closeSide);
-    window.addEventListener('resize', () => { if (!isMobile()) closeSide(); });
-
     window.logout = async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
 
     // ─── Helpers ─────────────────────────────────────────────

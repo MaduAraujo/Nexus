@@ -39,7 +39,6 @@ const SEV_LABEL = { critical: 'Crítico', warning: 'Atenção', info: 'Info' };
 
 document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
-    setupSidebar();
     setupListeners();
     setupTabs();
     await Promise.all([loadAnalysisCache(), loadChatHistory()]);
@@ -51,10 +50,6 @@ async function checkAuth() {
     const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
     if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
 
-    const el = (id) => document.getElementById(id);
-    if (el('rh-sidebar-name'))   el('rh-sidebar-name').textContent   = 'Administrador';
-    if (el('rh-sidebar-role'))   el('rh-sidebar-role').textContent   = 'Recursos Humanos';
-    if (el('rh-sidebar-avatar')) el('rh-sidebar-avatar').textContent = 'ADM';
 }
 
 // ─── Listeners ────────────────────────────────────────────────
@@ -831,29 +826,6 @@ function mdToHtml(text) {
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>');
-}
-
-// ─── Sidebar ──────────────────────────────────────────────────
-
-function setupSidebar() {
-    const sidebar   = document.getElementById('sidebar');
-    const toggleBtn = document.getElementById('sidebar-toggle');
-    const menuBtn   = document.getElementById('topbar-menu-btn');
-    const overlay   = document.getElementById('sidebar-overlay');
-    const wrapper   = document.getElementById('main-wrapper');
-    if (!sidebar) return;
-    const isMobile = () => window.innerWidth <= 768;
-    const openMob  = () => { sidebar.classList.add('open');    overlay?.classList.add('active'); };
-    const closeMob = () => { sidebar.classList.remove('open'); overlay?.classList.remove('active'); };
-    toggleBtn?.addEventListener('click', e => {
-        e.stopPropagation();
-        if (isMobile()) { sidebar.classList.contains('open') ? closeMob() : openMob(); }
-        else { const c = sidebar.classList.toggle('collapsed'); wrapper?.classList.toggle('sidebar-collapsed', c); }
-    });
-    menuBtn?.addEventListener('click',  e => { e.stopPropagation(); sidebar.classList.contains('open') ? closeMob() : openMob(); });
-    overlay?.addEventListener('click',  closeMob);
-    window.addEventListener('resize',   () => { if (!isMobile()) closeMob(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && isMobile()) closeMob(); });
 }
 
 async function logout() {

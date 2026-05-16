@@ -250,19 +250,6 @@
         const color = myEmployee.avatar_color || '#6366f1';
         const ini   = initials(myEmployee.name);
 
-        const sidebarAvatar = document.getElementById('sidebar-avatar');
-        if (sidebarAvatar) {
-            if (myEmployee.avatar_url) {
-                sidebarAvatar.style.background = `url(${myEmployee.avatar_url}) center/cover`;
-                sidebarAvatar.textContent = '';
-            } else {
-                sidebarAvatar.style.background = color;
-                sidebarAvatar.textContent = ini;
-            }
-        }
-        setEl('sidebar-name', myEmployee.name);
-        setEl('sidebar-role', myEmployee.role || 'Colaborador');
-
         const avatarImg = document.getElementById('profile-avatar-img');
         const avatarDiv = document.getElementById('profile-avatar');
         const removeBtn = document.getElementById('avatar-menu-remove');
@@ -430,31 +417,7 @@
         Object.entries(prefs).forEach(([k, v]) => { const el = document.getElementById('notif-' + k); if (el) el.checked = v; });
     }
 
-    // ── Sidebar toggle ──
-    const sidebar        = document.getElementById('sidebar');
-    const sidebarToggle  = document.getElementById('sidebar-toggle');
-    const topbarMenuBtn  = document.getElementById('topbar-menu-btn');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const mainWrapper    = document.querySelector('.main-wrapper');
-    const SIDEBAR_KEY    = 'sidebarState_colab';
-
-    const isMobile = () => window.innerWidth <= 768;
-
-    function openMobileSidebar()  { sidebar?.classList.add('open'); sidebarOverlay?.classList.add('active'); document.body.style.overflow = 'hidden'; }
-    function closeMobileSidebar() { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow = ''; }
-
-    sidebarToggle?.addEventListener('click', e => {
-        e.stopPropagation();
-        if (isMobile()) { sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); }
-        else { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); localStorage.setItem(SIDEBAR_KEY, c ? 'collapsed' : 'expanded'); }
-    });
-
-    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar(); });
-    sidebarOverlay?.addEventListener('click', closeMobileSidebar);
-
-    if (!isMobile() && localStorage.getItem(SIDEBAR_KEY) === 'collapsed') { sidebar?.classList.add('collapsed'); mainWrapper?.classList.add('sidebar-collapsed'); }
-    window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMobileSidebar(); closeAvatarMenu(); closeColorPicker(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAvatarMenu(); closeColorPicker(); } });
 
     // ── Fechar menus ao clicar fora ──
     document.addEventListener('click', e => {
