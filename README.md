@@ -3,6 +3,7 @@
 **Gestão de Recursos Humanos**
 
 [![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)](https://nexus-nine-zeta.vercel.app)
+[![Versão](https://img.shields.io/badge/versão-1.0-6366f1?style=flat-square)](https://github.com/MaduAraujo/Nexus)
 
 > Nexus é uma plataforma web que reúne em um só lugar tudo que o time de RH e os colaboradores precisam: ponto, férias, documentos, comunicação e muito mais.
 
@@ -10,18 +11,70 @@
 
 ---
 
-## O que é o Nexus?
+## Índice
+ 
+- [O problema que o Nexus resolve](#o-problema-que-o-nexus-resolve)
+- [Para quem é o Nexus?](#para-quem-é-o-nexus)
+- [Como funciona](#como-funciona)
+- [Como começar a usar](#como-começar-a-usar)
+- [Painel do RH](#painel-do-rh)
+- [Portal do Colaborador](#portal-do-colaborador)
+- [Inteligência Artificial integrada](#inteligência-artificial-integrada)
+- [Tecnologias utilizadas](#tecnologias-utilizadas)
+- [Limitações desta versão](#limitações-desta-versão)
+- [Equipe](#equipe)
+---
 
-O Nexus foi criado para eliminar a fragmentação dos processos de RH. Em vez de usar planilhas, e-mails e sistemas separados, tudo acontece em um único ambiente — organizado, em tempo real e com inteligência artificial integrada.
+## O problema que o Nexus resolve
+ 
+Empresas perdem horas toda semana gerenciando ponto em planilha, férias por e-mail e documentos espalhados em pastas compartilhadas. O resultado é retrabalho, falta de visibilidade e colaboradores sem acesso fácil às próprias informações.
+ 
+O Nexus centraliza tudo isso em um único ambiente — organizado, em tempo real e com inteligência artificial monitorando o bem-estar da equipe.
+ 
+---
 
-A plataforma funciona com dois perfis de acesso:
-
-- **RH / Administrador** — controle total sobre a equipe, processos e dados
-- **Colaborador** — portal individual para acompanhar sua própria jornada na empresa
+## Para quem é o Nexus?
+ 
+O Nexus é voltado para **qualquer empresa que queira substituir processos manuais de RH por uma solução digital centralizada** — independente do porte ou segmento.
 
 ---
 
-## Para o time de RH
+## Como funciona
+ 
+A plataforma funciona com dois perfis de acesso:
+ 
+- **RH / Administrador** — controle total sobre a equipe, processos e dados.
+- **Colaborador** — portal individual para acompanhar sua própria jornada na empresa.
+ 
+---
+
+## Como começar a usar
+ 
+**1. Acesse o perfil do RH**
+ 
+| Campo | Valor |
+|---|---|
+| **E-mail** | rh@nexus.com |
+| **Senha** | Fam@1234 |
+ 
+**2. Cadastre os colaboradores**
+No painel do RH, acesse o módulo **Colaboradores** e cadastre-se como colaborador.
+
+**3. Envie os convites**
+Após o cadastro, a plataforma envia automaticamente um convite por e-mail para o colaborador criado.
+ 
+**4. Colaborador acessa o portal**
+O colaborador recebe o convite, define sua senha e já passa a ter acesso ao próprio portal — com seus dados, holerites, ponto e muito mais.
+ 
+---
+
+## Painel do RH
+
+<div align="center">
+
+![Painel RH](<Captura de tela 2026-05-18 134234.png>)
+
+</div>
 
 | O que pode fazer | Como funciona |
 |---|---|
@@ -35,7 +88,15 @@ A plataforma funciona com dois perfis de acesso:
 
 ---
 
-## Para o colaborador
+## Painel do Colaborador
+
+Cada colaborador tem seu próprio espaço personalizado, com seus dados de cargo, departamento e data de admissão logo na entrada.
+
+<div align="center">
+
+![Painel Colaborador](<Captura de tela 2026-05-18 134331.png>)
+
+</div>
 
 | O que pode fazer | Como funciona |
 |---|---|
@@ -48,19 +109,45 @@ A plataforma funciona com dois perfis de acesso:
 
 ---
 
-## Tecnologia por trás
+## Inteligência Artificial integrada
+ 
+O módulo **Central de Alertas** usa a API da Anthropic (Claude) para analisar padrões de comportamento dos colaboradores — como excesso de horas, ausências frequentes e falta de interação — e sinalizar automaticamente possíveis riscos de burnout para o RH. Isso permite que a equipe de gestão de pessoas aja de forma preventiva, antes que o problema se agrave.
 
-O Nexus foi construído com foco em confiabilidade e experiência de uso:
+<div align="center">
 
-- **Tempo real** — atualizações instantâneas sem precisar recarregar a página
-- **Segurança** — cada usuário acessa apenas os próprios dados, com isolamento garantido no banco
-- **IA integrada** — análise de bem-estar dos colaboradores via Claude (Anthropic)
-- **Serverless** — lógica sensível processada fora do cliente, com maior segurança
+![Central de Alertas](<Captura de tela 2026-05-18 140350.png>)
+
+</div>
+ 
+---
+
+## Tecnologias utilizadas
+ 
+```
+Frontend     →  HTML5 · CSS3 · JavaScript
+Backend      →  Supabase (PostgreSQL · Auth · Storage · Realtime)
+Serverless   →  TypeScript via Supabase Edge Functions
+IA           →  Claude API (Anthropic)
+Deploy       →  Vercel
+```
+ 
+**Destaques de arquitetura:**
+ 
+- Autenticação com controle de acesso por papel (`administrador` / `colaborador`)
+- Atualizações em tempo real com Supabase Realtime (sem polling)
+- Edge Functions para lógica sensível fora do cliente (convites, análise de IA)
+- Row Level Security (RLS) no banco para isolamento de dados por usuário
 
 ---
 
-## Projeto acadêmico
-
-O Nexus foi desenvolvido como projeto acadêmico.
-
-**Desenvolvido por:** [Madu Araújo](https://www.linkedin.com/in/mariaeduarda2801/) e equipe.
+## Equipe
+ 
+| Nome |
+|---|---|
+| Madu Araújo |
+| Vinicius |
+| Igor |
+| Maria Luiza |
+| Aline |
+ 
+---
