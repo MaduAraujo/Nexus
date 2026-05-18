@@ -44,13 +44,13 @@ A plataforma opera com dois perfis de acesso: **RH / Administrador** e **Colabor
 | E-mail | `rh@nexus.com` |
 | Senha | `Fam@1234` |
 
-**2. Cadastre os colaboradores**
+**2. Cadastre os colaboradores:**
 No módulo **Colaboradores**, adicione os membros da equipe.
 
-**3. Convites automáticos**
+**3. Convites automáticos:**
 Ao cadastrar, a plataforma envia automaticamente um convite por e-mail para o colaborador.
 
-**4. Colaborador acessa o portal**
+**4. Colaborador acessa o portal:**
 O colaborador recebe o convite, define sua senha e passa a ter acesso ao próprio portal — com ponto, holerites, documentos e muito mais.
 
 ---
