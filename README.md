@@ -1,85 +1,67 @@
-<div align="center">
-
 # Nexus
 
-**Sistema web de gestão de Recursos Humanos**
+**Gestão de Recursos Humanos**
 
-![Version](https://img.shields.io/badge/versão-1.0-6366f1?style=flat-square)
-![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)
+[![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)](https://nexus-nine-zeta.vercel.app)
+[![Deploy](https://img.shields.io/badge/acesse%20a%20plataforma-Vercel-000000?style=flat-square&logo=vercel)](https://nexus-nine-zeta.vercel.app)
 
-</div>
+> Nexus é uma plataforma web que reúne em um só lugar tudo que o time de RH e os colaboradores precisam: ponto, férias, documentos, comunicação e muito mais.
 
----
-
-## Sobre o projeto
-
-O **Nexus** é uma plataforma de RH que centraliza os processos de gestão de pessoas de uma empresa. O sistema oferece dois ambientes distintos: um **painel administrativo** para o time de RH e um **portal individual** para cada colaborador.
+🔗 **[Acesse o Nexus →](https://nexus-nine-zeta.vercel.app)**
 
 ---
 
-## Funcionalidades
+## O que é o Nexus?
 
-### Painel do RH
+O Nexus foi criado para eliminar a fragmentação dos processos de RH. Em vez de usar planilhas, e-mails e sistemas separados, tudo acontece em um único ambiente — organizado, em tempo real e com inteligência artificial integrada.
 
-| Módulo | Descrição |
+A plataforma funciona com dois perfis de acesso:
+
+- **RH / Administrador** — controle total sobre a equipe, processos e dados
+- **Colaborador** — portal individual para acompanhar sua própria jornada na empresa
+
+---
+
+## Para o time de RH
+
+| O que pode fazer | Como funciona |
 |---|---|
-| **Dashboard** | Visão consolidada da equipe com indicadores em tempo real |
-| **Colaboradores** | Cadastro, edição e gestão do ciclo de vida de cada funcionário |
-| **Controle de Ponto** | Aprovação de registros, ajustes e gestão do banco de horas |
-| **Férias** | Calendário de solicitações com fluxo completo de aprovação |
-| **Comunicação** | Publicação de comunicados e chat interno com a equipe |
-| **Documentos** | Envio e organização de arquivos e holerites por colaborador |
-| **Alertas de IA** | Detecção de sinais de burnout com análise inteligente por IA |
+| 📊 **Dashboard** | Painel com indicadores da equipe atualizados em tempo real |
+| 👥 **Colaboradores** | Cadastro, edição e gestão do ciclo de vida de cada funcionário |
+| ⏱️ **Controle de Ponto** | Aprovação de registros, ajustes e gestão do banco de horas |
+| 🏖️ **Férias** | Calendário de solicitações com fluxo completo de aprovação |
+| 💬 **Comunicação** | Publicação de comunicados e chat direto com a equipe |
+| 📁 **Documentos** | Envio e organização de arquivos e holerites por colaborador |
+| 🤖 **Alertas de IA** | Detecção automática de sinais de burnout com análise por inteligência artificial |
 
-### Portal do Colaborador
+---
 
-| Módulo | Descrição |
+## Para o colaborador
+
+| O que pode fazer | Como funciona |
 |---|---|
-| **Ponto** | Registro de entrada/saída e solicitação de ajustes |
-| **Férias** | Acompanhamento de saldo e status das solicitações |
-| **Holerites** | Acesso ao histórico de contracheques |
-| **Documentos** | Visualização de arquivos compartilhados pelo RH |
-| **Chat** | Comunicação direta com o time de RH |
-| **Perfil** | Edição de dados pessoais, foto e biografia |
+| ⏱️ **Ponto** | Registre entrada e saída e solicite ajustes quando necessário |
+| 🏖️ **Férias** | Acompanhe seu saldo e o status das suas solicitações |
+| 💰 **Holerites** | Acesse todo o histórico dos seus contracheques |
+| 📁 **Documentos** | Visualize arquivos compartilhados pelo RH |
+| 💬 **Chat** | Fale diretamente com o time de RH |
+| 👤 **Perfil** | Mantenha seus dados pessoais, foto e biografia atualizados |
 
 ---
 
-## Tecnologias
+## Tecnologia por trás
 
-```
-Frontend   →  HTML5 · CSS3 · JavaScript
-Backend    →  Supabase (PostgreSQL · Auth · Storage · Realtime)
-Serverless →  TypeScript via Supabase Edge Functions
-IA         →  Claude API (Anthropic) — análise de alertas de bem-estar
-```
+O Nexus foi construído com foco em confiabilidade e experiência de uso:
 
-**Destaques de arquitetura:**
-- Autenticação com controle de acesso por papel (`administrador` / `colaborador`)
-- Atualizações em tempo real com Supabase Realtime (sem polling)
-- Edge Functions para lógica sensível fora do cliente (convites, análise de IA)
-- Row Level Security (RLS) no banco para isolamento de dados por usuário
+- **Tempo real** — atualizações instantâneas sem precisar recarregar a página
+- **Segurança** — cada usuário acessa apenas os próprios dados, com isolamento garantido no banco
+- **IA integrada** — análise de bem-estar dos colaboradores via Claude (Anthropic)
+- **Serverless** — lógica sensível processada fora do cliente, com maior segurança
 
 ---
 
-## Rodando localmente
+## Projeto acadêmico
 
-O projeto não possui etapa de build — basta servir os arquivos estáticos.
+O Nexus foi desenvolvido como projeto acadêmico.
 
-**Pré-requisitos**
-- Conta no [Supabase](https://supabase.com) (plano gratuito é suficiente)
-- Servidor HTTP local: [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) (VSCode)
-
-**Passos**
-
-```bash
-# 1. Clone o repositório
-
-git clone https://github.com/seu-usuario/nexus-rh.git
-cd nexus-rh
-
-# 2. No Supabase, execute supabase/schema.sql para criar as tabelas
-
-# 3. Informe suas credenciais em src/javascript/supabase-client.js
-
-# 4. Abra index.html com seu servidor HTTP local
-```
+**Desenvolvido por:** [Madu Araújo](https://www.linkedin.com/in/mariaeduarda2801/) e equipe.
