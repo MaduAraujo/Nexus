@@ -6,8 +6,6 @@
 
 ![Version](https://img.shields.io/badge/versão-1.0-6366f1?style=flat-square)
 ![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)
-![Frontend](https://img.shields.io/badge/frontend-vanilla%20JS-f59e0b?style=flat-square)
-![Backend](https://img.shields.io/badge/backend-supabase-3ecf8e?style=flat-square)
 
 </div>
 
