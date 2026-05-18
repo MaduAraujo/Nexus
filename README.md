@@ -3,7 +3,6 @@
 **Gestão de Recursos Humanos**
 
 [![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)](https://nexus-nine-zeta.vercel.app)
-[![Deploy](https://img.shields.io/badge/acesse%20a%20plataforma-Vercel-000000?style=flat-square&logo=vercel)](https://nexus-nine-zeta.vercel.app)
 
 > Nexus é uma plataforma web que reúne em um só lugar tudo que o time de RH e os colaboradores precisam: ponto, férias, documentos, comunicação e muito mais.
 
