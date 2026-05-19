@@ -582,6 +582,7 @@ function setupFormListener() {
         btns.forEach(b => b.disabled = true);
 
         try {
+            let successMsg = isEditing ? 'Os dados foram atualizados com sucesso.' : 'Colaborador registrado.';
             if (isEditing) {
                 const old = employees.find(e => e.id === idField);
                 const TRACKED = [
@@ -613,6 +614,7 @@ function setupFormListener() {
                 const newEmp = dbToEmployee(inserted);
                 employees.unshift(newEmp);
                 // Convida o colaborador, cria perfil e vincula auth_user_id
+                let inviteSent = false;
                 try {
                     const invite = await inviteEmployee(empData.email);
                     if (invite?.id) {
@@ -624,18 +626,22 @@ function setupFormListener() {
                         await sb.from('employees')
                             .update({ auth_user_id: invite.id })
                             .eq('id', inserted.id);
+                        inviteSent = true;
                     }
                 } catch (err) {
                     console.error('[Nexus] Convite não enviado:', err.message);
                     showToast('Aviso de Convite', `Colaborador cadastrado, mas o e-mail de acesso não foi enviado: ${err.message}`, 'warning');
                 }
+                successMsg = inviteSent
+                    ? 'Colaborador registrado. Um e-mail de acesso foi enviado.'
+                    : 'Colaborador registrado. O e-mail de acesso poderá ser reenviado depois.';
             }
 
             const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
             applyStatusFilter(activeFilter);
             showToast(
                 isEditing ? 'Colaborador Atualizado!' : 'Colaborador Cadastrado!',
-                isEditing ? 'Os dados foram atualizados com sucesso.' : 'Colaborador registrado. Um e-mail de acesso será enviado.',
+                successMsg,
                 'success'
             );
             toggleForm();

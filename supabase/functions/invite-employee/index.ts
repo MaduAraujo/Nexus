@@ -55,6 +55,17 @@ serve(async (req) => {
     });
 
     if (error) {
+      // Usuário já existe no Auth — busca o ID para vincular ao colaborador
+      if (error.message.toLowerCase().includes("already been registered") || error.message.toLowerCase().includes("already registered")) {
+        const { data: list } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+        const existing = list?.users?.find(u => u.email === email);
+        if (existing) {
+          return new Response(JSON.stringify({ id: existing.id, existing: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
       return new Response(JSON.stringify({ error: error.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
