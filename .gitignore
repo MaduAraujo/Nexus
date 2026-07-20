@@ -1,3 +1,6 @@
+# Dependências instaladas (não devem ir para o repositório)
+node_modules/
+
 # Supabase CLI temp files (contém IDs internos do projeto)
 supabase/.temp/
 
