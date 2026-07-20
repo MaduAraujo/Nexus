@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../javascript/theme.js"></script>
+    <title>Minha Equipe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="../styles/equipe-colaborador.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </a>
+            <span class="topbar-title"><i class="fas fa-people-group"></i> Minha Equipe</span>
+        </div>
+    </header>
+
+    <main class="content">
+        <div class="page-body">
+
+            <div id="section-not-manager" class="empty-state hidden">
+                <i class="fas fa-people-group"></i>
+                <p>Você ainda não lidera nenhum colaborador</p>
+                <span>Quando alguém for atribuído a você como gestor (campo "Gestor" no cadastro), a equipe aparecerá aqui.</span>
+            </div>
+
+            <div id="team-content" class="hidden" style="display:flex; flex-direction:column; gap:24px;">
+
+                <div>
+                    <div class="section-header-row">
+                        <h2 class="section-title"><i class="fas fa-umbrella-beach"></i> Férias pendentes de aprovação</h2>
+                        <span class="section-sub" id="pending-count-label"></span>
+                    </div>
+                    <div style="margin-top:12px" id="pending-wrap">
+                        <div class="solicitacoes-list" id="pending-list"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-header-row">
+                        <h2 class="section-title"><i class="fas fa-users"></i> Colaboradores</h2>
+                        <span class="section-sub" id="team-count-label"></span>
+                    </div>
+                    <p class="privacy-note"><i class="fas fa-shield-halved"></i> Por política de privacidade (LGPD), dados salariais e bancários do time não ficam visíveis para o gestor — só para o RH.</p>
+                    <div class="team-grid" id="team-grid" style="margin-top:12px"></div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div class="modal-overlay" id="modal-escalate-rh">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-flag"></i> Escalar ao RH</h3>
+                <button class="modal-close" onclick="closeEscalateModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="escalate-target">Sobre: <strong id="escalate-employee-name">—</strong></p>
+                <div class="form-group">
+                    <label>Mensagem para o RH <span class="req">*</span></label>
+                    <textarea id="escalate-message-text" rows="4" placeholder="Descreva a situação..."></textarea>
+                    <span class="field-error" id="err-escalate-message"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEscalateModal()">Cancelar</button>
+                <button class="btn-primary" onclick="confirmEscalateToRh()"><i class="fas fa-paper-plane"></i> Enviar ao RH</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-reject-vacation">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-xmark"></i> Recusar Solicitação</h3>
+                <button class="modal-close" onclick="closeRejectModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Motivo da recusa <span class="req">*</span></label>
+                    <textarea id="reject-reason-text" rows="3" placeholder="Explique por que está recusando esta solicitação..."></textarea>
+                    <span class="field-error" id="err-reject-reason"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeRejectModal()">Cancelar</button>
+                <button class="btn-primary" onclick="confirmRejectVacation()"><i class="fas fa-xmark"></i> Confirmar Recusa</button>
+            </div>
+        </div>
+    </div>
+
+<div id="toast-container" class="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
+<script src="../javascript/equipe-colaborador.js"></script>
+</body>
+</html>
