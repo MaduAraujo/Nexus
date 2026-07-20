@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Gestão de Férias</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Gestão de Férias</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/ferias.css" />
@@ -14,15 +15,16 @@
     <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar">
             <div class="topbar-left">
-                <a href="../screens/inicio-rh.html" class="btn-back">
-                    <i class="fas fa-arrow-left"></i>
-                    <span>Voltar</span>
+                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 </a>
             </div>
             <div class="topbar-right">
-                <button class="btn-add" onclick="openAddModal()">
-                    <i class="fas fa-plus"></i>
-                    <span>Nova Solicitação</span>
+                <button class="btn-icon-only" onclick="openColetivaModal()" title="Férias Coletivas" aria-label="Férias Coletivas">
+                    <i class="fas fa-users"></i>
+                </button>
+                <button class="btn-icon-only" onclick="openAddModal()" title="Nova Solicitação" aria-label="Nova Solicitação">
+                    <i class="fas fa-user"></i>
                 </button>
             </div>
         </header>
@@ -30,38 +32,41 @@
         <main class="content">
             <div class="page-body">
                 <div class="kpi-grid">
-                    <div class="kpi-card kpi--pending">
+                    <button type="button" class="kpi-card kpi--pending" onclick="openKpiModal('pendente')" title="Ver solicitações pendentes">
                         <div class="kpi-icon"><i class="fas fa-clock"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Aguardando Aprovação</span>
                             <span class="kpi-value" id="kpi-pending">0</span>
-                            <span class="kpi-sub">solicitações pendentes</span>
                         </div>
-                    </div>
-                    <div class="kpi-card kpi--upcoming">
+                    </button>
+                    <button type="button" class="kpi-card kpi--upcoming" onclick="openKpiModal('upcoming')" title="Ver quem sai nos próximos 15 dias">
                         <div class="kpi-icon"><i class="fas fa-calendar-check"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Saem nos próximos 15 dias</span>
                             <span class="kpi-value" id="kpi-upcoming">0</span>
-                            <span class="kpi-sub">colaboradores</span>
                         </div>
-                    </div>
-                    <div class="kpi-card kpi--active">
+                    </button>
+                    <button type="button" class="kpi-card kpi--active" onclick="openKpiModal('ativas')" title="Ver quem está de férias agora">
                         <div class="kpi-icon"><i class="fas fa-plane-departure"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Atualmente de férias</span>
                             <span class="kpi-value" id="kpi-active">0</span>
-                            <span class="kpi-sub">colaboradores</span>
                         </div>
-                    </div>
-                    <div class="kpi-card kpi--risk">
+                    </button>
+                    <button type="button" class="kpi-card kpi--risk" onclick="openKpiModal('risco')" title="Ver férias com risco de vencimento">
                         <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Vencem em até 60 dias</span>
                             <span class="kpi-value" id="kpi-risk">0</span>
-                            <span class="kpi-sub">prazo a vencer</span>
                         </div>
-                    </div>
+                    </button>
+                    <button type="button" class="kpi-card kpi--expired" onclick="openExpiredModal()" title="Ver colaboradores com férias vencidas">
+                        <div class="kpi-icon"><i class="fas fa-hourglass-end"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Férias Vencidas</span>
+                            <span class="kpi-value" id="kpi-expired">0</span>
+                        </div>
+                    </button>
                 </div>
 
                 <div class="tabs-bar">
@@ -75,14 +80,15 @@
 
                 <div class="tab-panel active" id="tab-requests">
                     <div class="filters-bar">
-                        <div class="search-wrap">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="search-input" placeholder="Buscar..." oninput="applyFilters()">
-                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()"><i class="fas fa-times"></i></button>
+                        <div class="search-wrapper">
+                            <i class="fas fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="search-input" placeholder="Buscar colaborador…">
+                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                                <i class="fas fa-xmark"></i>
+                            </button>
                         </div>
                         <div class="filter-dropdown" id="filter-dropdown">
                             <button class="btn-filter" id="btn-filter">
-                                <i class="fas fa-sliders"></i>
                                 <span id="filter-label">Filtro</span>
                                 <i class="fas fa-chevron-down filter-chevron" id="filter-chevron"></i>
                             </button>
@@ -94,11 +100,35 @@
                                     <button class="chip"              data-filter="aprovado"  onclick="setFilter(this)">Aprovado</button>
                                     <button class="chip"              data-filter="concluido" onclick="setFilter(this)">Concluído</button>
                                     <button class="chip"              data-filter="recusado"  onclick="setFilter(this)">Recusado</button>
-                                    <button class="chip chip--alert"  data-filter="risco"     onclick="setFilter(this)">
-                                        <i class="fas fa-triangle-exclamation"></i> Risco Vencimento
-                                    </button>
+                                    <button class="chip"              data-filter="cancelado" onclick="setFilter(this)">Cancelado</button>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="export-dropdown" id="export-dropdown">
+                            <button class="btn-filter" id="btn-export">
+                                <span>Exportar</span>
+                                <i class="fas fa-chevron-down filter-chevron" id="export-chevron"></i>
+                            </button>
+                            <div class="export-menu" id="export-dropdown-menu">
+                                <p class="export-menu-label">Formato de exportação</p>
+                                <button class="export-option" id="export-pdf-btn">
+                                    <div class="export-option-icon export-option-icon--pdf"><i class="fas fa-file-pdf"></i></div>
+                                    <div class="export-option-body"><span class="export-option-title">PDF</span><span class="export-option-sub">Relatório para impressão</span></div>
+                                </button>
+                                <button class="export-option" id="export-csv-btn">
+                                    <div class="export-option-icon export-option-icon--csv"><i class="fas fa-file-csv"></i></div>
+                                    <div class="export-option-body"><span class="export-option-title">CSV / Excel</span><span class="export-option-sub">Planilha para auditoria</span></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bulk-bar" id="bulk-bar">
+                        <span id="bulk-count">0 selecionadas</span>
+                        <div class="bulk-bar-actions">
+                            <button class="btn-bulk btn-bulk--approve" onclick="bulkApprove()"><i class="fas fa-check"></i> Aprovar selecionadas</button>
+                            <button class="btn-bulk btn-bulk--reject" onclick="bulkReject()"><i class="fas fa-times"></i> Recusar selecionadas</button>
                         </div>
                     </div>
 
@@ -106,17 +136,18 @@
                         <table class="req-table">
                             <thead>
                                 <tr>
-                                    <th>Colaborador</th>
+                                    <th class="select-cell"><label class="checkbox-label row-check"><input type="checkbox" id="select-all-check" onchange="toggleSelectAll(this.checked)"><span class="checkbox-box"></span></label></th>
+                                    <th class="col-employee">Colaborador</th>
                                     <th>Período Solicitado</th>
                                     <th>Dias</th>
                                     <th>Financeiro</th>
                                     <th>Status</th>
-                                    <th>Ações</th>
+                                    <th class="col-actions">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="requests-tbody">
                                 <tr id="empty-row">
-                                    <td colspan="6">
+                                    <td colspan="7">
                                         <div class="table-empty">
                                             <i class="fas fa-umbrella-beach"></i>
                                             <p>Nenhuma solicitação encontrada.</p>
@@ -130,6 +161,14 @@
                 </div>
 
                 <div class="tab-panel" id="tab-calendar">
+                    <div class="cobertura-card">
+                        <div class="cobertura-head">
+                            <span><i class="fas fa-users-viewfinder"></i> Cobertura por Departamento</span>
+                            <span class="cobertura-hint">colaboradores fora simultaneamente / quadro ativo</span>
+                        </div>
+                        <div class="cobertura-wrap" id="cobertura-wrap"></div>
+                    </div>
+
                     <div class="gantt-wrap">
                         <div class="gantt-header">
                             <div class="gantt-label-col">Colaborador</div>
@@ -153,14 +192,14 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="add-modal" onclick="handleOverlayClick(event,'add-modal')">
+<div class="modal-overlay" id="add-modal">
     <div class="modal-card">
         <div class="modal-head">
             <div class="modal-head-info">
-                <div class="modal-head-icon"><i class="fas fa-calendar-plus"></i></div>
+                <div class="modal-head-icon"><i class="fas fa-user"></i></div>
                 <div>
                     <h3 class="modal-title" id="add-modal-title">Nova Solicitação</h3>
-                    <p class="modal-sub">Registre férias diretamente para o colaborador</p>
+                    <p class="modal-sub">Registre férias para o colaborador</p>
                 </div>
             </div>
             <button class="modal-close" onclick="closeAddModal()"><i class="fas fa-times"></i></button>
@@ -168,18 +207,50 @@
         <div class="modal-body">
             <div class="form-group">
                 <label class="form-label" for="add-employee">Colaborador</label>
-                <select id="add-employee" class="form-input">
+                <select id="add-employee" class="form-input" onchange="onAddEmployeeChange()">
                     <option value="">Selecione o colaborador...</option>
                 </select>
+                <p class="add-emp-saldo-info hidden" id="add-emp-saldo-info"></p>
+                <p class="add-emp-ferias-info hidden" id="add-emp-ferias-info"></p>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label" for="add-start">Data de Início</label>
-                    <input type="date" id="add-start" class="form-input" onchange="calcAddDays()">
+                    <label class="form-label">Data de Início</label>
+                    <div class="date-field" id="add-start-field">
+                        <button type="button" class="date-field-trigger" id="add-start-trigger">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="add-start-text">Selecionar data</span>
+                        </button>
+                        <div class="calendar-popover" id="add-start-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title"></span>
+                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                            <div class="calendar-grid"></div>
+                        </div>
+                        <input type="hidden" id="add-start" onchange="calcAddDays()">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="add-end">Data de Fim</label>
-                    <input type="date" id="add-end" class="form-input" onchange="calcAddDays()">
+                    <label class="form-label">Data de Fim</label>
+                    <div class="date-field" id="add-end-field">
+                        <button type="button" class="date-field-trigger" id="add-end-trigger">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="add-end-text">Selecionar data</span>
+                        </button>
+                        <div class="calendar-popover" id="add-end-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title"></span>
+                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                            <div class="calendar-grid"></div>
+                        </div>
+                        <input type="hidden" id="add-end" onchange="calcAddDays()">
+                    </div>
                 </div>
             </div>
             <div class="days-preview" id="add-days-preview">
@@ -203,15 +274,20 @@
                 </div>
             </div>
             <div class="form-group">
+                <label class="form-label" for="add-substituto">Substituto / Cobertura <span class="label-optional">(opcional)</span></label>
+                <select id="add-substituto" class="form-input">
+                    <option value="">Nenhum</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label class="form-label" for="add-obs">Observação</label>
                 <textarea id="add-obs" class="form-textarea" rows="2" placeholder="Observação interna..."></textarea>
             </div>
             <div class="modal-alert" id="add-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
             <button class="btn-confirm" onclick="submitAdd()">
-                <i class="fas fa-check"></i> Salvar
+                Salvar
             </button>
         </div>
     </div>
@@ -272,9 +348,117 @@
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="coletiva-modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon"><i class="fas fa-users"></i></div>
+                <div>
+                    <h3 class="modal-title">Férias Coletivas</h3>
+                    <p class="modal-sub">Concede férias para um departamento (ou toda a empresa) de uma vez</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeColetivaModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="coletiva-dept">Departamento</label>
+                <select id="coletiva-dept" class="form-input">
+                    <option value="">Toda a empresa</option>
+                </select>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label class="form-label">Data de Início</label>
+                    <div class="date-field" id="coletiva-start-field">
+                        <button type="button" class="date-field-trigger" id="coletiva-start-trigger">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="coletiva-start-text">Selecionar data</span>
+                        </button>
+                        <div class="calendar-popover" id="coletiva-start-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title"></span>
+                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                            <div class="calendar-grid"></div>
+                        </div>
+                        <input type="hidden" id="coletiva-start">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Data de Fim</label>
+                    <div class="date-field" id="coletiva-end-field">
+                        <button type="button" class="date-field-trigger" id="coletiva-end-trigger">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="coletiva-end-text">Selecionar data</span>
+                        </button>
+                        <div class="calendar-popover" id="coletiva-end-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title"></span>
+                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                            <div class="calendar-grid"></div>
+                        </div>
+                        <input type="hidden" id="coletiva-end">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="coletiva-obs">Observação</label>
+                <textarea id="coletiva-obs" class="form-textarea" rows="2" placeholder="Ex: recesso coletivo de fim de ano..."></textarea>
+            </div>
+            <p class="form-hint-block"><i class="fas fa-circle-info"></i> Colaboradores estagiários/aprendizes e quem já tiver férias no período são pulados automaticamente (art. 139 CLT).</p>
+            <div class="modal-alert" id="coletiva-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-confirm" onclick="submitColetiva()">
+                Conceder Férias
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="expired-modal">
+    <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon modal-head-icon--danger"><i class="fas fa-hourglass-end"></i></div>
+                <div>
+                    <h3 class="modal-title">Férias Vencidas</h3>
+                    <p class="modal-sub">Pagamento em dobro obrigatório (art. 137 CLT)</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeExpiredModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="expired-body"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="kpi-info-modal">
+    <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+            <div class="modal-head-info">
+                <div class="modal-head-icon" id="kpi-info-icon"><i class="fas fa-clock"></i></div>
+                <div>
+                    <h3 class="modal-title" id="kpi-info-title">Título</h3>
+                    <p class="modal-sub" id="kpi-info-sub">Subtítulo</p>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeKpiInfoModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="kpi-info-body"></div>
+    </div>
+</div>
+
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/ferias.js"></script>
 </body>
 </html>

@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <script src="../javascript/theme.js"></script>
+    <title>Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <link rel="stylesheet" href="../styles/dashboard.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
+    <link rel="stylesheet" href="../styles/dashboard.css" />
 </head>
 <body>
     <div class="layout">
         <div class="main-wrapper" style="margin-left:0;width:100%">
             <header class="topbar">
                 <div class="topbar-left">
-                    <a href="../screens/inicio-rh.html" class="btn-back">
-                        <i class="fas fa-arrow-left"></i>
-                        <span>Voltar</span>
+                    <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </a>
                 </div>
                 <div class="topbar-right">
@@ -28,22 +28,13 @@
                         </button>
                         <div class="export-menu" id="export-menu">
                             <p class="export-menu-label">Formato de exportação</p>
-                            <button class="export-option" id="export-excel">
-                                <div class="export-option-icon export-option-icon--excel">
-                                    <i class="fas fa-table"></i>
-                                </div>
-                                <div class="export-option-body">
-                                    <span class="export-option-title">Excel</span>
-                                    <span class="export-option-sub">.xlsx — Planilha editável</span>
-                                </div>
-                            </button>
                             <button class="export-option" id="export-pdf">
                                 <div class="export-option-icon export-option-icon--pdf">
                                     <i class="fas fa-file-lines"></i>
                                 </div>
                                 <div class="export-option-body">
                                     <span class="export-option-title">PDF</span>
-                                    <span class="export-option-sub">.pdf — Documento imprimível</span>
+                                    <span class="export-option-sub">Documento imprimível</span>
                                 </div>
                             </button>
                         </div>
@@ -56,7 +47,7 @@
                     <div class="card">
                         <div class="card-icon active-icon"><i class="fas fa-user-check"></i></div>
                         <div class="card-info">
-                            <p class="card-label">Ativos</p>
+                            <p class="card-label">Headcount (Ativos)</p>
                             <h2 id="count-ativos">0</h2>
                             <span class="card-delta" id="delta-ativos"></span>
                         </div>
@@ -77,55 +68,221 @@
                             <span class="card-delta" id="delta-inativos"></span>
                         </div>
                     </div>
-                </section>
-
-                <section class="metrics-extra">
-                    <div class="metric-pill metric-pill--turnover">
-                        <i class="fas fa-arrows-rotate"></i>
-                        <span>Turnover 12 meses: <strong id="turnover-rate">—</strong></span>
-                    </div>
-                    <div class="metric-pill metric-pill--absent">
-                        <i class="fas fa-calendar-xmark"></i>
-                        <span>Absenteísmo este mês: <strong id="absenteeism-rate">—</strong></span>
-                    </div>
-                </section>
-
-
-                <section class="charts-grid">
-                    <div class="card chart-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-exchange-alt"></i> Admissões vs Desligamentos</h3>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="chart-turnover"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="card chart-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-file-contract"></i> Tipo de Contrato</h3>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="chart-contracts"></canvas>
-                        </div>
-                    </div>
-                    
                     <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-bar"></i> Headcount por Departamento</h3>
+                        <div class="card-icon leave-icon"><i class="fas fa-user-clock"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Afastados</p>
+                            <h2 id="count-afastados">0</h2>
                         </div>
-                        <div id="department-list" class="department-grid"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon turnover-icon"><i class="fas fa-arrows-rotate"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Turnover (12 meses)</p>
+                            <h2 id="turnover-rate">—</h2>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon absent-icon"><i class="fas fa-calendar-xmark"></i></div>
+                        <div class="card-info">
+                            <p class="card-label">Absenteísmo (mês)</p>
+                            <h2 id="absenteeism-rate">—</h2>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="block-section">
+                    <div class="section-title-row">
+                        <h2 class="section-title"><span class="section-title-accent"></span>Visão Geral e Demografia</h2>
+                    </div>
+                    <div class="block-grid block-grid--demo">
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-user-clock"></i> Faixa Etária</h3>
+                            </div>
+                            <div class="chart-container chart-container--sm">
+                                <canvas id="chart-age"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-venus-mars"></i> Gênero</h3>
+                            </div>
+                            <div class="chart-container chart-container--sm">
+                                <canvas id="chart-gender"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-business-time"></i> Tempo de Casa</h3>
+                            </div>
+                            <div class="chart-container chart-container--sm">
+                                <canvas id="chart-tenure"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> Headcount por Setor</h3>
+                            </div>
+                            <div class="chart-container chart-container--dept">
+                                <canvas id="chart-department"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-exchange-alt"></i> Admissões vs Desligamentos</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-turnover"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-file-contract"></i> Tipo de Contrato</h3>
+                            </div>
+                            <div class="chart-container chart-container--center">
+                                <canvas id="chart-contracts"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="block-section">
+                    <div class="section-title-row">
+                        <h2 class="section-title"><span class="section-title-accent"></span>Equidade e Diversidade</h2>
+                    </div>
+                    <div class="block-grid block-grid--equity">
+                        <div class="card equity-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-scale-balanced"></i> Equidade Salarial por Gênero</h3>
+                            </div>
+                            <div class="equity-body" id="equity-gender-body">—</div>
+                        </div>
+                        <div class="card equity-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-universal-access"></i> Cota Legal PCD</h3>
+                            </div>
+                            <div class="equity-body" id="equity-pcd-body">—</div>
+                        </div>
+                        <div class="card equity-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-scale-balanced"></i> Equidade Salarial por Raça/Cor</h3>
+                            </div>
+                            <div class="equity-body" id="equity-race-body">—</div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-people-group"></i> Representatividade por Raça/Cor</h3>
+                            </div>
+                            <div class="chart-container chart-container--dept">
+                                <canvas id="chart-race"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="block-section">
+                    <div class="section-title-row">
+                        <h2 class="section-title"><span class="section-title-accent"></span>Desenvolvimento e Performance</h2>
+                    </div>
+                    <div class="block-grid block-grid--dev">
+                        <div class="card empty-card">
+                            <div class="empty-card-graphic empty-card-graphic--bars">
+                                <span style="--h:30%"></span><span style="--h:50%"></span><span style="--h:40%"></span><span style="--h:65%"></span><span style="--h:48%"></span><span style="--h:58%"></span>
+                            </div>
+                            <div class="empty-card-icon"><i class="fas fa-chalkboard-user"></i></div>
+                            <h4 class="empty-card-title">Horas de Treinamento</h4>
+                            <p class="empty-card-text">Média de horas de treinamento por colaborador.</p>
+                            <span class="empty-card-badge">Em breve</span>
+                        </div>
+                        <div class="card empty-card">
+                            <div class="empty-card-graphic empty-card-graphic--line"></div>
+                            <div class="empty-card-icon"><i class="fas fa-star-half-stroke"></i></div>
+                            <h4 class="empty-card-title">Avaliações de Desempenho</h4>
+                            <p class="empty-card-text">Resultado consolidado dos ciclos de avaliação.</p>
+                            <span class="empty-card-badge">Em breve</span>
+                        </div>
+                        <div class="card empty-card">
+                            <div class="empty-card-graphic empty-card-graphic--bars">
+                                <span style="--h:55%"></span><span style="--h:42%"></span><span style="--h:68%"></span><span style="--h:35%"></span><span style="--h:78%"></span><span style="--h:60%"></span>
+                            </div>
+                            <div class="empty-card-icon"><i class="fas fa-arrow-trend-up"></i></div>
+                            <h4 class="empty-card-title">Taxa de Promoção</h4>
+                            <p class="empty-card-text">Percentual de colaboradores promovidos no período.</p>
+                            <span class="empty-card-badge">Em breve</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="block-section">
+                    <div class="section-title-row">
+                        <h2 class="section-title"><span class="section-title-accent"></span>Engajamento de Comunicação Interna</h2>
+                    </div>
+                    <div class="block-grid block-grid--engagement">
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-building-user"></i> Taxa de Leitura por Setor</h3>
+                            </div>
+                            <div class="chart-container chart-container--dept">
+                                <canvas id="chart-dept-readrate"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-hourglass-half"></i> Tempo Médio até Leitura (6 meses)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-read-time"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-triangle-exclamation"></i> Comunicados com Baixa Adesão</h3>
+                            </div>
+                            <div class="engagement-list" id="engagement-low-list"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="block-section">
+                    <div class="section-title-row">
+                        <h2 class="section-title"><span class="section-title-accent"></span>Retenção e Custos</h2>
+                    </div>
+                    <div class="block-grid block-grid--cost">
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-sack-dollar"></i> Custo de Folha (semestral)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-payroll"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Banco de Horas (créditos, 6 meses)</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="chart-overtime"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-people-arrows"></i> Turnover por Departamento (12 meses)</h3>
+                            </div>
+                            <div class="chart-container chart-container--dept">
+                                <canvas id="chart-dept-turnover"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </main>
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../javascript/supabase-client.js"></script>
+    <script src="../javascript/auth.js"></script>
     <script src="../javascript/dashboard.js"></script>
 </body>
 </html>

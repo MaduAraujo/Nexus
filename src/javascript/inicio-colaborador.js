@@ -1,24 +1,9 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // ── Auth ──
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id')
-        .eq('id', user.id)
-        .single();
-
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
-        window.location.href = '../screens/login.html';
-        return;
-    }
-
-    const myEmployeeId = profile.employee_id;
-
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-
-    let myEmployee = emp;
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    const myEmployeeId = auth.profile.employee_id;
+    let myEmployee      = auth.employee;
 
     // ── Sidebar toggle (estado de UI — localStorage é aceitável aqui) ──
     const sidebar        = document.getElementById('sidebar');
@@ -53,6 +38,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('resize', () => { if (!isMobile()) closeMobileSidebar(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMobile()) closeMobileSidebar(); });
+
+    // ── Tema claro/escuro ──
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    function syncThemeIcon() {
+        const isDark = window.NexusTheme?.current() === 'dark';
+        themeToggleBtn.innerHTML = `<i class="fas fa-${isDark ? 'sun' : 'moon'}"></i>`;
+        themeToggleBtn.setAttribute('aria-label', isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro');
+    }
+    if (themeToggleBtn) {
+        syncThemeIcon();
+        themeToggleBtn.addEventListener('click', () => {
+            window.NexusTheme?.toggle();
+            syncThemeIcon();
+        });
+    }
 
     // ── Date display ──
     const now = new Date();
@@ -174,7 +174,103 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`).join('');
     }
 
+    // ── Jornada de Integração (onboarding 30/60/90 dias) ──
+    // Mostrada só dentro da janela de integração (até 100 dias de casa) — depois
+    // disso a jornada deixa de fazer sentido e o card simplesmente some.
+    const STAGE_LABEL = { 30: '30 dias', 60: '60 dias', 90: '90 dias' };
+    let onboardingTasks    = [];
+    let onboardingDoneIds  = new Set();
+
+    function daysSinceAdmission(admissionDate) {
+        if (!admissionDate) return null;
+        const adm = new Date(admissionDate + 'T00:00:00');
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        return Math.floor((today - adm) / 86400000);
+    }
+
+    async function loadOnboarding(employeeId, admissionDate) {
+        const card = document.getElementById('onboarding-card');
+        if (!card) return;
+        const dias = daysSinceAdmission(admissionDate);
+        if (dias === null || dias < 0 || dias > 100) { card.classList.add('hidden'); return; }
+
+        const [{ data: tasks }, { data: progress }] = await Promise.all([
+            sb.from('onboarding_tasks').select('*').order('dias', { ascending: true }).order('ordem', { ascending: true }),
+            sb.from('onboarding_progress').select('task_id').eq('employee_id', employeeId),
+        ]);
+        onboardingTasks   = tasks || [];
+        onboardingDoneIds = new Set((progress || []).map(p => p.task_id));
+
+        if (!onboardingTasks.length) { card.classList.add('hidden'); return; }
+        card.classList.remove('hidden');
+        renderOnboarding(dias);
+    }
+
+    function renderOnboarding(diasDeCasa) {
+        const stagesEl = document.getElementById('onboarding-stages');
+        const fillEl   = document.getElementById('onboarding-progress-fill');
+        const labelEl  = document.getElementById('onboarding-progress-label');
+        if (!stagesEl) return;
+
+        const total = onboardingTasks.length;
+        const done  = onboardingTasks.filter(t => onboardingDoneIds.has(t.id)).length;
+        if (fillEl)  fillEl.style.width = `${total ? Math.round((done / total) * 100) : 0}%`;
+        if (labelEl) labelEl.textContent = `${done}/${total}`;
+
+        const stages = [30, 60, 90].map(dias => ({
+            dias,
+            tasks: onboardingTasks.filter(t => t.dias === dias),
+            atual: diasDeCasa <= dias,
+        })).filter(s => s.tasks.length);
+
+        stagesEl.innerHTML = stages.map(s => {
+            const doneInStage = s.tasks.filter(t => onboardingDoneIds.has(t.id)).length;
+            return `
+            <div class="onboarding-stage">
+                <div class="onboarding-stage-title">
+                    <i class="fas ${s.atual ? 'fa-hourglass-half' : 'fa-flag-checkered'}" style="color:${s.atual ? '#f59e0b' : '#10b981'}"></i>
+                    ${STAGE_LABEL[s.dias]} <span class="stage-count">(${doneInStage}/${s.tasks.length})</span>
+                </div>
+                ${s.tasks.map(t => `
+                    <label class="onboarding-task ${onboardingDoneIds.has(t.id) ? 'done' : ''}">
+                        <input type="checkbox" ${onboardingDoneIds.has(t.id) ? 'checked' : ''} onchange="toggleOnboardingTask('${t.id}', this.checked)">
+                        <div class="onboarding-task-body">
+                            <span class="onboarding-task-title">${escapeHTML(t.titulo)}</span>
+                            ${t.descricao ? `<span class="onboarding-task-desc">${escapeHTML(t.descricao)}</span>` : ''}
+                        </div>
+                    </label>`).join('')}
+            </div>`;
+        }).join('');
+    }
+
+    window.toggleOnboardingTask = async function (taskId, checked) {
+        if (checked) {
+            const { error } = await sb.from('onboarding_progress').insert({ employee_id: myEmployeeId, task_id: taskId });
+            if (!error) onboardingDoneIds.add(taskId);
+        } else {
+            const { error } = await sb.from('onboarding_progress').delete().eq('employee_id', myEmployeeId).eq('task_id', taskId);
+            if (!error) onboardingDoneIds.delete(taskId);
+        }
+        renderOnboarding(daysSinceAdmission(myEmployee.admission_date));
+    };
+
+    // ── "Minha Equipe" — só aparece para quem tem colaboradores sob sua liderança ──
+    async function checkIsManager() {
+        const { data: managed } = await sb.from('employees').select('id').eq('manager_id', myEmployeeId);
+        const teamIds = (managed || []).map(m => m.id);
+        document.getElementById('nav-item-equipe')?.classList.toggle('hidden', !teamIds.length);
+        document.getElementById('quick-card-equipe')?.classList.toggle('hidden', !teamIds.length);
+        if (!teamIds.length) return;
+
+        const { data: pending } = await sb.from('vacations').select('id').in('employee_id', teamIds).eq('status', 'pendente');
+        const count = pending?.length || 0;
+        const descEl = document.getElementById('quick-equipe-desc');
+        if (descEl) descEl.textContent = count > 0 ? `${count} férias pendente${count > 1 ? 's' : ''}` : 'Aprovar férias';
+    }
+
     renderAll(myEmployee);
+    await loadOnboarding(myEmployeeId, myEmployee.admission_date);
+    await checkIsManager();
 
     // ── Realtime sync ──
     sb.channel('inicio-colab')

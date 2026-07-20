@@ -39,6 +39,22 @@
     --shadow-accent: 0 4px 14px rgba(99,102,241,.28);
 }
 
+:root[data-theme="dark"] {
+    --bg-page:  #0b0c10;
+    --bg-white: #16171d;
+
+    --text-main:     #e8eaf0;
+    --text-muted:    #9aa1b0;
+    --text-tertiary: #767c8a;
+
+    --border-color: rgba(255, 255, 255, 0.08);
+
+    --success-bg: rgba(16, 185, 129, 0.16);
+    --danger-bg:  rgba(239, 68, 68, 0.16);
+    --warning-bg: rgba(245, 158, 11, 0.16);
+    --info-bg:    rgba(59, 130, 246, 0.16);
+}
+
 *, *::before, *::after {
     margin: 0;
     padding: 0;
@@ -227,6 +243,22 @@ body {
 .topbar-left  { display: flex; align-items: center; gap: 10px; }
 .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+.topbar .btn-back {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 0;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 50%;
+    color: #71717a;
+    padding: 0;
+    font-size: 0;
+    transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease);
+}
+.topbar .btn-back:hover { color: #f4f4f5; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
+.topbar .btn-back svg { width: 16px; height: 16px; stroke: currentColor; }
+
 .topbar-divider {
     width: 1px; height: 20px;
     background: var(--border-dark); flex-shrink: 0;
@@ -318,7 +350,7 @@ body {
 .avatar-edit-btn {
     position: absolute; bottom: -6px; right: -6px;
     width: 28px; height: 28px; border-radius: 8px;
-    background: #fff; color: var(--accent);
+    background: var(--bg-white); color: var(--accent);
     border: 2px solid rgba(99,102,241,.25);
     display: flex; align-items: center; justify-content: center;
     font-size: .68rem; cursor: pointer;
@@ -331,7 +363,7 @@ body {
 .avatar-menu {
     display: none;
     position: fixed;
-    background: #fff; border-radius: 12px;
+    background: var(--bg-white); border-radius: 12px;
     padding: 6px; min-width: 196px;
     box-shadow: 0 12px 32px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
     border: 1px solid var(--border-color);
@@ -357,7 +389,7 @@ body {
 .color-picker {
     display: none;
     position: fixed;
-    background: #fff; border-radius: 12px; padding: 14px;
+    background: var(--bg-white); border-radius: 12px; padding: 14px;
     box-shadow: 0 12px 32px rgba(0,0,0,.18);
     border: 1px solid var(--border-color);
     z-index: 9000; min-width: 184px;

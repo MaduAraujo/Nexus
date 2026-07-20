@@ -8,16 +8,10 @@ let holerites    = [];
 let currentId    = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles').select('profile, employee_id').eq('id', user.id).single();
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) { window.location.href = '../screens/login.html'; return; }
-
-    myEmployeeId = profile.employee_id;
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-    myEmployee = emp;
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    myEmployeeId = auth.profile.employee_id;
+    myEmployee   = auth.employee;
 
     loadSidebarInfo();
     await loadPayslips();
@@ -147,6 +141,151 @@ function renderPayslip(h) {
 }
 
 window.printPayslip = function () { if (currentId) window.print(); };
+
+// ─── Comparativo histórico ──────────────────────────────────────
+
+let comparativoChart = null;
+
+window.openComparativoModal = function () {
+    document.getElementById('comparativo-modal')?.classList.add('active');
+    renderComparativoChart();
+};
+
+window.closeComparativoModal = function () {
+    document.getElementById('comparativo-modal')?.classList.remove('active');
+};
+
+function renderComparativoChart() {
+    const canvas = document.getElementById('comparativo-chart');
+    const emptyEl = document.getElementById('comparativo-empty');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const sorted = [...holerites].sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12);
+    if (comparativoChart) { comparativoChart.destroy(); comparativoChart = null; }
+    if (!sorted.length) { canvas.classList.add('hidden'); emptyEl?.classList.remove('hidden'); return; }
+    canvas.classList.remove('hidden'); emptyEl?.classList.add('hidden');
+
+    comparativoChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: sorted.map(h => h.mes_formatado || h.mes),
+            datasets: [{
+                label: 'Salário líquido',
+                data: sorted.map(h => Number(h.salario_liquido) || 0),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,.08)',
+                fill: true, tension: .3,
+                pointRadius: 4, pointBackgroundColor: '#6366f1', pointBorderColor: '#fff', pointBorderWidth: 2,
+            }],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${formatCurrency(ctx.parsed.y)}` } },
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: v => formatCurrency(v) }, grid: { color: 'rgba(0,0,0,.05)' } },
+                x: { grid: { display: false } },
+            },
+        },
+    });
+}
+
+// ─── Informe de rendimentos anual ────────────────────────────────
+// Consolida os holerites pagos do ano: soma de proventos, INSS (cod 901) e
+// IRRF (cod 902) — mesmos códigos gerados em pagamentos.js — para dar ao
+// colaborador um resumo pronto para a declaração de IR, sem depender do RH.
+
+window.openInformeModal = function () {
+    const sel = document.getElementById('informe-year-select');
+    const years = [...new Set(holerites.map(h => h.mes.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
+    if (sel) {
+        sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    }
+    document.getElementById('informe-modal')?.classList.add('active');
+    renderInforme(years[0] || String(new Date().getFullYear()));
+};
+
+window.closeInformeModal = function () {
+    document.getElementById('informe-modal')?.classList.remove('active');
+};
+
+function summarizeInforme(year) {
+    const doAno = holerites.filter(h => h.mes.startsWith(year));
+    const totalProventos = doAno.reduce((s, h) => s + (Number(h.total_proventos) || 0), 0);
+    const totalLiquido   = doAno.reduce((s, h) => s + (Number(h.salario_liquido) || 0), 0);
+    const codSum = (cod) => doAno.reduce((s, h) => s + (h.descontos || []).filter(d => d.cod === cod).reduce((ss, d) => ss + (Number(d.valor) || 0), 0), 0);
+    const totalInss = codSum('901');
+    const totalIrrf = codSum('902');
+    return { doAno: doAno.sort((a, b) => a.mes.localeCompare(b.mes)), totalProventos, totalInss, totalIrrf, totalLiquido };
+}
+
+window.renderInforme = function (year) {
+    const content  = document.getElementById('informe-content');
+    const emptyEl  = document.getElementById('informe-empty');
+    if (!content) return;
+    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
+
+    if (!doAno.length) { content.innerHTML = ''; emptyEl?.classList.remove('hidden'); return; }
+    emptyEl?.classList.add('hidden');
+
+    const rows = doAno.map(h => `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td class="col-val">${formatCurrency(h.total_proventos)}</td><td class="col-val">${formatCurrency(h.total_descontos)}</td><td class="col-val">${formatCurrency(h.salario_liquido)}</td></tr>`).join('');
+
+    content.innerHTML = `
+        <div class="informe-summary">
+            <div class="informe-stat"><span class="informe-stat-label">Rendimentos brutos</span><span class="informe-stat-value">${formatCurrency(totalProventos)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">Total líquido recebido</span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">INSS retido</span><span class="informe-stat-value danger">${formatCurrency(totalInss)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">IRRF retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>
+        </div>
+        <table class="informe-table">
+            <thead><tr><th>Competência</th><th class="col-val">Proventos</th><th class="col-val">Descontos</th><th class="col-val">Líquido</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+};
+
+window.printInforme = function () {
+    const sel  = document.getElementById('informe-year-select');
+    const year = sel?.value || String(new Date().getFullYear());
+    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
+    if (!doAno.length) return;
+
+    const rows = doAno.map(h => `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td style="text-align:right">${formatCurrency(h.total_proventos)}</td><td style="text-align:right">${formatCurrency(h.total_descontos)}</td><td style="text-align:right">${formatCurrency(h.salario_liquido)}</td></tr>`).join('');
+
+    const win = window.open('', '_blank', 'width=760,height=700');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+        <title>Informe de Rendimentos ${year} — ${escapeHTML(myEmployee.name)}</title>
+        <style>
+            body{font-family:Arial,sans-serif;padding:32px;color:#111;}
+            h1{font-size:18px;margin-bottom:2px;} .sub{color:#555;font-size:12.5px;margin-bottom:18px;}
+            table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px;}
+            th,td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:left;}
+            th{background:#f3f4f6;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#555;}
+            .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;}
+            .stat{background:#f8f9fb;border-radius:8px;padding:10px 12px;}
+            .stat b{display:block;font-size:14px;margin-top:2px;}
+            .stat span{font-size:10.5px;text-transform:uppercase;color:#777;letter-spacing:.03em;}
+            @media print { body{padding:0;} }
+        </style></head><body>
+        <h1>Informe de Rendimentos — ${year}</h1>
+        <p class="sub">${escapeHTML(myEmployee.name)} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+        <div class="stats">
+            <div class="stat"><span>Rendimentos Brutos</span><b>${formatCurrency(totalProventos)}</b></div>
+            <div class="stat"><span>Total Líquido</span><b>${formatCurrency(totalLiquido)}</b></div>
+            <div class="stat"><span>INSS Retido</span><b>${formatCurrency(totalInss)}</b></div>
+            <div class="stat"><span>IRRF Retido</span><b>${formatCurrency(totalIrrf)}</b></div>
+        </div>
+        <table>
+            <thead><tr><th>Competência</th><th>Proventos</th><th>Descontos</th><th>Líquido</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+};
 
 // ─── Realtime ─────────────────────────────────────────────────
 

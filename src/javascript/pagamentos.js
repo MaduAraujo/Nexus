@@ -3,22 +3,21 @@
 let currentMonth  = '';
 let currentSearch = '';
 let currentDept   = '';
+let currentDeptHol = '';
 let allRows       = [];
 let employees     = [];
 let payslips      = [];
 let rhUser        = null;
 let currentSlipData = null;
 let selectedIds   = new Set();
+let lastRescisaoCalc = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     setLoading(true);
     try {
-        const { data: { user }, error: authErr } = await sb.auth.getUser();
-        if (authErr || !user) { window.location.href = '../screens/login.html'; return; }
-
-        const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-        if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
-        rhUser = user;
+        const auth = await NexusAuth.requireProfile('Administrador');
+        if (!auth) return;
+        rhUser = auth.user;
 
         setText('rh-sidebar-name',   'Administrador');
         setText('rh-sidebar-role',   'Recursos Humanos');
@@ -26,6 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setupSidebar();
         setupExportDropdown();
+        setupDeptFilterDropdown('dept-filter-dropdown', 'btn-dept-filter', 'dept-filter-menu', 'dept-filter-chevron');
+        setupDeptFilterDropdown('dept-hol-filter-dropdown', 'btn-dept-hol-filter', 'dept-hol-filter-menu', 'dept-hol-filter-chevron');
+        setupRescisaoDatePicker();
 
         const now = new Date();
         currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
@@ -48,7 +50,7 @@ function setLoading(show) {
 async function loadData() {
     const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }] = await Promise.all([
         sb.from('employees')
-            .select('id,name,role,dept,salary,contract_type,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao')
+            .select('id,name,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao')
             .in('status', ['Ativo','ativo'])
             .order('name'),
         sb.from('payslips').select('*').eq('mes', currentMonth),
@@ -64,6 +66,7 @@ async function loadData() {
         dept:          e.dept,
         salary:        e.salary,
         contractType:  e.contract_type,
+        workLoad:      e.work_load,
         admissionDate: e.admission_date,
         email:         e.email,
         valeTransporte:    e.vale_transporte ? 'sim' : 'nao',
@@ -90,30 +93,24 @@ async function refresh() {
     }
 }
 
+// Faixas, alíquotas e deduções vêm de tabelas-fiscais.js (atualizado
+// anualmente, sem tocar nesta lógica de cálculo).
 function calcINSS(salBase) {
     if (salBase <= 0) return 0;
-    const faixas = [
-        { limite: 1412.00, aliq: 0.075 },
-        { limite: 2666.68, aliq: 0.090 },
-        { limite: 4000.03, aliq: 0.120 },
-        { limite: 7786.02, aliq: 0.140 },
-    ];
-    let inss = 0, anterior = 0;
+    const faixas = TABELA_FISCAL.inss.faixas;
+    const teto   = faixas[faixas.length - 1].limite;
+    const base   = Math.min(salBase, teto); // acima do teto, contribuição fica congelada
     for (const f of faixas) {
-        if (salBase <= anterior) break;
-        inss += (Math.min(salBase, f.limite) - anterior) * f.aliq;
-        anterior = f.limite;
+        if (base <= f.limite) return +(base * f.aliquota - f.deducao).toFixed(2);
     }
-    if (salBase > 7786.02) inss += (salBase - 7786.02) * 0.14;
-    return +Math.min(inss, 908.86).toFixed(2);
+    return 0;
 }
 
 function calcIRRF(base) {
-    if (base <= 2259.20) return 0;
-    if (base <= 2826.65) return +(base * 0.075 - 169.44).toFixed(2);
-    if (base <= 3751.05) return +(base * 0.150 - 381.44).toFixed(2);
-    if (base <= 4664.68) return +(base * 0.225 - 662.77).toFixed(2);
-    return +(base * 0.275 - 896.00).toFixed(2);
+    for (const f of TABELA_FISCAL.irrf.faixas) {
+        if (base <= f.limite) return f.aliquota > 0 ? +(base * f.aliquota - f.deducao).toFixed(2) : 0;
+    }
+    return 0;
 }
 
 function parseCurrency(str) {
@@ -129,7 +126,7 @@ function calcRow(emp) {
     let inss = 0, irrf = 0, benef = 0, descVT = 0;
 
     if (!isPJ) {
-        inss = isAprendiz ? +(salary * 0.08).toFixed(2) : calcINSS(salary);
+        inss = isAprendiz ? +(salary * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(salary);
         if (!isAprendiz) irrf = calcIRRF(salary - inss);
 
         if (emp.benValeRefeicao)    benef += parseCurrency(emp.benValeRefeicao) * 22;
@@ -149,7 +146,7 @@ function calcRow(emp) {
     return { salary, inss, irrf, benef, bruto, descontos: +(inss + irrf + descVT).toFixed(2), liquido, isPJ };
 }
 
-function buildPayslipData(emp, monthKey) {
+async function buildPayslipData(emp, monthKey) {
     const calc = calcRow(emp);
     const [year, monthNum] = monthKey.split('-');
     const month = parseInt(monthNum, 10);
@@ -176,13 +173,60 @@ function buildPayslipData(emp, monthKey) {
                 if (descVT > 0) descontos.push({ cod: '903', descricao: 'Desc. Vale Transporte', referencia: '6%', valor: descVT });
             }
         }
-        if (calc.inss > 0) {
-            const ref = (emp.contractType || '').toLowerCase() === 'aprendiz'
-                ? '8%'
-                : `${((calc.inss / calc.salary) * 100).toFixed(1)}%`;
-            descontos.push({ cod: '901', descricao: 'INSS', referencia: ref, valor: calc.inss });
+
+        // Adicional noturno / domingo-feriado: apurado dos registros de ponto reais do
+        // mês (calcAdicionaisMes), não mais só um badge informativo em banco-horas-rh.js.
+        const jornadaMin = getJornadaMinRH(emp);
+        const { noturnoMin, feriadoMin, intervaloDeficitMin } = await calcAdicionaisMes(emp.id, jornadaMin, monthKey);
+        const valorHora = calc.salary / DIVISOR_HORA_MENSAL_RH;
+        let valorNoturno = 0, valorFeriado = 0, valorDsr = 0;
+        if (noturnoMin > 0) {
+            // Hora noturna reduzida (CLT art. 73 §1º): cada 52min30s trabalhados entre
+            // 22h-5h conta como 1h cheia — por isso a divisão é por 52.5, não por 60.
+            valorNoturno = +((noturnoMin / 52.5) * valorHora * 0.20).toFixed(2);
+            if (valorNoturno > 0) proventos.push({ cod: '020', descricao: 'Adicional Noturno (20% — CLT art. 73, hora reduzida)', referencia: `${(noturnoMin / 60).toFixed(1)}h reais`, valor: valorNoturno });
         }
-        if (calc.irrf > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: calc.irrf });
+        if (feriadoMin > 0) {
+            valorFeriado = +((feriadoMin / 60) * valorHora * 1.00).toFixed(2);
+            if (valorFeriado > 0) proventos.push({ cod: '021', descricao: 'Adicional Domingo/Feriado Trabalhado (100% — Súmula 146 TST)', referencia: `${(feriadoMin / 60).toFixed(1)}h`, valor: valorFeriado });
+        }
+
+        // Indenização de intervalo intrajornada suprimido (CLT art. 71 §4º, 50% sobre a
+        // hora normal) — mesma detecção que já existia só como alerta em
+        // ponto-colaborador.js/banco-horas-rh.js, agora virando linha de pagamento real.
+        // Natureza INDENIZATÓRIA (Lei 13.467/2017): não entra na base de INSS/IRRF abaixo.
+        if (intervaloDeficitMin > 0) {
+            const valorIntervalo = +((intervaloDeficitMin / 60) * valorHora * 1.50).toFixed(2);
+            if (valorIntervalo > 0) proventos.push({ cod: '022', descricao: 'Indenização de Intervalo Intrajornada (50% — CLT art. 71 §4º)', referencia: `${(intervaloDeficitMin / 60).toFixed(1)}h`, valor: valorIntervalo });
+        }
+
+        // DSR perdido (Lei 605/49 art. 6º) — só desconta quando o RH já REJEITOU
+        // definitivamente a justificativa da falta (ver approve_adjustment_request,
+        // migration 044); enquanto pendente, não há desconto (a falta ainda pode ser
+        // justificada).
+        const { semanasComPerda } = await calcDsrDescontoMes(emp.id, monthKey);
+        if (semanasComPerda > 0) {
+            valorDsr = +((calc.salary / 30) * semanasComPerda).toFixed(2);
+            if (valorDsr > 0) descontos.push({ cod: '904', descricao: 'Desconto de DSR (falta injustificada — Lei 605/49 art. 6º)', referencia: `${semanasComPerda} semana${semanasComPerda > 1 ? 's' : ''}`, valor: valorDsr });
+        }
+
+        // INSS/IRRF recalculados sobre salário + adicionais de natureza remuneratória
+        // (noturno, feriado/domingo) menos o desconto de DSR (falta reduz o próprio
+        // salário de contribuição, como qualquer falta) — não mais só sobre o
+        // salário-base isolado. A indenização de intervalo (022) fica de fora da base:
+        // natureza indenizatória, mesma premissa já documentada em calculo-rescisao.js.
+        const isAprendiz = (emp.contractType || '').toLowerCase() === 'aprendiz';
+        const baseContribuicao = Math.max(0, +(calc.salary + valorNoturno + valorFeriado - valorDsr).toFixed(2));
+        const inssRecalc = isAprendiz ? +(baseContribuicao * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(baseContribuicao);
+        const irrfRecalc = isAprendiz ? 0 : calcIRRF(baseContribuicao - inssRecalc);
+
+        if (inssRecalc > 0) {
+            const ref = isAprendiz
+                ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%`
+                : `${((inssRecalc / baseContribuicao) * 100).toFixed(1)}%`;
+            descontos.push({ cod: '901', descricao: 'INSS', referencia: ref, valor: inssRecalc });
+        }
+        if (irrfRecalc > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrfRecalc });
     }
 
     const totalProventos = +proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
@@ -229,24 +273,30 @@ function loadKPIs() {
     const allPaid  = total > 0 && totalPagos === total;
     const pending  = total - totalPagos;
 
-    const statusCard = document.querySelector('.kpi--status');
-    if (statusCard) statusCard.classList.toggle('kpi--complete', allPaid);
-
-    const statusSub = document.getElementById('kpi-status-sub');
-    if (statusSub) {
-        if (total === 0)      statusSub.textContent = 'holerites quitados';
-        else if (allPaid)     statusSub.textContent = 'folha encerrada';
-        else if (pending === 1) statusSub.textContent = '1 colaborador pendente';
-        else                  statusSub.textContent = `${pending} colaboradores pendentes`;
+    const statusCard = document.getElementById('stat-card-status');
+    if (statusCard) {
+        statusCard.classList.toggle('stat-card--complete', allPaid);
+        if (total === 0)         statusCard.title = 'Pagos — holerites quitados';
+        else if (allPaid)        statusCard.title = 'Pagos — folha encerrada';
+        else if (pending === 1)  statusCard.title = 'Pagos — 1 colaborador pendente';
+        else                     statusCard.title = `Pagos — ${pending} colaboradores pendentes`;
     }
 }
 
 function applySearch() {
-    currentSearch = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
-    currentDept   = document.getElementById('dept-filter')?.value || '';
+    const input = document.getElementById('search-input');
+    currentSearch = (input?.value || '').toLowerCase().trim();
+    document.getElementById('search-clear')?.classList.toggle('hidden', !input?.value.trim());
     renderFolha();
 }
 window.applySearch = applySearch;
+
+window.clearSearch = function () {
+    const input = document.getElementById('search-input');
+    if (input) input.value = '';
+    document.getElementById('search-clear')?.classList.add('hidden');
+    applySearch();
+};
 
 function renderFolha() {
     const tbody = document.getElementById('folha-tbody');
@@ -374,12 +424,12 @@ window.marcarSelecionadosPagos = async function () {
     setLoading(true);
     try {
         const pagoEm   = new Date().toISOString();
-        const slipsData = rows.map(r => ({
-            ...buildPayslipData(r.emp, currentMonth),
+        const slipsData = await Promise.all(rows.map(async r => ({
+            ...(await buildPayslipData(r.emp, currentMonth)),
             status:     'pago',
             pago_em:    pagoEm,
             created_by: rhUser?.id,
-        }));
+        })));
         const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
         if (error) { showToast(`Erro: ${error.message}`, 'error'); return; }
         rows.forEach(r => { r.pago = true; r.gerado = true; });
@@ -403,12 +453,18 @@ function updateSummary(rows) {
 }
 
 function applyHolSearch() {
-    renderHolerites(
-        (document.getElementById('search-hol')?.value || '').toLowerCase().trim(),
-        document.getElementById('dept-hol-filter')?.value || ''
-    );
+    const input = document.getElementById('search-hol');
+    document.getElementById('search-hol-clear')?.classList.toggle('hidden', !input?.value.trim());
+    renderHolerites((input?.value || '').toLowerCase().trim(), currentDeptHol);
 }
 window.applyHolSearch = applyHolSearch;
+
+window.clearHolSearch = function () {
+    const input = document.getElementById('search-hol');
+    if (input) input.value = '';
+    document.getElementById('search-hol-clear')?.classList.add('hidden');
+    applyHolSearch();
+};
 
 function renderHolerites(q = '', dept = '') {
     const tbody = document.getElementById('hol-tbody');
@@ -446,7 +502,7 @@ function renderHolerites(q = '', dept = '') {
             <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
             <td data-label="Status">${statusBadge}</td>
             <td data-label="Ações"><div class="actions-cell">
-                <button class="btn-action" onclick="verHolerite('${emp.id}')" title="Ver holerite" ${!pago ? 'disabled' : ''}>
+                <button class="btn-action btn-action--view" onclick="verHolerite('${emp.id}')" title="Ver holerite" ${!pago ? 'disabled' : ''}>
                     <i class="fas fa-eye"></i>
                 </button>
             </div></td>
@@ -460,8 +516,10 @@ window.verHolerite = function (empId) {
     const row = allRows.find(r => r.emp.id === empId);
     if (!row || !row.slip) return;
     renderSlipModal(row.emp, row.slip);
+    renderSlipBankInfo(row.emp, row.slip);
     currentSlipData = { emp: row.emp, slip: row.slip };
     openModal('slip-modal');
+    NexusAuth.logAccess(empId, 'holerite', row.slip.competencia || row.slip.mes);
 };
 
 window.executarMarcarTodosPagos = async function () {
@@ -472,12 +530,12 @@ window.executarMarcarTodosPagos = async function () {
     setLoading(true);
     try {
         const pagoEm   = new Date().toISOString();
-        const slipsData = pendentes.map(r => ({
-            ...buildPayslipData(r.emp, currentMonth),
+        const slipsData = await Promise.all(pendentes.map(async r => ({
+            ...(await buildPayslipData(r.emp, currentMonth)),
             status:     'pago',
             pago_em:    pagoEm,
             created_by: rhUser?.id,
-        }));
+        })));
         const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
         if (error) { showToast(`Erro ao marcar pagamentos: ${error.message}`, 'error'); return; }
         showToast(`${pendentes.length} colaboradores marcados como pagos.`, 'success');
@@ -508,7 +566,7 @@ function renderSlipModal(emp, slip) {
             <td>${d.cod}</td>
             <td>${escHtml(d.descricao)}</td>
             <td style="color:var(--text-secondary)">${d.referencia}</td>
-            <td class="td-val" style="color:var(--red-text)">${fmtCurrency(d.valor)}</td>
+            <td class="td-val" style="color:var(--danger)">${fmtCurrency(d.valor)}</td>
         </tr>`
     ).join('');
 
@@ -558,7 +616,552 @@ function renderSlipModal(emp, slip) {
             <div class="slip-total-label">Salário Líquido</div>
             <div class="slip-total-value">${fmtCurrency(slip.salario_liquido)}</div>
         </div>
-    </div>`;
+    </div>
+    <div class="slip-bank-info hidden" id="slip-bank-info"></div>`;
+}
+
+// Jornada diária em minutos por tipo de contrato/carga horária — mesma regra usada em
+// ponto-colaborador.js / banco-horas-rh.js. PJ retorna null (não tem jornada CLT).
+function getJornadaMinRH(emp) {
+    const tipo = (emp?.contractType || 'clt').toLowerCase();
+    if (tipo === 'pj') return null;
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
+    const workLoad = emp?.workLoad || '';
+    if (workLoad === '12x36') return 12 * 60;
+    const m = workLoad.match(/^(\d+)h/);
+    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
+    return 8 * 60;
+}
+
+function diffMinRH(a, b) { return Math.round((new Date(b) - new Date(a)) / 60000); }
+
+// Divisor padrão para converter salário mensal em valor-hora (jornada de 220h/mês —
+// o mais usado na folha brasileira, mesma premissa de calculo-rescisao.js).
+const DIVISOR_HORA_MENSAL_RH = 220;
+
+let holidaysCacheRH = null;
+async function getHolidaysMapRH() {
+    if (holidaysCacheRH) return holidaysCacheRH;
+    const { data } = await sb.from('holidays').select('date,name');
+    holidaysCacheRH = {};
+    (data || []).forEach(h => { holidaysCacheRH[h.date] = h; });
+    return holidaysCacheRH;
+}
+
+function isSundayRH(dateKey) { return new Date(`${dateKey}T12:00:00`).getDay() === 0; }
+
+// Minutos de sobreposição entre [start,end] e qualquer janela noturna 22h-05h (CLT art.
+// 73). Varre dia a dia porque um turno pode atravessar a meia-noite.
+function nightOverlapMinRH(start, end) {
+    let total = 0;
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    cursor.setDate(cursor.getDate() - 1);
+    while (cursor <= end) {
+        const winStart = new Date(cursor); winStart.setHours(22, 0, 0, 0);
+        const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 1); winEnd.setHours(5, 0, 0, 0);
+        const ovStart = start > winStart ? start : winStart;
+        const ovEnd   = end   < winEnd   ? end   : winEnd;
+        if (ovEnd > ovStart) total += Math.round((ovEnd - ovStart) / 60000);
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return total;
+}
+
+function workSegmentsRH(r) {
+    const segs = [];
+    if (r.entrada && r.saida_almoco) segs.push([new Date(r.entrada), new Date(r.saida_almoco)]);
+    if (r.retorno_almoco && r.saida) segs.push([new Date(r.retorno_almoco), new Date(r.saida)]);
+    if (!r.saida_almoco && r.entrada && r.saida) segs.push([new Date(r.entrada), new Date(r.saida)]);
+    return segs;
+}
+
+// Intervalo intrajornada obrigatório (CLT art. 71) — mesma regra de ponto-colaborador.js
+// / banco-horas-rh.js: >6h de jornada exige 1h; entre 4h e 6h exige 15min.
+function getIntervaloMinObrigatorioRH(jornadaMin) {
+    if (jornadaMin === null) return 0;
+    if (jornadaMin > 6 * 60) return 60;
+    if (jornadaMin > 4 * 60) return 15;
+    return 0;
+}
+
+function calcIntervaloDeficitMinRH(rec, jornadaMin) {
+    if (!rec.entrada || !rec.saida) return 0;
+    const obrigatorio = getIntervaloMinObrigatorioRH(jornadaMin);
+    if (obrigatorio <= 0) return 0;
+    const realizado = (rec.saida_almoco && rec.retorno_almoco) ? diffMinRH(rec.saida_almoco, rec.retorno_almoco) : 0;
+    return Math.max(0, obrigatorio - realizado);
+}
+
+// Apura, a partir dos registros de ponto reais do mês, o adicional noturno (CLT art.
+// 73, mínimo 20% sobre a hora normal — a conversão pra hora noturna reduzida de
+// 52min30s acontece em buildPayslipData, não aqui, porque só lá o valorHora está
+// disponível), o adicional de domingo/feriado trabalhado (Súmula 146 TST, 100% quando
+// não há folga compensatória — o sistema não rastreia folga compensatória, então todo
+// trabalho em domingo/feriado é tratado como pago em dinheiro) e o déficit de intervalo
+// intrajornada (CLT art. 71) — mesma detecção que já existia como alerta em
+// ponto-colaborador.js/banco-horas-rh.js, agora também usada pra gerar a linha de
+// pagamento real.
+async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
+    if (jornadaMin === null) return { noturnoMin: 0, feriadoMin: 0, intervaloDeficitMin: 0 }; // PJ não tem jornada CLT
+    const [{ data: recs }, holidaysMap] = await Promise.all([
+        sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${monthKey}-01`).lt('date', nextMonthKey(monthKey)),
+        getHolidaysMapRH(),
+    ]);
+    let noturnoMin = 0, feriadoMin = 0, intervaloDeficitMin = 0;
+    (recs || []).forEach(r => {
+        if (!r.entrada || !r.saida) return;
+        const segs = workSegmentsRH(r);
+        segs.forEach(([s, e]) => { noturnoMin += nightOverlapMinRH(s, e); });
+        if (isSundayRH(r.date) || holidaysMap[r.date]) {
+            segs.forEach(([s, e]) => { feriadoMin += diffMinRH(s, e); });
+        }
+        intervaloDeficitMin += calcIntervaloDeficitMinRH(r, jornadaMin);
+    });
+    return { noturnoMin, feriadoMin, intervaloDeficitMin };
+}
+
+// DSR (Descanso Semanal Remunerado, Lei 605/49 art. 6º): falta cuja justificativa foi
+// definitivamente REJEITADA pelo RH (não "pendente" — só depois da decisão final) faz o
+// colaborador perder o DSR daquela semana. Retorna quantas semanas distintas do mês
+// tiveram essa perda, para descontar 1 diária por semana na folha.
+function weekStartKeyRH(dateKey) {
+    const d = new Date(`${dateKey}T12:00:00`);
+    const dow = d.getDay();
+    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+}
+
+async function calcDsrDescontoMes(empId, monthKey) {
+    const { data: faltas } = await sb.from('adjustment_requests')
+        .select('date')
+        .eq('employee_id', empId)
+        .eq('tipo', 'falta')
+        .eq('status', 'rejeitado')
+        .gte('date', `${monthKey}-01`)
+        .lt('date', nextMonthKey(monthKey));
+    const semanas = new Set((faltas || []).map(f => weekStartKeyRH(f.date)));
+    return { semanasComPerda: semanas.size };
+}
+
+// Saldo do banco de horas no mês de competência — só como referência para o RH,
+// não entra no cálculo de proventos/descontos do holerite (o desconto/pagamento do
+// banco de horas acontece na rescisão — ver getSaldoBancoHorasReal, usado pelo
+// simulador de rescisão).
+async function renderSlipBankInfo(emp, slip) {
+    const el = document.getElementById('slip-bank-info');
+    if (!el) return;
+    const jornadaMin = getJornadaMinRH(emp);
+    if (jornadaMin === null || !slip.mes) { el.classList.add('hidden'); return; }
+
+    const [{ data: recs }, { data: adjs }] = await Promise.all([
+        sb.from('time_records').select('entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', emp.id).gte('date', `${slip.mes}-01`).lt('date', nextMonthKey(slip.mes)),
+        sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', emp.id).gte('date', `${slip.mes}-01`).lt('date', nextMonthKey(slip.mes)).is('deleted_at', null),
+    ]);
+    let net = 0;
+    (recs || []).forEach(r => {
+        if (!r.entrada || !r.saida) return;
+        const worked = r.saida_almoco
+            ? diffMinRH(r.entrada, r.saida_almoco) + ((r.retorno_almoco && r.saida) ? diffMinRH(r.retorno_almoco, r.saida) : 0)
+            : diffMinRH(r.entrada, r.saida);
+        net += worked - jornadaMin;
+    });
+    (adjs || []).forEach(a => { net += a.tipo === 'credito' ? a.minutos : -a.minutos; });
+
+    const abs = Math.abs(net), h = Math.floor(abs / 60), m = String(abs % 60).padStart(2, '0');
+    const sinal = net > 0 ? '+' : net < 0 ? '-' : '';
+    el.innerHTML = `<i class="fas fa-clock"></i> Saldo do banco de horas na competência ${slip.competencia || slip.mes} (referência, não incluso nos totais acima): <strong>${sinal}${h}h ${m}min</strong>`;
+    el.className = `slip-bank-info ${net > 0 ? 'positivo' : net < 0 ? 'negativo' : ''}`;
+}
+
+// Saldo REAL de banco de horas de todo o período de casa até a data de desligamento
+// (não só do mês corrente) — soma de time_records (horas trabalhadas - jornada) e
+// bank_adjustments (créditos/débitos manuais do RH), em minutos. Usado pelo simulador
+// de rescisão (calculo-rescisao.js) para não estimar o saldo "no escuro".
+async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr) {
+    if (jornadaMin === null) return 0; // PJ não tem banco de horas
+    const [{ data: recs }, { data: adjs }] = await Promise.all([
+        sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).lte('date', ateDataStr),
+        sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', empId).lte('date', ateDataStr).is('deleted_at', null),
+    ]);
+    let net = 0;
+    (recs || []).forEach(r => {
+        if (!r.entrada || !r.saida) return;
+        const worked = r.saida_almoco
+            ? diffMinRH(r.entrada, r.saida_almoco) + ((r.retorno_almoco && r.saida) ? diffMinRH(r.retorno_almoco, r.saida) : 0)
+            : diffMinRH(r.entrada, r.saida);
+        net += worked - jornadaMin;
+    });
+    (adjs || []).forEach(a => { net += a.tipo === 'credito' ? a.minutos : -a.minutos; });
+    return net;
+}
+
+// Média mensal (R$) de adicional noturno + adicional de domingo/feriado efetivamente
+// PAGOS em holerite (cod 020/021 — ver buildPayslipData) nos últimos até 12 meses antes
+// da rescisão. Reflexo Súmula 347 TST na base do 13º/férias (ver calculo-rescisao.js) —
+// só cobre o que virou dinheiro de fato; banco de horas compensado como folga não entra
+// aqui (não há "média salarial" pra refletir se a hora virou tempo, não pagamento).
+async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
+    const desde = new Date(ateDataStr);
+    desde.setMonth(desde.getMonth() - 12);
+    const desdeKey = desde.toISOString().slice(0, 7);
+    const ateKey = ateDataStr.slice(0, 7);
+
+    const { data: slips } = await sb.from('payslips')
+        .select('mes,proventos')
+        .eq('employee_id', empId)
+        .gte('mes', desdeKey)
+        .lt('mes', ateKey);
+    if (!slips || !slips.length) return 0;
+
+    let total = 0;
+    slips.forEach(s => {
+        (s.proventos || []).forEach(p => {
+            if (p.cod === '020' || p.cod === '021') total += Number(p.valor) || 0;
+        });
+    });
+    return +(total / slips.length).toFixed(2);
+}
+
+function nextMonthKey(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number);
+    const next = new Date(y, m, 1);
+    return `${next.getFullYear()}-${pad0(next.getMonth() + 1)}-01`;
+}
+
+// ─── Simulador de Rescisão (cálculo local em calculo-rescisao.js) ─────────
+window.openRescisaoModal = function () {
+    const sel = document.getElementById('rescisao-emp');
+    if (sel) {
+        sel.innerHTML = '<option value="">Selecione</option>' +
+            employees.map(e => `<option value="${e.id}">${escHtml(e.name)}</option>`).join('');
+        sel.value = '';
+    }
+    document.getElementById('rescisao-admissao').value = '';
+    document.getElementById('rescisao-salario').value  = '';
+    window.setRescisaoDate?.('');
+    const errEl = document.getElementById('rescisao-error');
+    if (errEl) errEl.textContent = '';
+    document.getElementById('rescisao-result')?.classList.add('hidden');
+    document.getElementById('btn-confirmar-desligamento')?.classList.add('hidden');
+    document.getElementById('btn-calcular-rescisao')?.classList.remove('hidden');
+    setRescisaoInputsDisabled(false);
+    lastRescisaoCalc = null;
+    openModal('rescisao-modal');
+};
+
+// Trava a seleção de colaborador/tipo/data assim que o cálculo é confirmado
+// como válido — evita que o RH troque o colaborador no formulário e confirme
+// o desligamento de outra pessoa com o resultado antigo ainda na tela.
+function setRescisaoInputsDisabled(disabled) {
+    document.getElementById('rescisao-emp').disabled          = disabled;
+    document.getElementById('rescisao-tipo').disabled         = disabled;
+    document.getElementById('rescisao-data-trigger').disabled = disabled;
+}
+
+window.onRescisaoEmpChange = function () {
+    const empId = document.getElementById('rescisao-emp')?.value;
+    const emp = employees.find(e => e.id === empId);
+    document.getElementById('rescisao-admissao').value = emp ? fmtDate(emp.admissionDate) : '';
+    document.getElementById('rescisao-salario').value  = emp ? fmtCurrency(emp.salary) : '';
+};
+
+window.calcularRescisaoModal = async function () {
+    const errEl      = document.getElementById('rescisao-error');
+    const resultEl   = document.getElementById('rescisao-result');
+    const calcBtn    = document.getElementById('btn-calcular-rescisao');
+    if (errEl) errEl.textContent = '';
+    resultEl?.classList.add('hidden');
+    document.getElementById('btn-confirmar-desligamento')?.classList.add('hidden');
+    calcBtn?.classList.remove('hidden');
+    setRescisaoInputsDisabled(false);
+    lastRescisaoCalc = null;
+
+    const empId   = document.getElementById('rescisao-emp')?.value;
+    const emp     = employees.find(e => e.id === empId);
+    const dataStr = document.getElementById('rescisao-data')?.value;
+    const tipo    = document.getElementById('rescisao-tipo')?.value || 'sem_justa_causa';
+
+    if (!emp)                { if (errEl) errEl.textContent = 'Selecione um colaborador.'; return; }
+    if (!emp.admissionDate)  { if (errEl) errEl.textContent = 'Colaborador sem data de admissão cadastrada.'; return; }
+    if (!dataStr)            { if (errEl) errEl.textContent = 'Informe a data de desligamento.'; return; }
+
+    const [ay, am, ad] = emp.admissionDate.split('-').map(Number);
+    const admissao = new Date(ay, am - 1, ad);
+    const [dy, dm, dd] = dataStr.split('-').map(Number);
+    const demissao = new Date(dy, dm - 1, dd);
+
+    if (demissao <= admissao) { if (errEl) errEl.textContent = 'A data de desligamento deve ser posterior à admissão.'; return; }
+
+    const salario = Number(emp.salary) || 0;
+    if (salario <= 0) { if (errEl) errEl.textContent = 'Colaborador sem salário cadastrado.'; return; }
+
+    const btnOriginalHTML = calcBtn?.innerHTML;
+    if (calcBtn) { calcBtn.disabled = true; calcBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apurando banco de horas…'; }
+    const jornadaMin = getJornadaMinRH(emp);
+    let saldoBancoHorasMin = 0, mediaAdicionaisHabituais = 0;
+    try {
+        [saldoBancoHorasMin, mediaAdicionaisHabituais] = await Promise.all([
+            getSaldoBancoHorasReal(emp.id, jornadaMin, dataStr),
+            calcMediaAdicionaisHabituais(emp.id, dataStr),
+        ]);
+    } catch (err) {
+        console.error('Erro ao apurar banco de horas/médias habituais para a rescisão:', err.message);
+    } finally {
+        if (calcBtn) { calcBtn.disabled = false; calcBtn.innerHTML = btnOriginalHTML; }
+    }
+
+    const r = calcularRescisao({ tipo, salario, admissao, demissao, saldoBancoHorasMin, jornadaMin, workLoad: emp.workLoad, mediaAdicionaisHabituais });
+    renderRescisaoResult(r);
+    resultEl?.classList.remove('hidden');
+
+    lastRescisaoCalc = { emp, dataStr, resultado: r };
+    calcBtn?.classList.add('hidden');
+    document.getElementById('btn-confirmar-desligamento')?.classList.remove('hidden');
+    setRescisaoInputsDisabled(true);
+};
+
+// Gera o PDF do detalhamento de verbas rescisórias (mesmo padrão visual do
+// exportPDF da folha) e devolve como Blob, para upload direto no Storage.
+function gerarPdfRescisao(emp, r, dataStr) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFillColor(13, 14, 18);
+    doc.rect(0, 0, 210, 22, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Nexus RH — Termo de Cálculo de Rescisão', 14, 14);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Colaborador: ${emp.name}`, 14, 30);
+    doc.text(`Tipo de rescisão: ${r.label}`, 14, 36);
+    doc.text(`Data de desligamento: ${fmtDate(dataStr)}`, 14, 42);
+    doc.text(`Tempo de casa: ${r.anosCompletos} ano(s)`, 14, 48);
+
+    doc.autoTable({
+        startY: 56,
+        head: [['Verba', 'Referência', 'Valor (R$)']],
+        body: r.verbas.map(v => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
+        headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        styles: { fontSize: 9 },
+        theme: 'striped',
+        margin: { left: 14, right: 14 },
+    });
+
+    let finalY = doc.lastAutoTable.finalY + 6;
+    if (r.encargos.length) {
+        doc.autoTable({
+            startY: finalY,
+            head: [['Encargo da Empresa', 'Referência', 'Valor (R$)']],
+            body: r.encargos.map(v => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
+            headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+            styles: { fontSize: 9 },
+            theme: 'striped',
+            margin: { left: 14, right: 14 },
+        });
+        finalY = doc.lastAutoTable.finalY + 6;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(`Custo total do desligamento: ${fmtCurrency(r.custoTotal)}`, 14, finalY + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Estimativa gerada pelo simulador de rescisão do Nexus RH — não substitui o cálculo trabalhista oficial.', 14, finalY + 12);
+
+    return doc.output('blob');
+}
+
+// Passo final do fluxo de desligamento: registra a decisão do RH de forma
+// rastreável (employee_audit), anexa o detalhamento como documento em
+// `documents` (categoria demissional, já esperado pelo checklist de
+// document_requirements) e inativa o colaborador — antes disso, a simulação
+// não deixava nenhum rastro no sistema.
+window.confirmarDesligamento = async function () {
+    if (!lastRescisaoCalc) return;
+    const { emp, dataStr, resultado: r } = lastRescisaoCalc;
+
+    if (!confirm(`Confirmar o desligamento de ${emp.name} em ${fmtDate(dataStr)}?\n\nIsso vai marcar o colaborador como Inativo e gerar um registro de auditoria e um documento de rescisão.`)) return;
+
+    const btn = document.getElementById('btn-confirmar-desligamento');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando…'; }
+
+    try {
+        if (typeof window.jspdf === 'undefined') { showToast('Biblioteca PDF não carregada.', 'error'); return; }
+
+        const { error: statusError } = await sb.from('employees')
+            .update({ status: 'Inativo', termination_date: dataStr })
+            .eq('id', emp.id);
+        if (statusError) { showToast('Não foi possível atualizar o status do colaborador.', 'error'); return; }
+
+        await sb.from('vacations')
+            .update({ status: 'recusado', rejection_reason: 'Colaborador desligado pelo RH.', rejected_at: new Date().toISOString() })
+            .eq('employee_id', emp.id)
+            .eq('status', 'pendente');
+
+        const blob = gerarPdfRescisao(emp, r, dataStr);
+        const fileName = `rescisao_${emp.name.replace(/\s+/g, '_')}.pdf`;
+        const storagePath = `rh/${Date.now()}_${fileName}`;
+
+        const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, blob, { contentType: 'application/pdf' });
+        if (uploadError) { showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning'); }
+        else {
+            const retidoAte = new Date(); retidoAte.setFullYear(retidoAte.getFullYear() + 30);
+            await sb.from('documents').insert({
+                name: fileName, employee_id: emp.id, category: 'demissional', tipo: 'Termo de Rescisão',
+                size_label: `${Math.round(blob.size / 1024)} KB`, storage_path: storagePath,
+                source: 'Administrador', status: 'aprovado', created_by: rhUser.id,
+                retido_ate: retidoAte.toISOString().slice(0, 10),
+                lgpd_consentimento: true, lgpd_consentimento_em: new Date().toISOString(),
+            });
+        }
+
+        await sb.from('employee_audit').insert({
+            employee_id: emp.id,
+            changes: [
+                { field: 'status', label: 'Status', oldValue: 'Ativo', newValue: 'Inativo' },
+                { field: 'rescisao', label: 'Rescisão', oldValue: null, newValue: {
+                    tipo: r.label, dataDesligamento: dataStr, custoTotal: r.custoTotal,
+                    totalVerbas: r.totalVerbas, totalEncargos: r.totalEncargos,
+                } },
+            ],
+            operator_name: rhUser?.email?.split('@')[0] || 'RH',
+            operator_email: rhUser?.email || '',
+        });
+
+        showToast(`Desligamento confirmado: ${emp.name} foi inativado e o termo de rescisão foi anexado ao perfil.`, 'success');
+        closeModal('rescisao-modal');
+        await refresh();
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-signature"></i> Confirmar Desligamento'; }
+    }
+};
+
+function renderRescisaoResult(r) {
+    const el = document.getElementById('rescisao-result');
+    if (!el) return;
+
+    const rows = itens => itens.map(v =>
+        `<tr><td>${escHtml(v.descricao)}</td><td style="color:var(--text-secondary)">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`
+    ).join('');
+
+    const encargosSection = r.encargos.length ? `
+        <p class="slip-section-title">Encargos da Empresa</p>
+        <table class="slip-table">
+            <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+            <tbody>${rows(r.encargos)}</tbody>
+        </table>` : '';
+
+    el.innerHTML = `
+        <p class="slip-section-title">Verbas Rescisórias</p>
+        <table class="slip-table">
+            <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+            <tbody>${rows(r.verbas)}</tbody>
+        </table>
+        ${encargosSection}
+        <div class="slip-totals">
+            <div class="slip-total-box blue">
+                <div class="slip-total-label">Total Verbas</div>
+                <div class="slip-total-value">${fmtCurrency(r.totalVerbas)}</div>
+            </div>
+            <div class="slip-total-box red">
+                <div class="slip-total-label">Total Encargos</div>
+                <div class="slip-total-value">${fmtCurrency(r.totalEncargos)}</div>
+            </div>
+            <div class="slip-total-box green">
+                <div class="slip-total-label">Custo Total do Desligamento</div>
+                <div class="slip-total-value">${fmtCurrency(r.custoTotal)}</div>
+            </div>
+        </div>`;
+}
+
+// Calendário do campo "Data de Desligamento" — mesmo padrão visual/estrutural
+// do calendário da tela Painel (inicio-rh.html), com seleção de dia exato.
+function setupRescisaoDatePicker() {
+    const MESES_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    const trigger = document.getElementById('rescisao-data-trigger');
+    const popover = document.getElementById('rescisao-data-popover');
+    const titleEl = document.getElementById('rescisao-data-title');
+    const gridEl  = document.getElementById('rescisao-data-grid');
+    const prevBtn = document.getElementById('rescisao-data-prev');
+    const nextBtn = document.getElementById('rescisao-data-next');
+    const hidden  = document.getElementById('rescisao-data');
+    const label   = document.getElementById('rescisao-data-label');
+    if (!trigger || !popover) return;
+
+    const today = new Date();
+    let viewYear = today.getFullYear(), viewMonth = today.getMonth();
+
+    function setValue(y, m, d) {
+        hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
+        label.textContent = `${pad0(d)}/${pad0(m + 1)}/${y}`;
+    }
+
+    function render() {
+        titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
+
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+        ).join('');
+
+        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach(el => {
+            el.addEventListener('click', () => {
+                setValue(viewYear, viewMonth, parseInt(el.textContent, 10));
+                close();
+            });
+        });
+    }
+
+    function open() {
+        if (hidden.value) { const [y, m] = hidden.value.split('-').map(Number); viewYear = y; viewMonth = m - 1; }
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? close() : open(); });
+    prevBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    nextBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+    popover.addEventListener('click', e => e.stopPropagation());
+
+    window.setRescisaoDate = function (dateStr) {
+        if (!dateStr) { hidden.value = ''; label.textContent = 'Selecione a data'; return; }
+        const [y, m, d] = dateStr.split('-').map(Number);
+        setValue(y, m - 1, d);
+        viewYear = y; viewMonth = m - 1;
+    };
 }
 
 window.printCurrentSlip = function () {
@@ -619,20 +1222,61 @@ window.printCurrentSlip = function () {
 
 function populateDeptFilters() {
     const depts = [...new Set(employees.map(e => e.dept || '').filter(Boolean))].sort();
-    ['dept-filter', 'dept-hol-filter'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const val = sel.value;
-        sel.innerHTML = '<option value="">Todos os departamentos</option>';
-        depts.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = d;
-            if (d === val) opt.selected = true;
-            sel.appendChild(opt);
-        });
-    });
+    buildDeptChips('dept-filter-chips',     'btn-dept-filter',     depts, currentDept,    'setDeptFilter');
+    buildDeptChips('dept-hol-filter-chips', 'btn-dept-hol-filter', depts, currentDeptHol, 'setDeptHolFilter');
 }
+
+function buildDeptChips(chipsId, btnId, depts, selected, fnName) {
+    const chipsEl = document.getElementById(chipsId);
+    if (!chipsEl) return;
+
+    chipsEl.innerHTML = [
+        `<button type="button" class="chip${!selected ? ' chip--active' : ''}" data-dept="" onclick="${fnName}(this)">Todos os departamentos</button>`,
+        ...depts.map(d => `<button type="button" class="chip${d === selected ? ' chip--active' : ''}" data-dept="${escHtml(d)}" onclick="${fnName}(this)">${escHtml(d)}</button>`),
+    ].join('');
+
+    document.getElementById(btnId)?.classList.toggle('filtered', !!selected);
+}
+
+// ─── Filtro de departamento (padrão .btn-filter da tela Gestão de Horas) ───
+function setupDeptFilterDropdown(wrapId, btnId, menuId, chevronId) {
+    const wrap    = document.getElementById(wrapId);
+    const btn     = document.getElementById(btnId);
+    const menu    = document.getElementById(menuId);
+    const chevron = document.getElementById(chevronId);
+    if (!wrap || !btn || !menu) return;
+
+    function open()  { btn.classList.add('open');    menu.classList.add('open');    chevron?.classList.add('open'); }
+    function close() { btn.classList.remove('open'); menu.classList.remove('open'); chevron?.classList.remove('open'); }
+
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        menu.classList.contains('open') ? close() : open();
+    });
+    menu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', close);
+}
+
+function setDeptFilterCommon(btn, chipsId, btnId, chevronId, menuId) {
+    document.querySelectorAll(`#${chipsId} .chip`).forEach(c => c.classList.remove('chip--active'));
+    btn.classList.add('chip--active');
+    const dept = btn.dataset.dept || '';
+    document.getElementById(btnId)?.classList.toggle('filtered', !!dept);
+    document.getElementById(btnId)?.classList.remove('open');
+    document.getElementById(menuId)?.classList.remove('open');
+    document.getElementById(chevronId)?.classList.remove('open');
+    return dept;
+}
+
+window.setDeptFilter = function (btn) {
+    currentDept = setDeptFilterCommon(btn, 'dept-filter-chips', 'btn-dept-filter', 'dept-filter-chevron', 'dept-filter-menu');
+    renderFolha();
+};
+
+window.setDeptHolFilter = function (btn) {
+    currentDeptHol = setDeptFilterCommon(btn, 'dept-hol-filter-chips', 'btn-dept-hol-filter', 'dept-hol-filter-chevron', 'dept-hol-filter-menu');
+    applyHolSearch();
+};
 
 function setupRealtimeSync() {
     sb.channel('payslips-rh')
@@ -716,19 +1360,22 @@ function exportPDF() {
     showToast('Exportação PDF concluída.', 'success');
 }
 
+// Calendário no mesmo padrão da tela Painel (inicio-rh.html): grade de dias do mês,
+// navegação por mês anterior/próximo. Diferença: aqui clicar num dia seleciona o
+// mês (competência) exibido na folha, em vez de ser só informativo.
 function setupCustomMonthPicker() {
-    const MESES_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    const MESES_LONG  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const MESES_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-    const btn      = document.getElementById('month-picker-btn');
-    const dropdown = document.getElementById('month-picker-dropdown');
-    const chevron  = document.getElementById('month-picker-chevron');
-    const yearEl   = document.getElementById('mpd-year');
-    const monthsEl = document.getElementById('mpd-months');
-    const prevBtn  = document.getElementById('mpd-prev-year');
-    const nextBtn  = document.getElementById('mpd-next-year');
+    const trigger  = document.getElementById('month-picker-btn');
+    const popover  = document.getElementById('month-picker-dropdown');
+    const titleEl  = document.getElementById('mpd-title');
+    const gridEl   = document.getElementById('mpd-grid');
+    const prevBtn  = document.getElementById('mpd-prev-month');
+    const nextBtn  = document.getElementById('mpd-next-month');
+    if (!trigger || !popover) return;
 
-    let pickerYear = new Date().getFullYear();
+    const today = new Date();
+    let viewYear, viewMonth; // viewMonth: 0-based
 
     function updateLabel() {
         const [y, m] = currentMonth.split('-');
@@ -736,54 +1383,62 @@ function setupCustomMonthPicker() {
         if (el) el.textContent = `${MESES_LONG[parseInt(m) - 1]} de ${y}`;
     }
 
-    function renderMonths() {
-        const now = new Date();
-        const [selY, selM] = currentMonth.split('-');
-        yearEl.textContent = pickerYear;
+    function render() {
+        titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
 
-        monthsEl.innerHTML = MESES_SHORT.map((name, i) => {
-            const m          = i + 1;
-            const isSelected = parseInt(selY) === pickerYear && parseInt(selM) === m;
-            const isCurrent  = now.getFullYear() === pickerYear && now.getMonth() + 1 === m;
-            let cls = 'mpd-month';
-            if (isSelected) cls += ' selected';
-            if (isCurrent)  cls += ' current';
-            return `<button class="${cls}" data-m="${pad0(m)}">${name}</button>`;
-        }).join('');
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
-        monthsEl.querySelectorAll('.mpd-month').forEach(el => {
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+        ).join('');
+
+        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach(el => {
             el.addEventListener('click', () => {
-                currentMonth = `${pickerYear}-${el.dataset.m}`;
+                currentMonth = `${viewYear}-${pad0(viewMonth + 1)}`;
                 updateLabel();
-                closeDropdown();
+                close();
                 refresh();
             });
         });
     }
 
-    function openDropdown() {
-        const [y] = currentMonth.split('-');
-        pickerYear = parseInt(y);
-        renderMonths();
-        dropdown.classList.add('open');
-        btn.classList.add('open');
-        chevron.classList.add('open');
+    function open() {
+        const [y, m] = currentMonth.split('-').map(Number);
+        viewYear = y; viewMonth = m - 1;
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
     }
 
-    function closeDropdown() {
-        dropdown.classList.remove('open');
-        btn.classList.remove('open');
-        chevron.classList.remove('open');
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
     }
 
-    btn.addEventListener('click', e => {
-        e.stopPropagation();
-        dropdown.classList.contains('open') ? closeDropdown() : openDropdown();
-    });
-    prevBtn.addEventListener('click', e => { e.stopPropagation(); pickerYear--; renderMonths(); });
-    nextBtn.addEventListener('click', e => { e.stopPropagation(); pickerYear++; renderMonths(); });
-    dropdown.addEventListener('click', e => e.stopPropagation());
-    document.addEventListener('click', closeDropdown);
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? close() : open(); });
+    prevBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    nextBtn.addEventListener('click',  e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+    popover.addEventListener('click', e => e.stopPropagation());
 
     updateLabel();
 }

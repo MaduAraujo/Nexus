@@ -98,7 +98,7 @@ Cada colaborador tem um espaço personalizado com seus dados de cargo, departame
 
 ## Inteligência Artificial
 
-O módulo **Central de Alertas** usa a API da Anthropic (Claude) para analisar padrões de comportamento — excesso de horas, ausências frequentes, baixa interação — e sinalizar automaticamente possíveis riscos de burnout para o RH. A gestão de pessoas passa a agir de forma preventiva, antes que o problema se agrave.
+O módulo **Central de Alertas** usa a API da Groq (modelo Llama 3.3 70B) para analisar padrões de comportamento — excesso de horas, ausências frequentes, baixa interação — e sinalizar automaticamente possíveis riscos de burnout para o RH. A gestão de pessoas passa a agir de forma preventiva, antes que o problema se agrave.
 
 <div align="center">
 
@@ -115,7 +115,7 @@ O módulo **Central de Alertas** usa a API da Anthropic (Claude) para analisar p
 | **Frontend** | HTML5 · CSS3 · JavaScript |
 | **Backend** | Supabase (PostgreSQL · Auth · Storage · Realtime) |
 | **Serverless** | TypeScript via Supabase Edge Functions |
-| **IA** | Claude API — Anthropic |
+| **IA** | Groq API — Llama 3.3 70B |
 | **Deploy** | Vercel |
 
 **Destaques de arquitetura**

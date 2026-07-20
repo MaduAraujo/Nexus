@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Minha Área</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Minha Área</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/inicio-colaborador.css">
@@ -43,6 +44,12 @@
                         <span class="nav-text">Comunicados</span>
                     </a>
                 </li>
+                <li class="nav-item hidden" id="nav-item-equipe">
+                    <a href="../screens/equipe-colaborador.html" class="nav-link">
+                        <span class="nav-icon"><i class="fas fa-people-group"></i></span>
+                        <span class="nav-text">Minha Equipe</span>
+                    </a>
+                </li>
             </ul>
         </nav>
         <div class="sidebar-footer">
@@ -70,6 +77,9 @@
                 <h1 class="page-title">Minha Área</h1>
             </div>
             <div class="topbar-right">
+                <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Alternar tema escuro">
+                    <i class="fas fa-moon"></i>
+                </button>
                 <div class="topbar-date" id="topbar-date">
                     <i class="fas fa-calendar-day"></i>
                     <span id="topbar-date-text">—</span>
@@ -129,6 +139,20 @@
                     </div>
                 </div>
 
+                <div class="onboarding-card hidden" id="onboarding-card">
+                    <div class="onboarding-card-header">
+                        <div>
+                            <h2 class="section-title"><span class="section-title-accent"></span>Jornada de Integração</h2>
+                            <p class="onboarding-sub">Seus primeiros 90 dias na Nexus</p>
+                        </div>
+                        <div class="onboarding-progress-wrap">
+                            <div class="onboarding-progress-bar"><div class="onboarding-progress-fill" id="onboarding-progress-fill"></div></div>
+                            <span class="onboarding-progress-label" id="onboarding-progress-label">0/0</span>
+                        </div>
+                    </div>
+                    <div class="onboarding-stages" id="onboarding-stages"></div>
+                </div>
+
                 <div class="section-title-row">
                     <h2 class="section-title">
                         <span class="section-title-accent"></span>
@@ -169,6 +193,14 @@
                         </div>
                         <i class="fas fa-arrow-right quick-card-arrow"></i>
                     </button>
+                    <button class="quick-card quick-card--blue hidden" id="quick-card-equipe" onclick="window.location.href='../screens/equipe-colaborador.html'">
+                        <i class="fas fa-people-group quick-card-icon"></i>
+                        <div class="quick-card-content">
+                            <span class="quick-label">Minha Equipe</span>
+                            <span class="quick-desc" id="quick-equipe-desc">Aprovar férias</span>
+                        </div>
+                        <i class="fas fa-arrow-right quick-card-arrow"></i>
+                    </button>
                 </div>
             </div>
         </main>
@@ -179,6 +211,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/inicio-colaborador.js"></script>
 </body>
 </html>

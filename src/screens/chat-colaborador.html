@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Chat</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/btn-back.css">
@@ -14,9 +15,8 @@
     <!-- ─── Topbar ─────────────────────────────────────────────────────── -->
     <header class="topbar">
         <div class="topbar-left">
-            <a href="../screens/inicio-colaborador.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
             <div class="topbar-divider"></div>
             <button class="topbar-panels-btn" id="topbar-panels-btn" aria-label="Canais">
@@ -52,6 +52,10 @@
                     <span>Com o RH</span>
                     <span class="tab-badge" id="rh-tab-badge" style="display:none"></span>
                 </button>
+                <button class="chat-tab" id="tab-kudos" data-tab="kudos">
+                    <i class="fas fa-award"></i>
+                    <span>Reconhecimento</span>
+                </button>
             </div>
 
             <!-- Lista de canais -->
@@ -71,6 +75,10 @@
                     <i class="fas fa-plus-circle"></i>
                     <span>Nova conversa com RH</span>
                 </button>
+                <button class="new-ticket-btn new-ticket-btn--ghost" id="anon-feedback-btn">
+                    <i class="fas fa-user-secret"></i>
+                    <span>Enviar feedback anônimo</span>
+                </button>
                 <div class="channel-section-hd">Conversas</div>
                 <ul class="ticket-list" id="ticket-list">
                     <li class="ch-loading">
@@ -78,6 +86,15 @@
                         <span>Carregando...</span>
                     </li>
                 </ul>
+            </div>
+
+            <!-- Mural de reconhecimento -->
+            <div class="chat-list-panel hidden" id="panel-kudos">
+                <button class="new-ticket-btn" id="give-kudos-btn">
+                    <i class="fas fa-award"></i>
+                    <span>Dar reconhecimento</span>
+                </button>
+                <p class="kudos-panel-hint">Elogie publicamente um colega — todo mundo vê no mural ao lado.</p>
             </div>
 
         </aside>
@@ -166,13 +183,109 @@
                 </div>
             </div>
 
+            <!-- Mural de reconhecimento -->
+            <div class="chat-area hidden" id="kudos-area">
+                <div class="chat-area-header">
+                    <div class="chat-area-title">
+                        <span class="chat-area-icon" id="kudos-area-icon"><i class="fas fa-award"></i></span>
+                        <div>
+                            <h3 class="chat-area-name">Mural de Reconhecimento</h3>
+                            <p class="chat-area-desc">Elogios entre colegas, visíveis para toda a empresa</p>
+                        </div>
+                    </div>
+                    <button class="new-ticket-btn new-ticket-btn--inline" onclick="openKudosModal()">
+                        <i class="fas fa-award"></i><span>Dar reconhecimento</span>
+                    </button>
+                </div>
+                <div class="messages-scroll" id="kudos-scroll">
+                    <div class="kudos-wall" id="kudos-wall"></div>
+                </div>
+            </div>
+
         </section>
+    </div>
+
+    <!-- Modal: Dar reconhecimento -->
+    <div class="modal-overlay" id="kudos-modal" onclick="if(event.target===this) closeKudosModal()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="modal-head-info">
+                    <div class="modal-head-icon"><i class="fas fa-award"></i></div>
+                    <div>
+                        <h3 class="modal-title">Dar Reconhecimento</h3>
+                        <p class="modal-sub">Visível publicamente no mural</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeKudosModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="kudos-colleague">Colega</label>
+                    <select id="kudos-colleague" class="form-input"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="kudos-categoria">Categoria</label>
+                    <select id="kudos-categoria" class="form-input">
+                        <option value="colaboracao">Colaboração</option>
+                        <option value="inovacao">Inovação</option>
+                        <option value="lideranca">Liderança</option>
+                        <option value="superacao">Superação</option>
+                        <option value="mentoria">Mentoria</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="kudos-message">Mensagem</label>
+                    <textarea id="kudos-message" class="form-input" rows="3" maxlength="300" placeholder="Descreva o que essa pessoa fez de especial..."></textarea>
+                </div>
+                <p class="modal-alert-inline hidden" id="kudos-error"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitKudos()"><i class="fas fa-paper-plane"></i><span>Publicar</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Feedback anônimo -->
+    <div class="modal-overlay" id="anon-feedback-modal" onclick="if(event.target===this) closeAnonFeedbackModal()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="modal-head-info">
+                    <div class="modal-head-icon"><i class="fas fa-user-secret"></i></div>
+                    <div>
+                        <h3 class="modal-title">Feedback Anônimo</h3>
+                        <p class="modal-sub">Ninguém no RH consegue saber quem enviou — nem seu nome é registrado.</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="anon-categoria">Categoria</label>
+                    <select id="anon-categoria" class="form-input">
+                        <option value="clima">Clima organizacional</option>
+                        <option value="gestao">Gestão / liderança</option>
+                        <option value="processos">Processos internos</option>
+                        <option value="infraestrutura">Infraestrutura</option>
+                        <option value="outro">Outro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="anon-message">Sua mensagem</label>
+                    <textarea id="anon-message" class="form-input" rows="4" maxlength="1000" placeholder="Fique à vontade — este envio é 100% anônimo."></textarea>
+                </div>
+                <p class="modal-alert-inline hidden" id="anon-error"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitAnonFeedback()"><i class="fas fa-paper-plane"></i><span>Enviar anonimamente</span></button>
+            </div>
+        </div>
     </div>
 
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/chat-colaborador.js"></script>
 </body>
 </html>

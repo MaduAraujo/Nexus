@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Colaboradores</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Colaboradores</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/colaboradores.css">
@@ -12,17 +13,24 @@
 <body>
 <div class="layout">
     <div class="main-wrapper" style="margin-left:0;width:100%">
-        <header class="topbar">
+        <header class="topbar" id="page-topbar">
             <div class="topbar-left">
-                <a href="../screens/inicio-rh.html" class="btn-back">
-                    <i class="fas fa-arrow-left"></i>
-                    <span>Voltar</span>
+                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 </a>
             </div>
             <div class="header-actions">
-                <button class="btn-topbar" id="btn-open-form" onclick="toggleForm()">
+                <button class="btn-topbar-icon" id="btn-open-orgchart" onclick="openOrgChart()" title="Organograma" aria-label="Organograma">
+                    <i class="fas fa-sitemap"></i>
+                </button>
+                <button class="btn-topbar-icon" id="btn-open-onboarding-tasks" onclick="openOnboardingTasksModal()" title="Checklist de Integração" aria-label="Checklist de Integração">
+                    <i class="fas fa-route"></i>
+                </button>
+                <button class="btn-topbar-icon" id="btn-open-import" onclick="openImportModal()" title="Upload via Planilha" aria-label="Upload via Planilha">
+                    <i class="fas fa-file-arrow-up"></i>
+                </button>
+                <button class="btn-topbar-icon" id="btn-open-form" onclick="toggleForm()" title="Novo Colaborador" aria-label="Novo Colaborador">
                     <i class="fas fa-user-plus"></i>
-                    <span>Novo Colaborador</span>
                 </button>
             </div>
         </header>
@@ -33,21 +41,64 @@
         
         <main class="content">
             <div class="page-body">
-                <header class="content-header" id="content-header">
-                    <div class="header-title">
-                        <div>
-                            <p id="employee-count" class="employee-count-text">0 colaboradores encontrados</p>
+                <div class="kpi-grid">
+                    <div class="kpi-card kpi--total" title="Total de Colaboradores">
+                        <div class="kpi-icon"><i class="fas fa-users"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Total de Colaboradores</span>
+                            <span class="kpi-value" id="kpi-total">—</span>
                         </div>
                     </div>
-                </header>
+                    <div class="kpi-card kpi--ativos" title="Ativos">
+                        <div class="kpi-icon"><i class="fas fa-user-check"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Ativos</span>
+                            <span class="kpi-value" id="kpi-ativos">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--ferias" title="Em Férias">
+                        <div class="kpi-icon"><i class="fas fa-umbrella-beach"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Em Férias</span>
+                            <span class="kpi-value" id="kpi-ferias">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--afastados" title="Afastados">
+                        <div class="kpi-icon"><i class="fas fa-house-medical"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Afastados</span>
+                            <span class="kpi-value" id="kpi-afastados">—</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi--inativos" title="Inativos">
+                        <div class="kpi-icon"><i class="fas fa-user-slash"></i></div>
+                        <div class="kpi-body">
+                            <span class="kpi-label">Inativos</span>
+                            <span class="kpi-value" id="kpi-inativos">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alerts-banner hidden" id="alerts-banner">
+                    <button type="button" class="alerts-chip alerts-chip--warning" onclick="filterByAlert('experiencia')">
+                        <i class="fas fa-hourglass-half"></i> <span id="alert-count-experiencia">0</span> fim de experiência
+                    </button>
+                    <button type="button" class="alerts-chip alerts-chip--info" onclick="filterByAlert('aniversario')">
+                        <i class="fas fa-cake-candles"></i> <span id="alert-count-aniversario">0</span> aniversariantes do mês
+                    </button>
+                    <button type="button" class="alerts-chip alerts-chip--danger" onclick="window.location.href='arquivos.html'">
+                        <i class="fas fa-file-circle-exclamation"></i> <span id="alert-count-documento">0</span> documentos vencendo
+                    </button>
+                </div>
 
                 <section class="form-section hidden" id="form-container">
                     <div class="card">
                         <div class="card-header">
-                            <div class="title-with-icon">
-                                <h3 id="form-title"><i class="fas fa-user-plus"></i> Novo Colaborador</h3>
+                            <div class="form-header-icon" id="form-header-icon"><i class="fas fa-user-plus"></i></div>
+                            <div class="form-header-text">
+                                <h3 id="form-title">Novo Colaborador</h3>
+                                <p class="subtitle">Preencha os dados do colaborador.</p>
                             </div>
-                            <p class="subtitle">Preencha os dados do colaborador.</p>
                         </div>
 
                         <div class="tabs-nav">
@@ -62,29 +113,46 @@
                         <form id="employee-form">
                             <input type="hidden" id="employee-id">
                             <div id="tab-obrigatorios" class="tab-panel active">
+                                <p class="form-section-title"><i class="fas fa-id-card"></i> Identificação</p>
                                 <div class="form-row">
                                     <div class="form-group flex-2">
-                                        <label for="name">Nome Completo *</label>
+                                        <label for="name">Nome Completo <span class="required-mark">*</span></label>
                                         <input type="text" id="name" required>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="cpf">CPF *</label>
+                                        <label for="cpf">CPF <span class="required-mark">*</span></label>
                                         <input type="text" id="cpf" maxlength="14" required>
                                     </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group flex-2">
-                                        <label for="email">Email *</label>
+                                        <label for="email">Email <span class="required-mark">*</span></label>
                                         <input type="email" id="email" required>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="admission-date">Data de Admissão *</label>
-                                        <input type="date" id="admission-date" required>
+                                        <label for="admission-date">Data de Admissão <span class="required-mark">*</span></label>
+                                        <div class="date-field">
+                                            <input type="text" id="admission-date" class="date-input" placeholder="dd/mm/aaaa" readonly required>
+                                            <i class="fas fa-calendar-day date-field-icon"></i>
+                                            <div class="calendar-popover">
+                                                <div class="calendar-header">
+                                                    <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                                    <span class="calendar-title" data-cal-title>—</span>
+                                                    <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                                </div>
+                                                <div class="calendar-weekdays">
+                                                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                </div>
+                                                <div class="calendar-grid" data-cal-grid></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+
+                                <p class="form-section-title"><i class="fas fa-briefcase"></i> Vínculo e Cargo</p>
                                 <div class="form-row">
                                     <div class="form-group flex-1">
-                                        <label for="contract-type">Tipo de Contrato *</label>
+                                        <label for="contract-type">Tipo de Contrato <span class="required-mark">*</span></label>
                                         <select id="contract-type" required>
                                             <option value="" disabled selected>Selecione</option>
                                             <option value="CLT">CLT</option>
@@ -95,7 +163,7 @@
                                         </select>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="dept">Departamento *</label>
+                                        <label for="dept">Departamento <span class="required-mark">*</span></label>
                                         <select id="dept" required>
                                             <option value="" disabled selected>Selecione</option>
                                             <option value="TI">Tecnologia da Informação</option>
@@ -107,13 +175,52 @@
                                         </select>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="role">Cargo *</label>
+                                        <label for="role">Cargo <span class="required-mark">*</span></label>
                                         <input type="text" id="role">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="manager-id">Gestor Responsável</label>
+                                        <select id="manager-id">
+                                            <option value="">Selecione</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group flex-1">
-                                        <label for="work-load">Jornada de Trabalho *</label>
+                                        <label>Em Período de Experiência?</label>
+                                        <div class="radio-group row-radio">
+                                            <label><input type="radio" name="em-experiencia" value="nao"> Não</label>
+                                            <label><input type="radio" name="em-experiencia" value="sim"> Sim</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="experiencia-details" class="conditional-field" style="display:none;">
+                                    <div class="form-row">
+                                        <div class="form-group form-group--narrow">
+                                            <label for="probation-end-date">Fim do Período de Experiência</label>
+                                            <div class="date-field">
+                                                <input type="text" id="probation-end-date" class="date-input" placeholder="dd/mm/aaaa" readonly>
+                                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                                <div class="calendar-popover">
+                                                    <div class="calendar-header">
+                                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                                        <span class="calendar-title" data-cal-title>—</span>
+                                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                                    </div>
+                                                    <div class="calendar-weekdays">
+                                                        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                    </div>
+                                                    <div class="calendar-grid" data-cal-grid></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p class="form-section-title"><i class="fas fa-sack-dollar"></i> Jornada e Remuneração</p>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="work-load">Jornada de Trabalho <span class="required-mark">*</span></label>
                                         <select id="work-load" required>
                                             <option value="" disabled selected>Selecione</option>
                                             <option value="44h">44h Semanais</option>
@@ -124,11 +231,11 @@
                                         </select>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="salary">Salário (R$) *</label>
+                                        <label for="salary">Salário (R$) <span class="required-mark">*</span></label>
                                         <input type="text" id="salary" required>
                                     </div>
                                     <div class="form-group flex-1">
-                                        <label for="salary-type">Tipo de Salário *</label>
+                                        <label for="salary-type">Tipo de Salário <span class="required-mark">*</span></label>
                                         <select id="salary-type" required>
                                             <option value="" disabled selected>Selecione</option>
                                             <option value="Mensal Fixo">Mensal Fixo</option>
@@ -137,10 +244,25 @@
                                         </select>
                                     </div>
                                 </div>
+                                <p class="form-section-title"><i class="fas fa-folder-open"></i> Documentos de Admissão</p>
+                                <div class="reg-doc-panel">
+                                    <div class="reg-doc-actions">
+                                        <button type="button" class="btn-secondary" onclick="openRegDocModal()">
+                                            <i class="fas fa-paperclip"></i> Anexar documento
+                                        </button>
+                                        <input type="file" id="reg-doc-input" multiple accept=".pdf,.jpg,.jpeg,.png"
+                                               style="display:none" onchange="handleRegDocSelect(event)">
+                                    </div>
+                                    <div id="reg-doc-list" class="reg-doc-list"></div>
+                                    <label class="reg-doc-consent hidden" id="reg-doc-consent-wrap">
+                                        <input type="checkbox" id="reg-doc-lgpd-consent">
+                                        O colaborador consentiu com o armazenamento destes documentos (LGPD).
+                                    </label>
+                                </div>
                                 <div class="form-actions">
-                                    <button type="button" onclick="toggleForm()" class="btn-secondary">Cancelar</button>
+                                    <button type="button" onclick="window.location.href='colaboradores.html'" class="btn-secondary">Cancelar</button>
                                     <button type="button" id="btn-save-simple" class="btn-primary">
-                                        <i class="fas fa-check"></i> Cadastrar
+                                        Cadastrar
                                     </button>
                                 </div>
                             </div>
@@ -179,6 +301,7 @@
                                 </div>
                                 
                                 <div class="step-panel active" id="step-panel-1">
+                                    <p class="step-panel-title"><i class="fas fa-id-card"></i> Identificação Pessoal</p>
                                     <div class="form-row">
                                         <div class="form-group flex-2">
                                             <label for="nome-completo">Nome Completo</label>
@@ -207,25 +330,29 @@
                                         </div>
                                     </div>
                                     <div class="form-row">
-                                        <div class="form-group flex-1">
+                                        <div class="form-group form-group--narrow">
                                             <label for="data-nascimento">Data de Nascimento</label>
-                                            <input type="date" id="data-nascimento">
+                                            <div class="date-field">
+                                                <input type="text" id="data-nascimento" class="date-input" placeholder="dd/mm/aaaa" readonly>
+                                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                                <div class="calendar-popover">
+                                                    <div class="calendar-header">
+                                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                                        <span class="calendar-title" data-cal-title>—</span>
+                                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                                    </div>
+                                                    <div class="calendar-weekdays">
+                                                        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                    </div>
+                                                    <div class="calendar-grid" data-cal-grid></div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="form-group flex-1">
+                                        <div class="form-group form-group--narrow-lg">
                                             <label for="nacionalidade">Nacionalidade</label>
                                             <input type="text" id="nacionalidade">
                                         </div>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group flex-1">
-                                            <label>Sexo</label>
-                                            <div class="radio-group row-radio">
-                                                <label><input type="radio" name="sexo" value="Masculino" checked> Masculino</label>
-                                                <label><input type="radio" name="sexo" value="Feminino"> Feminino</label>
-                                                <label><input type="radio" name="sexo" value="Outro"> Outro</label>
-                                            </div>
-                                        </div>
-                                        <div class="form-group flex-1">
+                                        <div class="form-group form-group--narrow">
                                             <label for="estado-civil">Estado Civil</label>
                                             <select id="estado-civil">
                                                 <option value="" disabled selected>Selecione</option>
@@ -235,9 +362,29 @@
                                                 <option value="viuvo">Viúvo(a)</option>
                                             </select>
                                         </div>
+                                        <div class="form-group flex-1">
+                                            <label>Sexo</label>
+                                            <div class="radio-group row-radio radio-group--sm">
+                                                <label><input type="radio" name="sexo" value="Masculino"> Masculino</label>
+                                                <label><input type="radio" name="sexo" value="Feminino"> Feminino</label>
+                                                <label><input type="radio" name="sexo" value="Outro"> Outro</label>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="form-row">
-                                        <div class="form-group flex-1">
+                                        <div class="form-group form-group--narrow">
+                                            <label for="raca-cor">Raça/Cor</label>
+                                            <select id="raca-cor">
+                                                <option value="" disabled selected>Selecione</option>
+                                                <option value="Branca">Branca</option>
+                                                <option value="Preta">Preta</option>
+                                                <option value="Parda">Parda</option>
+                                                <option value="Amarela">Amarela</option>
+                                                <option value="Indígena">Indígena</option>
+                                                <option value="Prefiro não declarar">Prefiro não declarar</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group form-group--narrow-lg">
                                             <label for="escolaridade">Grau de Instrução</label>
                                             <select id="escolaridade">
                                                 <option value="" disabled selected>Selecione</option>
@@ -254,6 +401,7 @@
                                 </div>
                                 
                                 <div class="step-panel hidden" id="step-panel-2">
+                                    <p class="step-panel-title"><i class="fas fa-address-book"></i> Contato e Endereço</p>
                                     <div class="form-row">
                                         <div class="form-group flex-1">
                                             <label for="telefone">Telefone</label>
@@ -267,7 +415,7 @@
                                     <div class="form-row">
                                         <div class="form-group flex-1">
                                             <label for="cep">CEP</label>
-                                            <input type="text" id="cep" maxlength="8" inputmode="numeric">
+                                            <input type="text" id="cep" maxlength="9" inputmode="numeric">
                                         </div>
                                         <div class="form-group flex-3">
                                             <label for="logradouro">Logradouro</label>
@@ -301,6 +449,7 @@
                                 </div>
                                
                                 <div class="step-panel hidden" id="step-panel-3">
+                                    <p class="step-panel-title"><i class="fas fa-briefcase"></i> Vínculo Empregatício</p>
                                     <div class="form-row">
                                         <div class="form-group flex-1">
                                             <label for="vinculo-contrato">Tipo de Contrato</label>
@@ -315,7 +464,21 @@
                                         </div>
                                         <div class="form-group flex-1">
                                             <label for="vinculo-admissao">Data de Admissão</label>
-                                            <input type="date" id="vinculo-admissao">
+                                            <div class="date-field">
+                                                <input type="text" id="vinculo-admissao" class="date-input" placeholder="dd/mm/aaaa" readonly>
+                                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                                <div class="calendar-popover">
+                                                    <div class="calendar-header">
+                                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                                        <span class="calendar-title" data-cal-title>—</span>
+                                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                                    </div>
+                                                    <div class="calendar-weekdays">
+                                                        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                    </div>
+                                                    <div class="calendar-grid" data-cal-grid></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="form-row">
@@ -361,6 +524,7 @@
                                 </div>
                                 
                                 <div class="step-panel hidden" id="step-panel-4">
+                                    <p class="step-panel-title"><i class="fas fa-sack-dollar"></i> Remuneração</p>
                                     <div class="form-row">
                                         <div class="form-group flex-1">
                                             <label for="rem-salario">Salário Base (R$)</label>
@@ -403,13 +567,14 @@
                                 </div>
                                 
                                 <div class="step-panel hidden" id="step-panel-5">
+                                    <p class="step-panel-title"><i class="fas fa-heart-pulse"></i> Benefícios</p>
                                     <div class="benefits-grid">
-                                        <div>
+                                        <div class="benefit-item">
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label>Seguro de Vida</label>
                                                     <div class="radio-group row-radio">
-                                                        <label><input type="radio" name="seguro-vida" value="nao" checked> Não</label>
+                                                        <label><input type="radio" name="seguro-vida" value="nao"> Não</label>
                                                         <label><input type="radio" name="seguro-vida" value="sim"> Sim</label>
                                                     </div>
                                                 </div>
@@ -423,12 +588,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="benefit-item">
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label>Possui Dependentes?</label>
                                                     <div class="radio-group row-radio">
-                                                        <label><input type="radio" name="possui-dependentes" value="nao" checked> Não</label>
+                                                        <label><input type="radio" name="possui-dependentes" value="nao"> Não</label>
                                                         <label><input type="radio" name="possui-dependentes" value="sim"> Sim</label>
                                                     </div>
                                                 </div>
@@ -442,12 +607,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="benefit-item">
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label>Pessoa com Deficiência (PCD)?</label>
                                                     <div class="radio-group row-radio">
-                                                        <label><input type="radio" name="pcd" value="nao" checked> Não</label>
+                                                        <label><input type="radio" name="pcd" value="nao"> Não</label>
                                                         <label><input type="radio" name="pcd" value="sim"> Sim</label>
                                                     </div>
                                                 </div>
@@ -461,12 +626,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="benefit-item">
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label>Pensão Alimentícia?</label>
                                                     <div class="radio-group row-radio">
-                                                        <label><input type="radio" name="pensao-alimenticia" value="nao" checked> Não</label>
+                                                        <label><input type="radio" name="pensao-alimenticia" value="nao"> Não</label>
                                                         <label><input type="radio" name="pensao-alimenticia" value="sim"> Sim</label>
                                                     </div>
                                                 </div>
@@ -484,12 +649,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="benefit-item">
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label>Vale Transporte?</label>
                                                     <div class="radio-group row-radio">
-                                                        <label><input type="radio" name="vale-transporte" value="nao" checked> Não</label>
+                                                        <label><input type="radio" name="vale-transporte" value="nao"> Não</label>
                                                         <label><input type="radio" name="vale-transporte" value="sim"> Sim</label>
                                                     </div>
                                                 </div>
@@ -548,6 +713,7 @@
                                 </div>
 
                                 <div class="step-panel hidden" id="step-panel-6">
+                                    <p class="step-panel-title"><i class="fas fa-money-check-dollar"></i> Dados de Pagamento</p>
                                     <div class="form-row">
                                         <div class="form-group flex-1">
                                             <label>Forma de Pagamento</label>
@@ -624,7 +790,7 @@
                                         </div>
                                     </div>
                                     <div class="form-row">
-                                        <div class="form-group flex-1">
+                                        <div class="form-group form-group--narrow">
                                             <label for="pag-dia">Dia de Pagamento</label>
                                             <select id="pag-dia">
                                                 <option value="" disabled selected>Selecione</option>
@@ -640,18 +806,14 @@
                                 </div>
 
                                 <div class="form-actions">
-                                    <button type="button" class="btn-secondary" onclick="toggleForm()">Cancelar</button>
+                                    <button type="button" class="btn-secondary" id="btn-prev-step" onclick="handleCancelOrBack()">Cancelar</button>
                                     <div class="actions-right">
-                                        <button type="button" class="btn-secondary" id="btn-prev-step"
-                                                onclick="handlePrevStep()" style="display: none;">
-                                            <i class="fas fa-arrow-left"></i> Voltar
-                                        </button>
                                         <button type="button" class="btn-primary" id="btn-next-step"
                                                 onclick="handleNextStep()">
-                                            Continuar <i class="fas fa-arrow-right"></i>
+                                            Continuar
                                         </button>
                                         <button type="button" class="btn-primary" id="btn-save" style="display: none;">
-                                            <i class="fas fa-check"></i> Cadastrar
+                                            Cadastrar
                                         </button>
                                     </div>
                                 </div>
@@ -662,20 +824,6 @@
                 
                 <section class="list-section" id="list-section">
                     <div class="list-toolbar">
-                        <div class="filter-container">
-                            <button class="btn-filter active" data-filter="todos">
-                                <i class="fas fa-th-large"></i> Todos
-                            </button>
-                            <button class="btn-filter" data-filter="ativos">
-                                <i class="fas fa-check-circle"></i> Ativos
-                            </button>
-                            <button class="btn-filter" data-filter="inativos">
-                                <i class="fas fa-times-circle"></i> Inativos
-                            </button>
-                            <button class="btn-filter" data-filter="ferias">
-                                <i class="fas fa-umbrella-beach"></i> Férias
-                            </button>
-                        </div>
                         <div class="search-container">
                             <div class="search-wrapper">
                                 <i class="fas fa-search search-icon"></i>
@@ -685,12 +833,75 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="toolbar-actions">
+                            <div class="filter-dropdown" id="filter-dropdown">
+                                <button type="button" class="btn-filter-trigger" id="btn-filter-trigger" onclick="toggleFilterMenu(event)">
+                                    <span>Filtro</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="filter-chevron"></i>
+                                </button>
+                                <div class="filter-menu filter-menu--right" id="filter-menu">
+                                    <p class="filter-menu-label">Status</p>
+                                    <button class="btn-filter active" data-filter="todos">Todos</button>
+                                    <button class="btn-filter" data-filter="ativos">Ativos</button>
+                                    <button class="btn-filter" data-filter="inativos">Inativos</button>
+                                    <button class="btn-filter" data-filter="ferias">Em Férias</button>
+                                    <button class="btn-filter" data-filter="afastados">Afastado</button>
+
+                                    <div class="dropdown-divider"></div>
+
+                                    <p class="filter-menu-label">Departamento</p>
+                                    <div class="dept-filter-list" id="dept-filter-list"></div>
+                                </div>
+                            </div>
+                            <div class="export-dropdown" id="export-dropdown">
+                                <button type="button" class="btn-filter-trigger" id="btn-export">
+                                    <span>Exportar</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="export-chevron"></i>
+                                </button>
+                                <div class="export-menu" id="export-menu">
+                                    <p class="export-menu-label">Formato de exportação</p>
+                                    <button class="export-option" id="export-csv-btn">
+                                        <div class="export-option-icon export-option-icon--excel"><i class="fas fa-table"></i></div>
+                                        <div class="export-option-body"><span class="export-option-title">Excel</span><span class="export-option-sub">.xlsx — Planilha editável</span></div>
+                                    </button>
+                                    <button class="export-option" id="export-pdf-btn">
+                                        <div class="export-option-icon export-option-icon--pdf"><i class="fas fa-file-lines"></i></div>
+                                        <div class="export-option-body"><span class="export-option-title">PDF</span><span class="export-option-sub">Relatório para impressão</span></div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bulk-actions-bar hidden" id="bulk-actions-bar">
+                        <div class="bulk-actions-info">
+                            <i class="fas fa-check-square"></i>
+                            <span><span id="bulk-selected-count">0</span> selecionado(s)</span>
+                        </div>
+                        <div class="bulk-actions-buttons">
+                            <button type="button" class="btn-bulk" onclick="bulkUpdateStatus('Ativo')">
+                                <i class="fas fa-user-check"></i> Ativo
+                            </button>
+                            <button type="button" class="btn-bulk" onclick="bulkUpdateStatus('Inativo')">
+                                <i class="fas fa-user-slash"></i> Inativo
+                            </button>
+                            <button type="button" class="btn-bulk" onclick="bulkUpdateStatus('Férias')">
+                                <i class="fas fa-umbrella-beach"></i> Férias
+                            </button>
+                            <button type="button" class="btn-bulk btn-bulk--danger" onclick="bulkDeleteEmployees()">
+                                <i class="fas fa-trash-alt"></i> Excluir
+                            </button>
+                            <button type="button" class="btn-bulk-clear" onclick="clearSelection()" aria-label="Limpar seleção">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="table-container">
                         <table class="employee-table">
                             <thead>
                                 <tr>
+                                    <th class="th-checkbox"><input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll(this)" aria-label="Selecionar todos"></th>
                                     <th><i class="fas fa-hashtag"></i> ID</th>
                                     <th><i class="fas fa-user"></i> Nome</th>
                                     <th><i class="fas fa-circle"></i> Status</th>
@@ -702,6 +913,7 @@
                             <tbody id="employee-list-body"></tbody>
                         </table>
                     </div>
+                    <div class="table-pagination" id="table-pagination"></div>
                 </section>
             </div>
         </main>
@@ -726,6 +938,15 @@
                         <div id="main-menu-options">
                             <a href="javascript:void(0)" onclick="handleEditFromDrawer()">
                                 <i class="fas fa-edit"></i> Editar Dados
+                            </a>
+                            <a href="javascript:void(0)" onclick="handleViewDocuments()">
+                                <i class="fas fa-folder-open"></i> Ver Documentos
+                            </a>
+                            <a href="javascript:void(0)" onclick="handleShowHistory()">
+                                <i class="fas fa-clock-rotate-left"></i> Ver Histórico
+                            </a>
+                            <a href="javascript:void(0)" onclick="handleShowLgpd()">
+                                <i class="fas fa-shield-halved"></i> Privacidade (LGPD)
                             </a>
                             <a href="javascript:void(0)" onclick="showStatusSubmenu()" class="btn-submenu">
                                 <i class="fas fa-sync-alt"></i> Alterar Status
@@ -754,7 +975,10 @@
 
             <!-- perfil -->
             <div class="drawer-profile">
-                <div class="avatar-placeholder" id="drawer-avatar">ME</div>
+                <div class="drawer-avatar-wrap">
+                    <img class="drawer-avatar-img hidden" id="drawer-avatar-img" alt="Foto de perfil" />
+                    <div class="avatar-placeholder" id="drawer-avatar">ME</div>
+                </div>
                 <div class="drawer-profile-text">
                     <h2 id="view-name">—</h2>
                     <p id="view-role" class="drawer-role">—</p>
@@ -795,6 +1019,20 @@
                             <p id="view-salary">—</p>
                         </div>
                     </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-user-group"></i></div>
+                        <div>
+                            <strong>Raça/Cor</strong>
+                            <p id="view-raca-cor">—</p>
+                        </div>
+                    </div>
+                    <div class="info-item hidden" id="view-probation-wrap">
+                        <div class="info-icon"><i class="fas fa-hourglass-half"></i></div>
+                        <div>
+                            <strong>Experiência</strong>
+                            <p><span id="view-probation" class="badge"></span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -813,9 +1051,181 @@
 
     </div>
 </div>
+
+<div class="modal-overlay" id="reg-doc-modal" onclick="if(event.target===this) closeRegDocModal()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-folder-open"></i></div>
+            <div>
+                <h3 class="modal-title">Documentos de Admissão</h3>
+                <p class="modal-subtitle">Selecione o tipo de documento para anexar</p>
+            </div>
+            <button class="close-modal" onclick="closeRegDocModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="reg-doc-type-list" id="reg-doc-type-list"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="audit-history-modal" onclick="if(event.target===this) closeAuditHistoryModal()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-clock-rotate-left"></i></div>
+            <div>
+                <h3 class="modal-title">Histórico do Colaborador</h3>
+                <p class="modal-subtitle">Alterações de dados e status</p>
+            </div>
+            <button class="close-modal" onclick="closeAuditHistoryModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="audit-history-body"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="lgpd-modal" onclick="if(event.target===this) closeLgpdModal()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-shield-halved"></i></div>
+            <div>
+                <h3 class="modal-title">Privacidade (LGPD)</h3>
+                <p class="modal-subtitle">Acessos a dados sensíveis, exportação e anonimização</p>
+            </div>
+            <button class="close-modal" onclick="closeLgpdModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="lgpd-actions">
+                <button type="button" class="btn-secondary" onclick="exportEmployeeDataLGPD()">
+                    <i class="fas fa-file-export"></i> Exportar dados (portabilidade)
+                </button>
+                <button type="button" class="btn-danger" id="btn-anonymize-lgpd" onclick="confirmAnonymizeEmployee()">
+                    <i class="fas fa-user-slash"></i> Anonimizar dados
+                </button>
+            </div>
+            <p class="lgpd-hint" id="lgpd-anonymize-hint"></p>
+            <p class="lgpd-section-title"><i class="fas fa-eye"></i> Log de acessos a dados sensíveis</p>
+            <div id="lgpd-access-log-body"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="onboarding-tasks-modal" onclick="if(event.target===this) closeOnboardingTasksModal()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-route"></i></div>
+            <div>
+                <h3 class="modal-title">Checklist de Integração</h3>
+                <p class="modal-subtitle">Tarefas da jornada de onboarding (30/60/90 dias)</p>
+            </div>
+            <button class="close-modal" onclick="closeOnboardingTasksModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="onb-group">
+                <h4 class="onb-group-title"><i class="fas fa-shoe-prints"></i> 30 dias</h4>
+                <div class="onb-chips" id="onb-tasks-30"></div>
+                <div class="onb-add">
+                    <input type="text" id="onb-add-title-30" placeholder="Título da tarefa...">
+                    <input type="text" id="onb-add-desc-30" placeholder="Descrição (opcional)...">
+                    <button type="button" onclick="addOnboardingTask(30)" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="onb-group">
+                <h4 class="onb-group-title"><i class="fas fa-person-walking"></i> 60 dias</h4>
+                <div class="onb-chips" id="onb-tasks-60"></div>
+                <div class="onb-add">
+                    <input type="text" id="onb-add-title-60" placeholder="Título da tarefa...">
+                    <input type="text" id="onb-add-desc-60" placeholder="Descrição (opcional)...">
+                    <button type="button" onclick="addOnboardingTask(60)" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="onb-group">
+                <h4 class="onb-group-title"><i class="fas fa-flag-checkered"></i> 90 dias</h4>
+                <div class="onb-chips" id="onb-tasks-90"></div>
+                <div class="onb-add">
+                    <input type="text" id="onb-add-title-90" placeholder="Título da tarefa...">
+                    <input type="text" id="onb-add-desc-90" placeholder="Descrição (opcional)...">
+                    <button type="button" onclick="addOnboardingTask(90)" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="orgchart-modal" onclick="if(event.target===this) closeOrgChart()">
+    <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-sitemap"></i></div>
+            <div>
+                <h3 class="modal-title">Organograma</h3>
+                <p class="modal-subtitle">Hierarquia por gestor responsável</p>
+            </div>
+            <button class="close-modal" onclick="closeOrgChart()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="orgchart-filter-bar">
+            <label for="orgchart-dept-filter"><i class="fas fa-building"></i> Departamento</label>
+            <select id="orgchart-dept-filter" onchange="renderOrgChart()">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="modal-body" id="orgchart-container"></div>
+    </div>
+</div>
+
+<div id="import-overlay" class="import-overlay">
+    <div class="import-modal">
+        <div class="import-modal-header">
+            <div class="import-modal-icon"><i class="fas fa-file-arrow-up"></i></div>
+            <div class="import-modal-heading">
+                <h3 id="import-modal-title">Importar via planilha</h3>
+                <p id="import-modal-subtitle">Envie um arquivo com os dados dos colaboradores.</p>
+            </div>
+            <button class="btn-close-drawer" onclick="closeImportModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="import-modal-body">
+            <div id="import-step-upload">
+                <button type="button" class="btn-secondary" id="btn-download-template" onclick="downloadImportTemplate()">
+                    <i class="fas fa-download"></i> Baixar modelo
+                </button>
+                <label class="import-dropzone" id="import-dropzone" for="import-file-input">
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <strong>Clique para selecionar</strong>
+                    <span>ou arraste o arquivo aqui</span>
+                </label>
+                <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" hidden onchange="handleImportFileSelected(event)">
+            </div>
+
+            <div id="import-step-preview" class="hidden">
+                <div class="import-summary" id="import-summary"></div>
+                <div class="import-preview-table-wrap">
+                    <table class="import-preview-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>CPF</th>
+                                <th>Email</th>
+                                <th>Departamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="import-preview-body"></tbody>
+                    </table>
+                </div>
+                <p class="import-progress hidden" id="import-progress"></p>
+            </div>
+        </div>
+
+        <div class="import-modal-footer">
+            <button type="button" class="btn-primary hidden" id="btn-import-confirm" onclick="confirmImport()">
+                <i class="fas fa-check"></i> <span id="btn-import-confirm-text">Importar</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/colaboradores.js"></script>
 </body>
 </html>

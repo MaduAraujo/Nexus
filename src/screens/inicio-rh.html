@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Painel RH</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Painel</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/inicio-colaborador.css" />
@@ -23,7 +24,7 @@
                 <li class="nav-item active">
                     <a href="../screens/inicio-rh.html" class="nav-link">
                         <span class="nav-icon"><i class="fas fa-home"></i></span>
-                        <span class="nav-text">Início</span>
+                        <span class="nav-text">Painel</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -62,7 +63,30 @@
                 <button class="topbar-menu-btn" id="topbar-menu-btn" aria-label="Abrir menu">
                     <i class="fas fa-bars"></i>
                 </button>
-                <h1 class="page-title">Minha Área</h1>
+            </div>
+            <div class="topbar-right">
+                <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Alternar tema escuro">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <div class="topbar-date" id="topbar-date" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-calendar-day"></i>
+                    <span id="topbar-date-text">—</span>
+                </div>
+                <div class="calendar-popover" id="calendar-popover">
+                    <div class="calendar-header">
+                        <button type="button" class="calendar-nav-btn" id="calendar-prev" aria-label="Mês anterior">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="calendar-title" id="calendar-title">—</span>
+                        <button type="button" class="calendar-nav-btn" id="calendar-next" aria-label="Próximo mês">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
             </div>
         </header>
 
@@ -86,7 +110,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="section-title-row">
                     <h2 class="section-title">
                         <span class="section-title-accent"></span>
@@ -161,6 +185,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/inicio-rh.js"></script>
 </body>
 </html>

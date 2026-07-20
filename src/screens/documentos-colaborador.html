@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Meus Documentos</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Meus Documentos</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/documentos-colaborador.css">
@@ -20,6 +21,15 @@
     </header>
 
     <main class="content">
+
+        <!-- Documentos obrigatórios pendentes -->
+        <div class="pending-docs-banner hidden" id="pending-docs-banner">
+            <div class="pending-docs-header">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span id="pending-docs-text">Documentos pendentes</span>
+            </div>
+            <div class="pending-docs-chips" id="pending-docs-chips"></div>
+        </div>
 
         <!-- Seletor mobile -->
         <div class="mobile-doc-select" id="mobile-doc-select">
@@ -76,7 +86,15 @@
                             </span>
                         </div>
                         <div class="doc-actions-btns">
-                            <button class="btn-delete-doc" onclick="deleteSelectedDoc()">
+                            <button class="btn-view-doc" id="btn-view-doc" onclick="viewSelectedDoc()">
+                                <i class="fas fa-eye"></i>
+                                <span>Visualizar</span>
+                            </button>
+                            <button class="btn-sign-doc hidden" id="btn-sign-doc" onclick="openSignModal()">
+                                <i class="fas fa-signature"></i>
+                                <span>Assinar Documento</span>
+                            </button>
+                            <button class="btn-delete-doc" id="btn-delete-doc" onclick="deleteSelectedDoc()">
                                 <i class="fas fa-trash"></i>
                                 <span>Remover</span>
                             </button>
@@ -130,7 +148,7 @@
                         </div>
 
                         <!-- Preview do arquivo -->
-                        <div class="doc-preview-area">
+                        <div class="doc-preview-area doc-preview-area--clickable" onclick="viewSelectedDoc()" role="button" tabindex="0">
                             <div class="doc-preview-icon" id="detail-file-icon">
                                 <i class="fas fa-file"></i>
                             </div>
@@ -138,11 +156,12 @@
                                 <p class="doc-preview-name" id="detail-preview-name">—</p>
                                 <p class="doc-preview-meta" id="detail-preview-meta">—</p>
                             </div>
+                            <i class="fas fa-up-right-from-square doc-preview-open-icon"></i>
                         </div>
 
                         <!-- Rodapé -->
                         <div class="doc-card-footer">
-                            <div class="doc-footer-left">
+                            <div class="doc-footer-left" id="assinatura-area">
                                 <div class="assinatura-line"></div>
                                 <p class="assinatura-label">Assinatura do Colaborador</p>
                             </div>
@@ -206,9 +225,36 @@
         </div>
     </div>
 
+    <!-- Modal de assinatura eletrônica -->
+    <div class="modal-overlay" id="sign-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-signature"></i> Assinar Documento</h3>
+                <button class="close-modal" onclick="closeSignModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nome completo</label>
+                    <input type="text" id="sign-name-input" class="sign-name-input" placeholder="Digite seu nome completo">
+                </div>
+                <label class="lgpd-consent">
+                    <input type="checkbox" id="sign-agree-check">
+                    <span>Declaro que li e estou de acordo com o conteúdo deste documento. Esta confirmação equivale à minha assinatura eletrônica.</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSignModal()">Cancelar</button>
+                <button class="btn-primary" onclick="confirmSignature()">
+                    <i class="fas fa-signature"></i> Confirmar Assinatura
+                </button>
+            </div>
+        </div>
+    </div>
+
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/documentos-colaborador.js"></script>
 </body>
 </html>

@@ -37,6 +37,22 @@
     --speed:        0.25s;
 }
 
+:root[data-theme="dark"] {
+    --bg-page:  #0b0c10;
+    --bg-white: #16171d;
+
+    --text-main:     #e8eaf0;
+    --text-muted:    #9aa1b0;
+    --text-tertiary: #767c8a;
+
+    --border-color: rgba(255, 255, 255, 0.08);
+
+    --success-bg: rgba(16, 185, 129, 0.16);
+    --danger-bg:  rgba(239, 68, 68, 0.16);
+    --warning-bg: rgba(245, 158, 11, 0.16);
+    --info-bg:    rgba(59, 130, 246, 0.16);
+}
+
 *, *::before, *::after {
     margin: 0;
     padding: 0;
@@ -373,6 +389,30 @@ body {
     color: var(--accent);
 }
 
+.theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--accent);
+}
+
+.theme-toggle-btn i { pointer-events: none; }
+
 /* ─── Content ─── */
 
 .content {
@@ -643,6 +683,38 @@ body {
     background: linear-gradient(to bottom, var(--accent), #818cf8);
     border-radius: 99px;
     flex-shrink: 0;
+}
+
+/* ─── Jornada de Integração (onboarding) ─── */
+
+.onboarding-card {
+    background: var(--bg-white); border: 1px solid var(--border-color);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    padding: 20px 22px;
+}
+.onboarding-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.onboarding-sub { font-size: .78rem; color: var(--text-muted); margin-top: 2px; margin-left: 14px; }
+.onboarding-progress-wrap { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+.onboarding-progress-bar { flex: 1; height: 8px; border-radius: 99px; background: var(--bg-page); overflow: hidden; }
+.onboarding-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8); border-radius: 99px; transition: width .35s var(--ease); }
+.onboarding-progress-label { font-size: .78rem; font-weight: 700; color: var(--text-main); white-space: nowrap; }
+
+.onboarding-stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.onboarding-stage { background: var(--bg-page); border-radius: 10px; padding: 14px; }
+.onboarding-stage-title { font-size: .78rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.onboarding-stage-title .stage-count { font-weight: 500; color: var(--text-muted); }
+.onboarding-task { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; cursor: pointer; }
+.onboarding-task input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.onboarding-task-body { display: flex; flex-direction: column; gap: 1px; }
+.onboarding-task-title { font-size: .81rem; color: var(--text-main); line-height: 1.35; }
+.onboarding-task.done .onboarding-task-title { color: var(--text-tertiary); text-decoration: line-through; }
+.onboarding-task-desc { font-size: .68rem; color: var(--text-tertiary); line-height: 1.3; }
+
+@media (max-width: 768px) {
+    .onboarding-stages { grid-template-columns: 1fr; }
 }
 
 .section-link {

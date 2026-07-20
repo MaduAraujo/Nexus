@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Solicitar Férias</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Solicitar Férias</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/ferias-colaborador.css">
@@ -12,15 +13,16 @@
 
     <header class="topbar">
         <div class="topbar-left">
-            <a href="../screens/inicio-colaborador.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
         </div>
     </header>
 
     <main class="content">
         <div class="page-body">
+            <div class="expired-banner hidden" id="expired-banner"></div>
+
             <div class="summary-grid">
                 <div class="summary-card summary-card--blue">
                     <div class="summary-icon-wrap summary-icon--blue">
@@ -127,6 +129,18 @@
                 <span id="days-count">Selecione as datas para ver o total de dias</span>
             </div>
 
+            <div class="valor-ferias-preview hidden" id="valor-ferias-preview">
+                <div class="vfp-header"><i class="fas fa-sack-dollar"></i> Estimativa do que você vai receber</div>
+                <div class="vfp-rows" id="valor-ferias-rows"></div>
+                <div class="vfp-total">
+                    <span>Total estimado</span>
+                    <strong id="valor-ferias-total">—</strong>
+                </div>
+                <p class="vfp-note">Estimativa bruta (sem descontos de INSS/IRRF) com base no salário cadastrado — não substitui o cálculo oficial da folha.</p>
+            </div>
+
+            <p class="form-hint-block hidden" id="fraction-info"></p>
+
             <div class="form-group">
                 <label class="form-label checkbox-label">
                     <input type="checkbox" id="req-abono" onchange="calcDays()" disabled>
@@ -137,6 +151,15 @@
                     </span>
                 </label>
                 <p class="form-hint" id="abono-hint">Disponível somente para períodos de 20 dias ou mais.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="req-substituto">
+                    Substituto / Cobertura <span class="label-optional">(opcional)</span>
+                </label>
+                <select id="req-substituto" class="form-input">
+                    <option value="">Nenhum</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -183,5 +206,6 @@
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/ferias-colaborador.js"></script>
 </html>

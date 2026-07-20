@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Holerites</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Holerites</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/holerite-colaborador.css">
@@ -12,9 +13,8 @@
 
     <header class="topbar no-print">
         <div class="topbar-left">
-            <a href="../screens/inicio-colaborador.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
         </div>
     </header>
@@ -73,6 +73,14 @@
                             </span>
                         </div>
                         <div class="payslip-actions-btns">
+                            <button class="btn-print" onclick="openComparativoModal()">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Comparativo</span>
+                            </button>
+                            <button class="btn-print" onclick="openInformeModal()">
+                                <i class="fas fa-file-invoice"></i>
+                                <span>Informe de Rendimentos</span>
+                            </button>
                             <button class="btn-print" onclick="printPayslip()">
                                 <i class="fas fa-print"></i>
                                 <span>Imprimir</span>
@@ -209,9 +217,60 @@
         </div>
     </main>
 
+    <!-- Modal: Comparativo histórico -->
+    <div class="modal-overlay no-print" id="comparativo-modal" onclick="if(event.target===this) closeComparativoModal()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="modal-head-info">
+                    <div class="modal-head-icon"><i class="fas fa-chart-line"></i></div>
+                    <div>
+                        <h3 class="modal-title">Comparativo Histórico</h3>
+                        <p class="modal-sub">Evolução do seu salário líquido por competência</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeComparativoModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="comparativo-chart-wrap">
+                    <canvas id="comparativo-chart"></canvas>
+                </div>
+                <p class="comparativo-empty hidden" id="comparativo-empty">Nenhum holerite pago disponível ainda para comparar.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Informe de rendimentos anual -->
+    <div class="modal-overlay no-print" id="informe-modal" onclick="if(event.target===this) closeInformeModal()">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="modal-head-info">
+                    <div class="modal-head-icon"><i class="fas fa-file-invoice"></i></div>
+                    <div>
+                        <h3 class="modal-title">Informe de Rendimentos</h3>
+                        <p class="modal-sub">Consolidado anual para declaração de Imposto de Renda</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeInformeModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="informe-year-row">
+                    <label class="informe-year-label" for="informe-year-select">Ano-calendário</label>
+                    <select id="informe-year-select" class="informe-year-select" onchange="renderInforme(this.value)"></select>
+                </div>
+                <div id="informe-content"></div>
+                <p class="informe-empty hidden" id="informe-empty">Nenhum holerite pago encontrado para este ano.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-print" onclick="printInforme()"><i class="fas fa-print"></i><span>Imprimir</span></button>
+            </div>
+        </div>
+    </div>
+
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/holerite-colaborador.js"></script>
 </body>
 </html>

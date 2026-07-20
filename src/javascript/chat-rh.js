@@ -1,19 +1,12 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
     // ── Auth (Administrador) ──────────────────────────────────────────────────
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id').eq('id', user.id).single();
-
-    if (profile?.profile !== 'Administrador') {
-        window.location.href = '../screens/login.html'; return;
-    }
+    const auth = await NexusAuth.requireProfile('Administrador');
+    if (!auth) return;
 
     // Info do analista logado
     let analystName  = 'Analista RH';
-    let analystEmpId = profile.employee_id;
+    let analystEmpId = auth.profile.employee_id;
     if (analystEmpId) {
         const { data: e } = await sb.from('employees').select('name').eq('id', analystEmpId).single();
         if (e?.name) analystName = e.name;
@@ -68,6 +61,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         resolvido: 'tsd-solved'
     };
 
+    // ── SLA (tempo aguardando analista) e CSAT (avaliação do colaborador) ──────
+    // SLA calculado a partir de updated_at: o trigger hr_tickets_updated_at marca o
+    // exato momento em que o status virou 'aguardando_rh' (escalateToHuman), e nada
+    // mais mexe no ticket enquanto ele segue nesse status — não precisa de coluna nova.
+    const SLA_WARN_MIN   = 4 * 60;  // 4h: começa a chamar atenção
+    const SLA_BREACH_MIN = 24 * 60; // 24h (1 dia útil — mesmo prazo prometido ao colaborador)
+
+    function slaInfo(ticket) {
+        if (ticket.status !== 'aguardando_rh') return null;
+        const waitMin = Math.max(0, Math.floor((Date.now() - new Date(ticket.updated_at || ticket.created_at)) / 60000));
+        const level = waitMin >= SLA_BREACH_MIN ? 'breach' : waitMin >= SLA_WARN_MIN ? 'warn' : 'ok';
+        return { waitMin, level };
+    }
+
+    function slaLabel(waitMin) {
+        if (waitMin < 60) return `${waitMin}min`;
+        const h = Math.floor(waitMin / 60);
+        if (h < 24) return `${h}h`;
+        return `${Math.floor(h / 24)}d`;
+    }
+
+    function slaBadgeHtml(ticket) {
+        const sla = slaInfo(ticket);
+        if (!sla) return '';
+        return `<span class="sla-badge sla-badge--${sla.level}" title="Aguardando analista há ${slaLabel(sla.waitMin)}"><i class="fas fa-stopwatch"></i> ${slaLabel(sla.waitMin)}</span>`;
+    }
+
+    function starsHtml(rating) {
+        return Array.from({ length: 5 }, (_, i) => `<i class="fa${i < rating ? 's' : 'r'} fa-star"></i>`).join('');
+    }
+
+    function csatBadgeHtml(ticket) {
+        if (ticket.status !== 'resolvido' || !ticket.csat_rating) return '';
+        return `<span class="csat-badge" title="Avaliação do colaborador">${starsHtml(ticket.csat_rating)}</span>`;
+    }
+
     // ── Painel esquerdo mobile (chat-left drawer) ─────────────────────────────
     const chatLeft    = document.getElementById('chat-left');
     const chatOverlay = document.getElementById('chat-overlay');
@@ -91,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ── Carregar tickets ──────────────────────────────────────────────────────
     async function loadTickets() {
         const { data: tickets } = await sb.from('hr_tickets')
-            .select('*, employees(name, avatar_url, avatar_color, role, dept)')
+            .select('*, employees!hr_tickets_employee_id_fkey(name, avatar_url, avatar_color, role, dept), about:employees!hr_tickets_about_employee_id_fkey(name)')
             .order('updated_at', { ascending: false });
 
         allTickets = tickets || [];
@@ -111,6 +140,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         set('stat-waiting', waiting);
         set('stat-active',  active);
         set('stat-solved',  solved);
+
+        const rated = allTickets.filter(t => t.csat_rating);
+        const avgCsat = rated.length ? (rated.reduce((s, t) => s + t.csat_rating, 0) / rated.length) : null;
+        set('stat-csat', avgCsat ? `${avgCsat.toFixed(1)}★` : '—');
+        $('tstat-csat-wrap')?.classList.toggle('tstat-csat-set', !!avgCsat);
+
+        const breached = allTickets.some(t => slaInfo(t)?.level === 'breach');
+        document.getElementById('stat-waiting')?.closest('.tstat')?.classList.toggle('tstat-danger', breached);
     }
 
     function updatePendingBadge() {
@@ -129,7 +166,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!list) return;
 
         let filtered = allTickets;
-        if (currentFilter !== 'all') {
+        if (currentFilter === 'escalacao') {
+            filtered = allTickets.filter(t => !!t.about);
+        } else if (currentFilter !== 'all') {
             filtered = allTickets.filter(t => t.status === currentFilter);
         }
 
@@ -172,6 +211,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="ti-status-dot ${statusDotClass[ticket.status] || 'tsd-bot'}"></span>
                     <span>${statusLabel[ticket.status] || ticket.status}</span>
                     ${e.dept ? `<span>·</span><span>${esc(e.dept)}</span>` : ''}
+                    ${slaBadgeHtml(ticket)}
+                    ${csatBadgeHtml(ticket)}
+                    ${ticket.about ? `<span class="escalation-badge" title="Escalação do gestor sobre este colaborador"><i class="fas fa-flag"></i> Sobre ${esc(ticket.about.name)}</span>` : ''}
                 </div>
             </div>
             <div class="ti-time">${fmtAgo(ticket.updated_at || ticket.created_at)}</div>
@@ -207,10 +249,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nameEl = $('colab-name');
         const metaEl = $('colab-meta');
         if (nameEl) nameEl.textContent = emp.name || 'Colaborador';
-        if (metaEl) metaEl.textContent = [emp.role, emp.dept].filter(Boolean).join(' · ');
+        const metaParts = [emp.role, emp.dept].filter(Boolean);
+        if (ticket.about) metaParts.push(`🚩 Escalação sobre ${ticket.about.name}`);
+        if (metaEl) metaEl.textContent = metaParts.join(' · ');
 
         updateStatusChip(ticket.status);
         updateActionButtons(ticket.status);
+        updateHeaderBadges(ticket);
 
         // Mostra área e fecha painel mobile
         showChatArea();
@@ -235,6 +280,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dotMap = { bot: 'offline', aguardando_rh: 'away', em_atendimento: 'online', resolvido: 'offline' };
         dot.classList.add(dotMap[status] || 'offline');
         label.textContent = statusLabel[status] || status;
+    }
+
+    function updateHeaderBadges(ticket) {
+        const slaEl  = $('header-sla-badge');
+        const csatEl = $('header-csat-badge');
+        if (slaEl) {
+            const html = slaBadgeHtml(ticket);
+            slaEl.innerHTML = html;
+            slaEl.classList.toggle('hidden', !html);
+        }
+        if (csatEl) {
+            const html = csatBadgeHtml(ticket);
+            csatEl.innerHTML = html;
+            csatEl.classList.toggle('hidden', !html);
+        }
     }
 
     function updateActionButtons(status) {
@@ -270,6 +330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderTicketList();
         updateStatusChip(newStatus);
         updateActionButtons(newStatus);
+        updateHeaderBadges(currentTicket);
 
         // Restaura item ativo na lista
         document.querySelectorAll('.ticket-item').forEach(li => {
@@ -480,18 +541,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (seenTickets.has(t.id)) return;
                 seenTickets.add(t.id);
 
-                // Busca dados do colaborador
-                const { data: emp } = await sb.from('employees')
-                    .select('name, avatar_url, avatar_color, role, dept')
-                    .eq('id', t.employee_id).single();
+                // Busca dados do colaborador (e de quem o ticket é sobre, se for uma escalação)
+                const [{ data: emp }, aboutRes] = await Promise.all([
+                    sb.from('employees').select('name, avatar_url, avatar_color, role, dept').eq('id', t.employee_id).single(),
+                    t.about_employee_id ? sb.from('employees').select('name').eq('id', t.about_employee_id).single() : Promise.resolve({ data: null }),
+                ]);
 
-                const enriched = { ...t, employees: emp || {} };
+                const enriched = { ...t, employees: emp || {}, about: aboutRes?.data || null };
                 allTickets.unshift(enriched);
                 updateStats();
                 updatePendingBadge();
                 renderTicketList();
 
-                showToast('Novo ticket de atendimento', 'info', emp?.name ? `Colaborador: ${emp.name}` : '');
+                const toastMsg = t.about_employee_id
+                    ? `${emp?.name || 'Gestor'} escalou algo sobre ${aboutRes?.data?.name || 'um colaborador'}`
+                    : (emp?.name ? `Colaborador: ${emp.name}` : '');
+                showToast('Novo ticket de atendimento', 'info', toastMsg);
             })
             .on('postgres_changes', {
                 event: 'UPDATE', schema: 'public', table: 'hr_tickets'
@@ -507,6 +572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     currentTicket = { ...currentTicket, ...updated };
                     updateStatusChip(updated.status);
                     updateActionButtons(updated.status);
+                    updateHeaderBadges(currentTicket);
                 }
 
                 updateStats();
@@ -527,6 +593,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showChatArea() {
         $('chat-welcome')?.classList.add('hidden');
         $('chat-area')?.classList.remove('hidden');
+    }
+
+    // ── Feedback anônimo ─────────────────────────────────────────────────────
+    // Tabela anonymous_feedback não guarda employee_id — não há "quem enviou"
+    // para mostrar aqui, só a mensagem, categoria e status de triagem.
+    const AF_CAT_LABEL = { clima: 'Clima organizacional', gestao: 'Gestão / liderança', processos: 'Processos internos', infraestrutura: 'Infraestrutura', outro: 'Outro' };
+    let allAnonFeedback = [];
+    let anonFilter      = 'all';
+
+    async function loadAnonFeedback() {
+        const { data } = await sb.from('anonymous_feedback').select('*').order('created_at', { ascending: false });
+        allAnonFeedback = data || [];
+        updateAnonBadge();
+        renderAnonFeedback();
+    }
+
+    function updateAnonBadge() {
+        const badge = $('anon-feedback-badge');
+        if (!badge) return;
+        const novos = allAnonFeedback.filter(f => f.status === 'novo').length;
+        badge.textContent = novos;
+        badge.classList.toggle('hidden', novos === 0);
+    }
+
+    function renderAnonFeedback() {
+        const list = $('anon-feedback-list');
+        if (!list) return;
+        const filtered = anonFilter === 'all' ? allAnonFeedback : allAnonFeedback.filter(f => f.status === anonFilter);
+        if (!filtered.length) { list.innerHTML = `<p class="af-empty">Nenhum feedback ${anonFilter === 'all' ? '' : `com status "${anonFilter}"`} encontrado.</p>`; return; }
+        list.innerHTML = filtered.map(f => `
+            <div class="af-item status-${f.status}">
+                <div class="af-item-head">
+                    <span class="af-item-cat">${esc(AF_CAT_LABEL[f.categoria] || f.categoria)}</span>
+                    <span class="af-item-time">${fmtAgo(f.created_at)}</span>
+                </div>
+                <p class="af-item-msg">${esc(f.message)}</p>
+                <div class="af-item-actions">
+                    ${f.status !== 'lido'      ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
+                    ${f.status !== 'arquivado' ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','arquivado')"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
+                </div>
+            </div>`).join('');
+    }
+
+    document.querySelectorAll('.af-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            anonFilter = btn.dataset.filter;
+            document.querySelectorAll('.af-chip').forEach(b => b.classList.toggle('active', b === btn));
+            renderAnonFeedback();
+        });
+    });
+
+    window.markAnonFeedback = async function (id, status) {
+        const { error } = await sb.from('anonymous_feedback').update({ status }).eq('id', id);
+        if (error) return;
+        const item = allAnonFeedback.find(f => f.id === id);
+        if (item) item.status = status;
+        updateAnonBadge();
+        renderAnonFeedback();
+    };
+
+    $('btn-open-anon-feedback')?.addEventListener('click', () => {
+        $('anon-feedback-modal')?.classList.add('open');
+    });
+
+    window.closeAnonFeedbackModal = function () {
+        $('anon-feedback-modal')?.classList.remove('open');
+    };
+
+    function subscribeToAnonFeedback() {
+        sb.channel('rh-anon-feedback')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'anonymous_feedback' }, () => {
+                loadAnonFeedback();
+                showToast('Novo feedback anônimo recebido', 'info');
+            })
+            .subscribe();
     }
 
     // ── Toast ─────────────────────────────────────────────────────────────────
@@ -565,4 +706,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ── Init ──────────────────────────────────────────────────────────────────
     await loadTickets();
     subscribeToNewTickets();
+    await loadAnonFeedback();
+    subscribeToAnonFeedback();
+
+    // O SLA é calculado a partir do relógio local — sem isso, o badge "aguardando
+    // há Xh" só mudaria quando chegasse um evento novo no realtime.
+    setInterval(() => {
+        renderTicketList();
+        updateStats();
+        if (currentTicket) updateHeaderBadges(currentTicket);
+    }, 60000);
 });

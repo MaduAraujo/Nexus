@@ -13,6 +13,13 @@ function showToast(msg, type = 'success') {
     toast._t = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+window.updateLoginBtnState = function () {
+    const btn = document.getElementById('btn-login');
+    const email = document.getElementById('login-user')?.value.trim() || '';
+    const pass = document.getElementById('login-pass')?.value || '';
+    if (btn) btn.disabled = !email || !pass;
+};
+
 function setLoginLoading(on) {
     const btn = document.getElementById('btn-login');
     const text = document.getElementById('btn-login-text');
@@ -83,8 +90,9 @@ window.onFirstAccessEmailInput = function () {
 
 window.selectProfile = function (type, el) {
     selectedProfileType = type;
-    document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('#form-profile .profile-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-checked', 'false'); });
     el.classList.add('selected');
+    el.setAttribute('aria-checked', 'true');
     const continueBtn = document.getElementById('btn-continue');
     if (continueBtn) continueBtn.disabled = false;
 };
@@ -99,23 +107,28 @@ window.goToLogin = function () {
     const passSection = document.getElementById('login-pass-section');
     const btnLoginText = document.getElementById('btn-login-text');
     const loginPass = document.getElementById('login-pass');
+    const loginUser = document.getElementById('login-user');
     if (loginPass) loginPass.value = '';
 
     if (selectedProfileType === 'Administrador') {
-        if (pill) pill.innerHTML = '<span class="profile-pill rh-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Administrador</span>';
+        if (pill) pill.innerHTML = '';
         if (title) title.textContent = 'Bem-vindo de volta';
-        if (subtitle) subtitle.textContent = 'Acesse o painel Administrativo';
+        if (subtitle) subtitle.textContent = 'Acesse o painel';
         if (passSection) passSection.style.display = '';
         if (btnLoginText) btnLoginText.textContent = 'Entrar';
+        if (loginUser) loginUser.placeholder = '';
         loginStep = 2;
     } else {
-        if (pill) pill.innerHTML = '<span class="profile-pill colab-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaborador</span>';
+        if (pill) pill.innerHTML = '';
         if (title) title.textContent = 'Olá, colaborador!';
         if (subtitle) subtitle.textContent = 'Acesse sua área pessoal';
         if (passSection) passSection.style.display = '';
         if (btnLoginText) btnLoginText.textContent = 'Entrar';
+        if (loginUser) loginUser.placeholder = '';
         loginStep = 2;
     }
+
+    updateLoginBtnState();
 };
 
 window.goToProfileSelection = function () {
@@ -128,16 +141,25 @@ window.goToProfileSelection = function () {
     const passSection = document.getElementById('login-pass-section');
     if (passSection) passSection.style.display = '';
     selectedProfileType = null;
-    document.querySelectorAll('#form-profile .profile-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('#form-profile .profile-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-checked', 'false'); });
     const continueBtn = document.getElementById('btn-continue');
     if (continueBtn) continueBtn.disabled = true;
+    setNavBack(false);
 };
+
+function setNavBack(visible, onClick) {
+    const btn = document.getElementById('nav-back-btn');
+    if (!btn) return;
+    btn.style.display = visible ? 'flex' : 'none';
+    btn.onclick = visible ? onClick : null;
+}
 
 window.switchTab = function (tab) {
     if (tab !== 'login' && tab !== 'forgot') return;
     document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
     const target = document.getElementById('form-' + tab);
     if (target) target.classList.add('active');
+    setNavBack(true, tab === 'login' ? goToProfileSelection : backToLogin);
 };
 
 function showPasswordStep() {
@@ -233,6 +255,12 @@ window.forgotClearErr = function (errId, input) {
     input?.classList.remove('input-error');
 };
 
+window.updateForgotBtnState = function () {
+    const btn = document.getElementById('btn-forgot-send');
+    const email = document.getElementById('forgot-email')?.value.trim() || '';
+    if (btn) btn.disabled = !email;
+};
+
 window.backToLogin = function () {
     if (!selectedProfileType) {
         goToProfileSelection();
@@ -242,6 +270,7 @@ window.backToLogin = function () {
     window.setForgotStep(1);
     const el = document.getElementById('forgot-email');
     if (el) el.value = '';
+    updateForgotBtnState();
 };
 
 window.forgotSendCode = async function () {
@@ -312,6 +341,7 @@ window.togglePw = function (inputId, btn) {
     const show = input.type === 'password';
     input.type = show ? 'text' : 'password';
     btn.style.opacity = show ? '1' : '0.5';
+    btn.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
 };
 
 document.addEventListener('DOMContentLoaded', async () => {

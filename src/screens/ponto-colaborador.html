@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Banco de Horas</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Banco de Horas</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="../styles/ponto-colaborador.css">
 </head>
 <body>
     <header class="topbar">
         <div class="topbar-left">
-            <a href="../screens/inicio-colaborador.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
         </div>
     </header>
@@ -79,6 +80,7 @@
                         </button>
 
                         <p class="ponto-hint" id="ponto-hint"></p>
+                        <p class="ponto-sync-status hidden" id="ponto-sync-status"></p>
                     </div>
                 </div>
 
@@ -120,7 +122,26 @@
                     <div class="solicitacoes-list" id="solicitacoes-list"></div>
                 </div>
 
+                <div id="section-team-approvals" class="hidden">
+                    <div class="section-header-row" style="margin-bottom:12px">
+                        <h2 class="section-title"><i class="fas fa-user-check"></i> Aprovações da Equipe</h2>
+                    </div>
+                    <div class="solicitacoes-list" id="team-approvals-list"></div>
+                </div>
+
+                <div id="section-bank-requests">
+                    <div class="section-header-row" style="margin-bottom:12px">
+                        <h2 class="section-title"><i class="fas fa-clock-rotate-left"></i> Minhas Solicitações de Banco de Horas</h2>
+                        <button class="btn-solicitar" onclick="openModalBankRequest()">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Solicitar Compensação</span>
+                        </button>
+                    </div>
+                    <div class="solicitacoes-list" id="bank-requests-list"></div>
+                </div>
+
                 <div id="section-burnout" class="hidden"></div>
+                <div id="section-clt" class="hidden"></div>
 
                 <div class="section-header-row">
                     <h2 class="section-title">Localização</h2>
@@ -137,7 +158,7 @@
                                 <i class="fas fa-spinner fa-spin"></i>
                                 <span>Obtendo localização...</span>
                             </div>
-                            <div id="map-svg-wrap"></div>
+                            <div id="map-leaflet"></div>
                         </div>
                     </div>
                     <div class="map-info-bar">
@@ -239,6 +260,31 @@
                     <span class="confirmar-val" id="confirmar-loc">—</span>
                 </div>
             </div>
+
+            <div class="selfie-capture" id="selfie-capture">
+                <video id="selfie-video" autoplay playsinline muted></video>
+                <img id="selfie-preview" class="hidden" alt="Selfie capturada" />
+                <canvas id="selfie-canvas"></canvas>
+                <div class="selfie-actions">
+                    <button type="button" class="btn-selfie-shoot" id="btn-selfie-shoot" onclick="capturarSelfie()">
+                        <i class="fas fa-camera"></i> Tirar Selfie
+                    </button>
+                    <button type="button" class="btn-selfie-retake hidden" id="btn-selfie-retake" onclick="retomarSelfie()">
+                        <i class="fas fa-rotate-left"></i> Repetir
+                    </button>
+                </div>
+                <p class="selfie-hint" id="selfie-hint">Uma selfie é obrigatória para confirmar o registro.</p>
+                <p class="face-verify-status hidden" id="face-verify-status"></p>
+            </div>
+
+            <div class="excesso-legal-bloco hidden" id="excesso-legal-bloco">
+                <p class="excesso-legal-msg" id="excesso-legal-msg"><i class="fas fa-triangle-exclamation"></i></p>
+                <div class="form-group">
+                    <label for="excesso-legal-just">Motivo do excesso <span class="req">*</span></label>
+                    <textarea id="excesso-legal-just" rows="2" placeholder="Ex.: serviço inadiável, força maior..." oninput="onExcessoLegalJustInput()"></textarea>
+                </div>
+            </div>
+
             <p class="confirmar-aviso">
                 <i class="fas fa-lock"></i>
                 Este registro é associado exclusivamente à sua conta e não pode ser desfeito.
@@ -246,7 +292,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn-secondary" onclick="closeModal('modal-confirmar')">Cancelar</button>
-            <button class="btn-primary" id="btn-confirmar-ponto" onclick="confirmarRegistro()">
+            <button class="btn-primary" id="btn-confirmar-ponto" onclick="confirmarRegistro()" disabled>
                 <i class="fas fa-check"></i> Confirmar
             </button>
         </div>
@@ -303,9 +349,91 @@
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="modal-bank-request">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-clock-rotate-left"></i> Solicitar Compensação de Horas</h3>
+            <button class="modal-close" onclick="closeModal('modal-bank-request')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="info-banner">
+                <i class="fas fa-info-circle"></i>
+                <span>A solicitação fica pendente até aprovação do seu gestor (ou do RH, se você não tiver gestor definido). Ela só afeta seu saldo depois de aprovada.</span>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Tipo <span class="req">*</span></label>
+                    <select id="bankreq-tipo">
+                        <option value="credito">Crédito — horas trabalhadas a mais</option>
+                        <option value="debito">Débito — usar horas do banco / justificar falta</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data de Referência <span class="req">*</span></label>
+                    <input type="date" id="bankreq-data" />
+                    <span class="field-error" id="err-bankreq-data"></span>
+                </div>
+            </div>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Horas <span class="req">*</span></label>
+                    <input type="number" id="bankreq-horas" min="0" max="99" placeholder="0" />
+                </div>
+                <div class="form-group">
+                    <label>Minutos <span class="req">*</span></label>
+                    <input type="number" id="bankreq-minutos" min="0" max="59" placeholder="0" />
+                    <span class="field-error" id="err-bankreq-valor"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Justificativa <span class="req">*</span></label>
+                <textarea id="bankreq-justificativa" rows="3" placeholder="Ex.: Atestado médico, trabalho em feriado, compensação combinada com o gestor..."></textarea>
+                <span class="field-error" id="err-bankreq-just"></span>
+            </div>
+            <div class="form-group">
+                <label>Anexo (atestado, comprovante...) <span class="label-optional">opcional</span></label>
+                <input type="file" id="bankreq-anexo" accept=".pdf,.jpg,.jpeg,.png" />
+                <span class="file-input-hint">.pdf, .jpg ou .png · até 10 MB</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('modal-bank-request')">Cancelar</button>
+            <button class="btn-primary" onclick="enviarBankRequest()">
+                <i class="fas fa-paper-plane"></i> Enviar Solicitação
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-reject-obs">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fas fa-xmark"></i> Rejeitar Solicitação</h3>
+            <button class="modal-close" onclick="closeModal('modal-reject-obs')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Motivo da rejeição <span class="req">*</span></label>
+                <textarea id="reject-obs-text" rows="3" placeholder="Explique por que está rejeitando esta solicitação..."></textarea>
+                <span class="field-error" id="err-reject-obs"></span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeModal('modal-reject-obs')">Cancelar</button>
+            <button class="btn-primary" onclick="confirmRejectBankRequest()">
+                <i class="fas fa-xmark"></i> Confirmar Rejeição
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="toast-container" class="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/ponto-colaborador.js"></script>
 </body>
 </html>

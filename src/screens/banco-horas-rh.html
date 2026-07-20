@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Banco de Horas</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Gestão de Horas</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/banco-horas-rh.css" />
@@ -15,28 +16,42 @@
     <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar">
             <div class="topbar-left">
-                <a href="../screens/inicio-rh.html" class="btn-back">
-                    <i class="fas fa-arrow-left"></i>
-                    <span>Voltar</span>
+                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 </a>
             </div>
             <div class="topbar-right">
-                <button class="btn-topbar-icon" id="btn-refresh" title="Atualizar dados" onclick="refresh()">
-                    <i class="fas fa-rotate-right"></i>
+                <div class="notif-wrapper" id="notif-wrapper">
+                    <button class="btn-topbar-icon" id="btn-notif" title="Notificações" aria-label="Notificações">
+                        <i class="fas fa-bell"></i>
+                        <span class="notif-badge hidden" id="notif-badge">0</span>
+                    </button>
+                    <div class="notif-panel hidden" id="notif-panel">
+                        <div class="notif-panel-header">Notificações</div>
+                        <div class="notif-panel-body" id="notif-panel-body"></div>
+                    </div>
+                </div>
+                <button class="btn-topbar-icon" id="btn-holidays" title="Gerenciar feriados" onclick="openHolidaysModal()">
+                    <i class="fas fa-calendar-check"></i>
+                </button>
+                <button class="btn-topbar-icon" id="btn-settings" title="Configurações de compliance" onclick="openSettingsModal()">
+                    <i class="fas fa-gear"></i>
                 </button>
                 <div class="month-picker-wrap" id="month-picker-wrap">
-                    <button class="month-picker-btn" id="month-picker-btn">
-                        <i class="fas fa-calendar-alt"></i>
+                    <div class="topbar-date" id="month-picker-btn" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-calendar-day"></i>
                         <span id="month-picker-label">—</span>
-                        <i class="fas fa-chevron-down month-picker-chevron" id="month-picker-chevron"></i>
-                    </button>
-                    <div class="month-picker-dropdown" id="month-picker-dropdown">
-                        <div class="mpd-header">
-                            <button class="mpd-nav-btn" id="mpd-prev-year"><i class="fas fa-chevron-left"></i></button>
-                            <span class="mpd-year" id="mpd-year">2026</span>
-                            <button class="mpd-nav-btn" id="mpd-next-year"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-popover" id="month-picker-dropdown">
+                        <div class="calendar-header">
+                            <button type="button" class="calendar-nav-btn" id="mpd-prev-month" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                            <span class="calendar-title" id="mpd-title">—</span>
+                            <button type="button" class="calendar-nav-btn" id="mpd-next-month" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
                         </div>
-                        <div class="mpd-months" id="mpd-months"></div>
+                        <div class="calendar-weekdays">
+                            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                        </div>
+                        <div class="calendar-grid" id="mpd-grid"></div>
                     </div>
                 </div>
             </div>
@@ -45,43 +60,73 @@
         <main class="content">
             <div class="page-body">
 
-                <div class="kpi-grid">
-                    <div class="kpi-card kpi--extras">
-                        <div class="kpi-icon"><i class="fas fa-arrow-up-right-dots"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Total H. Extras</span>
-                            <span class="kpi-value" id="kpi-total-extras">—</span>
+                <div class="stats-row-header">
+                    <button class="stats-row-toggle" id="stats-row-toggle" onclick="toggleStatsRow()" aria-label="Ver indicadores" title="Ver indicadores">
+                        <i class="fas fa-chevron-right" id="stats-row-chevron"></i>
+                    </button>
+                </div>
+                <div class="stats-row hidden" id="stats-row">
+                    <div class="stat-card stat-card--extras" title="Total H. Extras">
+                        <div class="stat-icon-wrap"><i class="fas fa-arrow-up-right-dots"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-total-extras">—</span>
+                            <span class="stat-label">Total H. Extras</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--faltas">
-                        <div class="kpi-icon"><i class="fas fa-arrow-down-right-dots"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Total H. em Falta</span>
-                            <span class="kpi-value" id="kpi-total-faltas">—</span>
+                    <div class="stat-card stat-card--faltas" title="Total H. em Falta">
+                        <div class="stat-icon-wrap"><i class="fas fa-arrow-down-right-dots"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-total-faltas">—</span>
+                            <span class="stat-label">Total H. em Falta</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--count-pos">
-                        <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Saldo Positivo</span>
-                            <span class="kpi-value" id="kpi-count-pos">0</span>
-                            <span class="kpi-sub">colaboradores</span>
+                    <div class="stat-card stat-card--count-pos" title="Saldo Positivo">
+                        <div class="stat-icon-wrap"><i class="fas fa-circle-check"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-pos">0</span>
+                            <span class="stat-label">Saldo Positivo</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--count-neg">
-                        <div class="kpi-icon"><i class="fas fa-circle-exclamation"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Saldo Negativo</span>
-                            <span class="kpi-value" id="kpi-count-neg">0</span>
-                            <span class="kpi-sub">colaboradores</span>
+                    <div class="stat-card stat-card--count-neg" title="Saldo Negativo">
+                        <div class="stat-icon-wrap"><i class="fas fa-circle-exclamation"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-neg">0</span>
+                            <span class="stat-label">Saldo Negativo</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--critico">
-                        <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Saldo Crítico (&gt;20h neg.)</span>
-                            <span class="kpi-value" id="kpi-count-critico">0</span>
-                            <span class="kpi-sub">requerem atenção</span>
+                    <div class="stat-card stat-card--critico" title="Saldo Crítico (>20h)">
+                        <div class="stat-icon-wrap"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-critico">0</span>
+                            <span class="stat-label">Saldo Crítico</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card--vencendo" title="Banco Vencendo (30d) — colaboradores">
+                        <div class="stat-icon-wrap"><i class="fas fa-hourglass-half"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-vencendo">0</span>
+                            <span class="stat-label">Banco Vencendo</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card--vencido" title="Banco Vencido — passivo trabalhista">
+                        <div class="stat-icon-wrap"><i class="fas fa-hourglass-end"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-vencido">0</span>
+                            <span class="stat-label">Banco Vencido</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card--excesso" title="Excesso Diário (2h+) — colaboradores no mês">
+                        <div class="stat-icon-wrap"><i class="fas fa-stopwatch"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-excesso">0</span>
+                            <span class="stat-label">Excesso Diário</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card--intervalo" title="Intervalo intrajornada não cumprido (art. 71 CLT) — colaboradores no mês">
+                        <div class="stat-icon-wrap"><i class="fas fa-mug-saucer"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-value" id="kpi-count-intervalo">0</span>
+                            <span class="stat-label">Intervalo Irregular</span>
                         </div>
                     </div>
                 </div>
@@ -90,13 +135,18 @@
                     <button class="tab-btn active" data-tab="banco" onclick="switchTab(this,'banco')">
                         <i class="fas fa-clock-rotate-left"></i> Banco de Horas
                     </button>
+                    <button class="tab-btn" data-tab="solicitacoes" onclick="switchTab(this,'solicitacoes')">
+                        <i class="fas fa-inbox"></i> Solicitações
+                        <span class="tab-badge hidden" id="tab-badge-solicitacoes">0</span>
+                    </button>
                     <button class="tab-btn" data-tab="auditoria" onclick="switchTab(this,'auditoria')">
                         <i class="fas fa-scroll"></i> Auditoria
                     </button>
                 </div>
 
                 <div class="tab-panel active" id="tab-banco">
-                    <div class="filters-bar">
+                <div class="content-card">
+                    <div class="content-card-toolbar">
                         <div class="search-wrap">
                             <i class="fas fa-search"></i>
                             <input type="text" id="search-input" placeholder="Buscar colaborador..." oninput="applyFilters()">
@@ -104,26 +154,47 @@
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <div class="filter-dropdown" id="filter-dropdown">
-                            <button class="btn-filter" id="btn-filter">
-                                <i class="fas fa-sliders"></i>
-                                <span id="filter-label">Filtro</span>
-                                <i class="fas fa-chevron-down filter-chevron" id="filter-chevron"></i>
-                            </button>
-                            <div class="filter-dropdown-menu" id="filter-dropdown-menu">
-                                <p class="filter-dropdown-title">Filtrar por saldo</p>
-                                <div class="filter-dropdown-chips">
-                                    <button class="chip chip--active" data-filter="todos"    onclick="setFilter(this)">Todos</button>
-                                    <button class="chip"              data-filter="positivo" onclick="setFilter(this)">Saldo Positivo</button>
-                                    <button class="chip"              data-filter="negativo" onclick="setFilter(this)">Saldo Negativo</button>
-                                    <button class="chip"              data-filter="zerado"   onclick="setFilter(this)">Zerado / PJ</button>
-                                    <button class="chip chip--alert"  data-filter="critico"  onclick="setFilter(this)"><i class="fas fa-triangle-exclamation"></i> Crítico</button>
+                        <div class="toolbar-actions">
+                            <div class="filter-dropdown" id="filter-dropdown">
+                                <button class="btn-filter" id="btn-filter">
+                                    <span id="filter-label">Filtro</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="filter-chevron"></i>
+                                </button>
+                                <div class="filter-dropdown-menu" id="filter-dropdown-menu">
+                                    <p class="filter-dropdown-title">Filtrar por saldo</p>
+                                    <div class="filter-dropdown-chips">
+                                        <button class="chip chip--active" data-filter="todos"    onclick="setFilter(this)">Todos</button>
+                                        <button class="chip"              data-filter="positivo" onclick="setFilter(this)">Saldo Positivo</button>
+                                        <button class="chip"              data-filter="negativo" onclick="setFilter(this)">Saldo Negativo</button>
+                                        <button class="chip"              data-filter="zerado"   onclick="setFilter(this)">Zerado / PJ</button>
+                                        <button class="chip"              data-filter="critico"  onclick="setFilter(this)">Crítico</button>
+                                        <button class="chip"              data-filter="vencendo" onclick="setFilter(this)">Banco Vencendo</button>
+                                        <button class="chip"              data-filter="vencido"  onclick="setFilter(this)">Banco Vencido</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="export-dropdown" id="export-dropdown">
+                                <button class="btn-filter" id="btn-export">
+                                    <span>Exportar</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="export-chevron"></i>
+                                </button>
+                                <div class="export-menu" id="export-menu">
+                                    <p class="export-menu-label">Formato de exportação</p>
+                                    <button class="export-option" id="export-pdf-btn">
+                                        <div class="export-option-icon export-option-icon--pdf"><i class="fas fa-file-pdf"></i></div>
+                                        <div class="export-option-body"><span class="export-option-title">PDF</span><span class="export-option-sub">Relatório para impressão</span></div>
+                                    </button>
+                                    <button class="export-option" id="export-csv-btn">
+                                        <div class="export-option-icon export-option-icon--csv"><i class="fas fa-file-csv"></i></div>
+                                        <div class="export-option-body"><span class="export-option-title">CSV / Excel</span><span class="export-option-sub">Planilha para fechamento de folha</span></div>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="table-wrap">
+                    <div class="table-container">
                         <table class="req-table">
                             <thead>
                                 <tr>
@@ -134,12 +205,13 @@
                                     <th>H. Extras</th>
                                     <th>H. em Falta</th>
                                     <th>Saldo do Mês</th>
+                                    <th>Compliance</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="banco-tbody">
                                 <tr id="empty-row">
-                                    <td colspan="8">
+                                    <td colspan="9">
                                         <div class="table-empty">
                                             <i class="fas fa-clock-rotate-left"></i>
                                             <p>Nenhum colaborador ativo encontrado.</p>
@@ -151,9 +223,52 @@
                     </div>
                     <p class="table-count" id="table-count"></p>
                 </div>
+                </div>
+
+                <div class="tab-panel" id="tab-solicitacoes">
+                <div class="content-card">
+                    <div class="content-card-toolbar">
+                        <div class="filter-chips">
+                            <button class="chip chip--active" data-req-filter="pendente"  onclick="setReqFilter(this)">Pendentes</button>
+                            <button class="chip"              data-req-filter="aprovado"  onclick="setReqFilter(this)">Aprovadas</button>
+                            <button class="chip"              data-req-filter="rejeitado" onclick="setReqFilter(this)">Rejeitadas</button>
+                            <button class="chip"              data-req-filter="todos"     onclick="setReqFilter(this)">Todas</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="req-table">
+                            <thead>
+                                <tr>
+                                    <th>Colaborador</th>
+                                    <th>Origem</th>
+                                    <th>Tipo</th>
+                                    <th>Valor</th>
+                                    <th>Data Ref.</th>
+                                    <th>Aprovador</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requests-tbody">
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="table-empty">
+                                            <i class="fas fa-inbox"></i>
+                                            <p>Nenhuma solicitação encontrada.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="table-count" id="requests-count"></p>
+                </div>
+                </div>
 
                 <div class="tab-panel" id="tab-auditoria">
-                    <div class="filters-bar audit-filters-bar">
+                <div class="content-card">
+                    <div class="content-card-toolbar audit-filters-bar">
                         <div class="audit-emp-row">
                             <div class="form-group" style="min-width:200px">
                                 <label class="form-label">Colaborador</label>
@@ -173,7 +288,7 @@
                         </div>
                     </div>
 
-                    <div class="table-wrap">
+                    <div class="table-container">
                         <table class="req-table">
                             <thead>
                                 <tr>
@@ -200,6 +315,7 @@
                     </div>
                     <p class="table-count" id="audit-count"></p>
                 </div>
+                </div>
 
             </div>
         </main>
@@ -207,37 +323,30 @@
 </div>
 
 <!-- ── Modal: Detalhes ─────────────────────────────────────────── -->
-<div class="modal-overlay" id="detail-modal" onclick="handleOverlayClick(event,'detail-modal')">
-    <div class="modal-card modal-card--lg">
-        <div class="modal-head">
-            <div class="modal-head-info">
-                <div class="modal-head-icon"><i class="fas fa-chart-column"></i></div>
-                <div>
-                    <h3 class="modal-title">Banco de Horas — Detalhes</h3>
-                    <p class="modal-sub" id="detail-sub">Histórico de ponto e ajustes</p>
-                </div>
+<div class="modal-overlay" id="detail-modal">
+    <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-chart-column"></i></div>
+            <div>
+                <h3 class="modal-title">Banco de Horas — Detalhes</h3>
+                <p class="modal-subtitle" id="detail-sub">Histórico de ponto e ajustes</p>
             </div>
-            <button class="modal-close" onclick="closeDetailModal()"><i class="fas fa-times"></i></button>
+            <button class="close-modal" onclick="closeDetailModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="detail-body"></div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeDetailModal()">Fechar</button>
-        </div>
     </div>
 </div>
 
 <!-- ── Modal: Ajuste Manual ────────────────────────────────────── -->
-<div class="modal-overlay" id="adjust-modal" onclick="handleOverlayClick(event,'adjust-modal')">
-    <div class="modal-card modal-card--sm">
-        <div class="modal-head">
-            <div class="modal-head-info">
-                <div class="modal-head-icon"><i class="fas fa-pen-to-square"></i></div>
-                <div>
-                    <h3 class="modal-title">Lançar Ajuste Manual</h3>
-                    <p class="modal-sub" id="adjust-sub">Crédito ou débito de horas</p>
-                </div>
+<div class="modal-overlay" id="adjust-modal">
+    <div class="modal-content modal-content--sm">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-pen-to-square"></i></div>
+            <div>
+                <h3 class="modal-title">Lançar Ajuste Manual</h3>
+                <p class="modal-subtitle" id="adjust-sub">Crédito ou débito de horas</p>
             </div>
-            <button class="modal-close" onclick="closeAdjustModal()"><i class="fas fa-times"></i></button>
+            <button class="close-modal" onclick="closeAdjustModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -258,8 +367,25 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label" for="adjust-data">Data de Referência</label>
-                <input type="date" id="adjust-data" class="form-input">
+                <label class="form-label" for="adjust-data-trigger">Data de Referência</label>
+                <div class="date-field-wrap" id="adjust-data-wrap">
+                    <button type="button" class="form-input date-field-trigger" id="adjust-data-trigger">
+                        <i class="fas fa-calendar-day"></i>
+                        <span id="adjust-data-label">Selecione a data</span>
+                    </button>
+                    <input type="hidden" id="adjust-data">
+                    <div class="calendar-popover" id="adjust-data-popover">
+                        <div class="calendar-header">
+                            <button type="button" class="calendar-nav-btn" id="adjust-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                            <span class="calendar-title" id="adjust-data-title">—</span>
+                            <button type="button" class="calendar-nav-btn" id="adjust-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="calendar-weekdays">
+                            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                        </div>
+                        <div class="calendar-grid" id="adjust-data-grid"></div>
+                    </div>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
@@ -268,17 +394,122 @@
             <div class="modal-alert" id="adjust-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeAdjustModal()">Cancelar</button>
-            <button class="btn-confirm" onclick="submitAdjust()">
-                <i class="fas fa-check"></i> Lançar Ajuste
+            <button class="btn-submit" onclick="submitAdjust()">
+                Lançar Ajuste
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Gerenciar Feriados ───────────────────────────────── -->
+<div class="modal-overlay" id="holidays-modal">
+    <div class="modal-content modal-content--sm">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-calendar-check"></i></div>
+            <div>
+                <h3 class="modal-title">Gerenciar Feriados</h3>
+                <p class="modal-subtitle">Feriados não contam como falta</p>
+            </div>
+            <button class="close-modal" onclick="closeModal('holidays-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label class="form-label" for="holiday-date">Data</label>
+                    <input type="date" id="holiday-date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="holiday-abrangencia">Abrangência</label>
+                    <select id="holiday-abrangencia" class="form-input">
+                        <option value="nacional">Nacional</option>
+                        <option value="estadual">Estadual</option>
+                        <option value="municipal">Municipal</option>
+                        <option value="facultativo">Ponto Facultativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="holiday-name">Nome do Feriado</label>
+                <div class="holiday-name-row">
+                    <input type="text" id="holiday-name" class="form-input" placeholder="Ex.: Aniversário da cidade">
+                    <button class="btn-add-inline" onclick="submitHoliday()" title="Adicionar Feriado" aria-label="Adicionar Feriado">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <p class="detail-section-title"><i class="fas fa-calendar-days"></i> Feriados Cadastrados</p>
+                <div id="holidays-list" class="ajustes-section"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Rejeitar Solicitação ──────────────────────────────── -->
+<div class="modal-overlay" id="reject-request-modal" onclick="handleOverlayClick(event,'reject-request-modal')">
+    <div class="modal-content modal-content--sm">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-xmark"></i></div>
+            <div>
+                <h3 class="modal-title">Rejeitar Solicitação</h3>
+                <p class="modal-subtitle" id="reject-request-sub">—</p>
+            </div>
+            <button class="close-modal" onclick="closeModal('reject-request-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Motivo da rejeição <span style="color:#ef4444">*</span></label>
+                <textarea id="reject-request-obs" class="form-textarea" rows="3" placeholder="Explique por que esta solicitação está sendo rejeitada..."></textarea>
+            </div>
+            <div class="modal-alert" id="reject-request-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('reject-request-modal')">Cancelar</button>
+            <button class="btn-submit" onclick="confirmRejectRequest()">
+                <i class="fas fa-xmark"></i> Confirmar Rejeição
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Configurações de Compliance ──────────────────────── -->
+<div class="modal-overlay" id="settings-modal">
+    <div class="modal-content modal-content--sm">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-gear"></i></div>
+            <div>
+                <h3 class="modal-title">Configurações de Compliance</h3>
+                <p class="modal-subtitle">Regras de vencimento e limite legal</p>
+            </div>
+            <button class="close-modal" onclick="closeModal('settings-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="settings-vencimento">Prazo de compensação do banco de horas (meses)</label>
+                <input type="number" id="settings-vencimento" class="form-input" min="1" max="24">
+                <p class="modal-hint">CLT art. 59 §2º: 6 meses por padrão, podendo chegar a 12 meses havendo acordo/convenção coletiva.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="settings-limite-extra">Limite legal de horas extras diárias (minutos)</label>
+                <input type="number" id="settings-limite-extra" class="form-input" min="0" max="600" step="10">
+                <p class="modal-hint">CLT art. 59: no máximo 2h (120 min) de prorrogação da jornada por dia.</p>
+            </div>
+            <div class="modal-alert" id="settings-alert"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-submit" onclick="submitSettings()">
+                Salvar
             </button>
         </div>
     </div>
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/banco-horas-rh.js"></script>
 </body>
 </html>

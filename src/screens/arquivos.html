@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Arquivos</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Arquivos</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/arquivos.css">
@@ -14,15 +15,29 @@
         <div class="main-wrapper" style="margin-left:0;width:100%">
             <header class="topbar">
                 <div class="topbar-left">
-                    <a href="../screens/inicio-rh.html" class="btn-back">
-                        <i class="fas fa-arrow-left"></i>
-                        <span>Voltar</span>
+                    <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </a>
                 </div>
                 <div class="header-actions">
-                    <button class="btn-upload" id="btn-upload" onclick="openUploadModal()">
+                    <div class="notif-wrapper" id="notif-wrapper">
+                        <button class="btn-notif" id="btn-notif" aria-label="Pendências">
+                            <i class="fas fa-bell"></i>
+                            <span class="notif-badge hidden" id="notif-badge">0</span>
+                        </button>
+                        <div class="notif-panel hidden" id="notif-panel">
+                            <div class="notif-panel-header">Pendências</div>
+                            <div class="notif-panel-body" id="notif-panel-body"></div>
+                        </div>
+                    </div>
+                    <button class="btn-notif" id="btn-requirements" onclick="openRequirementsModal()" aria-label="Configurar checklist" title="Configurar checklist obrigatório">
+                        <i class="fas fa-list-check"></i>
+                    </button>
+                    <button class="btn-notif" id="btn-audit" onclick="openAuditModal()" aria-label="Histórico de auditoria" title="Histórico de auditoria">
+                        <i class="fas fa-clock-rotate-left"></i>
+                    </button>
+                    <button class="btn-upload" id="btn-upload" onclick="openUploadModal()" aria-label="Enviar Arquivo" title="Enviar Arquivo">
                         <i class="fas fa-arrow-up-from-bracket"></i>
-                        <span>Enviar Arquivo</span>
                     </button>
                 </div>
             </header>
@@ -61,6 +76,24 @@
                                 <span class="stat-label">Demissionais</span>
                             </div>
                         </div>
+                        <div class="stat-card stat-card--vencendo" id="vencendo-card">
+                            <div class="stat-icon-wrap">
+                                <i class="fas fa-triangle-exclamation"></i>
+                            </div>
+                            <div class="stat-body">
+                                <span class="stat-value" id="vencendo-count">0</span>
+                                <span class="stat-label">Vencidos / a Vencer</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="checklist-banner hidden" id="checklist-banner">
+                        <button class="checklist-banner-summary" id="checklist-banner-toggle">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span id="checklist-banner-text">Pendências de documentos</span>
+                            <i class="fas fa-chevron-down checklist-banner-chevron"></i>
+                        </button>
+                        <div class="checklist-banner-body" id="checklist-banner-body"></div>
                     </div>
 
                     <div class="content-card">
@@ -79,6 +112,28 @@
                                     <span>Colaboradores</span>
                                 </button>
                             </div>
+                            <div class="toolbar-filters">
+                                <select id="filter-status" class="filter-select hidden">
+                                    <option value="">Todos os status</option>
+                                    <option value="pendente">Pendente</option>
+                                    <option value="aprovado">Aprovado</option>
+                                    <option value="recusado">Recusado</option>
+                                </select>
+                                <select id="filter-dept" class="filter-select">
+                                    <option value="">Todos os departamentos</option>
+                                </select>
+                                <div class="filter-date-wrapper" id="filter-date-wrapper">
+                                    <button type="button" class="filter-date-trigger" id="filter-date-trigger" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-calendar-day"></i>
+                                        <span id="filter-date-trigger-text">Período</span>
+                                    </button>
+                                    <input type="hidden" id="filter-date-start">
+                                    <input type="hidden" id="filter-date-end">
+                                </div>
+                                <button type="button" class="filter-clear hidden" id="filter-clear-btn" title="Limpar filtros">
+                                    <i class="fas fa-filter-circle-xmark"></i>
+                                </button>
+                            </div>
                             <div class="search-wrapper">
                                 <i class="fas fa-magnifying-glass search-icon"></i>
                                 <input type="text" id="search-input" placeholder="Buscar arquivo ou colaborador…">
@@ -88,15 +143,23 @@
                             </div>
                         </div>
 
+                        <div class="bulk-bar hidden" id="bulk-bar">
+                            <span class="bulk-bar-count" id="bulk-bar-count">0 selecionados</span>
+                            <div class="bulk-bar-actions" id="bulk-bar-actions"></div>
+                            <button type="button" class="bulk-bar-clear" id="bulk-bar-clear"><i class="fas fa-xmark"></i> Limpar seleção</button>
+                        </div>
+
                         <div class="table-container">
                             <table class="files-table">
                                 <thead>
                                     <tr>
+                                        <th class="col-check"><input type="checkbox" id="select-all-checkbox"></th>
                                         <th>Arquivo</th>
                                         <th>Colaborador</th>
                                         <th>Tipo</th>
                                         <th>Data</th>
                                         <th>Tamanho</th>
+                                        <th>Validade</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -117,7 +180,7 @@
                 </div>
                 <div>
                     <h3 class="modal-title">Enviar Arquivo</h3>
-                    <p class="modal-subtitle">Adicione um documento ao acervo do RH</p>
+                    <p class="modal-subtitle">Adicione documentos ao acervo do RH</p>
                 </div>
                 <button class="close-modal" onclick="closeUploadModal()" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
@@ -147,7 +210,7 @@
                             <option value="demissional|Aviso Prévio">Aviso Prévio</option>
                             <option value="demissional|Termo de Rescisão">Termo de Rescisão</option>
                             <option value="demissional|Exame Demissional">Exame Demissional</option>
-                            <option value="admissional|Carteira de Trabalho">Carteira de Trabalho</option>
+                            <option value="demissional|Carteira de Trabalho">Carteira de Trabalho</option>
                             <option value="demissional|Homologação">Homologação</option>
                             <option value="demissional|Guia FGTS">Guia FGTS</option>
                             <option value="demissional|Outros">Outros (Demissional)</option>
@@ -155,38 +218,154 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Arquivo</label>
+                    <label>Arquivo(s)</label>
                     <div class="drop-zone" id="drop-zone">
                         <div class="drop-zone-inner">
                             <div class="drop-zone-icon">
                                 <i class="fas fa-cloud-arrow-up"></i>
                             </div>
-                            <p class="drop-zone-title">Arraste ou <span>escolha o arquivo</span></p>
-                            <p class="drop-zone-hint">PDF, DOCX ou JPG · até 50 MB</p>
+                            <p class="drop-zone-title">Arraste ou <span>escolha os arquivos</span></p>
+                            <p class="drop-zone-hint">.pdf, .docx ou .jpg · até 50 MB</p>
                         </div>
-                        <input type="file" id="file-input" accept=".pdf,.docx,.jpg" hidden>
+                        <input type="file" id="file-input" accept=".pdf,.docx,.jpg,.jpeg,.png" multiple hidden>
                     </div>
-                    <div class="file-selected hidden" id="file-selected">
-                        <div class="file-selected-icon"><i class="fas fa-file-circle-check"></i></div>
-                        <span id="file-selected-name"></span>
-                        <button onclick="clearFileInput()" aria-label="Remover arquivo"><i
-                                class="fas fa-xmark"></i></button>
-                    </div>
+                    <button type="button" class="btn-camera" id="btn-camera">
+                        <i class="fas fa-camera"></i> Tirar foto do documento
+                    </button>
+                    <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
+                    <div class="files-selected-list hidden" id="files-selected-list"></div>
+                    <p class="ocr-hint hidden" id="ocr-hint"><i class="fas fa-wand-magic-sparkles"></i> <span id="ocr-hint-text"></span></p>
                 </div>
+                <div class="form-group">
+                    <label>Data de validade <span class="label-optional">opcional</span></label>
+                    <input type="date" id="upload-validade">
+                    <p class="field-hint">Preencha para documentos com prazo, como ASO, exames periódicos ou certidões. Um alerta será enviado quando estiver perto de vencer.</p>
+                </div>
+                <label class="lgpd-consent">
+                    <input type="checkbox" id="upload-lgpd-consent">
+                    <span>Confirmo que há consentimento do colaborador para o tratamento destes dados pessoais, conforme a LGPD.</span>
+                </label>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeUploadModal()">Cancelar</button>
                 <button class="btn-submit" onclick="submitUpload()">
-                    <i class="fas fa-upload"></i> Enviar
+                    Enviar
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="history-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-icon">
+                    <i class="fas fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 class="modal-title">Histórico de versões</h3>
+                    <p class="modal-subtitle">Versões anteriores permanecem guardadas para auditoria</p>
+                </div>
+                <button class="close-modal" onclick="closeHistoryModal()" aria-label="Fechar">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="history-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeHistoryModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="audit-modal">
+        <div class="modal-content modal-content--wide">
+            <div class="modal-header">
+                <div class="modal-header-icon">
+                    <i class="fas fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 class="modal-title">Histórico de auditoria</h3>
+                    <p class="modal-subtitle">Quem criou, aprovou, recusou, substituiu, assinou ou excluiu cada documento</p>
+                </div>
+                <button class="close-modal" onclick="closeAuditModal()" aria-label="Fechar">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <select id="audit-filter-action" class="filter-select">
+                    <option value="">Todas as ações</option>
+                    <option value="criado">Criado</option>
+                    <option value="substituido">Substituído</option>
+                    <option value="aprovado">Aprovado</option>
+                    <option value="recusado">Recusado</option>
+                    <option value="assinado">Assinado</option>
+                    <option value="excluido">Excluído</option>
+                </select>
+                <div id="audit-log-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="requirements-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-icon">
+                    <i class="fas fa-list-check"></i>
+                </div>
+                <div>
+                    <h3 class="modal-title">Checklist obrigatório</h3>
+                    <p class="modal-subtitle">Documentos exigidos para o checklist de pendências</p>
+                </div>
+                <button class="close-modal" onclick="closeRequirementsModal()" aria-label="Fechar">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="requirements-group">
+                    <h4 class="requirements-group-title"><i class="fas fa-user-plus"></i> Admissional</h4>
+                    <div class="requirements-chips" id="requirements-admissional"></div>
+                    <div class="requirements-add">
+                        <input type="text" id="requirements-add-admissional" placeholder="Novo tipo obrigatório...">
+                        <button type="button" onclick="addRequirement('admissional')" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+                <div class="requirements-group">
+                    <h4 class="requirements-group-title"><i class="fas fa-user-minus"></i> Demissional</h4>
+                    <div class="requirements-chips" id="requirements-demissional"></div>
+                    <div class="requirements-add">
+                        <input type="text" id="requirements-add-demissional" placeholder="Novo tipo obrigatório...">
+                        <button type="button" onclick="addRequirement('demissional')" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="calendar-popover" id="filter-calendar-popover">
+        <div class="calendar-header">
+            <button type="button" class="calendar-nav-btn" id="filter-calendar-prev" aria-label="Mês anterior">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span class="calendar-title" id="filter-calendar-title">—</span>
+            <button type="button" class="calendar-nav-btn" id="filter-calendar-next" aria-label="Próximo mês">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+        </div>
+        <div class="calendar-grid" id="filter-calendar-grid"></div>
+        <div class="calendar-footer">
+            <button type="button" class="calendar-footer-clear" id="filter-calendar-clear">Limpar</button>
+            <button type="button" class="calendar-footer-apply" id="filter-calendar-apply">Aplicar</button>
         </div>
     </div>
 
     <div id="toast-container" class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="../javascript/supabase-client.js"></script>
+    <script src="../javascript/auth.js"></script>
     <script src="../javascript/arquivos.js"></script>
 </body>
 </html>

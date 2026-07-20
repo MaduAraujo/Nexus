@@ -1,22 +1,20 @@
 ﻿document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles').select('profile, employee_id').eq('id', user.id).single();
-    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
+    const auth = await NexusAuth.requireProfile('Administrador');
+    if (!auth) return;
 
     setupSidebar();
-    loadUserInfo(user, profile);
+    setupCalendar();
+    setupThemeToggle();
+    loadUserInfo(auth.user, auth.profile);
 
     const now = new Date();
-    const welcomeDateEl = document.getElementById('welcome-date-text');
-    if (welcomeDateEl) welcomeDateEl.textContent = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateFormatted = now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+    const topbarDateEl = document.getElementById('topbar-date-text');
+    if (topbarDateEl) topbarDateEl.textContent = dateFormatted.replace('.', '').replace(/^\w/, c => c.toUpperCase());
 
     const h = now.getHours();
     const greetingEl = document.getElementById('welcome-greeting');
     if (greetingEl) greetingEl.textContent = (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + ',';
-
-    await Promise.all([loadStats(), loadComunicados()]);
 
     window.logout = async function () {
         await sb.auth.signOut();
@@ -79,73 +77,99 @@ function setupSidebar() {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && isMobile()) closeMob(); });
 }
 
-async function loadStats() {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+function setupThemeToggle() {
+    const btn = document.getElementById('theme-toggle-btn');
+    if (!btn) return;
 
-    const [{ data: emps }, { data: vacations }, { data: messages }] = await Promise.all([
-        sb.from('employees').select('id, status'),
-        sb.from('vacations').select('start_date, end_date, status'),
-        sb.from('messages').select('id'),
-    ]);
-
-    const ativos    = (emps     || []).filter(e => e.status === 'Ativo').length;
-    const emFerias  = (vacations || []).filter(v => {
-        if (v.status !== 'aprovado') return false;
-        const s = new Date(v.start_date + 'T00:00:00');
-        const e = new Date(v.end_date   + 'T00:00:00');
-        return s <= today && today <= e;
-    }).length;
-    const pendentes = (vacations || []).filter(v => v.status === 'pendente').length;
-    const totalMsgs = (messages  || []).length;
-
-    setText('info-ativos',      ativos);
-    setText('info-ferias',      emFerias);
-    setText('info-pendentes',   pendentes);
-    setText('info-comunicados', totalMsgs);
-}
-
-async function loadComunicados() {
-    const container = document.getElementById('comunicados-list');
-    if (!container) return;
-
-    const { data: msgs } = await sb.from('messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-    const lista = msgs || [];
-    if (!lista.length) {
-        container.innerHTML = `
-            <div class="comunicados-empty">
-                <i class="fas fa-bell-slash"></i>
-                Nenhum comunicado disponível.
-            </div>`;
-        return;
+    function syncIcon() {
+        const isDark = window.NexusTheme?.current() === 'dark';
+        btn.innerHTML = `<i class="fas fa-${isDark ? 'sun' : 'moon'}"></i>`;
+        btn.setAttribute('aria-label', isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro');
     }
 
-    container.innerHTML = lista.map((m, i) => {
-        const dateStr = new Date(m.created_at).toLocaleDateString('pt-BR');
-        return `
-        <div class="comunicado-item" style="animation-delay:${i * 0.06}s">
-            <div class="comunicado-icon"><i class="fas fa-bullhorn"></i></div>
-            <div class="comunicado-body">
-                <p class="comunicado-text">${escapeHTML(m.texto)}</p>
-                <div class="comunicado-meta">
-                    <span class="comunicado-date"><i class="fas fa-calendar-alt" style="margin-right:4px;opacity:0.6"></i>${dateStr}</span>
-                    <span class="comunicado-dest">${escapeHTML(m.destino)}</span>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
+    syncIcon();
+    btn.addEventListener('click', () => {
+        window.NexusTheme?.toggle();
+        syncIcon();
+    });
 }
 
-function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val ?? '—';
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function setupCalendar() {
+    const trigger  = document.getElementById('topbar-date');
+    const popover  = document.getElementById('calendar-popover');
+    const titleEl  = document.getElementById('calendar-title');
+    const gridEl   = document.getElementById('calendar-grid');
+    const prevBtn  = document.getElementById('calendar-prev');
+    const nextBtn  = document.getElementById('calendar-next');
+    if (!trigger || !popover) return;
+
+    const today = new Date();
+    let viewYear  = today.getFullYear();
+    let viewMonth = today.getMonth();
+
+    function render() {
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+        ).join('');
+    }
+
+    function open() {
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    trigger.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+    });
+
+    prevBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        render();
+    });
+    nextBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        render();
+    });
 }
 
-function escapeHTML(str) {
-    return String(str)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}

@@ -1,28 +1,16 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
     // ── Auth ──────────────────────────────────────────────────────────────────
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id').eq('id', user.id).single();
-
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
-        window.location.href = '../screens/login.html'; return;
-    }
-
-    const myEmployeeId = profile.employee_id;
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-
-    let myEmployee = emp;
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    const myEmployeeId = auth.profile.employee_id;
+    let myEmployee      = auth.employee;
 
     // ── Estado ────────────────────────────────────────────────────────────────
     let currentTab      = 'social';
     let currentChannelId = null;
     let currentChannel   = null;
     let currentTicketId  = null;
-    let botResponseCount = 0;
     let isEscalated      = false;
     let activeChatSub    = null;
     let activeTicketSub  = null;
@@ -66,9 +54,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     panelsBtn?.addEventListener('click',   openChatLeft);
     chatOverlay?.addEventListener('click', closeChatLeft);
 
-    // ── Abas Social / Com o RH ────────────────────────────────────────────────
+    // ── Abas Social / Com o RH / Reconhecimento ────────────────────────────────
     const tabBtns   = document.querySelectorAll('.chat-tab');
-    const panelMap  = { social: $('panel-social'), rh: $('panel-rh') };
+    const panelMap  = { social: $('panel-social'), rh: $('panel-rh'), kudos: $('panel-kudos') };
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -82,6 +70,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Ao trocar para RH sem ticket aberto: esconde chat areas, mostra welcome
             if (tab === 'rh' && !currentTicketId) showWelcome();
             if (tab === 'social' && !currentChannelId) showWelcome();
+            if (tab === 'kudos') showKudosArea();
+            closeChatLeft();
         });
     });
 
@@ -89,23 +79,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatWelcome = $('chat-welcome');
     const chatArea    = $('chat-area');
     const hrArea      = $('hr-area');
+    const kudosArea   = $('kudos-area');
 
     function showWelcome() {
         chatWelcome?.classList.remove('hidden');
         chatArea?.classList.add('hidden');
         hrArea?.classList.add('hidden');
+        kudosArea?.classList.add('hidden');
     }
 
     function showChatArea() {
         chatWelcome?.classList.add('hidden');
         chatArea?.classList.remove('hidden');
         hrArea?.classList.add('hidden');
+        kudosArea?.classList.add('hidden');
     }
 
     function showHrArea() {
         chatWelcome?.classList.add('hidden');
         chatArea?.classList.add('hidden');
         hrArea?.classList.remove('hidden');
+        kudosArea?.classList.add('hidden');
+    }
+
+    function showKudosArea() {
+        chatWelcome?.classList.add('hidden');
+        chatArea?.classList.add('hidden');
+        hrArea?.classList.add('hidden');
+        kudosArea?.classList.remove('hidden');
     }
 
     // ── Topbar info ───────────────────────────────────────────────────────────
@@ -249,7 +250,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentChannelId  = channel.id;
         currentChannel    = channel;
         currentTicketId   = null;
-        botResponseCount  = 0;
         isEscalated       = false;
 
         // Atualiza UI da lista
@@ -440,108 +440,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── ATENDIMENTO RH ────────────────────────────────────────────────────────
 
-    const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! 👋 Sou o **Agente de Atendimento RH**. Estou aqui para ajudar com suas dúvidas de forma rápida e prática.
+    const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! 👋 Sou o **Agente de Atendimento RH**. Posso responder com seus dados reais — saldo de férias, banco de horas, holerites — ou te conectar a um analista.
 
 Selecione um tema abaixo ou descreva sua dúvida:`;
 
-    const HR_KNOWLEDGE = [
-        {
-            id: 'ferias', label: 'Férias', icon: 'umbrella-beach',
-            patterns: [/fér|ferias|folga|descanso|recesso|período aquisitivo/i],
-            response: `**Férias** 🏖️
-
-• **Solicitar:** Acesse "Férias" no menu → clique em *Solicitar Período*
-• **Antecedência mínima:** 30 dias
-• **Aprovação:** até 5 dias úteis
-• **Abono:** você pode converter até 1/3 das férias em dinheiro
-
-Conseguiu o que precisava?`,
-            followUps: ['Quero solicitar férias agora', 'Qual meu saldo de férias?', 'Falar com analista']
-        },
-        {
-            id: 'holerite', label: 'Holerite', icon: 'file-invoice-dollar',
-            patterns: [/holeri|salário|salario|contracheque|pagamento do salário|recib/i],
-            response: `**Holerite e Pagamento** 💰
-
-• **Ver holerites:** Acesse *Holerite* no menu lateral
-• **Disponibilidade:** todo dia 5 do mês seguinte
-• **Download:** disponível em PDF diretamente na plataforma
-• **Dúvidas sobre descontos:** descreva abaixo que verifico para você
-
-Posso ajudar com mais alguma coisa?`,
-            followUps: ['Entender um desconto', 'Data de pagamento', 'Falar com analista']
-        },
-        {
-            id: 'ponto', label: 'Ponto / Horas', icon: 'clock',
-            patterns: [/ponto|hora.?extra|registro|bater|jornada|banco de hora|ajuste de ponto/i],
-            response: `**Ponto e Banco de Horas** ⏰
-
-• **Registrar ponto:** Acesse *Banco de Horas* no menu
-• **Marcações:** entrada, saída do almoço, retorno e saída
-• **Ajuste de ponto:** crie uma solicitação se houver erro na marcação
-• **Saldo:** visualize seu banco de horas atualizado em tempo real
-
-Precisa de mais informação?`,
-            followUps: ['Solicitar ajuste de ponto', 'Ver banco de horas', 'Falar com analista']
-        },
-        {
-            id: 'documentos', label: 'Documentos', icon: 'folder-open',
-            patterns: [/document|arquivo|certidão|carta de trabalho|declaração|comprovante|atestado/i],
-            response: `**Documentos e Arquivos** 📁
-
-• **Ver documentos:** Acesse *Documentos* no menu
-• **Enviar:** faça upload de PDF, PNG ou JPG diretamente
-• **Carta de vínculo empregatício:** solicite via chat (clique em "Falar com analista")
-• **Atestado médico:** envie pela seção *Documentos* com a categoria "Atestado"
-
-O que você precisa?`,
-            followUps: ['Solicitar carta de trabalho', 'Enviar atestado médico', 'Falar com analista']
-        },
-        {
-            id: 'beneficios', label: 'Benefícios', icon: 'gift',
-            patterns: [/benefício|beneficio|plano de saúde|dental|vale.?(transporte|refeição|refeicao|alimentação|alimentacao)|seguro de vida/i],
-            response: `**Benefícios** 🎁
-
-Seus benefícios ativos constam no seu perfil de colaborador. Geralmente incluem:
-• **Vale-transporte:** calculado com base nos dias trabalhados
-• **Vale-refeição / alimentação:** creditado mensalmente
-• **Plano de saúde:** cobertura disponível com o RH
-• **Seguro de vida:** verificável no seu cadastro
-
-Para dúvidas específicas, prefere falar com um analista?`,
-            followUps: ['Ver meus benefícios', 'Incluir dependente', 'Falar com analista']
-        },
-        {
-            id: 'licenca', label: 'Licença / Afastamento', icon: 'hospital',
-            patterns: [/licença|licenca|afastamento|maternidade|paternidade|doença|acidente|inss/i],
-            response: `**Licenças e Afastamentos** 🏥
-
-• **Licença médica:** entregue o atestado em até 48h ao RH
-• **Maternidade / Paternidade:** avise o RH com antecedência — garantido por lei
-• **Afastamento INSS (>15 dias):** o RH abre o processo junto à previdência
-• **Acidente de trabalho:** comunique imediatamente ao RH
-
-Este assunto requer atenção especial. Recomendo falar diretamente com um analista.`,
-            followUps: ['Falar com analista', 'Enviar atestado', 'Saber mais sobre meus direitos']
-        },
-        {
-            id: 'admissao', label: 'Dados Cadastrais', icon: 'user-edit',
-            patterns: [/dados pessoais|cadastro|endereço|telefone|conta bancária|pix|banco|atualizar perfil/i],
-            response: `**Dados Cadastrais** 📋
-
-• **Bio e foto:** edite diretamente em *Meu Perfil* no menu
-• **Dados bancários / PIX:** somente o RH pode alterar — use este chat
-• **Documentos de admissão:** envie pela seção *Documentos*
-• **Dados contratuais:** qualquer alteração passa pelo RH
-
-Como posso ajudar?`,
-            followUps: ['Atualizar dado bancário', 'Alterar endereço', 'Falar com analista']
-        }
-    ];
-
-    const FALLBACK_RESPONSE = `Não encontrei uma resposta automática para sua dúvida. 🤔
-
-Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Você prefere:`;
+    // Só os tópicos de atalho da saudação — a resposta em si vem do assistente com dados
+    // reais (ai-employee-chat), não mais de um texto fixo por regex.
+    const HR_TOPICS = ['Qual meu saldo de férias?', 'Quando vence meu banco de horas?', 'Meu último holerite', 'Documentos', 'Falar com analista'];
 
     let allTickets = [];
 
@@ -609,7 +514,6 @@ Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Voc
     async function selectTicket(ticket) {
         currentTicketId  = ticket.id;
         currentChannelId = null;
-        botResponseCount = 0;
         isEscalated      = ticket.status === 'aguardando_rh' || ticket.status === 'em_atendimento';
 
         document.querySelectorAll('.ticket-item').forEach(li => {
@@ -641,8 +545,52 @@ Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Voc
         // Se é novo (sem mensagens), bot saúda
         const list = $('hr-messages-list');
         if (list && list.children.length === 0) {
-            await sendBotMessage(ticket.id, HR_BOT_GREETING, HR_KNOWLEDGE.map(k => k.label));
+            await sendBotMessage(ticket.id, HR_BOT_GREETING, HR_TOPICS);
         }
+
+        maybeShowCsatPrompt(ticket);
+    }
+
+    // ── CSAT: avaliação do atendimento assim que o ticket é resolvido ─────────
+    function maybeShowCsatPrompt(ticket) {
+        if (ticket.status !== 'resolvido' || ticket.csat_rating) return;
+        const list = $('hr-messages-list');
+        if (!list || list.querySelector('.csat-prompt')) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'csat-prompt';
+        wrap.innerHTML = `
+            <span>Como você avalia este atendimento?</span>
+            <div class="csat-stars">
+                ${[1,2,3,4,5].map(n => `<button type="button" class="csat-star" data-rating="${n}" aria-label="${n} estrela${n>1?'s':''}"><i class="fas fa-star"></i></button>`).join('')}
+            </div>`;
+
+        const stars = wrap.querySelectorAll('.csat-star');
+        stars.forEach(btn => {
+            btn.addEventListener('mouseenter', () => highlightStars(stars, Number(btn.dataset.rating)));
+            btn.addEventListener('click', () => submitCsat(ticket.id, Number(btn.dataset.rating), wrap));
+        });
+        wrap.addEventListener('mouseleave', () => highlightStars(stars, 0));
+
+        list.appendChild(wrap);
+        scrollBottom('hr-messages-scroll');
+    }
+
+    function highlightStars(stars, rating) {
+        stars.forEach(btn => btn.classList.toggle('active', Number(btn.dataset.rating) <= rating));
+    }
+
+    async function submitCsat(ticketId, rating, wrapEl) {
+        const { error } = await sb.from('hr_tickets')
+            .update({ csat_rating: rating, csat_rated_at: new Date().toISOString() })
+            .eq('id', ticketId);
+        if (error) { showToast('Não foi possível enviar sua avaliação', 'error'); return; }
+
+        const idx = allTickets.findIndex(t => t.id === ticketId);
+        if (idx !== -1) allTickets[idx] = { ...allTickets[idx], csat_rating: rating };
+
+        wrapEl.innerHTML = `<span class="csat-thanks"><i class="fas fa-circle-check" style="color:var(--success)"></i> Obrigado pela avaliação!</span>`;
+        showToast('Avaliação enviada, obrigado!', 'success');
     }
 
     function updateHrStatusBadge(status) {
@@ -708,6 +656,13 @@ Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Voc
         if (doScroll) scrollBottom('hr-messages-scroll');
     }
 
+    // Converte **negrito** → <strong> e quebras de linha — mesmo formatador usado tanto
+    // pras respostas estáticas (saudação) quanto pro texto que chega em streaming do
+    // assistente com dados reais (ver streamAiEmployeeReply).
+    function formatBotMd(content) {
+        return esc(content).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    }
+
     function appendBotMessage(content, quickReplies, ts) {
         const list = $('hr-messages-list');
         if (!list) return;
@@ -716,10 +671,7 @@ Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Voc
         const group = document.createElement('div');
         group.className = 'msg-group is-bot';
 
-        // Converte **negrito** → <strong>
-        const formattedContent = esc(content)
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>');
+        const formattedContent = formatBotMd(content);
 
         let qrHtml = '';
         if (quickReplies && quickReplies.length) {
@@ -786,31 +738,112 @@ Posso conectar você a um **analista de RH** que poderá ajudar diretamente. Voc
 
         appendTicketMessage({ ...userMsg, role: 'user' });
 
-        // Processa bot com delay visual
-        await delay(800);
-
         if (text.toLowerCase().includes('falar com analista') || text.toLowerCase().includes('analista') || text.toLowerCase().includes('humano')) {
+            await delay(800);
             await escalateToHuman();
             return;
         }
 
-        // Busca resposta na base de conhecimento
-        const matched = HR_KNOWLEDGE.find(k => k.patterns.some(p => p.test(text)));
+        await streamAiEmployeeReply(text);
+    }
 
-        if (matched) {
-            botResponseCount++;
-            await sendBotMessage(currentTicketId, matched.response, matched.followUps);
-        } else {
-            botResponseCount++;
-            if (botResponseCount >= 2) {
-                await sendBotMessage(currentTicketId, FALLBACK_RESPONSE, ['Falar com analista', 'Tentar novamente']);
-            } else {
-                await sendBotMessage(currentTicketId,
-                    `Hmm, não encontrei informações específicas sobre isso. Pode descrever melhor sua dúvida? Ou escolha um tema abaixo:`,
-                    HR_KNOWLEDGE.map(k => k.label)
-                );
+    // Busca até as últimas 30 mensagens do ticket (user/bot) pra dar contexto de
+    // conversa ao assistente — mensagens 'rh' nunca aparecem aqui porque, uma vez
+    // escalado (isEscalated), handleHrUserInput já retorna antes de chegar aqui.
+    async function getTicketAiHistory(ticketId) {
+        const { data } = await sb.from('hr_ticket_messages')
+            .select('role, content')
+            .eq('ticket_id', ticketId)
+            .in('role', ['user', 'bot'])
+            .order('created_at', { ascending: true })
+            .limit(30);
+        return (data || []).map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content }));
+    }
+
+    // Assistente conversacional com dados reais da sessão do colaborador (saldo de
+    // férias, banco de horas, holerites...) — mesma arquitetura de tool-calling/streaming
+    // já validada em alertas.js (chat do RH), só que via ai-employee-chat, escopada ao
+    // próprio colaborador em vez do snapshot geral de RH.
+    async function streamAiEmployeeReply(text) {
+        const history = await getTicketAiHistory(currentTicketId);
+        // A última entrada do history já é a pergunta que acabamos de salvar — envia
+        // separado como `message` e o resto como contexto, mesmo formato do ai-alerts.
+        const historyContext = history.slice(0, -1);
+
+        const list = $('hr-messages-list');
+        if (!list) return;
+        const bubbleId = 'aibot-' + Date.now();
+        const group = document.createElement('div');
+        group.className = 'msg-group is-bot';
+        group.innerHTML = `
+            <div class="msg-row">
+                <div class="msg-avatar bot-avatar" title="Agente RH">
+                    <i class="fas fa-robot" style="font-size:.72rem"></i>
+                </div>
+                <div class="msg-content-wrap">
+                    <div class="msg-header"><span class="msg-author" style="color:var(--accent-hr)">Agente RH</span><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
+                    <div class="msg-bubble" id="${bubbleId}"><span class="stream-cursor"></span></div>
+                </div>
+            </div>`;
+        list.appendChild(group);
+        scrollBottom('hr-messages-scroll');
+
+        const bubble = $(bubbleId);
+        let fullText = '';
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-employee-chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({ message: text, history: historyContext }),
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Erro ${res.status}`);
             }
+
+            const reader  = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() ?? '';
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const raw = trimmed.slice(5).trim();
+                    if (raw === '[DONE]') continue;
+                    try {
+                        const delta = JSON.parse(raw).choices?.[0]?.delta?.content;
+                        if (delta) {
+                            fullText += delta;
+                            if (bubble) { bubble.innerHTML = formatBotMd(fullText) + '<span class="stream-cursor"></span>'; scrollBottom('hr-messages-scroll'); }
+                        }
+                    } catch { /* linha incompleta */ }
+                }
+            }
+        } catch (err) {
+            fullText = `Não consegui responder agora (${err.message}). Você pode tentar de novo ou falar com um analista.`;
         }
+
+        if (bubble) bubble.innerHTML = formatBotMd(fullText || 'Não consegui responder agora.');
+
+        await sb.from('hr_ticket_messages').insert({ ticket_id: currentTicketId, employee_id: null, role: 'bot', content: fullText });
+
+        // Sempre deixa a opção de escalar visível, independente do que o assistente respondeu.
+        const qrHtml = `<div class="quick-replies"><button class="qr-btn" data-qr="Falar com analista">Falar com analista</button></div>`;
+        group.querySelector('.msg-content-wrap')?.insertAdjacentHTML('beforeend', qrHtml);
+        group.querySelectorAll('.qr-btn').forEach(btn => {
+            btn.addEventListener('click', () => { const t = btn.dataset.qr; disableAllQuickReplies(); handleHrUserInput(t); });
+        });
+        scrollBottom('hr-messages-scroll');
     }
 
     async function escalateToHuman() {
@@ -882,6 +915,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
                 if (areaStatus) areaStatus.textContent = statusLabel[t.status] || t.status;
                 isEscalated = t.status !== 'bot';
                 loadTickets();
+                maybeShowCsatPrompt(t);
             })
             .subscribe();
     }
@@ -909,6 +943,142 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         autoResize(hrInput);
         await handleHrUserInput(text);
     }
+
+    // ── Reconhecimento entre pares (kudos) ──────────────────────────────────────
+
+    const KUDOS_CAT_LABEL = { colaboracao: 'Colaboração', inovacao: 'Inovação', lideranca: 'Liderança', superacao: 'Superação', mentoria: 'Mentoria' };
+    let colleagues  = [];
+    let allKudos    = [];
+    let kudosSub    = null;
+
+    async function loadColleagues() {
+        const { data } = await sb.from('colleague_directory').select('id,name,dept').neq('id', myEmployeeId).order('name');
+        colleagues = data || [];
+    }
+
+    // kudos.select() não pode mais embutir o join via FK para employees (o
+    // colleague_directory fechou a visibilidade de linha "qualquer ativo vê
+    // qualquer ativo" na tabela base — ver migration 040), então from/to são
+    // resolvidos aqui a partir do colleague_directory já carregado por
+    // loadColleagues(), com fallback para o próprio usuário (que não aparece no
+    // directory por causa do .neq acima).
+    function kudosDirMap() {
+        const dirMap = new Map(colleagues.map(c => [c.id, c]));
+        dirMap.set(myEmployeeId, { id: myEmployeeId, name: myEmployee.name, avatar_url: myEmployee.avatar_url, avatar_color: myEmployee.avatar_color });
+        return dirMap;
+    }
+
+    async function loadKudos() {
+        const { data } = await sb.from('kudos')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(60);
+        const dirMap = kudosDirMap();
+        allKudos = (data || []).map(k => ({
+            ...k,
+            from: dirMap.get(k.from_employee_id) || null,
+            to:   dirMap.get(k.to_employee_id) || null,
+        }));
+        renderKudosWall();
+    }
+
+    function renderKudosWall() {
+        const wall = $('kudos-wall');
+        if (!wall) return;
+        if (!allKudos.length) {
+            wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award" style="font-size:1.6rem;opacity:.4;display:block;margin-bottom:8px"></i>Nenhum reconhecimento ainda. Seja o primeiro a elogiar um colega!</div>`;
+            return;
+        }
+        wall.innerHTML = allKudos.map(k => `
+            <div class="kudos-card">
+                <div class="kudos-card-head">
+                    <span class="kudos-card-names">${esc(k.from?.name || '—')} <i class="fas fa-arrow-right"></i> ${esc(k.to?.name || '—')}</span>
+                    <span class="kudos-card-cat">${esc(KUDOS_CAT_LABEL[k.categoria] || k.categoria)}</span>
+                </div>
+                <p class="kudos-card-msg">${esc(k.message)}</p>
+                <span class="kudos-card-time">${fmtAgo(k.created_at)}</span>
+            </div>`).join('');
+    }
+
+    function setupKudosRealtime() {
+        kudosSub = sb.channel('kudos-colab')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kudos' }, () => loadKudos())
+            .subscribe();
+    }
+
+    window.openKudosModal = function () {
+        const sel = $('kudos-colleague');
+        if (sel) sel.innerHTML = colleagues.map(c => `<option value="${c.id}">${esc(c.name)}${c.dept ? ' — ' + esc(c.dept) : ''}</option>`).join('');
+        const msgEl = $('kudos-message');
+        if (msgEl) msgEl.value = '';
+        $('kudos-error')?.classList.add('hidden');
+        $('kudos-modal')?.classList.add('open');
+    };
+
+    window.closeKudosModal = function () {
+        $('kudos-modal')?.classList.remove('open');
+    };
+
+    window.submitKudos = async function () {
+        const toId   = $('kudos-colleague')?.value;
+        const categoria = $('kudos-categoria')?.value || 'colaboracao';
+        const message = $('kudos-message')?.value.trim();
+        const errEl  = $('kudos-error');
+
+        if (!toId || !message) {
+            if (errEl) { errEl.textContent = 'Selecione um colega e escreva uma mensagem.'; errEl.classList.remove('hidden'); }
+            return;
+        }
+
+        const { data, error } = await sb.from('kudos').insert({
+            from_employee_id: myEmployeeId, to_employee_id: toId, categoria, message,
+        }).select('*').single();
+
+        if (error) {
+            if (errEl) { errEl.textContent = 'Não foi possível publicar. Tente novamente.'; errEl.classList.remove('hidden'); }
+            return;
+        }
+
+        const dirMap = kudosDirMap();
+        allKudos.unshift({ ...data, from: dirMap.get(data.from_employee_id) || null, to: dirMap.get(data.to_employee_id) || null });
+        renderKudosWall();
+        closeKudosModal();
+        showToast('Reconhecimento publicado!', 'success', 'Seu colega vai adorar ver isso no mural.');
+    };
+
+    // ── Feedback anônimo ao RH ──────────────────────────────────────────────────
+    // Sem employee_id em nenhum lugar — nem o cliente sabe reconstruir quem enviou.
+
+    $('anon-feedback-btn')?.addEventListener('click', () => {
+        const msgEl = $('anon-message');
+        if (msgEl) msgEl.value = '';
+        $('anon-error')?.classList.add('hidden');
+        $('anon-feedback-modal')?.classList.add('open');
+    });
+
+    window.closeAnonFeedbackModal = function () {
+        $('anon-feedback-modal')?.classList.remove('open');
+    };
+
+    window.submitAnonFeedback = async function () {
+        const categoria = $('anon-categoria')?.value || 'outro';
+        const message   = $('anon-message')?.value.trim();
+        const errEl      = $('anon-error');
+
+        if (!message) {
+            if (errEl) { errEl.textContent = 'Escreva sua mensagem antes de enviar.'; errEl.classList.remove('hidden'); }
+            return;
+        }
+
+        const { error } = await sb.from('anonymous_feedback').insert({ categoria, message });
+        if (error) {
+            if (errEl) { errEl.textContent = 'Não foi possível enviar. Tente novamente.'; errEl.classList.remove('hidden'); }
+            return;
+        }
+
+        closeAnonFeedbackModal();
+        showToast('Feedback enviado anonimamente!', 'success', 'Obrigado — o RH vai receber sua mensagem sem nenhuma identificação.');
+    };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -950,4 +1120,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
     setupPresence();
     await loadChannels();
     await loadTickets();
+    await loadColleagues();
+    await loadKudos();
+    setupKudosRealtime();
 });

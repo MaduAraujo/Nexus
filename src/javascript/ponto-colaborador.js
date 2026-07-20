@@ -6,6 +6,19 @@ let recordsMap    = {};   // { 'YYYY-MM-DD': timeRecord }
 let adjRequests   = [];   // adjustment_requests array
 let userCoords    = null;
 let pendingStep   = null;
+let bankRequests  = [];   // minhas solicitações de banco de horas
+let teamRequests  = [];   // solicitações da equipe pendentes da minha aprovação (se eu for gestor)
+let isManager     = false;
+let selectedAnexoFile = null;
+let rejectingRequestId = null;
+let leafletMap = null, empresaMarker = null, empresaCircle = null, userMarker = null, routeLine = null;
+let selfieStream = null, capturedSelfieDataUrl = null;
+let faceVerified = false;              // true libera o botão de confirmar (rosto bate OU não há foto de referência)
+let faceModelsPromise = null;          // Promise dos modelos do face-api.js (carregados uma única vez)
+let referenceDescriptorPromise = null; // Promise do descritor facial da foto de perfil cadastrada (avatar_url)
+let holidaysMap   = {};   // { 'YYYY-MM-DD': { name, ... } } — para o cálculo de DSR
+let limiteExtraDiarioMin = 120; // CLT art. 59, §1º — sobrescrito por hr_settings em loadData()
+let pendingExcessoLegalMin = 0; // > 0 quando a saída pendente excede o limite legal diário
 
 const EMPRESA = {
     nome: 'Nexus',
@@ -19,21 +32,29 @@ const EMPRESA = {
 const pad0 = n => String(n).padStart(2, '0');
 const $    = id => document.getElementById(id);
 
+function esc(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    myEmployeeId = auth.profile.employee_id;
+    myEmployee   = auth.employee;
 
-    const { data: profile } = await sb.from('profiles').select('profile, employee_id').eq('id', user.id).single();
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) { window.location.href = '../screens/login.html'; return; }
+    const { data: managed } = await sb.from('employees').select('id').eq('manager_id', myEmployeeId).limit(1);
+    isManager = !!(managed && managed.length);
 
-    myEmployeeId = profile.employee_id;
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-    myEmployee = emp;
+    loadFaceModels().catch(e => console.error('Falha ao carregar modelos de verificação facial:', e));
 
     initSidebar();
     await loadData();
     setupRealtimeSync();
+
+    renderSyncStatus();
+    window.addEventListener('online', flushOfflineQueue);
+    setInterval(() => { if (loadOfflineQueue().length) flushOfflineQueue(); }, 20000);
+    flushOfflineQueue();
 
     updateClock();
     setInterval(updateClock, 1000);
@@ -54,16 +75,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ─── Data ─────────────────────────────────────────────────────
 
 async function loadData() {
-    const [{ data: records }, { data: adj }] = await Promise.all([
+    const queries = [
         sb.from('time_records').select('*').eq('employee_id', myEmployeeId).order('date', { ascending: false }),
         sb.from('adjustment_requests').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false }),
-    ]);
-    recordsMap  = {};
+        sb.from('bank_requests').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false }),
+        sb.from('holidays').select('date,name'),
+        sb.from('hr_settings').select('limite_extra_diario_min').eq('id', 1).single(),
+    ];
+    if (isManager) {
+        queries.push(sb.from('bank_requests').select('*, employees(name,dept)').eq('manager_id_snapshot', myEmployeeId).eq('status', 'pendente').order('created_at', { ascending: false }));
+    }
+    const [{ data: records }, { data: adj }, { data: bankReq }, { data: hol }, { data: settings }, teamRes] = await Promise.all(queries);
+    recordsMap   = {};
     (records || []).forEach(r => { recordsMap[r.date] = r; });
-    adjRequests = adj || [];
+    adjRequests  = adj || [];
+    bankRequests = bankReq || [];
+    holidaysMap  = {};
+    (hol || []).forEach(h => { holidaysMap[h.date] = h; });
+    if (settings?.limite_extra_diario_min != null) limiteExtraDiarioMin = settings.limite_extra_diario_min;
+    teamRequests = isManager ? (teamRes?.data || []) : [];
 }
 
 function todayKey() { const d = new Date(); return `${d.getFullYear()}-${pad0(d.getMonth()+1)}-${pad0(d.getDate())}`; }
+// Só para o preview local otimista (applyLocalPunch) antes da confirmação do servidor — o
+// horário que efetivamente é gravado sempre vem de now() do Postgres via punch_time_record()
+// (ver syncPunch), nunca deste valor. Não usar isto como fonte de verdade do timestamp.
 function nowISO()   { return new Date().toISOString(); }
 function timeStr(iso) { if (!iso) return null; const d = new Date(iso); return `${pad0(d.getHours())}:${pad0(d.getMinutes())}`; }
 function diffMin(a, b) { if (!a || !b) return 0; return Math.round((new Date(b) - new Date(a)) / 60000); }
@@ -74,8 +110,12 @@ function initials(name) { return (name||'?').split(' ').slice(0,2).map(w=>w[0]?.
 
 function getJornadaMin() {
     const tipo = (myEmployee?.contract_type || 'clt').toLowerCase();
-    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
     if (tipo === 'pj') return null;
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
+    const workLoad = myEmployee?.work_load || '';
+    if (workLoad === '12x36') return 12 * 60;
+    const m = workLoad.match(/^(\d+)h/);
+    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
     return 8 * 60;
 }
 
@@ -96,6 +136,45 @@ function calcSaldoMin(rec) {
     const j = getJornadaMin();
     if (j === null) return null;
     return calcWorkedMin(rec) - j;
+}
+
+// Intervalo intrajornada obrigatório (CLT art. 71): >6h de jornada exige 1h; entre 4h e 6h
+// exige 15min; até 4h não há intervalo obrigatório. PJ não é jornada CLT, então não se aplica.
+function getIntervaloMinObrigatorio() {
+    const j = getJornadaMin();
+    if (j === null) return 0;
+    if (j > 6 * 60) return 60;
+    if (j > 4 * 60) return 15;
+    return 0;
+}
+
+// Minutos de intervalo suprimidos num dia já encerrado. Desde a Lei 13.467/2017 (art. 71 §4º),
+// isso é pago como indenização (tempo suprimido + 50%) e NÃO entra no banco de horas — por
+// isso não é somado em calcSaldoMin/calcWorkedMin, fica só para exibição/alerta de compliance.
+function calcIntervaloDeficitMin(rec) {
+    if (isFalta(rec) || !rec.saida) return 0;
+    const obrigatorio = getIntervaloMinObrigatorio();
+    if (obrigatorio <= 0) return 0;
+    const realizado = (rec.saida_almoco && rec.retorno_almoco) ? diffMin(rec.saida_almoco, rec.retorno_almoco) : 0;
+    return Math.max(0, obrigatorio - realizado);
+}
+
+// Segunda-feira da semana (ISO) a que a data pertence — usado para agrupar risco de DSR por semana.
+function weekStartKey(dateKey) {
+    const d = new Date(`${dateKey}T12:00:00`);
+    const dow = d.getDay();
+    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+}
+
+// Projeta o saldo do dia como se a saída fosse confirmada agora — usado só para avisar/
+// exigir justificativa ANTES de registrar (o horário final que efetivamente é gravado
+// sempre vem de now() do servidor via punch_time_record, nunca deste preview).
+function previewSaldoSaidaMin(rec) {
+    const j = getJornadaMin();
+    if (j === null) return null; // PJ não tem limite de jornada CLT
+    const hyp = { ...rec, saida: nowISO() };
+    return calcWorkedMin(hyp) - j;
 }
 
 function getTodayRec() { return recordsMap[todayKey()] || {}; }
@@ -168,7 +247,10 @@ function renderUI() {
     renderSaldo();
     renderStats();
     renderSolicitacoes();
+    renderBankRequests();
+    renderTeamApprovals();
     runBurnoutCheck();
+    runCLTComplianceCheck();
     renderHistorico();
 }
 
@@ -231,7 +313,7 @@ function renderStats() {
     const el_ext =$('stat-horas-extras');if(el_ext)   el_ext.textContent   = extrasMin?minToStr(extrasMin):'0h 00min';
     const el_flt =$('stat-horas-falta'); if(el_flt)   el_flt.textContent   = faltaMin ?minToStr(faltaMin) :'0h 00min';
     const el_j   =$('stat-jornada');
-    if (el_j) { const j=getJornadaMin(); el_j.textContent=j===null?'Autônomo':`${Math.floor(j/60)}h/dia`; }
+    if (el_j) { const j=getJornadaMin(); el_j.textContent=j===null?'Autônomo':(myEmployee?.work_load==='12x36'?'Escala 12x36':`${Math.floor(j/60)}h${j%60?pad0(j%60)+'min':''}/dia`); }
 }
 
 window.renderHistorico = function () {
@@ -255,8 +337,12 @@ window.renderHistorico = function () {
         if (jornadaMin === null) { saldoStr = rec.saida ? minToStr(worked) : '—'; }
         else if (saldo !== null) { saldoStr=(saldo>=0?'+':'-')+minToStr(saldo); saldoCls=saldo>0?'positivo':saldo<0?'negativo':'zero'; }
         const badge = getBadge(rec, saldo);
+        const intervaloDeficit = calcIntervaloDeficitMin(rec);
+        const intervaloTag = intervaloDeficit > 0
+            ? `<span class="badge badge-intervalo" title="Intervalo do art. 71 da CLT não cumprido — ${minToStr(intervaloDeficit)} devidos com adicional de 50%, pagos à parte (não entram no banco de horas)">Intervalo -${minToStr(intervaloDeficit)}</span>`
+            : '';
         const t = (f) => { const v=rec[f]; if(!v)return`<span class="td-time missing">—</span>`; return`<span class="td-time ${rec[f+'_ajustado']?'ajustado':''}">${timeStr(v)}</span>`; };
-        return `<tr><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td>${t('entrada')}</td><td>${t('saida_almoco')}</td><td>${t('retorno_almoco')}</td><td>${t('saida')}</td><td class="td-total">${workedStr}</td><td class="td-saldo ${saldoCls}">${saldoStr}</td><td><span class="badge ${badge.cls}">${badge.label}</span></td></tr>`;
+        return `<tr><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td>${t('entrada')}</td><td>${t('saida_almoco')}</td><td>${t('retorno_almoco')}</td><td>${t('saida')}</td><td class="td-total">${workedStr}</td><td class="td-saldo ${saldoCls}">${saldoStr}</td><td><span class="badge ${badge.cls}">${badge.label}</span>${intervaloTag}</td></tr>`;
     }).join('');
 };
 
@@ -279,6 +365,133 @@ function renderSolicitacoes() {
     const tipoMap = { 'entrada':'Correção de Entrada','saida-almoco':'Correção de Saída p/ Almoço','retorno-almoco':'Correção de Retorno','saida':'Correção de Saída','falta':'Justificativa de Falta' };
     list.innerHTML = pendentes.map(a => `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo]||a.tipo}</p><p class="sol-meta">Data: ${a.date}${a.horario?` • Horário: ${a.horario}`:''} • Enviado em ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`).join('');
 }
+
+// ─── Banco de horas: solicitação do colaborador e aprovação da equipe ─────
+
+function renderBankRequests() {
+    const list = $('bank-requests-list');
+    if (!list) return;
+    if (!bankRequests.length) { list.innerHTML = `<p class="no-ajustes">Nenhuma solicitação enviada ainda.</p>`; return; }
+    const STATUS_META = {
+        pendente:  { cls:'badge-pendente',  label:'Pendente',  icon:'fa-hourglass-half' },
+        aprovado:  { cls:'badge-aprovado',  label:'Aprovado',  icon:'fa-check' },
+        rejeitado: { cls:'badge-rejeitado', label:'Rejeitado', icon:'fa-xmark' },
+    };
+    list.innerHTML = bankRequests.map(r => {
+        const meta = STATUS_META[r.status] || STATUS_META.pendente;
+        const tipoLabel = r.tipo === 'credito' ? 'Crédito' : 'Débito';
+        const valor = `${r.tipo==='credito'?'+':'-'}${minToStr(r.minutos)}`;
+        const obs = r.status === 'rejeitado' && r.decision_obs ? `<p class="sol-obs"><i class="fas fa-comment"></i> ${esc(r.decision_obs)}</p>` : '';
+        return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-clock-rotate-left"></i></div><div class="sol-info"><p class="sol-tipo">${tipoLabel} — ${valor}${r.anexo_name?` <i class="fas fa-paperclip" title="${esc(r.anexo_name)}"></i>`:''}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${obs}</div><span class="badge-status ${meta.cls}"><i class="fas ${meta.icon}"></i> ${meta.label}</span></div>`;
+    }).join('');
+}
+
+function renderTeamApprovals() {
+    const section = $('section-team-approvals'), list = $('team-approvals-list');
+    if (!section || !list) return;
+    if (!isManager || !teamRequests.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    list.innerHTML = teamRequests.map(r => {
+        const empName = r.employees?.name || '—', empDept = r.employees?.dept || '—';
+        const tipoLabel = r.tipo === 'credito' ? 'Crédito' : 'Débito';
+        const valor = `${r.tipo==='credito'?'+':'-'}${minToStr(r.minutos)}`;
+        const anexoBtn = r.anexo_path ? `<button class="btn-link-anexo" onclick="viewBankRequestAnexo('${r.id}')"><i class="fas fa-paperclip"></i> Ver anexo</button>` : '';
+        return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-user-clock"></i></div><div class="sol-info"><p class="sol-tipo">${esc(empName)} <span class="sol-dept">(${esc(empDept)})</span> — ${tipoLabel} ${valor}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${anexoBtn}</div><div class="aprovacao-actions"><button class="btn-approve" onclick="approveTeamRequest('${r.id}')" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-reject" onclick="openRejectModal('${r.id}')" title="Rejeitar"><i class="fas fa-xmark"></i></button></div></div>`;
+    }).join('');
+}
+
+window.viewBankRequestAnexo = async function (id) {
+    const r = [...bankRequests, ...teamRequests].find(x => x.id === id);
+    if (!r?.anexo_path) return;
+    const { data, error } = await sb.storage.from('documents').createSignedUrl(r.anexo_path, 3600);
+    if (error || !data?.signedUrl) { showToast('Não foi possível abrir o anexo.', 'error'); return; }
+    window.open(data.signedUrl, '_blank');
+};
+
+window.openModalBankRequest = function () {
+    ['bankreq-data','bankreq-horas','bankreq-minutos','bankreq-justificativa'].forEach(id => { const el=$(id); if (el) el.value=''; });
+    const tipo = $('bankreq-tipo'); if (tipo) tipo.value = 'credito';
+    const anexo = $('bankreq-anexo'); if (anexo) anexo.value = '';
+    selectedAnexoFile = null;
+    ['err-bankreq-data','err-bankreq-valor','err-bankreq-just'].forEach(id => { const el=$(id); if (el) el.textContent=''; });
+    openModal('modal-bank-request');
+};
+
+window.enviarBankRequest = async function () {
+    const tipo   = $('bankreq-tipo')?.value || 'credito';
+    const data   = $('bankreq-data')?.value || '';
+    const horas  = parseInt($('bankreq-horas')?.value || '0', 10);
+    const mins   = parseInt($('bankreq-minutos')?.value || '0', 10);
+    const just   = $('bankreq-justificativa')?.value.trim() || '';
+    const fileEl = $('bankreq-anexo');
+    const file   = fileEl?.files?.[0] || null;
+    let ok = true;
+    const setErr=(id,msg)=>{const el=$(id);if(el)el.textContent=msg;if(msg)ok=false;};
+    setErr('err-bankreq-data',  data ? '' : 'Informe a data de referência.');
+    const total = horas*60+mins;
+    setErr('err-bankreq-valor', total>0 ? '' : 'Informe um valor de horas/minutos maior que zero.');
+    setErr('err-bankreq-just',  just ? '' : 'A justificativa é obrigatória.');
+    if (!ok) return;
+
+    if (file && file.size > 10*1024*1024) { showToast('Arquivo muito grande (máx. 10 MB).', 'error'); return; }
+
+    let anexoPath = null, anexoName = null;
+    if (file) {
+        const storagePath = `${myEmployeeId}/banco-horas/${Date.now()}_${file.name}`;
+        const { error: upErr } = await sb.storage.from('documents').upload(storagePath, file, { contentType: file.type });
+        if (upErr) { showToast('Erro ao enviar o anexo.', 'error'); return; }
+        anexoPath = storagePath; anexoName = file.name;
+        await sb.from('documents').insert({
+            name: file.name, employee_id: myEmployeeId, category: 'banco_horas', tipo: 'Atestado/Comprovante',
+            size_label: `${Math.round(file.size/1024)} KB`, storage_path: storagePath, source: 'colaborador', status: 'aprovado',
+        });
+    }
+
+    const { data: inserted, error } = await sb.from('bank_requests').insert({
+        employee_id: myEmployeeId, origem: 'colaborador', tipo, minutos: total, date: data,
+        justificativa: just, anexo_path: anexoPath, anexo_name: anexoName,
+        requires_approval_from: 'rh',
+        created_by_name: myEmployee.name, created_by_email: myEmployee.email,
+    }).select().single();
+
+    if (error) { showToast('Erro ao enviar solicitação.', 'error'); return; }
+    bankRequests.unshift(inserted);
+    closeModal('modal-bank-request');
+    showToast('Solicitação enviada! Aguarde aprovação do RH.', 'success');
+    renderBankRequests();
+};
+
+window.approveTeamRequest = async function (id) {
+    const { error } = await sb.rpc('approve_bank_request', {
+        p_request_id: id, p_decision: 'aprovado',
+        p_decided_by_name: myEmployee.name, p_decided_by_email: myEmployee.email,
+    });
+    if (error) { showToast(error.message || 'Erro ao aprovar solicitação.', 'error'); return; }
+    teamRequests = teamRequests.filter(r => r.id !== id);
+    renderTeamApprovals();
+    showToast('Solicitação aprovada.', 'success');
+};
+
+window.openRejectModal = function (id) {
+    rejectingRequestId = id;
+    const el = $('reject-obs-text'); if (el) el.value = '';
+    const err = $('err-reject-obs'); if (err) err.textContent = '';
+    openModal('modal-reject-obs');
+};
+
+window.confirmRejectBankRequest = async function () {
+    const obs = $('reject-obs-text')?.value.trim() || '';
+    if (!obs) { const err=$('err-reject-obs'); if(err) err.textContent='Informe o motivo da rejeição.'; return; }
+    const { error } = await sb.rpc('approve_bank_request', {
+        p_request_id: rejectingRequestId, p_decision: 'rejeitado', p_obs: obs,
+        p_decided_by_name: myEmployee.name, p_decided_by_email: myEmployee.email,
+    });
+    if (error) { showToast(error.message || 'Erro ao rejeitar solicitação.', 'error'); return; }
+    teamRequests = teamRequests.filter(r => r.id !== rejectingRequestId);
+    renderTeamApprovals();
+    closeModal('modal-reject-obs');
+    showToast('Solicitação rejeitada.', 'info');
+};
 
 // ─── Burnout ──────────────────────────────────────────────────
 
@@ -352,6 +565,67 @@ window.dismissBurnout = function () { const s=$('section-burnout'); if(s){s.clas
 
 function runBurnoutCheck() { const alertas=detectBurnout(); renderBurnoutCard(alertas); notificarRH(alertas); }
 
+// ─── Compliance CLT: intervalo intrajornada (art. 71) e DSR ───
+
+function detectCLTAlerts() {
+    const alertas = [];
+    const mesKey = todayKey().slice(0, 7);
+
+    // Intervalo intrajornada (CLT art. 71) — agregado do mês corrente.
+    if (getIntervaloMinObrigatorio() > 0) {
+        let deficitTotalMin = 0, diasComDeficit = 0;
+        Object.entries(recordsMap).forEach(([key, rec]) => {
+            if (!key.startsWith(mesKey)) return;
+            const d = calcIntervaloDeficitMin(rec);
+            if (d > 0) { deficitTotalMin += d; diasComDeficit++; }
+        });
+        if (deficitTotalMin > 0) {
+            const indenizacaoMin = Math.round(deficitTotalMin * 1.5);
+            alertas.push({
+                tipo: 'intervalo_intrajornada',
+                nivel: diasComDeficit >= 5 ? 'critico' : 'atencao',
+                titulo: `Intervalo intrajornada não cumprido em ${diasComDeficit} dia${diasComDeficit>1?'s':''} este mês`,
+                mensagem: `O art. 71 da CLT exige ${minToStr(getIntervaloMinObrigatorio())} de pausa para almoço na sua jornada. O tempo suprimido é pago à parte com adicional de 50% — não é compensado em banco de horas.`,
+                sugestao: `Total aproximado: ${minToStr(deficitTotalMin)} suprimidos (${minToStr(indenizacaoMin)} indenizáveis com o adicional). Regularize seus intervalos e avise o RH se precisar de ajuste.`,
+            });
+        }
+    }
+
+    // DSR (Lei 605/49, art. 6º) — falta ainda sem justificativa aprovada compromete o
+    // Descanso Semanal Remunerado da semana em que ela ocorreu.
+    const faltasNaoJustificadas = adjRequests.filter(a => a.tipo === 'falta' && a.status !== 'aprovado');
+    if (faltasNaoJustificadas.length) {
+        const semanas = [...new Set(faltasNaoJustificadas.map(a => weekStartKey(a.date)))];
+        alertas.push({
+            tipo: 'dsr_risco',
+            nivel: 'atencao',
+            titulo: `Risco de perda do DSR em ${semanas.length} semana${semanas.length>1?'s':''}`,
+            mensagem: 'Faltas ainda não aprovadas pelo RH podem levar à perda do Descanso Semanal Remunerado da semana correspondente enquanto não forem justificadas.',
+            sugestao: 'Acompanhe o status das suas solicitações em "Ajustes Pendentes".',
+            dias: semanas.map(fmtDate),
+        });
+    }
+
+    return alertas;
+}
+
+function renderCLTCard(alertas) {
+    const section = $('section-clt'); if (!section) return;
+    if (!alertas.length) { section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    const nivelGeral = alertas.some(a => a.nivel === 'critico') ? 'critico' : 'atencao';
+    const itensHTML = alertas.map(a => {
+        const icone = { intervalo_intrajornada: 'fa-mug-saucer', dsr_risco: 'fa-calendar-xmark' }[a.tipo] || 'fa-scale-balanced';
+        const diasHTML = a.dias?.length ? `<div class="burnout-dias">${a.dias.map(d=>`<span class="burnout-dia-tag">${d}</span>`).join('')}</div>` : '';
+        return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${a.titulo}</p><p class="burnout-item-msg">${a.mensagem}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${a.sugestao}</p></div></div>`;
+    }).join('');
+    section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas fa-scale-balanced"></i></div><div><p class="burnout-titulo">Conformidade CLT</p><p class="burnout-subtitulo">Intervalo intrajornada e DSR (art. 71 CLT / Lei 605/49)</p></div></div><button class="burnout-dismiss" onclick="dismissCLT()" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
+}
+
+window.dismissCLT = function () { const s=$('section-clt'); if(s){s.classList.add('burnout-dismissing');setTimeout(()=>s.classList.add('hidden'),350);} };
+
+function runCLTComplianceCheck() { renderCLTCard(detectCLTAlerts()); }
+
 // ─── Confirmar registro ───────────────────────────────────────
 
 window.abrirConfirmar = function () {
@@ -375,25 +649,385 @@ window.abrirConfirmar = function () {
     const hr=$('confirmar-hora');
     const tick=()=>{const n=new Date();if(hr)hr.textContent=`${pad0(n.getHours())}:${pad0(n.getMinutes())}:${pad0(n.getSeconds())}`;};
     tick(); window._confirmTimer=setInterval(tick,1000);
+    resetSelfieCapture();
+    iniciarCameraSelfie();
+    getReferenceDescriptor().catch(() => {}); // prefetch em paralelo — pronto antes do colaborador clicar em "Tirar Selfie"
+    setupExcessoLegalCheck(rec, step);
     openModal('modal-confirmar');
 };
 
+// ─── Limite legal de horas extras diárias (CLT art. 59, §1º) ──
+// Não dá para "bloquear" a saída em si (o horário real tem que ser registrado, sempre —
+// esconder isso seria fraude de ponto). Em vez disso, ao confirmar uma saída que
+// ultrapassaria o limite diário configurado pelo RH, exige justificativa obrigatória
+// ANTES de liberar o botão de confirmar (mesmo padrão da selfie) e notifica o RH na
+// hora via report_daily_overtime_alert, em vez de só aparecer depois como badge em
+// banco-horas-rh.js.
+function setupExcessoLegalCheck(rec, step) {
+    const bloco = $('excesso-legal-bloco'), txt = $('excesso-legal-just');
+    pendingExcessoLegalMin = 0;
+    if (txt) txt.value = '';
+    if (step === 'saida') {
+        const saldoPreview = previewSaldoSaidaMin(rec);
+        if (saldoPreview !== null && saldoPreview > limiteExtraDiarioMin) pendingExcessoLegalMin = saldoPreview;
+    }
+    if (bloco) bloco.classList.toggle('hidden', pendingExcessoLegalMin <= 0);
+    const msg = $('excesso-legal-msg');
+    if (msg && pendingExcessoLegalMin > 0) {
+        msg.textContent = `Esta saída resultaria em ${minToStr(pendingExcessoLegalMin)} de horas extras hoje, acima do limite legal de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Informe o motivo para confirmar — o RH será notificado imediatamente.`;
+    }
+    updateConfirmBtnState();
+}
+
+window.onExcessoLegalJustInput = function () { updateConfirmBtnState(); };
+
+function updateConfirmBtnState() {
+    const confBtn = $('btn-confirmar-ponto'); if (!confBtn) return;
+    const justOk = pendingExcessoLegalMin <= 0 || !!$('excesso-legal-just')?.value.trim();
+    confBtn.disabled = !capturedSelfieDataUrl || !justOk || !faceVerified;
+}
+
+// ─── Selfie de prova (anti-fraude) ─────────────────────────────
+// Sem isso, a sessão autenticada era a única "prova" de identidade: qualquer um com o
+// celular/sessão de outro colaborador destravado batia o ponto por ela. A selfie é
+// capturada localmente (funciona offline, já que getUserMedia não depende de rede) e só é
+// enviada ao Storage no momento da sincronização — ver syncPunch().
+function resetSelfieCapture() {
+    capturedSelfieDataUrl = null;
+    faceVerified = false;
+    const video=$('selfie-video'), preview=$('selfie-preview');
+    if (preview) { preview.classList.add('hidden'); preview.src=''; }
+    if (video)   video.classList.remove('hidden');
+    $('btn-selfie-shoot')?.classList.remove('hidden');
+    $('btn-selfie-retake')?.classList.add('hidden');
+    const hint=$('selfie-hint'); if (hint) { hint.textContent='Uma selfie é obrigatória para confirmar o registro.'; hint.classList.remove('selfie-hint--erro'); }
+    const fv=$('face-verify-status'); if (fv) { fv.classList.add('hidden'); fv.textContent=''; }
+    updateConfirmBtnState();
+}
+
+function pararCameraSelfie() {
+    if (selfieStream) { selfieStream.getTracks().forEach(t => t.stop()); selfieStream = null; }
+}
+
+async function iniciarCameraSelfie() {
+    const video=$('selfie-video'), shootBtn=$('btn-selfie-shoot'), hint=$('selfie-hint');
+    pararCameraSelfie();
+    if (!navigator.mediaDevices?.getUserMedia) {
+        if (shootBtn) shootBtn.disabled = true;
+        if (hint) { hint.textContent='Câmera não disponível neste aparelho/navegador.'; hint.classList.add('selfie-hint--erro'); }
+        return;
+    }
+    try {
+        selfieStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        if (video) video.srcObject = selfieStream;
+        if (shootBtn) shootBtn.disabled = false;
+    } catch {
+        if (shootBtn) shootBtn.disabled = true;
+        if (hint) { hint.textContent='Não foi possível acessar a câmera. Permita o acesso para registrar o ponto.'; hint.classList.add('selfie-hint--erro'); }
+    }
+}
+
+window.capturarSelfie = function () {
+    const video=$('selfie-video'), canvas=$('selfie-canvas'), preview=$('selfie-preview');
+    if (!video || !canvas || !video.videoWidth) return;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    capturedSelfieDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    if (preview) { preview.src = capturedSelfieDataUrl; preview.classList.remove('hidden'); }
+    video.classList.add('hidden');
+    $('btn-selfie-shoot')?.classList.add('hidden');
+    $('btn-selfie-retake')?.classList.remove('hidden');
+    updateConfirmBtnState();
+    pararCameraSelfie();
+    verificarIdentidadeSelfie(capturedSelfieDataUrl);
+};
+
+window.retomarSelfie = function () {
+    capturedSelfieDataUrl = null;
+    faceVerified = false;
+    const video=$('selfie-video'), preview=$('selfie-preview');
+    if (preview) preview.classList.add('hidden');
+    if (video)   video.classList.remove('hidden');
+    $('btn-selfie-shoot')?.classList.remove('hidden');
+    $('btn-selfie-retake')?.classList.add('hidden');
+    const fv=$('face-verify-status'); if (fv) { fv.classList.add('hidden'); fv.textContent=''; }
+    updateConfirmBtnState();
+    iniciarCameraSelfie();
+};
+
+// ─── Verificação facial (antifraude) ───────────────────────────
+// A selfie sozinha só prova que ALGUÉM tirou uma foto — sem comparar com o cadastro,
+// um colega com o celular destravado bate o ponto por outra pessoa sem barreira nenhuma.
+// Aqui o rosto capturado é comparado, 100% no navegador (face-api.js + TensorFlow.js),
+// contra a foto de perfil já cadastrada (myEmployee.avatar_url). Política combinada com
+// a Maria: falha no match OU nenhum rosto detectado BLOQUEIA o registro; já a ausência de
+// foto de referência (empregado nunca cadastrou uma) permite normalmente — sem forçar
+// cadastro retroativo. Falha de infraestrutura (CDN dos modelos fora do ar) também é
+// permissiva, para não derrubar o ponto inteiro por causa de terceiro.
+const FACE_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+const FACE_MATCH_THRESHOLD = 0.55; // face-api.js recomenda ~0.6; mais rígido aqui por ser controle antifraude
+
+function loadFaceModels() {
+    if (!faceModelsPromise) {
+        faceModelsPromise = Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODELS_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODELS_URL),
+        ]);
+    }
+    return faceModelsPromise;
+}
+
+function getReferenceDescriptor() {
+    if (!myEmployee?.avatar_url) return Promise.resolve(null);
+    if (!referenceDescriptorPromise) {
+        referenceDescriptorPromise = (async () => {
+            try {
+                await loadFaceModels();
+                const img = await faceapi.fetchImage(myEmployee.avatar_url);
+                const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks().withFaceDescriptor();
+                return det ? det.descriptor : null;
+            } catch (e) {
+                console.error('Falha ao processar a foto de referência:', e);
+                return null;
+            }
+        })();
+    }
+    return referenceDescriptorPromise;
+}
+
+async function verificarIdentidadeSelfie(selfieDataUrl) {
+    const statusEl = $('face-verify-status');
+    faceVerified = false;
+    updateConfirmBtnState();
+    if (!statusEl) return;
+
+    const setStatus = (variant, html) => { statusEl.className = `face-verify-status face-verify-status--${variant}`; statusEl.innerHTML = html; };
+    statusEl.classList.remove('hidden');
+    setStatus('checking', '<i class="fas fa-spinner fa-spin"></i> Verificando identidade...');
+
+    try {
+        await loadFaceModels();
+    } catch {
+        faceVerified = true; // infra de terceiro fora do ar não pode travar o ponto
+        setStatus('info', '<i class="fas fa-circle-info"></i> Verificação de identidade indisponível no momento.');
+        updateConfirmBtnState();
+        return;
+    }
+
+    const refDescriptor = await getReferenceDescriptor();
+    if (!refDescriptor) {
+        faceVerified = true; // sem foto de referência cadastrada — segue o fluxo normal
+        setStatus('info', myEmployee?.avatar_url
+            ? '<i class="fas fa-circle-info"></i> Não foi possível ler a foto de perfil cadastrada — verificação pulada.'
+            : '<i class="fas fa-circle-info"></i> Sem foto de perfil cadastrada — verificação de identidade não realizada.');
+        updateConfirmBtnState();
+        return;
+    }
+
+    let det = null;
+    try {
+        const img = await faceapi.fetchImage(selfieDataUrl);
+        det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks().withFaceDescriptor();
+    } catch (e) {
+        console.error('Falha ao processar a selfie para verificação facial:', e);
+    }
+
+    if (!det) {
+        faceVerified = false;
+        setStatus('erro', '<i class="fas fa-triangle-exclamation"></i> Não identificamos seu rosto na foto. Tire novamente de frente, com boa iluminação.');
+        updateConfirmBtnState();
+        return;
+    }
+
+    const distance = faceapi.euclideanDistance(refDescriptor, det.descriptor);
+    if (distance <= FACE_MATCH_THRESHOLD) {
+        faceVerified = true;
+        setStatus('ok', '<i class="fas fa-circle-check"></i> Identidade confirmada.');
+    } else {
+        faceVerified = false;
+        setStatus('erro', '<i class="fas fa-triangle-exclamation"></i> O rosto não confere com o cadastro deste colaborador. Tire a selfie novamente.');
+    }
+    updateConfirmBtnState();
+}
+
+function dataUrlToBlob(dataUrl) {
+    const [header, base64] = dataUrl.split(',');
+    const mime = header.match(/data:(.*);base64/)[1];
+    const bin = atob(base64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+}
+
 window.confirmarRegistro = async function () {
     if (!pendingStep) return;
+
+    // Localização é pré-requisito do fluxo, não opcional: sem isso o bloqueio de geofence
+    // abaixo era simplesmente pulado (userCoords null), então bastava negar a permissão do
+    // navegador para bater o ponto de qualquer lugar. Isso trava o cenário de campo/obra sem
+    // sinal de GPS — decisão deliberada, priorizando fechar o bypass.
+    if (!userCoords) {
+        showToast('Ative a localização para registrar o ponto. Permita o acesso à sua posição e tente novamente (use o botão de atualizar no mapa, mais abaixo).', 'error');
+        return;
+    }
+
+    const dist = haversineM(userCoords.lat, userCoords.lng, EMPRESA.lat, EMPRESA.lng);
+    if (dist > EMPRESA.raioM) {
+        showToast(`Você está a ~${Math.round(dist)}m da empresa — fora do raio permitido de ${EMPRESA.raioM}m para registrar o ponto.`, 'error');
+        return;
+    }
+
+    if (!capturedSelfieDataUrl) {
+        showToast('Tire uma selfie para confirmar o registro.', 'error');
+        return;
+    }
+
+    if (!faceVerified) {
+        showToast('A verificação de identidade ainda não confirmou este rosto. Tire a selfie novamente.', 'error');
+        return;
+    }
+
+    // Mesmo padrão do geofence acima: a UI já desabilita o botão, mas reconfere aqui
+    // porque o botão pode ter sido reabilitado com o textarea preenchido e depois
+    // esvaziado sem o listener disparar em algum navegador.
+    let justificativaExcesso = '';
+    if (pendingExcessoLegalMin > 0) {
+        justificativaExcesso = $('excesso-legal-just')?.value.trim() || '';
+        if (!justificativaExcesso) {
+            showToast('Informe o motivo do excesso de horas extras para confirmar a saída.', 'error');
+            return;
+        }
+    }
+
     clearInterval(window._confirmTimer);
+    pararCameraSelfie();
     closeModal('modal-confirmar');
-    const key = todayKey();
-    const updateData = { employee_id: myEmployeeId, date: key, [pendingStep]: nowISO() };
-    if (userCoords) updateData[`${pendingStep}_loc`] = { lat: userCoords.lat, lng: userCoords.lng };
-    const { data: upserted, error } = await sb.from('time_records').upsert(updateData, { onConflict: 'employee_id,date' }).select().single();
-    if (error) { showToast('Erro ao registrar ponto.', 'error'); return; }
-    recordsMap[key] = upserted;
-    await sb.from('activity_logs').insert({ employee_id: myEmployeeId, tipo:'ponto', acao:pendingStep, date:key, valor_registrado:updateData[pendingStep], operator_email:myEmployee.email, operator_name:myEmployee.name, operator_profile:'colaborador' });
-    const labels={entrada:'Entrada registrada!',saida_almoco:'Saída para almoço registrada!',retorno_almoco:'Retorno registrado!',saida:'Saída registrada — bom descanso!'};
-    showToast(labels[pendingStep]||'Ponto registrado!','success');
+    const step = pendingStep;
+    const key  = todayKey();
+    const entry = {
+        step, date: key, timestamp: nowISO(),
+        loc: userCoords ? { lat: userCoords.lat, lng: userCoords.lng } : null,
+        selfie: capturedSelfieDataUrl,
+        excessoLegalMin: pendingExcessoLegalMin > 0 ? pendingExcessoLegalMin : 0,
+        justificativaExcesso,
+    };
+    capturedSelfieDataUrl = null;
     pendingStep = null;
+    pendingExcessoLegalMin = 0;
+
+    const labels = { entrada:'Entrada registrada!', saida_almoco:'Saída para almoço registrada!', retorno_almoco:'Retorno registrado!', saida:'Saída registrada — bom descanso!' };
+
+    if (!navigator.onLine) {
+        applyLocalPunch(entry);
+        queueOfflinePunch(entry);
+        showToast('Sem conexão — ponto salvo no aparelho e será sincronizado automaticamente.', 'warning');
+        renderUI();
+        return;
+    }
+
+    const ok = await syncPunch(entry);
+    if (!ok) {
+        applyLocalPunch(entry);
+        queueOfflinePunch(entry);
+        showToast('Falha de conexão — ponto salvo no aparelho e será sincronizado automaticamente.', 'warning');
+        renderUI();
+        return;
+    }
+    showToast(labels[step] || 'Ponto registrado!', 'success');
     renderUI();
 };
+
+// ─── Fila offline de ponto ──────────────────────────────────────
+// Sem conexão (comum em campo/obra, onde rede e GPS costumam falhar juntos),
+// o registro de ponto era perdido. Guarda a tentativa em localStorage e
+// sincroniza sozinho quando a conexão volta (evento 'online' + retry periódico).
+function offlineQueueKey() { return `nexus_ponto_offline_${myEmployeeId}`; }
+
+function loadOfflineQueue() {
+    try { return JSON.parse(localStorage.getItem(offlineQueueKey()) || '[]'); }
+    catch { return []; }
+}
+
+function saveOfflineQueue(queue) { localStorage.setItem(offlineQueueKey(), JSON.stringify(queue)); }
+
+function queueOfflinePunch(entry) {
+    const queue = loadOfflineQueue();
+    queue.push(entry);
+    saveOfflineQueue(queue);
+    renderSyncStatus();
+}
+
+// Reflete o ponto batido em recordsMap imediatamente, antes da confirmação do
+// servidor — sem isso, a UI ficaria travada no passo anterior até reconectar.
+function applyLocalPunch({ step, date, timestamp, loc }) {
+    const rec = { ...(recordsMap[date] || {}), employee_id: myEmployeeId, date, [step]: timestamp };
+    if (loc) rec[`${step}_loc`] = loc;
+    recordsMap[date] = rec;
+}
+
+async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificativaExcesso }) {
+    try {
+        let selfiePath = null;
+        if (selfie) {
+            selfiePath = `${myEmployeeId}/${date}_${step}_${Date.now()}.jpg`;
+            const { error: upErr } = await sb.storage.from('ponto-selfies').upload(selfiePath, dataUrlToBlob(selfie), { contentType: 'image/jpeg' });
+            if (upErr) return false;
+        }
+        // O horário gravado é sempre now() do Postgres (ver punch_time_record na migration
+        // 043) — o timestamp do dispositivo nunca é enviado, só serve para o preview local
+        // otimista em applyLocalPunch().
+        const { data: upserted, error } = await sb.rpc('punch_time_record', {
+            p_date: date, p_step: step, p_loc: loc, p_selfie_path: selfiePath,
+        }).single();
+        if (error || !upserted) return false;
+        recordsMap[date] = upserted;
+        await sb.from('activity_logs').insert({
+            employee_id: myEmployeeId, tipo:'ponto', acao:step, date, valor_registrado:upserted[step],
+            operator_email:myEmployee.email, operator_name:myEmployee.name, operator_profile:'colaborador',
+            justificativa: justificativaExcesso || null,
+        });
+        // Excesso ao limite legal diário (CLT art. 59, §1º) já foi confirmado pelo colaborador
+        // com justificativa obrigatória (ver setupExcessoLegalCheck) — notifica o RH na hora em
+        // vez de só aparecer depois como badge em banco-horas-rh.js.
+        if (excessoLegalMin > 0 && justificativaExcesso) {
+            await sb.rpc('report_daily_overtime_alert', {
+                p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
+                p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
+            }).catch(() => {});
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function flushOfflineQueue() {
+    if (!navigator.onLine) return;
+    const queue = loadOfflineQueue();
+    if (!queue.length) return;
+    let synced = 0;
+    while (queue.length) {
+        const ok = await syncPunch(queue[0]);
+        if (!ok) break;
+        queue.shift();
+        saveOfflineQueue(queue);
+        synced++;
+    }
+    renderSyncStatus();
+    if (synced) { renderUI(); showToast(`${synced} registro${synced > 1 ? 's' : ''} de ponto sincronizado${synced > 1 ? 's' : ''}!`, 'success'); }
+}
+
+function renderSyncStatus() {
+    const el = $('ponto-sync-status');
+    if (!el) return;
+    const pending = loadOfflineQueue().length;
+    if (!pending) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.innerHTML = `<i class="fas fa-cloud-arrow-up"></i> ${pending} registro${pending > 1 ? 's' : ''} salvo${pending > 1 ? 's' : ''} offline — sincronizando quando a conexão voltar`;
+}
 
 // ─── Ajuste modal ─────────────────────────────────────────────
 
@@ -466,21 +1100,58 @@ window.initLocation = function () {
     );
 };
 
+function ensureLeafletMap() {
+    if (leafletMap) return leafletMap;
+    const el = $('map-leaflet');
+    if (!el || typeof L === 'undefined') return null;
+
+    leafletMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([EMPRESA.lat, EMPRESA.lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(leafletMap);
+
+    const empresaIcon = L.divIcon({
+        className: '', html: '<div class="map-marker-empresa"><i class="fas fa-building"></i></div>',
+        iconSize: [30, 30], iconAnchor: [15, 15],
+    });
+    empresaMarker = L.marker([EMPRESA.lat, EMPRESA.lng], { icon: empresaIcon }).addTo(leafletMap).bindPopup(EMPRESA.nome);
+    empresaCircle = L.circle([EMPRESA.lat, EMPRESA.lng], {
+        radius: EMPRESA.raioM, color: '#6366f1', weight: 1.5, dashArray: '6 3',
+        fillColor: '#6366f1', fillOpacity: 0.08,
+    }).addTo(leafletMap);
+
+    return leafletMap;
+}
+
 function renderMapStatic(user) {
-    const wrap=$('map-svg-wrap'), loading=$('map-loading'), empEl=$('map-empresa-nome');
-    if(!wrap)return; if(loading)loading.style.display='none'; if(empEl)empEl.textContent=EMPRESA.nome;
-    const W=600,H=220,cx=EMPRESA.lat,cy=EMPRESA.lng,scale=9000;
-    const toSVG=(lat,lng)=>({x:(lng-cy)*scale+W/2,y:-(lat-cx)*scale+H/2});
-    const emp=toSVG(EMPRESA.lat,EMPRESA.lng),usr=user?toSVG(user.lat,user.lng):null,raioSVG=(EMPRESA.raioM/111000)*scale;
-    let grid='';
-    for(let i=0;i<8;i++){const x=(i/8)*W,y=(i/8)*H;grid+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#dde0e8" stroke-width="1"/><line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#dde0e8" stroke-width="1"/>`;}
-    for(let i=0;i<3;i++){const x=((i+1)/4)*W,y=((i+1)/4)*H;grid+=`<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#cdd1dc" stroke-width="2.5"/><line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#cdd1dc" stroke-width="2.5"/>`;}
-    const rotaLine=usr?`<line x1="${emp.x}" y1="${emp.y}" x2="${usr.x}" y2="${usr.y}" stroke="#6366f1" stroke-width="2" stroke-dasharray="6 4" opacity="0.5"/>`:''
-    const empLabel=`<text x="${emp.x}" y="${emp.y-22}" text-anchor="middle" font-size="10" font-family="DM Sans,sans-serif" fill="#6366f1" font-weight="700">${EMPRESA.nome}</text>`;
-    const dentro=usr&&haversineM(user.lat,user.lng,EMPRESA.lat,EMPRESA.lng)<=EMPRESA.raioM;
-    let usrLabel='';
-    if(usr){const uc=dentro?'#10b981':'#ef4444';const ut=dentro?'Você (dentro)':'Você (fora)';usrLabel=`<circle cx="${usr.x}" cy="${usr.y}" r="22" fill="${uc}" opacity="0.12"/><circle cx="${usr.x}" cy="${usr.y}" r="8" fill="${uc}" opacity="0.9"/><circle cx="${usr.x}" cy="${usr.y}" r="4" fill="#fff"/><text x="${usr.x}" y="${usr.y-14}" text-anchor="middle" font-size="10" font-family="DM Sans,sans-serif" fill="${uc}" font-weight="700">${ut}</text>`;}
-    wrap.innerHTML=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"><rect width="${W}" height="${H}" fill="#eef0f5"/>${grid}${rotaLine}<circle cx="${emp.x}" cy="${emp.y}" r="${raioSVG}" fill="rgba(99,102,241,0.07)" stroke="rgba(99,102,241,0.28)" stroke-width="1.5" stroke-dasharray="6 3"/><rect x="${emp.x-14}" y="${emp.y-34}" width="28" height="28" rx="7" fill="#6366f1"/><text x="${emp.x}" y="${emp.y-17}" text-anchor="middle" font-size="14" fill="#fff">🏢</text><polygon points="${emp.x},${emp.y-6} ${emp.x-5},${emp.y-12} ${emp.x+5},${emp.y-12}" fill="#6366f1"/>${empLabel}${usrLabel}<line x1="${W-80}" y1="${H-12}" x2="${W-20}" y2="${H-12}" stroke="#9ca3af" stroke-width="1.5"/><text x="${W-50}" y="${H-16}" text-anchor="middle" font-size="9" fill="#9ca3af" font-family="DM Sans,sans-serif">~200m</text></svg>`;
+    const loading = $('map-loading'), empEl = $('map-empresa-nome');
+    if (empEl) empEl.textContent = EMPRESA.nome;
+    const map = ensureLeafletMap();
+    if (!map) return;
+    if (loading) loading.style.display = 'none';
+    setTimeout(() => map.invalidateSize(), 0);
+
+    if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+    if (routeLine)  { map.removeLayer(routeLine);  routeLine  = null; }
+
+    if (!user) {
+        map.setView([EMPRESA.lat, EMPRESA.lng], 16);
+        return;
+    }
+
+    const dentro = haversineM(user.lat, user.lng, EMPRESA.lat, EMPRESA.lng) <= EMPRESA.raioM;
+    const userIcon = L.divIcon({
+        className: '', html: `<div class="map-marker-user ${dentro ? 'dentro' : ''}"></div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+    userMarker = L.marker([user.lat, user.lng], { icon: userIcon }).addTo(map)
+        .bindPopup(dentro ? 'Você (dentro da empresa)' : 'Você (fora da empresa)');
+    routeLine = L.polyline([[EMPRESA.lat, EMPRESA.lng], [user.lat, user.lng]], {
+        color: '#6366f1', weight: 2, dashArray: '6 4', opacity: 0.5,
+    }).addTo(map);
+
+    map.fitBounds(L.latLngBounds([[EMPRESA.lat, EMPRESA.lng], [user.lat, user.lng]]), { padding: [40, 40], maxZoom: 17 });
 }
 
 // ─── Realtime ─────────────────────────────────────────────────
@@ -495,14 +1166,19 @@ function setupRealtimeSync() {
             adjRequests = data || [];
             renderSolicitacoes();
         })
+        .on('postgres_changes', { event:'*', schema:'public', table:'bank_requests' }, async () => {
+            await loadData();
+            renderBankRequests();
+            renderTeamApprovals();
+        })
         .subscribe();
 }
 
 // ─── Modal / Toast helpers ────────────────────────────────────
 
 function openModal(id)  { const el=$(id); if(el){el.classList.add('open');document.body.style.overflow='hidden';} }
-window.closeModal = function(id) { const el=$(id); if(el){el.classList.remove('open');document.body.style.overflow='';} if(id==='modal-confirmar')clearInterval(window._confirmTimer); };
-function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(el=>el.classList.remove('open')); document.body.style.overflow=''; clearInterval(window._confirmTimer); }
+window.closeModal = function(id) { const el=$(id); if(el){el.classList.remove('open');document.body.style.overflow='';} if(id==='modal-confirmar'){clearInterval(window._confirmTimer);pararCameraSelfie();} };
+function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(el=>el.classList.remove('open')); document.body.style.overflow=''; clearInterval(window._confirmTimer); pararCameraSelfie(); }
 
 window.showToast = function (title, type='success') {
     const c=$('toast-container'); if(!c)return;

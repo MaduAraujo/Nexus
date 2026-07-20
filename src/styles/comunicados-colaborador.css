@@ -33,6 +33,22 @@
     --speed:        0.25s;
 }
 
+:root[data-theme="dark"] {
+    --bg-page:  #0b0c10;
+    --bg-white: #16171d;
+
+    --text-main:     #e8eaf0;
+    --text-muted:    #9aa1b0;
+    --text-tertiary: #767c8a;
+
+    --border-color: rgba(255, 255, 255, 0.08);
+
+    --success-bg: rgba(16, 185, 129, 0.16);
+    --danger-bg:  rgba(239, 68, 68, 0.16);
+    --warning-bg: rgba(245, 158, 11, 0.16);
+    --info-bg:    rgba(59, 130, 246, 0.16);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html { height: 100%; -webkit-text-size-adjust: 100%; }
 
@@ -201,6 +217,22 @@ body {
 
 .topbar-left  { display: flex; align-items: center; gap: 10px; }
 .topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.topbar .btn-back {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 0;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 50%;
+    color: #71717a;
+    padding: 0;
+    font-size: 0;
+    transition: color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease);
+}
+.topbar .btn-back:hover { color: #f4f4f5; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
+.topbar .btn-back svg { width: 16px; height: 16px; stroke: currentColor; }
 
 .topbar-divider {
     width: 1px; height: 20px;
@@ -456,6 +488,27 @@ body {
 }
 .badge-novo i { font-size: .45rem; }
 
+.badge-attach {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--accent-light); color: var(--accent);
+    padding: 3px 9px; border-radius: 99px;
+    font-size: .68rem; font-weight: 700; white-space: nowrap;
+}
+.badge-attach i { font-size: .6rem; }
+
+.badge-cat {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 99px;
+    font-size: .71rem; font-weight: 700; white-space: nowrap;
+}
+.badge-cat i { font-size: .6rem; }
+
+.badge-cat.cat--urgente       { background: #fef2f2; color: #dc2626; }
+.badge-cat.cat--institucional { background: #eef0ff; color: #4f46e5; }
+.badge-cat.cat--beneficios    { background: #f0fdf4; color: #15803d; }
+.badge-cat.cat--evento        { background: #faf5ff; color: #9333ea; }
+.badge-cat.cat--politica      { background: #fffbeb; color: #b45309; }
+
 @keyframes pulse-novo {
     0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,.4); }
     50%       { box-shadow: 0 0 0 5px rgba(99,102,241,0); }
@@ -556,6 +609,42 @@ body {
     white-space: pre-wrap; word-break: break-word;
     flex: 1;
 }
+
+.msg-modal-body strong { font-weight: 700; color: var(--text-main); }
+
+.msg-modal-body ul {
+    margin: 4px 0 4px 1.3em;
+    padding: 0;
+}
+
+.msg-modal-body li { margin: 2px 0; }
+
+.msg-modal-body a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+.msg-modal-body a:hover { color: var(--accent-hover); }
+
+.modal-attachments {
+    padding: 0 24px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+
+.modal-attach-item {
+    display: flex; align-items: center; gap: 10px;
+    background: #fafbff; border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 10px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: .85rem; color: var(--text-main);
+    cursor: pointer; text-align: left; width: 100%;
+    transition: border-color .18s, background .18s;
+}
+.modal-attach-item:hover { border-color: var(--accent); background: var(--accent-light); }
+.modal-attach-item i:first-child { color: var(--accent); font-size: .95rem; flex-shrink: 0; }
+.modal-attach-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.modal-attach-size { color: var(--text-muted); font-size: .72rem; flex-shrink: 0; }
+.modal-attach-open { font-size: .7rem !important; color: var(--text-muted) !important; flex-shrink: 0; }
 
 .msg-modal-footer {
     padding: 0 24px 22px;

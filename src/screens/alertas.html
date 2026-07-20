@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Central de Alertas</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Central de Alertas</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/btn-back.css">
@@ -12,9 +13,8 @@
 <body>
     <header class="topbar">
         <div class="topbar-left">
-            <a href="../screens/inicio-rh.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
         </div>
         <div class="topbar-right">
@@ -40,6 +40,20 @@
                             </button>
                             <button class="panel-tab" data-tab="history">
                                 <i class="fas fa-chart-line"></i> Histórico
+                            </button>
+                            <button class="panel-tab" data-tab="risco">
+                                <i class="fas fa-diagram-project"></i> Risco Composto
+                            </button>
+                            <button class="panel-tab" data-tab="compliance">
+                                <i class="fas fa-clipboard-check"></i> Compliance
+                                <span class="compliance-summary-count hidden" id="compliance-summary-count"></span>
+                            </button>
+                            <button class="panel-tab" data-tab="comunidade">
+                                <i class="fas fa-comments"></i> Comunidade
+                                <span class="compliance-summary-count hidden" id="comunidade-summary-count"></span>
+                            </button>
+                            <button class="panel-tab" data-tab="gestores">
+                                <i class="fas fa-user-tie"></i> Gestores
                             </button>
                         </div>
                         <div class="panel-header-right" id="alerts-header-right">
@@ -70,6 +84,47 @@
                         <div id="history-list">
                             <p class="history-empty">Nenhuma análise registrada ainda.</p>
                         </div>
+                    </div>
+                    <div class="panel-body" id="risco-body" style="display:none">
+                        <div class="summary-banner">
+                            <i class="fas fa-diagram-project"></i>
+                            <span>Cruza burnout, banco de horas negativo e tickets de RH abertos do mesmo colaborador — sinais que hoje aparecem separados em telas diferentes. Só entra na lista quem tem 2 ou mais sinais ao mesmo tempo.</span>
+                        </div>
+                        <div id="risco-list"></div>
+                    </div>
+                    <div class="panel-body" id="compliance-body" style="display:none">
+                        <div class="summary-banner">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span>Agrega 3 prazos legais que hoje só aparecem cada um na sua própria tela: documentos vencendo, férias fora do período concessivo (art. 137 CLT) e fim de período de experiência.</span>
+                        </div>
+                        <div id="compliance-list"></div>
+                    </div>
+                    <div class="panel-body" id="comunidade-body" style="display:none">
+                        <div class="summary-banner">
+                            <i class="fas fa-comments"></i>
+                            <span>Moderação do mural de reconhecimento (kudos) e triagem do feedback anônimo — antes só davam pra ver dentro do chat do colaborador ou do RH, cada um isolado na própria tela.</span>
+                        </div>
+                        <div class="comunidade-subtabs">
+                            <button class="comunidade-subtab active" data-subtab="kudos"><i class="fas fa-award"></i> Kudos</button>
+                            <button class="comunidade-subtab" data-subtab="feedback"><i class="fas fa-user-secret"></i> Feedback Anônimo</button>
+                        </div>
+                        <div id="comunidade-kudos-list"></div>
+                        <div id="comunidade-feedback-wrap" class="hidden">
+                            <div class="anon-feedback-filters">
+                                <button class="af-chip active" data-filter="all">Todos</button>
+                                <button class="af-chip" data-filter="novo">Novos</button>
+                                <button class="af-chip" data-filter="lido">Lidos</button>
+                                <button class="af-chip" data-filter="arquivado">Arquivados</button>
+                            </div>
+                            <div id="comunidade-feedback-list"></div>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="gestores-body" style="display:none">
+                        <div class="summary-banner">
+                            <i class="fas fa-user-tie"></i>
+                            <span>Quantos colaboradores hoje têm poder de gestor (via manager_id) e o que estão de fato decidindo — férias e banco de horas do time, escalações abertas ao RH.</span>
+                        </div>
+                        <div id="gestores-list"></div>
                     </div>
                 </div>
 
@@ -126,6 +181,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="../javascript/supabase-client.js"></script>
+<script src="../javascript/auth.js"></script>
 <script src="../javascript/alertas.js"></script>
 </body>
 </html>

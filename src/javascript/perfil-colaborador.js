@@ -9,26 +9,11 @@
     };
 
     // ── Auth ──
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id')
-        .eq('id', user.id)
-        .single();
-
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
-        window.location.href = '../screens/login.html';
-        return;
-    }
-
-    const myEmployeeId = profile.employee_id;
-    const myProfile    = profile.profile;
-
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-
-    let myEmployee = emp;
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    const myEmployeeId = auth.profile.employee_id;
+    const myProfile    = auth.profile.profile;
+    let myEmployee     = auth.employee;
 
     // ── Constantes e helpers ──
     const AVATAR_COLORS  = ['#6366f1','#8b5cf6','#ec4899','#10b981','#f59e0b','#3b82f6','#ef4444','#14b8a6','#f97316','#84cc16'];

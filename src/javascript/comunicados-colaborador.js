@@ -2,15 +2,9 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     // ─── Session ─────────────────────────────────────────────
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles').select('profile, employee_id').eq('id', user.id).single();
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: employee } = await sb.from('employees').select('id,name,role,dept,avatar_color,avatar_url').eq('id', profile.employee_id).single();
-    if (!employee) { window.location.href = '../screens/login.html'; return; }
-
+    const auth = await NexusAuth.requireProfile('colaborador', 'id,name,role,dept,avatar_color,avatar_url');
+    if (!auth) return;
+    const employee = auth.employee;
     const myEmployeeId = employee.id;
     const myDept       = employee.dept || '';
 
@@ -27,7 +21,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         'Administrativo': { icon: 'fa-building',     cls: 'dest--adm'  },
     };
 
+    const CATEGORIA_INFO = {
+        'Urgente':       { icon: 'fa-triangle-exclamation', cls: 'cat--urgente' },
+        'Institucional': { icon: 'fa-building-columns',     cls: 'cat--institucional' },
+        'Benefícios':    { icon: 'fa-gift',                 cls: 'cat--beneficios' },
+        'Evento':        { icon: 'fa-star',                 cls: 'cat--evento' },
+        'Política':      { icon: 'fa-scale-balanced',       cls: 'cat--politica' },
+    };
+    const categoriaBadge = (cat) => {
+        const info = CATEGORIA_INFO[cat] || CATEGORIA_INFO['Institucional'];
+        return `<span class="badge-cat ${info.cls}"><i class="fas ${info.icon}"></i> ${escHTML(cat)}</span>`;
+    };
+
     const escHTML  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
     const fmtDate  = iso => new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
     const timeAgo  = iso => {
         const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -39,6 +46,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const PREVIEW_LEN = 220;
+
+    const fileIcon = (type) => type === 'application/pdf' ? 'fa-file-pdf' : (type || '').startsWith('image/') ? 'fa-file-image' : 'fa-file';
+    const fmtSize  = (bytes) => bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round((bytes || 0) / 1024)} KB`;
+
+    async function openAttachment(path) {
+        const { data } = await sb.storage.from('message-attachments').createSignedUrl(path, 3600);
+        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    }
 
     // ─── State ───────────────────────────────────────────────
     const searchInput    = document.getElementById('search-input');
@@ -87,17 +102,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         const destEl = document.getElementById('modal-dest');
         const dateEl = document.getElementById('modal-date');
         const bodyEl = document.getElementById('modal-body');
+        const attachEl = document.getElementById('modal-attachments');
 
         iconEl.className = `comunicado-icon-wrap ${destInfo.cls}`;
         iconEl.innerHTML = `<i class="fas fa-bullhorn"></i>`;
         destEl.className = `comunicado-dest ${destInfo.cls}`;
         destEl.innerHTML = `<i class="fas ${destInfo.icon}"></i> ${escHTML(msg.destino)}`;
+        const catEl = document.getElementById('modal-cat');
+        if (catEl) {
+            const catInfo = CATEGORIA_INFO[msg.categoria] || CATEGORIA_INFO['Institucional'];
+            catEl.className = `badge-cat ${catInfo.cls}`;
+            catEl.innerHTML = `<i class="fas ${catInfo.icon}"></i> ${escHTML(msg.categoria)}`;
+        }
         dateEl.innerHTML = `<i class="fas fa-clock"></i> ${timeAgo(msg.created_at)} &mdash; ${fmtDate(msg.created_at)}`;
-        bodyEl.textContent = msg.texto;
+        bodyEl.innerHTML = sanitizeComunicadoHTML(msg.texto);
+
+        const anexos = msg.anexos || [];
+        if (attachEl) {
+            attachEl.innerHTML = anexos.length ? anexos.map(a => `
+                <button type="button" class="modal-attach-item" data-path="${escHTML(a.path)}">
+                    <i class="fas ${fileIcon(a.type)}"></i>
+                    <span class="modal-attach-name">${escHTML(a.name)}</span>
+                    <span class="modal-attach-size">${fmtSize(a.size)}</span>
+                    <i class="fas fa-arrow-up-right-from-square modal-attach-open"></i>
+                </button>`).join('') : '';
+            attachEl.classList.toggle('hidden', !anexos.length);
+        }
 
         msgModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
+
+    document.getElementById('modal-attachments')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.modal-attach-item');
+        if (btn) openAttachment(btn.dataset.path);
+    });
 
     function closeModal() {
         msgModal?.classList.add('hidden');
@@ -131,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnMarcarTodos?.classList.toggle('hidden', naoLidosCount === 0);
 
         let filtered = filtroAtivo === 'nao-lidos' ? allMsgs.filter(m => !lidos.has(m.id)) : allMsgs;
-        if (q) filtered = filtered.filter(m => m.texto.toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
+        if (q) filtered = filtered.filter(m => comunicadoPlainText(m.texto).toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
 
         if (!filtered.length) {
             lista.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>${q || filtroAtivo === 'nao-lidos' ? 'Nenhum resultado encontrado' : 'Nenhum comunicado disponível'}</p><span>${q ? `Nenhum resultado para "${escHTML(q)}"` : filtroAtivo === 'nao-lidos' ? 'Todos os comunicados já foram lidos.' : 'Quando o RH enviar comunicados, eles aparecerão aqui.'}</span></div>`;
@@ -141,16 +180,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         lista.innerHTML = filtered.map(m => {
             const lido     = lidos.has(m.id);
             const destInfo = DEST_ICON_MAP[m.destino] || { icon: 'fa-users', cls: 'dest--outros' };
-            const preview  = m.texto.length > PREVIEW_LEN ? m.texto.slice(0, PREVIEW_LEN) + '…' : m.texto;
-            const hasMore  = m.texto.length > PREVIEW_LEN;
+            const plainTexto = comunicadoPlainText(m.texto);
+            const preview  = plainTexto.length > PREVIEW_LEN ? plainTexto.slice(0, PREVIEW_LEN) + '…' : plainTexto;
+            const hasMore  = plainTexto.length > PREVIEW_LEN;
             return `
                 <article class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}" role="button" tabindex="0">
                     <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas fa-bullhorn"></i></div>
                     <div class="comunicado-body">
                         <div class="comunicado-top">
                             <div class="comunicado-meta">
+                                ${categoriaBadge(m.categoria)}
                                 <span class="comunicado-dest ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i> ${escHTML(m.destino)}</span>
                                 ${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}
+                                ${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}
                             </div>
                             <span class="comunicado-data"><i class="fas fa-clock"></i> ${timeAgo(m.created_at)}</span>
                         </div>
@@ -205,6 +247,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         .subscribe();
 
     window.addEventListener('beforeunload', () => { marcarTodosLidos(); });
+
+    // ─── Polling: revela comunicados agendados assim que a hora chega ──
+    setInterval(async () => {
+        const before = allMsgs.length;
+        await loadData();
+        if (allMsgs.length !== before) render();
+    }, 60000);
 
     // ─── Init ─────────────────────────────────────────────────
     await loadData();

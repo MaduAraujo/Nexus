@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus — Comunicação Interna</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Comunicação Interna</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/comunicação.css">
@@ -15,15 +16,13 @@
         <div class="main-wrapper" style="margin-left:0;width:100%">
             <header class="topbar">
                 <div class="topbar-left">
-                    <a href="../screens/inicio-rh.html" class="btn-back">
-                        <i class="fas fa-arrow-left"></i>
-                        <span>Voltar</span>
+                    <a href="../screens/inicio-rh.html" class="btn-back" id="btn-back" aria-label="Voltar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </a>
                 </div>
                 <div class="header-actions">
-                    <button id="main-toggle-btn" class="btn-upload" data-current="writing">
+                    <button id="main-toggle-btn" class="btn-topbar" data-current="writing" aria-label="Comunicados Enviados" title="Comunicados Enviados">
                         <i class="fas fa-history"></i>
-                        <span>Comunicados Enviados</span>
                     </button>
                 </div>
             </header>
@@ -41,8 +40,8 @@
                                     <i class="fas fa-paper-plane"></i>
                                 </div>
                                 <div class="stat-body">
-                                    <span class="stat-value" id="stat-total">—</span>
                                     <span class="stat-label">Enviados</span>
+                                    <span class="stat-value" id="stat-total">—</span>
                                 </div>
                             </div>
                             <div class="stat-card stat-card--leituras">
@@ -50,8 +49,8 @@
                                     <i class="fas fa-eye"></i>
                                 </div>
                                 <div class="stat-body">
-                                    <span class="stat-value" id="stat-reads">—</span>
                                     <span class="stat-label">Leituras</span>
+                                    <span class="stat-value" id="stat-reads">—</span>
                                 </div>
                             </div>
                             <div class="stat-card stat-card--semLeitura">
@@ -59,60 +58,180 @@
                                     <i class="fas fa-bell"></i>
                                 </div>
                                 <div class="stat-body">
-                                    <span class="stat-value" id="stat-unread">—</span>
                                     <span class="stat-label">Sem leitura</span>
+                                    <span class="stat-value" id="stat-unread">—</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="content-card">
                             <div class="compose-header">
-                                <div class="compose-icon-wrap">
-                                    <i class="fas fa-pen-to-square"></i>
+                                <div class="compose-header-main">
+                                    <div class="compose-icon-wrap">
+                                        <i class="fas fa-pen-to-square"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="compose-title">Novo Comunicado</h3>
+                                        <p class="compose-sub">Escreva sua mensagem</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 class="compose-title">Novo Comunicado</h3>
-                                    <p class="compose-sub">Selecione o destino e escreva sua mensagem</p>
+                                <div class="templates-dropdown" id="templates-dropdown">
+                                    <button type="button" class="templates-toggle-btn" id="templates-toggle-btn" aria-label="Modelos salvos" aria-expanded="false">
+                                        Modelos
+                                        <i class="fas fa-chevron-down templates-chevron"></i>
+                                    </button>
+                                    <div class="templates-menu hidden" id="templates-menu">
+                                        <p class="templates-menu-label">Modelos salvos</p>
+                                        <div class="templates-menu-list" id="templates-menu-list"></div>
+                                        <div class="templates-save-row">
+                                            <input type="text" id="template-name-input" class="template-name-input" placeholder="Nome do modelo…" maxlength="60">
+                                            <button type="button" class="templates-save-btn" id="templates-save-btn" disabled>
+                                                <i class="fas fa-floppy-disk"></i> Salvar atual
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="message-form">
-                                <div class="dest-inline-section">
-                                    <label class="input-label">Destino</label>
-                                    <div class="dest-inline-grid" id="dest-inline-grid">
-                                        <button class="dest-inline-chip" data-dest="Todos" type="button">
-                                            <i class="fas fa-globe"></i><span>Todos</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="TI" type="button">
-                                            <i class="fas fa-code"></i><span>TI</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="RH" type="button">
-                                            <i class="fas fa-user-tie"></i><span>RH</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="Financeiro" type="button">
-                                            <i class="fas fa-dollar-sign"></i><span>Financeiro</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="Marketing" type="button">
-                                            <i class="fas fa-ad"></i><span>Marketing</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="Jurídico" type="button">
-                                            <i class="fas fa-gavel"></i><span>Jurídico</span>
-                                        </button>
-                                        <button class="dest-inline-chip" data-dest="Administrativo" type="button">
-                                            <i class="fas fa-building"></i><span>Administrativo</span>
-                                        </button>
+                                <div class="draft-banner hidden" id="draft-banner">
+                                    <i class="fas fa-clock-rotate-left"></i>
+                                    <span id="draft-banner-text">Rascunho restaurado automaticamente.</span>
+                                    <button type="button" class="draft-banner-discard" id="draft-banner-discard">Descartar</button>
+                                </div>
+
+                                <div class="dest-cat-row">
+                                    <div class="dest-inline-section">
+                                        <div class="dest-inline-header">
+                                            <label class="input-label">Destino</label>
+                                            <button type="button" class="dest-toggle-btn" id="dest-toggle-btn" aria-label="Mostrar setores" aria-expanded="false">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </button>
+                                        </div>
+                                        <div class="dest-inline-grid hidden" id="dest-inline-grid">
+                                            <button class="dest-inline-chip" data-dest="Todos" type="button">
+                                                <i class="fas fa-globe"></i><span>Todos</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="TI" type="button">
+                                                <i class="fas fa-code"></i><span>TI</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="RH" type="button">
+                                                <i class="fas fa-user-tie"></i><span>RH</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="Financeiro" type="button">
+                                                <i class="fas fa-dollar-sign"></i><span>Financeiro</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="Marketing" type="button">
+                                                <i class="fas fa-ad"></i><span>Marketing</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="Jurídico" type="button">
+                                                <i class="fas fa-gavel"></i><span>Jurídico</span>
+                                            </button>
+                                            <button class="dest-inline-chip" data-dest="Administrativo" type="button">
+                                                <i class="fas fa-building"></i><span>Administrativo</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="cat-inline-section">
+                                        <div class="dest-inline-header">
+                                            <label class="input-label">Categoria</label>
+                                            <button type="button" class="dest-toggle-btn" id="cat-toggle-btn" aria-label="Mostrar categorias" aria-expanded="false">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </button>
+                                        </div>
+                                        <div class="cat-inline-grid hidden" id="cat-inline-grid">
+                                            <button class="cat-inline-chip cat--urgente" data-cat="Urgente" type="button">
+                                                <i class="fas fa-triangle-exclamation"></i><span>Urgente</span>
+                                            </button>
+                                            <button class="cat-inline-chip cat--institucional" data-cat="Institucional" type="button">
+                                                <i class="fas fa-building-columns"></i><span>Institucional</span>
+                                            </button>
+                                            <button class="cat-inline-chip cat--beneficios" data-cat="Benefícios" type="button">
+                                                <i class="fas fa-gift"></i><span>Benefícios</span>
+                                            </button>
+                                            <button class="cat-inline-chip cat--evento" data-cat="Evento" type="button">
+                                                <i class="fas fa-star"></i><span>Evento</span>
+                                            </button>
+                                            <button class="cat-inline-chip cat--politica" data-cat="Política" type="button">
+                                                <i class="fas fa-scale-balanced"></i><span>Política</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="message-area-section">
                                     <label class="input-label" for="message-text">Mensagem</label>
-                                    <textarea id="message-text" class="message-input"
-                                        placeholder="Digite seu comunicado aqui..."></textarea>
-                                    <div class="form-footer">
-                                        <span class="char-count" id="char-count">0 caracteres</span>
-                                        <button class="send-button" id="send-btn" type="button" disabled>
-                                            <i class="fas fa-paper-plane"></i> Enviar Comunicado
-                                        </button>
+                                    <div class="message-editor" id="message-editor">
+                                        <div class="format-toolbar" id="format-toolbar">
+                                            <button type="button" class="format-btn" data-format="bold" aria-label="Negrito" title="Negrito">
+                                                <i class="fas fa-bold"></i>
+                                            </button>
+                                            <button type="button" class="format-btn" data-format="list" aria-label="Lista" title="Lista">
+                                                <i class="fas fa-list-ul"></i>
+                                            </button>
+                                            <button type="button" class="format-btn" data-format="link" aria-label="Link" title="Link">
+                                                <i class="fas fa-link"></i>
+                                            </button>
+                                            <span class="format-toolbar-divider"></span>
+                                            <input type="file" id="attach-input" multiple hidden
+                                                accept="image/png,image/jpeg,image/gif,image/webp,application/pdf">
+                                            <button type="button" class="format-btn" id="attach-btn" aria-label="Adicionar arquivo" title="Adicionar arquivo">
+                                                <i class="fas fa-paperclip"></i>
+                                            </button>
+                                        </div>
+                                        <div id="message-text" class="message-input" contenteditable="true"
+                                            role="textbox" aria-multiline="true" aria-label="Mensagem"
+                                            data-placeholder="Digite seu comunicado aqui..."></div>
                                     </div>
+                                </div>
+
+                                <div class="compose-extras">
+                                    <div class="attach-chips" id="attach-chips"></div>
+                                    <div class="compose-toolbar">
+                                        <div class="toolbar-schedule">
+                                            <label class="schedule-toggle">
+                                                <input type="checkbox" id="schedule-toggle">
+                                                <span class="schedule-toggle-track"><span class="schedule-toggle-thumb"></span></span>
+                                                <span class="schedule-toggle-label"><i class="fas fa-clock"></i> Agendar envio</span>
+                                            </label>
+
+                                            <div class="schedule-calendar hidden" id="schedule-picker">
+                                                <div class="calendar-header">
+                                                    <button type="button" class="calendar-nav-btn" id="schedule-calendar-prev" aria-label="Mês anterior">
+                                                        <i class="fas fa-chevron-left"></i>
+                                                    </button>
+                                                    <span class="calendar-title" id="schedule-calendar-title">—</span>
+                                                    <button type="button" class="calendar-nav-btn" id="schedule-calendar-next" aria-label="Próximo mês">
+                                                        <i class="fas fa-chevron-right"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="calendar-weekdays">
+                                                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                </div>
+                                                <div class="calendar-grid" id="schedule-calendar-grid"></div>
+                                                <div class="calendar-time-row" id="schedule-time-row">
+                                                    <label for="schedule-time-input"><i class="fas fa-clock"></i> Horário</label>
+                                                    <input type="time" id="schedule-time-input" class="calendar-time-input">
+                                                </div>
+                                            </div>
+
+                                            <div class="schedule-summary hidden" id="schedule-summary">
+                                                <i class="fas fa-calendar-check"></i>
+                                                <span id="schedule-summary-text"></span>
+                                                <button type="button" class="schedule-summary-edit" id="schedule-summary-edit">Alterar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-footer">
+                                    <div class="form-footer-left">
+                                        <span class="char-count" id="char-count">0 caracteres</span>
+                                        <span class="draft-status" id="draft-status"></span>
+                                    </div>
+                                    <button class="send-button" id="send-btn" type="button" disabled>
+                                        Enviar
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -121,11 +240,19 @@
                     <div id="sent-messages-section" style="display: none;">
                         <div class="content-card">
                             <div class="content-card-toolbar">
-                                <div class="history-filters">
+                                <button type="button" class="dest-toggle-btn" id="hist-toggle-btn" aria-label="Mostrar setores" aria-expanded="false">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="search-wrapper">
+                                    <i class="fas fa-magnifying-glass search-icon"></i>
+                                    <input type="text" id="search-input" placeholder="Buscar comunicado...">
+                                    <button class="search-clear hidden" id="search-clear">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <div class="history-filters hidden" id="history-filters">
                                     <button class="hist-chip hist-chip--active" data-dest="todos"
                                         onclick="setHistFilter(this)">Todos</button>
-                                    <button class="hist-chip" data-dest="Todos" onclick="setHistFilter(this)">Para
-                                        Todos</button>
                                     <button class="hist-chip" data-dest="TI" onclick="setHistFilter(this)">TI</button>
                                     <button class="hist-chip" data-dest="RH" onclick="setHistFilter(this)">RH</button>
                                     <button class="hist-chip" data-dest="Financeiro"
@@ -137,12 +264,14 @@
                                     <button class="hist-chip" data-dest="Administrativo"
                                         onclick="setHistFilter(this)">Administrativo</button>
                                 </div>
-                                <div class="search-wrapper">
-                                    <i class="fas fa-magnifying-glass search-icon"></i>
-                                    <input type="text" id="search-input" placeholder="Buscar comunicado...">
-                                    <button class="search-clear hidden" id="search-clear">
-                                        <i class="fas fa-xmark"></i>
-                                    </button>
+                                <div class="category-filters hidden" id="category-filters">
+                                    <button class="hist-chip hist-chip--active" data-cat="todas"
+                                        onclick="setCatFilter(this)">Todas categorias</button>
+                                    <button class="hist-chip" data-cat="Urgente" onclick="setCatFilter(this)">Urgente</button>
+                                    <button class="hist-chip" data-cat="Institucional" onclick="setCatFilter(this)">Institucional</button>
+                                    <button class="hist-chip" data-cat="Benefícios" onclick="setCatFilter(this)">Benefícios</button>
+                                    <button class="hist-chip" data-cat="Evento" onclick="setCatFilter(this)">Evento</button>
+                                    <button class="hist-chip" data-cat="Política" onclick="setCatFilter(this)">Política</button>
                                 </div>
                             </div>
 
@@ -151,8 +280,10 @@
                                     <thead>
                                         <tr>
                                             <th>Data</th>
+                                            <th>Categoria</th>
                                             <th>Mensagem</th>
                                             <th>Destino</th>
+                                            <th>Anexos</th>
                                             <th>Leituras</th>
                                             <th>Ações</th>
                                         </tr>
@@ -168,10 +299,151 @@
         </div>
     </div>
 
+    <div id="edit-modal" class="edit-modal-overlay hidden">
+        <div class="edit-modal-card">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title"><i class="fas fa-pen-to-square"></i> Editar Comunicado</h3>
+                <button type="button" class="edit-modal-close" id="edit-modal-close" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="edit-modal-body">
+                <div class="dest-cat-row">
+                    <div class="dest-inline-section">
+                        <div class="dest-inline-header">
+                            <label class="input-label">Destino</label>
+                            <button type="button" class="dest-toggle-btn" id="edit-dest-toggle-btn" aria-label="Mostrar setores" aria-expanded="false">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="dest-inline-grid hidden" id="edit-dest-grid">
+                            <button class="dest-inline-chip" data-dest="Todos" type="button">
+                                <i class="fas fa-globe"></i><span>Todos</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="TI" type="button">
+                                <i class="fas fa-code"></i><span>TI</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="RH" type="button">
+                                <i class="fas fa-user-tie"></i><span>RH</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="Financeiro" type="button">
+                                <i class="fas fa-dollar-sign"></i><span>Financeiro</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="Marketing" type="button">
+                                <i class="fas fa-ad"></i><span>Marketing</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="Jurídico" type="button">
+                                <i class="fas fa-gavel"></i><span>Jurídico</span>
+                            </button>
+                            <button class="dest-inline-chip" data-dest="Administrativo" type="button">
+                                <i class="fas fa-building"></i><span>Administrativo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="cat-inline-section">
+                        <div class="dest-inline-header">
+                            <label class="input-label">Categoria</label>
+                            <button type="button" class="dest-toggle-btn" id="edit-cat-toggle-btn" aria-label="Mostrar categorias" aria-expanded="false">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="cat-inline-grid hidden" id="edit-cat-grid">
+                            <button class="cat-inline-chip cat--urgente" data-cat="Urgente" type="button">
+                                <i class="fas fa-triangle-exclamation"></i><span>Urgente</span>
+                            </button>
+                            <button class="cat-inline-chip cat--institucional" data-cat="Institucional" type="button">
+                                <i class="fas fa-building-columns"></i><span>Institucional</span>
+                            </button>
+                            <button class="cat-inline-chip cat--beneficios" data-cat="Benefícios" type="button">
+                                <i class="fas fa-gift"></i><span>Benefícios</span>
+                            </button>
+                            <button class="cat-inline-chip cat--evento" data-cat="Evento" type="button">
+                                <i class="fas fa-star"></i><span>Evento</span>
+                            </button>
+                            <button class="cat-inline-chip cat--politica" data-cat="Política" type="button">
+                                <i class="fas fa-scale-balanced"></i><span>Política</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="message-area-section">
+                    <label class="input-label" for="edit-message-text">Mensagem</label>
+                    <div class="message-editor" id="edit-message-editor">
+                        <div class="format-toolbar" id="edit-format-toolbar">
+                            <button type="button" class="format-btn" data-format="bold" aria-label="Negrito" title="Negrito">
+                                <i class="fas fa-bold"></i>
+                            </button>
+                            <button type="button" class="format-btn" data-format="list" aria-label="Lista" title="Lista">
+                                <i class="fas fa-list-ul"></i>
+                            </button>
+                            <button type="button" class="format-btn" data-format="link" aria-label="Link" title="Link">
+                                <i class="fas fa-link"></i>
+                            </button>
+                            <span class="format-toolbar-divider"></span>
+                            <input type="file" id="edit-attach-input" multiple hidden
+                                accept="image/png,image/jpeg,image/gif,image/webp,application/pdf">
+                            <button type="button" class="format-btn" id="edit-attach-btn" aria-label="Adicionar arquivo" title="Adicionar arquivo">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                        </div>
+                        <div id="edit-message-text" class="message-input" contenteditable="true"
+                            role="textbox" aria-multiline="true" aria-label="Mensagem"
+                            data-placeholder="Digite seu comunicado aqui..."></div>
+                    </div>
+                    <div class="attach-chips" id="edit-attach-chips"></div>
+                </div>
+            </div>
+            <div class="edit-modal-footer">
+                <button type="button" class="edit-modal-cancel" id="edit-modal-cancel">Cancelar</button>
+                <button type="button" class="send-button" id="edit-modal-save">Salvar alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="engagement-modal" class="edit-modal-overlay hidden">
+        <div class="edit-modal-card engagement-modal-card">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title"><i class="fas fa-chart-pie"></i> Engajamento do Comunicado</h3>
+                <button type="button" class="edit-modal-close" id="engagement-modal-close" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="edit-modal-body">
+                <div class="engagement-summary" id="engagement-summary"></div>
+                <div class="engagement-section">
+                    <h4 class="engagement-section-title">Leitura por departamento</h4>
+                    <div class="engagement-dept-list" id="engagement-dept-list"></div>
+                </div>
+                <div class="engagement-section">
+                    <h4 class="engagement-section-title">Quem já leu</h4>
+                    <div class="engagement-readers-list" id="engagement-readers-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-delete-modal" class="edit-modal-overlay hidden">
+        <div class="confirm-modal-card">
+            <div class="confirm-modal-icon"><i class="fas fa-triangle-exclamation"></i></div>
+            <h3 class="confirm-modal-title">Excluir comunicado?</h3>
+            <p class="confirm-modal-text">Essa ação não pode ser desfeita. O comunicado e seus anexos serão removidos permanentemente.</p>
+            <div class="confirm-modal-actions">
+                <button type="button" class="edit-modal-cancel" id="confirm-delete-cancel">Cancelar</button>
+                <button type="button" class="confirm-modal-delete-btn" id="confirm-delete-confirm">
+                    <i class="fas fa-trash"></i> Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../javascript/supabase-client.js"></script>
+    <script src="../javascript/auth.js"></script>
+    <script src="../javascript/comunicado-format.js"></script>
     <script src="../javascript/comunicação.js"></script>
 </body>
 </html>

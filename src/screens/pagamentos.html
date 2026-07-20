@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexus — Pagamentos</title>
+    <script src="../javascript/theme.js"></script>
+    <title>Pagamentos</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/pagamentos.css" />
@@ -14,32 +15,17 @@
         <div class="main-wrapper" style="margin-left:0;width:100%">
             <header class="topbar">
                 <div class="topbar-left">
-                    <a href="../screens/inicio-rh.html" class="btn-back">
-                        <i class="fas fa-arrow-left"></i>
-                        <span>Voltar</span>
+                    <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                     </a>
                 </div>
                 <div class="topbar-right">
-                    <div class="month-picker-wrap" id="month-picker-wrap">
-                        <button class="month-picker-btn" id="month-picker-btn">
-                            <i class="fas fa-calendar-alt"></i>
-                            <span id="month-picker-label">—</span>
-                            <i class="fas fa-chevron-down month-picker-chevron" id="month-picker-chevron"></i>
-                        </button>
-                        <div class="month-picker-dropdown" id="month-picker-dropdown">
-                            <div class="mpd-header">
-                                <button class="mpd-nav-btn" id="mpd-prev-year"><i class="fas fa-chevron-left"></i></button>
-                                <span class="mpd-year" id="mpd-year">2026</span>
-                                <button class="mpd-nav-btn" id="mpd-next-year"><i class="fas fa-chevron-right"></i></button>
-                            </div>
-                            <div class="mpd-months" id="mpd-months"></div>
-                        </div>
-                    </div>
+                    <button class="btn-topbar-icon" id="btn-open-rescisao" title="Simulador de Rescisão" aria-label="Simulador de Rescisão" onclick="openRescisaoModal()">
+                        <i class="fas fa-right-from-bracket"></i>
+                    </button>
                     <div class="export-dropdown" id="export-dropdown">
-                        <button class="btn-export" id="btn-export">
+                        <button class="btn-topbar-icon" id="btn-export" title="Exportar" aria-label="Exportar">
                             <i class="fas fa-arrow-up-from-bracket"></i>
-                            <span>Exportar</span>
-                            <i class="fas fa-chevron-down export-chevron"></i>
                         </button>
                         <div class="export-menu" id="export-menu">
                             <p class="export-menu-label">Formato de exportação</p>
@@ -63,41 +49,54 @@
                             </button>
                         </div>
                     </div>
+                    <div class="month-picker-wrap" id="month-picker-wrap">
+                        <div class="topbar-date" id="month-picker-btn" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="month-picker-label">—</span>
+                        </div>
+                        <div class="calendar-popover" id="month-picker-dropdown">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="mpd-prev-month" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="mpd-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="mpd-next-month" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="mpd-grid"></div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
             <main class="content">
-                <div class="kpi-grid">
-                    <div class="kpi-card kpi--bruto">
-                        <div class="kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Folha Bruta</span>
-                            <span class="kpi-value" id="kpi-bruto">—</span>
-                            <span class="kpi-sub">competência selecionada</span>
+                <div class="stats-row">
+                    <div class="stat-card stat-card--bruto" title="Folha Bruta — competência selecionada">
+                        <div class="stat-icon-wrap"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Folha Bruta</span>
+                            <span class="stat-value" id="kpi-bruto">—</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--liquido">
-                        <div class="kpi-icon"><i class="fas fa-hand-holding-dollar"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Total Líquido</span>
-                            <span class="kpi-value" id="kpi-liquido">—</span>
-                            <span class="kpi-sub">a pagar aos colaboradores</span>
+                    <div class="stat-card stat-card--liquido" title="Total Líquido a pagar aos colaboradores">
+                        <div class="stat-icon-wrap"><i class="fas fa-hand-holding-dollar"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Total Líquido a pagar</span>
+                            <span class="stat-value" id="kpi-liquido">—</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--colab">
-                        <div class="kpi-icon"><i class="fas fa-users"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Na Folha</span>
-                            <span class="kpi-value" id="kpi-colab">—</span>
-                            <span class="kpi-sub">colaboradores ativos</span>
+                    <div class="stat-card stat-card--colab" title="Colaboradores na folha — colaboradores ativos">
+                        <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Colaboradores na folha</span>
+                            <span class="stat-value" id="kpi-colab">—</span>
                         </div>
                     </div>
-                    <div class="kpi-card kpi--status">
-                        <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
-                        <div class="kpi-body">
-                            <span class="kpi-label">Pagos</span>
-                            <span class="kpi-value" id="kpi-pagos">—</span>
-                            <span class="kpi-sub" id="kpi-status-sub">holerites quitados</span>
+                    <div class="stat-card stat-card--status" id="stat-card-status">
+                        <div class="stat-icon-wrap"><i class="fas fa-circle-check"></i></div>
+                        <div class="stat-body">
+                            <span class="stat-label">Pagos</span>
+                            <span class="stat-value" id="kpi-pagos">—</span>
                         </div>
                     </div>
                 </div>
@@ -114,13 +113,25 @@
                 <div class="tab-panel active" id="tab-folha">
                     <div class="folha-toolbar">
                         <div class="filters-bar">
-                            <div class="search-wrap">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="search-input" placeholder="Buscar colaborador..." oninput="applySearch()">
+                            <div class="search-wrapper">
+                                <i class="fas fa-magnifying-glass search-icon"></i>
+                                <input type="text" id="search-input" placeholder="Buscar colaborador…" oninput="applySearch()">
+                                <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                                    <i class="fas fa-xmark"></i>
+                                </button>
                             </div>
-                            <select class="dept-select" id="dept-filter" onchange="applySearch()">
-                                <option value="">Todos os departamentos</option>
-                            </select>
+                            <div class="filter-dropdown" id="dept-filter-dropdown">
+                                <button type="button" class="btn-filter" id="btn-dept-filter">
+                                    <span id="dept-filter-label">Filtro</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="dept-filter-chevron"></i>
+                                </button>
+                                <div class="filter-dropdown-menu" id="dept-filter-menu">
+                                    <p class="filter-dropdown-title">Departamento</p>
+                                    <div class="filter-dropdown-chips" id="dept-filter-chips">
+                                        <button type="button" class="chip chip--active" data-dept="" onclick="setDeptFilter(this)">Todos os departamentos</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="toolbar-actions"></div>
                     </div>
@@ -182,13 +193,25 @@
 
                 <div class="tab-panel" id="tab-holerites">
                     <div class="filters-bar">
-                        <div class="search-wrap">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="search-hol" placeholder="Buscar colaborador..." oninput="applyHolSearch()">
+                        <div class="search-wrapper">
+                            <i class="fas fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="search-hol" placeholder="Buscar colaborador…" oninput="applyHolSearch()">
+                            <button class="search-clear hidden" id="search-hol-clear" onclick="clearHolSearch()">
+                                <i class="fas fa-xmark"></i>
+                            </button>
                         </div>
-                        <select class="dept-select" id="dept-hol-filter" onchange="applyHolSearch()">
-                            <option value="">Todos os departamentos</option>
-                        </select>
+                        <div class="filter-dropdown" id="dept-hol-filter-dropdown">
+                            <button type="button" class="btn-filter" id="btn-dept-hol-filter">
+                                <span id="dept-hol-filter-label">Filtro</span>
+                                <i class="fas fa-chevron-down filter-chevron" id="dept-hol-filter-chevron"></i>
+                            </button>
+                            <div class="filter-dropdown-menu" id="dept-hol-filter-menu">
+                                <p class="filter-dropdown-title">Departamento</p>
+                                <div class="filter-dropdown-chips" id="dept-hol-filter-chips">
+                                    <button type="button" class="chip chip--active" data-dept="" onclick="setDeptHolFilter(this)">Todos os departamentos</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table class="req-table">
@@ -256,6 +279,90 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="rescisao-modal">
+        <div class="modal-card modal-card--lg">
+            <div class="modal-head">
+                <div class="modal-head-info">
+                    <div class="modal-head-icon"><i class="fas fa-right-from-bracket"></i></div>
+                    <div>
+                        <h3 class="modal-title">Simulador de Rescisão</h3>
+                        <p class="modal-sub">Estimativa de custo de desligamento antes de decidir</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('rescisao-modal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert warning">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    Estimativa simplificada para planejamento interno — não substitui o cálculo trabalhista oficial.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="rescisao-emp">Colaborador</label>
+                    <select id="rescisao-emp" class="form-input" onchange="onRescisaoEmpChange()">
+                        <option value="">Selecione</option>
+                    </select>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Admissão</label>
+                        <input type="text" class="form-input" id="rescisao-admissao" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Salário Bruto</label>
+                        <input type="text" class="form-input" id="rescisao-salario" readonly>
+                    </div>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label" for="rescisao-tipo">Tipo de Rescisão</label>
+                        <select id="rescisao-tipo" class="form-input">
+                            <option value="sem_justa_causa">Sem Justa Causa (dispensa pelo empregador)</option>
+                            <option value="pedido_demissao">Pedido de Demissão</option>
+                            <option value="acordo_mutuo">Acordo Mútuo (Distrato)</option>
+                            <option value="justa_causa">Justa Causa (falta grave do empregado)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="rescisao-data-trigger">Data de Desligamento</label>
+                        <div class="date-field-wrap" id="rescisao-data-wrap">
+                            <button type="button" class="form-input date-field-trigger" id="rescisao-data-trigger">
+                                <i class="fas fa-calendar-day"></i>
+                                <span id="rescisao-data-label">Selecione a data</span>
+                            </button>
+                            <input type="hidden" id="rescisao-data">
+                            <div class="calendar-popover" id="rescisao-data-popover">
+                                <div class="calendar-header">
+                                    <button type="button" class="calendar-nav-btn" id="rescisao-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                    <span class="calendar-title" id="rescisao-data-title">—</span>
+                                    <button type="button" class="calendar-nav-btn" id="rescisao-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                </div>
+                                <div class="calendar-weekdays">
+                                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                </div>
+                                <div class="calendar-grid" id="rescisao-data-grid"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-alert error" id="rescisao-error"></div>
+
+                <div id="rescisao-result" class="hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="btn-calcular-rescisao" onclick="calcularRescisaoModal()">
+                    Calcular
+                </button>
+                <button class="btn-danger hidden" id="btn-confirmar-desligamento" onclick="confirmarDesligamento()">
+                    Confirmar Desligamento
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -263,6 +370,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../javascript/supabase-client.js"></script>
+    <script src="../javascript/auth.js"></script>
+    <script src="../javascript/tabelas-fiscais.js"></script>
+    <script src="../javascript/calculo-rescisao.js"></script>
     <script src="../javascript/pagamentos.js"></script>
 </body>
 </html>

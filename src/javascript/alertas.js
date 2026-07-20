@@ -2,9 +2,14 @@
    alertas.js — Central de Alertas IA — Nexus
    ════════════════════════════════════════════ */
 
-let chatHistory    = [];
-let isLoading      = false;
-let historyLoaded  = false;
+let chatHistory       = [];
+let rhUser            = null;
+let isLoading         = false;
+let historyLoaded     = false;
+let riscoLoaded       = false;
+let complianceLoaded  = false;
+let comunidadeLoaded  = false;
+let gestoresLoaded    = false;
 
 const CATEGORY_ICON = {
     aprovacao: 'fa-check-circle',
@@ -45,11 +50,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function checkAuth() {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-    const { data: profile } = await sb.from('profiles').select('profile').eq('id', user.id).single();
-    if (profile?.profile !== 'Administrador') { window.location.href = '../screens/login.html'; return; }
-
+    const auth = await NexusAuth.requireProfile('Administrador');
+    if (!auth) return;
+    rhUser = auth.user;
 }
 
 // ─── Listeners ────────────────────────────────────────────────
@@ -249,6 +252,7 @@ function showActionConfirmation(actionData, originalMessage) {
         <div class="action-confirm-card">
             <div class="action-confirm-header"><i class="fas fa-bolt"></i> Ação detectada</div>
             <p class="action-confirm-message">${esc(actionData.message)}</p>
+            <div class="action-impact-preview hidden"></div>
             <div class="action-confirm-btns">
                 <button class="btn-do-action"><i class="fas fa-check"></i> Confirmar</button>
                 <button class="btn-cancel-action"><i class="fas fa-times"></i> Cancelar</button>
@@ -256,6 +260,19 @@ function showActionConfirmation(actionData, originalMessage) {
         </div>`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
+
+    if (actionData.type === 'reject_adjustment' && actionData.ids?.length) {
+        estimateRejectionImpact(actionData.ids).then(impact => {
+            if (!impact) return;
+            const impactEl = div.querySelector('.action-impact-preview');
+            const detalhe = impact.porEmpregado.length > 1
+                ? impact.porEmpregado.map(p => `${esc(p.nome)}: ${fmtCurrency(p.valor)}`).join(' · ')
+                : `${impact.porEmpregado[0].semanas} semana${impact.porEmpregado[0].semanas > 1 ? 's' : ''} de DSR perdido`;
+            impactEl.classList.remove('hidden');
+            impactEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <span>Impacto estimado ao rejeitar: <strong>-${fmtCurrency(impact.total)}</strong> (${detalhe} — Lei 605/49 art. 6º).</span>`;
+            container.scrollTop = container.scrollHeight;
+        }).catch(() => {});
+    }
 
     div.querySelector('.btn-do-action').addEventListener('click', async () => {
         const btns = div.querySelector('.action-confirm-btns');
@@ -279,9 +296,19 @@ async function executeAction(actionData) {
             case 'reject_vacation':
                 await sb.from('vacations').update({ status: 'recusado', rejected_at: now }).in('id', ids); break;
             case 'approve_adjustment':
-                await sb.from('adjustment_requests').update({ status: 'aprovado' }).in('id', ids); break;
-            case 'reject_adjustment':
-                await sb.from('adjustment_requests').update({ status: 'rejeitado' }).in('id', ids); break;
+            case 'reject_adjustment': {
+                // approve_adjustment_request (migration 044) não só troca o status: quando
+                // aprovado, também escreve o horário corrigido de volta em time_records —
+                // um update direto em adjustment_requests deixava a correção sem efeito.
+                const decision = type === 'approve_adjustment' ? 'aprovado' : 'rejeitado';
+                const results = await Promise.all(ids.map(id => sb.rpc('approve_adjustment_request', {
+                    p_request_id: id, p_decision: decision,
+                    p_decided_by_name: rhUser?.email?.split('@')[0] || 'RH', p_decided_by_email: rhUser?.email || null,
+                })));
+                const firstError = results.find(r => r.error)?.error;
+                if (firstError) throw firstError;
+                break;
+            }
             case 'mark_burnout_read':
                 await sb.from('burnout_alerts').update({ lido: true }).in('id', ids); break;
             default: throw new Error(`Ação desconhecida: ${type}`);
@@ -293,6 +320,45 @@ async function executeAction(actionData) {
         return false;
     }
 }
+
+// Mesma regra de weekStartKeyRH/calcDsrDescontoMes usada no holerite (pagamentos.js):
+// falta cuja justificativa é REJEITADA faz perder o DSR (Descanso Semanal Remunerado,
+// Lei 605/49 art. 6º) da semana em que ocorreu. Antes essa conta só aparecia depois do
+// fato, na folha de pagamento — aqui ela roda ANTES da confirmação, para o RH decidir
+// com o valor em mãos, não só descobrir semanas depois.
+function weekStartKeyAlert(dateKey) {
+    const d = new Date(`${dateKey}T12:00:00`);
+    const dow = d.getDay();
+    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function estimateRejectionImpact(ids) {
+    const { data: reqs } = await sb.from('adjustment_requests')
+        .select('id,employee_id,date,tipo')
+        .in('id', ids)
+        .eq('tipo', 'falta');
+    if (!reqs?.length) return null;
+
+    const empIds = [...new Set(reqs.map(r => r.employee_id))];
+    const { data: emps } = await sb.from('employees').select('id,name,salary').in('id', empIds);
+    const empMap = {}; (emps || []).forEach(e => { empMap[e.id] = e; });
+
+    let total = 0;
+    const porEmpregado = [];
+    empIds.forEach(empId => {
+        const semanas = new Set(reqs.filter(r => r.employee_id === empId).map(r => weekStartKeyAlert(r.date)));
+        if (!semanas.size) return;
+        const salario = Number(empMap[empId]?.salary) || 0;
+        const valor = +((salario / 30) * semanas.size).toFixed(2);
+        total += valor;
+        porEmpregado.push({ nome: empMap[empId]?.name || '—', semanas: semanas.size, valor });
+    });
+    if (!total) return null;
+    return { total, porEmpregado };
+}
+
+function fmtCurrency(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
 // ─── Relatório Executivo ──────────────────────────────────────
 
@@ -581,11 +647,18 @@ function setupTabs() {
 
 function switchTab(tabName) {
     document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-    const isAlerts = tabName === 'alerts';
-    document.getElementById('alerts-body').style.display       = isAlerts ? '' : 'none';
-    document.getElementById('history-body').style.display      = isAlerts ? 'none' : '';
-    document.getElementById('alerts-header-right').style.display = isAlerts ? '' : 'none';
-    if (!isAlerts && !historyLoaded) { historyLoaded = true; loadHistory(); }
+    document.getElementById('alerts-body').style.display         = tabName === 'alerts'     ? '' : 'none';
+    document.getElementById('history-body').style.display        = tabName === 'history'    ? '' : 'none';
+    document.getElementById('risco-body').style.display          = tabName === 'risco'      ? '' : 'none';
+    document.getElementById('compliance-body').style.display     = tabName === 'compliance' ? '' : 'none';
+    document.getElementById('comunidade-body').style.display     = tabName === 'comunidade' ? '' : 'none';
+    document.getElementById('gestores-body').style.display       = tabName === 'gestores'   ? '' : 'none';
+    document.getElementById('alerts-header-right').style.display = tabName === 'alerts'     ? '' : 'none';
+    if (tabName === 'history'    && !historyLoaded)    { historyLoaded = true;    loadHistory(); }
+    if (tabName === 'risco'      && !riscoLoaded)      { riscoLoaded = true;      loadRiscoComposto(); }
+    if (tabName === 'compliance' && !complianceLoaded) { complianceLoaded = true; loadCompliance(); }
+    if (tabName === 'comunidade' && !comunidadeLoaded) { comunidadeLoaded = true; loadComunidade(); }
+    if (tabName === 'gestores'   && !gestoresLoaded)   { gestoresLoaded = true;   loadGestores(); }
 }
 
 // ─── Histórico de Análises ────────────────────────────────────
@@ -698,6 +771,504 @@ function renderTrendChart(items) {
             },
         },
     });
+}
+
+// ─── Risco Composto ───────────────────────────────────────────
+// Cruza 3 sinais que hoje vivem em telas separadas: burnout (burnout_alerts),
+// banco de horas negativo (time_records + bank_adjustments, mesmo cálculo/
+// limiar de banco-horas-rh.js: saldoLiquido <= -1200min = crítico) e tickets
+// de RH em aberto (hr_tickets). Só entra na lista quem tem 2+ sinais ao mesmo
+// tempo — é essa interseção que nenhuma das telas isoladas mostra hoje.
+const PESO_SINAL = {
+    burnout_critico:   40, burnout_atencao:   20,
+    banco_horas_critico: 35,
+    ticket_aguardando: 25, ticket_em_atendimento: 15,
+};
+
+function getJornadaMinRisco(emp) {
+    const tipo = (emp?.contractType || 'clt').toLowerCase();
+    if (tipo === 'pj') return null;
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
+    const workLoad = emp?.workLoad || '';
+    if (workLoad === '12x36') return 12 * 60;
+    const m = workLoad.match(/^(\d+)h/);
+    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
+    return 8 * 60;
+}
+
+function calcWorkedMinRisco(rec) {
+    if (!rec || !rec.entrada) return 0;
+    const diffMin = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
+    if (rec.saida_almoco) {
+        const m = diffMin(rec.entrada, rec.saida_almoco);
+        const a = (rec.retorno_almoco && rec.saida) ? diffMin(rec.retorno_almoco, rec.saida) : 0;
+        return m + a;
+    }
+    return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
+}
+
+// Saldo do banco de horas do mês corrente — mesma fórmula/limiar de crítico
+// (<= -1200min / -20h) usado em banco-horas-rh.js, recalculado aqui de forma
+// enxuta (sem ledger de vencimento) só para alimentar o cruzamento de sinais.
+function calcSaldoBancoHorasMes(emp, timeRecords, adjustments, monthKey) {
+    const jornadaMin = getJornadaMinRisco(emp);
+    if (jornadaMin === null) return null; // PJ não participa do banco de horas
+    let extrasMin = 0, faltaMin = 0;
+    Object.entries(timeRecords).forEach(([dateKey, rec]) => {
+        if (!dateKey.startsWith(monthKey)) return;
+        if (!rec.entrada || !rec.saida) return;
+        const saldo = calcWorkedMinRisco(rec) - jornadaMin;
+        if (saldo > 0) extrasMin += saldo; else faltaMin += Math.abs(saldo);
+    });
+    let ajusteMin = 0;
+    adjustments.filter(a => a.date && a.date.startsWith(monthKey)).forEach(a => {
+        ajusteMin += a.tipo === 'credito' ? a.minutos : -a.minutos;
+    });
+    return extrasMin - faltaMin + ajusteMin;
+}
+
+async function loadRiscoComposto() {
+    const list = document.getElementById('risco-list');
+    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Cruzando sinais...</p></div>`;
+
+    try {
+        const now = new Date();
+        const monthKey   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthStart = `${monthKey}-01`;
+        const nextMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const monthEnd   = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+        const trintaDiasAtras = new Date(now.getTime() - 30 * 86400000).toISOString();
+
+        const [{ data: empData }, { data: timeData }, { data: bankData }, { data: burnoutData }, { data: ticketData }] = await Promise.all([
+            sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
+            sb.from('time_records').select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida').gte('date', monthStart).lt('date', monthEnd),
+            sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null).gte('date', monthStart).lt('date', monthEnd),
+            sb.from('burnout_alerts').select('employee_id,alertas,lido,created_at').eq('lido', false).gte('created_at', trintaDiasAtras),
+            sb.from('hr_tickets').select('employee_id,subject,status').in('status', ['aguardando_rh', 'em_atendimento']),
+        ]);
+
+        const employees = (empData || []).map(e => ({
+            id: e.id, name: e.name, dept: e.dept,
+            contractType: e.contract_type, workLoad: e.work_load,
+        }));
+
+        const timeByEmp = {};
+        (timeData || []).forEach(r => { (timeByEmp[r.employee_id] ??= {})[r.date] = r; });
+
+        const adjByEmp = {};
+        (bankData || []).forEach(a => { (adjByEmp[a.employee_id] ??= []).push(a); });
+
+        const burnoutByEmp = {};
+        (burnoutData || []).forEach(b => {
+            const pior = (b.alertas || []).some(x => x.nivel === 'critico') ? 'critico'
+                       : (b.alertas || []).length ? 'atencao' : null;
+            if (!pior) return;
+            const atual = burnoutByEmp[b.employee_id];
+            if (!atual || (pior === 'critico' && atual.nivel !== 'critico')) {
+                burnoutByEmp[b.employee_id] = { nivel: pior, titulo: ((b.alertas || [])[0] || {}).titulo || 'Padrão de burnout identificado' };
+            }
+        });
+
+        const ticketByEmp = {};
+        (ticketData || []).forEach(t => {
+            const atual = ticketByEmp[t.employee_id];
+            if (!atual || (t.status === 'aguardando_rh' && atual.status !== 'aguardando_rh')) {
+                ticketByEmp[t.employee_id] = t;
+            }
+        });
+
+        const linhas = employees.map(emp => {
+            const sinais = [];
+            let score = 0;
+
+            const burnout = burnoutByEmp[emp.id];
+            if (burnout) {
+                sinais.push({ tipo: 'burnout', nivel: burnout.nivel, label: `Burnout ${burnout.nivel === 'critico' ? 'crítico' : 'em atenção'}` });
+                score += burnout.nivel === 'critico' ? PESO_SINAL.burnout_critico : PESO_SINAL.burnout_atencao;
+            }
+
+            const saldo = calcSaldoBancoHorasMes(emp, timeByEmp[emp.id] || {}, adjByEmp[emp.id] || [], monthKey);
+            if (saldo !== null && saldo <= -1200) {
+                const h = Math.floor(Math.abs(saldo) / 60), m = String(Math.abs(saldo) % 60).padStart(2, '0');
+                sinais.push({ tipo: 'banco_horas', nivel: 'critico', label: `Banco de horas: -${h}h ${m}min` });
+                score += PESO_SINAL.banco_horas_critico;
+            }
+
+            const ticket = ticketByEmp[emp.id];
+            if (ticket) {
+                const critico = ticket.status === 'aguardando_rh';
+                sinais.push({ tipo: 'ticket_rh', nivel: critico ? 'critico' : 'atencao', label: `Ticket RH: ${esc(ticket.subject || (critico ? 'aguardando atendimento' : 'em atendimento'))}` });
+                score += critico ? PESO_SINAL.ticket_aguardando : PESO_SINAL.ticket_em_atendimento;
+            }
+
+            return { emp, sinais, score: Math.min(100, score) };
+        }).filter(l => l.sinais.length >= 2)
+          .sort((a, b) => b.sinais.length - a.sinais.length || b.score - a.score);
+
+        renderRiscoComposto(linhas);
+    } catch (err) {
+        console.error('Erro ao carregar risco composto:', err);
+        if (list) list.innerHTML = `<p class="history-empty">Erro ao cruzar os dados. Tente novamente.</p>`;
+    }
+}
+
+function renderRiscoComposto(linhas) {
+    const list = document.getElementById('risco-list');
+    if (!list) return;
+
+    if (!linhas.length) {
+        list.innerHTML = `
+            <div class="empty-state empty-state--success">
+                <div class="empty-icon"><i class="fas fa-shield-heart"></i></div>
+                <p class="empty-title">Nenhum risco composto agora</p>
+                <p class="empty-desc">Nenhum colaborador acumula 2 ou mais sinais (burnout, banco de horas negativo, ticket de RH aberto) ao mesmo tempo.</p>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = linhas.map(({ emp, sinais, score }) => {
+        const sev = score >= 60 ? 'critical' : score >= 35 ? 'warning' : 'info';
+        const chips = sinais.map(s => `<span class="emp-chip">${esc(s.label)}</span>`).join('');
+        return `
+        <div class="alert-card sev-${sev}">
+            <div class="alert-card-header">
+                <div class="alert-card-meta">
+                    <span class="alert-cat-icon"><i class="fas fa-diagram-project"></i></span>
+                    <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                </div>
+            </div>
+            <h4 class="alert-card-title">Score de risco composto: ${score}/100</h4>
+            <p class="alert-card-desc">${sinais.length} sinais simultâneos identificados para este colaborador.</p>
+            <div class="emp-chips">${chips}</div>
+        </div>`;
+    }).join('');
+}
+
+// ─── Central de Compliance ────────────────────────────────────
+// Agrega 3 prazos legais que hoje só aparecem cada um na sua própria tela:
+// documentos vencendo (arquivos.js/colaboradores.js), férias vencidas do
+// período concessivo — art. 137 CLT (ferias.js) e fim de período de
+// experiência (colaboradores.js). Reimplementado aqui de forma independente
+// (mesmo padrão do Risco Composto acima) porque cada tela mantém seu próprio
+// estado em closures separadas — não há módulo compartilhado neste projeto.
+
+function isEstagioOuAprendizCompliance(emp) {
+    const t = emp?.contract_type || '';
+    return t === 'estagio' || t === 'estágio' || t === 'aprendiz';
+}
+
+function buildAcquisitiveCyclesCompliance(admDate, today) {
+    const cycles = [];
+    let cursor = new Date(admDate);
+    while (cursor <= today) {
+        const end = new Date(cursor.getFullYear() + 1, cursor.getMonth(), cursor.getDate() - 1);
+        cycles.push({ start: new Date(cursor), end });
+        cursor = new Date(cursor.getFullYear() + 1, cursor.getMonth(), cursor.getDate());
+    }
+    return cycles;
+}
+
+// Mesma regra de computeFeriasVencidas (ferias.js): férias não concedidas dentro do
+// período concessivo (12 meses após o fim do aquisitivo) geram direito a pagamento
+// em dobro (art. 137 CLT).
+function computeFeriasVencidasCompliance(emp, vacationsByEmp, today) {
+    if (!emp.admission_date || isEstagioOuAprendizCompliance(emp)) return null;
+    const admDate = new Date(emp.admission_date + 'T00:00:00');
+    const closedCycles = buildAcquisitiveCyclesCompliance(admDate, today).filter(c => c.end < today);
+    if (!closedCycles.length) return null;
+
+    let usedRemaining = (vacationsByEmp[emp.id] || [])
+        .filter(v => v.status === 'aprovado' || v.status === 'concluido')
+        .reduce((sum, v) => sum + (v.days || 0), 0);
+
+    let expiredDays = 0;
+    closedCycles.forEach(cycle => {
+        const earned   = 30;
+        const consumed = Math.min(usedRemaining, earned);
+        usedRemaining -= consumed;
+        const pending  = earned - consumed;
+        if (pending > 0) {
+            const concessivo = new Date(cycle.end.getFullYear() + 1, cycle.end.getMonth(), cycle.end.getDate());
+            if (today > concessivo) expiredDays += pending;
+        }
+    });
+    return expiredDays > 0 ? { days: expiredDays } : null;
+}
+
+// Mesmos limiares de getProbationStatus (colaboradores.js): avisa a partir de 15
+// dias antes do fim do período de experiência.
+function getProbationStatusCompliance(emp, today) {
+    if (!emp.is_probation || !emp.probation_end_date) return null;
+    const end = new Date(emp.probation_end_date + 'T00:00:00');
+    const diffDays = Math.round((end - today) / 86400000);
+    if (diffDays > 15) return null;
+    const label = diffDays < 0
+        ? `Experiência vencida há ${Math.abs(diffDays)}d`
+        : diffDays === 0 ? 'Experiência vence hoje' : `Experiência vence em ${diffDays}d`;
+    return { diffDays, label };
+}
+
+// Mesmos limiares de getExpiryInfo (arquivos.js): vencido (<0) ou a vencer (<=30d).
+function getDocAlertInfoCompliance(dataValidade, today) {
+    if (!dataValidade) return null;
+    const end = new Date(dataValidade + 'T00:00:00');
+    const diffDays = Math.round((end - today) / 86400000);
+    if (diffDays > 30) return null;
+    return { diffDays, expired: diffDays < 0 };
+}
+
+async function loadCompliance() {
+    const list = document.getElementById('compliance-list');
+    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Verificando prazos...</p></div>`;
+
+    try {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+
+        const [{ data: empData }, { data: vacData }, { data: docData }] = await Promise.all([
+            sb.from('employees').select('id,name,dept,contract_type,admission_date,is_probation,probation_end_date').in('status', ['Ativo', 'ativo']),
+            sb.from('vacations').select('employee_id,status,days'),
+            sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null),
+        ]);
+
+        const employees = empData || [];
+
+        const vacationsByEmp = {};
+        (vacData || []).forEach(v => { (vacationsByEmp[v.employee_id] ??= []).push(v); });
+
+        const docsByEmp = {};
+        (docData || []).forEach(d => { if (d.employee_id) (docsByEmp[d.employee_id] ??= []).push(d); });
+
+        const linhas = employees.map(emp => {
+            const sinais = [];
+
+            const ferias = computeFeriasVencidasCompliance(emp, vacationsByEmp, today);
+            if (ferias) sinais.push({ nivel: 'critico', label: `${ferias.days} dia(s) de férias vencidas (risco de pagamento em dobro — art. 137 CLT)` });
+
+            const probation = getProbationStatusCompliance(emp, today);
+            if (probation) sinais.push({ nivel: probation.diffDays < 0 ? 'critico' : 'atencao', label: probation.label });
+
+            (docsByEmp[emp.id] || []).forEach(d => {
+                const info = getDocAlertInfoCompliance(d.data_validade, today);
+                if (info) sinais.push({
+                    nivel: info.expired ? 'critico' : 'atencao',
+                    label: `${d.name} (${d.tipo || 'documento'}) ${info.expired ? `vencido há ${Math.abs(info.diffDays)}d` : `vence em ${info.diffDays}d`}`,
+                });
+            });
+
+            return { emp, sinais };
+        }).filter(l => l.sinais.length > 0)
+          .sort((a, b) =>
+              b.sinais.filter(s => s.nivel === 'critico').length - a.sinais.filter(s => s.nivel === 'critico').length
+              || b.sinais.length - a.sinais.length);
+
+        renderCompliance(linhas);
+    } catch (err) {
+        console.error('Erro ao carregar compliance:', err);
+        if (list) list.innerHTML = `<p class="history-empty">Erro ao verificar prazos. Tente novamente.</p>`;
+    }
+}
+
+function renderCompliance(linhas) {
+    const list      = document.getElementById('compliance-list');
+    const summaryEl = document.getElementById('compliance-summary-count');
+    if (!list) return;
+
+    if (!linhas.length) {
+        if (summaryEl) summaryEl.classList.add('hidden');
+        list.innerHTML = `
+            <div class="empty-state empty-state--success">
+                <div class="empty-icon"><i class="fas fa-shield-heart"></i></div>
+                <p class="empty-title">Nenhuma pendência de compliance</p>
+                <p class="empty-desc">Nenhum colaborador com documentos vencendo, férias vencidas ou fim de experiência próximo.</p>
+            </div>`;
+        return;
+    }
+
+    if (summaryEl) { summaryEl.textContent = String(linhas.length); summaryEl.classList.remove('hidden'); }
+
+    list.innerHTML = linhas.map(({ emp, sinais }) => {
+        const sev   = sinais.some(s => s.nivel === 'critico') ? 'critical' : 'warning';
+        const chips = sinais.map(s => `<span class="emp-chip">${esc(s.label)}</span>`).join('');
+        return `
+        <div class="alert-card sev-${sev}">
+            <div class="alert-card-header">
+                <div class="alert-card-meta">
+                    <span class="alert-cat-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                </div>
+            </div>
+            <h4 class="alert-card-title">${sinais.length} pendência${sinais.length > 1 ? 's' : ''} de compliance</h4>
+            <div class="emp-chips">${chips}</div>
+        </div>`;
+    }).join('');
+}
+
+// ─── Comunidade: moderação de kudos + triagem de feedback anônimo ─────────
+// Antes só davam pra ver isolados: kudos no chat social do colaborador
+// (sem nenhuma tela de moderação pro RH), feedback anônimo só dentro de
+// chat-rh.html. Reimplementado aqui de forma independente (mesmo padrão do
+// resto do arquivo) para virar parte da rotina de triagem do RH.
+
+const AF_CAT_LABEL = { clima: 'Clima organizacional', gestao: 'Gestão / liderança', processos: 'Processos internos', infraestrutura: 'Infraestrutura', outro: 'Outro' };
+const KUDOS_CAT_LABEL = { colaboracao: 'Colaboração', inovacao: 'Inovação', lideranca: 'Liderança', superacao: 'Superação', mentoria: 'Mentoria' };
+
+let allKudosMod  = [];
+let allAnonFeedbackMod = [];
+let anonFilterMod = 'all';
+
+async function loadComunidade() {
+    document.querySelectorAll('.comunidade-subtab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sub = btn.dataset.subtab;
+            document.querySelectorAll('.comunidade-subtab').forEach(b => b.classList.toggle('active', b === btn));
+            document.getElementById('comunidade-kudos-list').classList.toggle('hidden', sub !== 'kudos');
+            document.getElementById('comunidade-feedback-wrap').classList.toggle('hidden', sub !== 'feedback');
+        });
+    });
+    document.querySelectorAll('.anon-feedback-filters .af-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            anonFilterMod = btn.dataset.filter;
+            document.querySelectorAll('.anon-feedback-filters .af-chip').forEach(b => b.classList.toggle('active', b === btn));
+            renderComunidadeFeedback();
+        });
+    });
+
+    await Promise.all([loadKudosMod(), loadAnonFeedbackMod()]);
+}
+
+async function loadKudosMod() {
+    const { data } = await sb.from('kudos')
+        .select('*, from:employees!kudos_from_employee_id_fkey(name), to:employees!kudos_to_employee_id_fkey(name)')
+        .order('created_at', { ascending: false })
+        .limit(80);
+    allKudosMod = data || [];
+    renderComunidadeKudos();
+}
+
+function renderComunidadeKudos() {
+    const list = document.getElementById('comunidade-kudos-list');
+    if (!list) return;
+    if (!allKudosMod.length) { list.innerHTML = `<p class="kudos-mod-empty">Nenhum reconhecimento publicado ainda.</p>`; return; }
+    list.innerHTML = allKudosMod.map(k => `
+        <div class="kudos-mod-card">
+            <div class="kudos-mod-body">
+                <span class="kudos-mod-names">${esc(k.from?.name || '—')} <i class="fas fa-arrow-right"></i> ${esc(k.to?.name || '—')}<span class="kudos-mod-cat">${esc(KUDOS_CAT_LABEL[k.categoria] || k.categoria)}</span></span>
+                <p class="kudos-mod-msg">${esc(k.message)}</p>
+                <span class="kudos-mod-time">${formatDate(new Date(k.created_at))}</span>
+            </div>
+            <button class="kudos-mod-remove" onclick="removeKudosMod('${k.id}')" title="Remover do mural"><i class="fas fa-trash"></i></button>
+        </div>`).join('');
+}
+
+window.removeKudosMod = async function (id) {
+    if (!confirm('Remover este reconhecimento do mural? Esta ação não pode ser desfeita.')) return;
+    const { error } = await sb.from('kudos').delete().eq('id', id);
+    if (error) return;
+    allKudosMod = allKudosMod.filter(k => k.id !== id);
+    renderComunidadeKudos();
+};
+
+async function loadAnonFeedbackMod() {
+    const { data } = await sb.from('anonymous_feedback').select('*').order('created_at', { ascending: false });
+    allAnonFeedbackMod = data || [];
+    updateComunidadeBadge();
+    renderComunidadeFeedback();
+}
+
+function updateComunidadeBadge() {
+    const badge = document.getElementById('comunidade-summary-count');
+    if (!badge) return;
+    const novos = allAnonFeedbackMod.filter(f => f.status === 'novo').length;
+    badge.textContent = novos;
+    badge.classList.toggle('hidden', novos === 0);
+}
+
+function renderComunidadeFeedback() {
+    const list = document.getElementById('comunidade-feedback-list');
+    if (!list) return;
+    const filtered = anonFilterMod === 'all' ? allAnonFeedbackMod : allAnonFeedbackMod.filter(f => f.status === anonFilterMod);
+    if (!filtered.length) { list.innerHTML = `<p class="af-empty">Nenhum feedback encontrado.</p>`; return; }
+    list.innerHTML = filtered.map(f => `
+        <div class="af-item status-${f.status}">
+            <div class="af-item-head">
+                <span class="af-item-cat">${esc(AF_CAT_LABEL[f.categoria] || f.categoria)}</span>
+                <span class="af-item-time">${formatDate(new Date(f.created_at))}</span>
+            </div>
+            <p class="af-item-msg">${esc(f.message)}</p>
+            <div class="af-item-actions">
+                ${f.status !== 'lido'      ? `<button class="af-item-btn" onclick="markAnonFeedbackMod('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
+                ${f.status !== 'arquivado' ? `<button class="af-item-btn" onclick="markAnonFeedbackMod('${f.id}','arquivado')"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
+            </div>
+        </div>`).join('');
+}
+
+window.markAnonFeedbackMod = async function (id, status) {
+    const { error } = await sb.from('anonymous_feedback').update({ status }).eq('id', id);
+    if (error) return;
+    const item = allAnonFeedbackMod.find(f => f.id === id);
+    if (item) item.status = status;
+    updateComunidadeBadge();
+    renderComunidadeFeedback();
+};
+
+// ─── Gestores: painel de uso ───────────────────────────────────────────────
+// "Gestor" não é um perfil de login separado (ver migration 029) — é qualquer
+// colaborador ativo apontado como manager_id de outros. Antes o RH não tinha
+// nenhuma visibilidade de quantos existem nem do que estão de fato decidindo.
+
+async function loadGestores() {
+    const list = document.getElementById('gestores-list');
+    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Levantando gestores...</p></div>`;
+
+    try {
+        const { data: empData } = await sb.from('employees').select('id,name,dept,email,manager_id').in('status', ['Ativo', 'ativo']);
+        const employees = empData || [];
+
+        const managerIds = new Set(employees.map(e => e.manager_id).filter(Boolean));
+        const gestores = employees.filter(e => managerIds.has(e.id));
+
+        if (!gestores.length) {
+            if (list) list.innerHTML = `<div class="empty-state empty-state--success"><div class="empty-icon"><i class="fas fa-user-tie"></i></div><p class="empty-title">Nenhum gestor definido</p><p class="empty-desc">Nenhum colaborador ativo tem liderados apontados via campo "Gestor" no cadastro.</p></div>`;
+            return;
+        }
+
+        const gestorEmails = gestores.map(g => g.email).filter(Boolean);
+
+        const [{ data: vacData }, { data: bankData }, { data: ticketData }] = await Promise.all([
+            sb.from('vacations').select('decided_by_email,status').in('decided_by_email', gestorEmails),
+            sb.from('bank_requests').select('decided_by_email,requires_approval_from').eq('requires_approval_from', 'gestor').in('decided_by_email', gestorEmails),
+            sb.from('hr_tickets').select('employee_id').not('about_employee_id', 'is', null).in('employee_id', gestores.map(g => g.id)),
+        ]);
+
+        const linhas = gestores.map(g => {
+            const teamSize = employees.filter(e => e.manager_id === g.id).length;
+            const feriasDecididas = (vacData || []).filter(v => v.decided_by_email === g.email).length;
+            const bancoDecidido   = (bankData || []).filter(b => b.decided_by_email === g.email).length;
+            const escalacoes      = (ticketData || []).filter(t => t.employee_id === g.id).length;
+            return { g, teamSize, feriasDecididas, bancoDecidido, escalacoes };
+        }).sort((a, b) => b.teamSize - a.teamSize);
+
+        if (list) {
+            list.innerHTML = linhas.map(({ g, teamSize, feriasDecididas, bancoDecidido, escalacoes }) => `
+                <div class="gestor-card">
+                    <div class="gestor-card-info">
+                        <div class="gestor-card-name">${esc(g.name)}</div>
+                        <div class="gestor-card-meta">${esc(g.dept || '—')}</div>
+                    </div>
+                    <div class="gestor-stats">
+                        <div class="gestor-stat"><span class="gestor-stat-val">${teamSize}</span><span class="gestor-stat-lbl">Liderados</span></div>
+                        <div class="gestor-stat"><span class="gestor-stat-val">${feriasDecididas}</span><span class="gestor-stat-lbl">Férias decididas</span></div>
+                        <div class="gestor-stat"><span class="gestor-stat-val">${bancoDecidido}</span><span class="gestor-stat-lbl">Banco de horas</span></div>
+                        <div class="gestor-stat"><span class="gestor-stat-val">${escalacoes}</span><span class="gestor-stat-lbl">Escalações ao RH</span></div>
+                    </div>
+                </div>`).join('');
+        }
+    } catch (err) {
+        console.error('Erro ao carregar gestores:', err);
+        if (list) list.innerHTML = `<p class="history-empty">Erro ao levantar os gestores. Tente novamente.</p>`;
+    }
 }
 
 // ─── Chat Persistente ─────────────────────────────────────────

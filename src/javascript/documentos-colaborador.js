@@ -1,30 +1,23 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // ── Auth ──
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
+    const auth = await NexusAuth.requireProfile('colaborador', 'name');
+    if (!auth) return;
+    const myEmployeeId = auth.profile.employee_id;
+    const emp = auth.employee;
 
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id')
-        .eq('id', user.id)
-        .single();
-
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
-        window.location.href = '../screens/login.html';
-        return;
+    // Prazos de guarda padrão em anos (mesma referência usada no upload do RH) — ajustável pelo jurídico.
+    const RETENTION_YEARS = {
+        'Contrato de Trabalho': 30, 'Termo de Rescisão': 30, 'Homologação': 30, 'Guia FGTS': 30,
+        'Carteira de Trabalho': 30, 'Exame Admissional': 20, 'Exame Demissional': 20,
+        'Aviso Prévio': 5, 'RG': 5, 'CPF': 5, 'Comprovante de Residência': 5,
+    };
+    const DEFAULT_RETENTION_YEARS = 5;
+    function computeRetentionDate(tipo) {
+        const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
+        const d = new Date();
+        d.setFullYear(d.getFullYear() + years);
+        return d.toISOString().slice(0, 10);
     }
-
-    const myEmployeeId = profile.employee_id;
-
-    const { data: emp } = await sb.from('employees').select('name, role, avatar_color, avatar_url').eq('id', myEmployeeId).single();
-    const _ini   = (emp?.name || '?').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
-    const _color = emp?.avatar_color || '#6366f1';
-    const _av    = document.getElementById('sidebar-avatar');
-    if (_av) {
-        if (emp?.avatar_url) { _av.style.background = `url(${emp.avatar_url}) center/cover`; _av.textContent = ''; }
-        else { _av.style.background = _color; _av.textContent = _ini; }
-    }
-    const _nm = document.getElementById('sidebar-name'); if (_nm) _nm.textContent = emp?.name || '—';
-    const _rl = document.getElementById('sidebar-role'); if (_rl) _rl.textContent = emp?.role || 'Colaborador';
 
     const docList          = document.getElementById('doc-list');
     const docCountBadge    = document.getElementById('doc-count-badge');
@@ -38,8 +31,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mobileSelect     = document.getElementById('doc-select-mobile');
 
     let myDocs       = [];
+    let allMyDocs    = [];
+    let requiredTipos = [];
     let selectedFile = null;
     let selectedId   = null;
+
+    // Tipos que o próprio colaborador consegue enviar pelo portal (precisa bater com as options do select).
+    const SELF_UPLOAD_TIPOS = ['RG', 'CPF', 'Comprovante de Residência', 'Carteira de Trabalho', 'Diploma', 'Certificado', 'Exame Médico', 'Outros'];
 
     // ── Busca documentos do colaborador ──
     async function refreshDocs() {
@@ -47,7 +45,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             .select('*')
             .eq('employee_id', myEmployeeId)
             .order('created_at', { ascending: false });
-        myDocs = data || [];
+        allMyDocs = data || [];
+        myDocs = allMyDocs.filter(d => d.is_current !== false);
+    }
+
+    // ── Checklist de documentos obrigatórios (visão do colaborador) ──
+    async function loadRequirements() {
+        const { data } = await sb.from('document_requirements').select('tipo').eq('category', 'admissional').eq('obrigatorio', true);
+        requiredTipos = (data || []).map(r => r.tipo);
+    }
+
+    function renderPendingDocsBanner() {
+        const banner = document.getElementById('pending-docs-banner');
+        if (!banner) return;
+        const haveTipos = myDocs.filter(d => d.source === 'Administrador' || d.status === 'aprovado').map(d => d.tipo);
+        const missing = requiredTipos.filter(t => !haveTipos.includes(t));
+        if (!missing.length) { banner.classList.add('hidden'); return; }
+
+        banner.classList.remove('hidden');
+        document.getElementById('pending-docs-text').textContent = `${missing.length} documento${missing.length > 1 ? 's' : ''} obrigatório${missing.length > 1 ? 's' : ''} pendente${missing.length > 1 ? 's' : ''}`;
+        document.getElementById('pending-docs-chips').innerHTML = missing.map(t => {
+            if (SELF_UPLOAD_TIPOS.includes(t)) {
+                return `<button type="button" class="pending-doc-chip" onclick="quickUploadTipo('${t.replace(/'/g,"\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`;
+            }
+            return `<span class="pending-doc-chip pending-doc-chip--waiting"><i class="fas fa-clock"></i> ${t} — aguardando o RH</span>`;
+        }).join('');
+    }
+
+    window.quickUploadTipo = (tipo) => {
+        openUploadModal();
+        const sel = document.getElementById('upload-tipo');
+        if (sel) sel.value = tipo;
+    };
+
+    // ── Log de auditoria (trilha de criação/substituição/exclusão/assinatura) ──
+    async function logAudit(action, doc) {
+        await sb.from('document_audit_log').insert({
+            document_id: doc.id || null, document_name: doc.name, employee_id: myEmployeeId,
+            action, operator_name: emp?.name || 'Colaborador', operator_email: user.email,
+        });
     }
 
     // ── Ícone por extensão ──
@@ -68,6 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── Renderiza lista ──
     function renderList() {
+        renderPendingDocsBanner();
         if (docCountBadge) docCountBadge.textContent = myDocs.length;
 
         if (mobileSelect) {
@@ -150,6 +187,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;background:${st.cls === 'aprovado' ? '#dcfce7' : st.cls === 'recusado' ? '#fee2e2' : '#fef3c7'};color:${st.cls === 'aprovado' ? '#065f46' : st.cls === 'recusado' ? '#991b1b' : '#92400e'}"><i class="fas ${st.icon}"></i> ${st.label}</span>`;
         }
 
+        const signArea = document.getElementById('assinatura-area');
+        const signBtn   = document.getElementById('btn-sign-doc');
+        if (signArea) {
+            if (doc.assinado_em) {
+                signArea.innerHTML = `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${doc.assinado_por || emp?.name || ''} em ${new Date(doc.assinado_em).toLocaleString('pt-BR')}</p>`;
+            } else if (doc.requer_assinatura) {
+                signArea.innerHTML = `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Colaborador — pendente</p>`;
+            } else {
+                signArea.innerHTML = `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Colaborador</p>`;
+            }
+        }
+        if (signBtn) signBtn.classList.toggle('hidden', !(doc.requer_assinatura && !doc.assinado_em));
+
+        const deleteBtn = document.getElementById('btn-delete-doc');
+        if (deleteBtn) deleteBtn.classList.toggle('hidden', doc.source !== 'colaborador');
+
         const previewIcon = document.getElementById('detail-file-icon');
         if (previewIcon) {
             previewIcon.className = `doc-preview-icon doc-preview-icon--${iconCls}`;
@@ -158,6 +211,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         set('detail-preview-name', doc.name);
         set('detail-preview-meta', `${doc.tipo} · ${doc.size_label || '—'} · Enviado em ${date}`);
     }
+
+    // ── Visualizar/baixar o arquivo do documento selecionado ──
+    window.viewSelectedDoc = async () => {
+        const doc = myDocs.find(d => d.id === selectedId);
+        if (!doc?.storage_path) { showToast('Arquivo indisponível', 'Este documento não tem um arquivo para visualizar.', 'warning'); return; }
+        const { data, error } = await sb.storage.from('documents').createSignedUrl(doc.storage_path, 3600);
+        if (error || !data?.signedUrl) { showToast('Erro ao abrir', 'Não foi possível gerar o link do arquivo.', 'error'); return; }
+        window.open(data.signedUrl, '_blank');
+    };
+
+    document.getElementById('doc-card')?.addEventListener('keydown', e => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.doc-preview-area--clickable')) {
+            e.preventDefault();
+            viewSelectedDoc();
+        }
+    });
 
     // ── Seleção por ID ──
     window.selectDocById = (id) => {
@@ -172,15 +241,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ── Remoção do doc selecionado ──
     window.deleteSelectedDoc = async () => {
         if (!selectedId) return;
-        if (!confirm('Deseja realmente remover este documento?')) return;
-
         const doc = myDocs.find(d => d.id === selectedId);
+        if (doc?.source !== 'colaborador') {
+            showToast('Não é possível remover', 'Este documento foi enviado pelo RH e só pode ser removido por ele.', 'warning');
+            return;
+        }
+        if (!confirm('Deseja realmente remover este documento?')) return;
 
         if (doc?.storage_path) {
             await sb.storage.from('documents').remove([doc.storage_path]);
         }
 
         await sb.from('documents').delete().eq('id', selectedId);
+        if (doc) logAudit('excluido', doc);
         selectedId = null;
         await refreshDocs();
         renderList();
@@ -199,6 +272,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tipoEl = document.getElementById('upload-tipo');
         if (tipoEl) tipoEl.value = '';
         clearFileInput();
+    };
+
+    // ── Modal de assinatura eletrônica ──
+    const signModal = document.getElementById('sign-modal');
+    const signNameInput = document.getElementById('sign-name-input');
+    const signAgreeCheck = document.getElementById('sign-agree-check');
+
+    window.openSignModal = () => {
+        if (!selectedId) return;
+        if (signNameInput) signNameInput.value = emp?.name || '';
+        if (signAgreeCheck) signAgreeCheck.checked = false;
+        signModal?.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeSignModal = () => {
+        signModal?.classList.remove('open');
+        document.body.style.overflow = '';
+    };
+
+    window.confirmSignature = async () => {
+        if (!selectedId) return;
+        const name = signNameInput?.value.trim();
+        if (!name) { showToast('Campo obrigatório', 'Digite seu nome completo para assinar.', 'warning'); return; }
+        if (!signAgreeCheck?.checked) { showToast('Confirmação necessária', 'Confirme que leu e concorda com o documento.', 'warning'); return; }
+
+        const doc = myDocs.find(d => d.id === selectedId);
+        const { error } = await sb.rpc('sign_document', { p_document_id: selectedId, p_signer_name: name });
+        if (error) { showToast('Erro ao assinar', 'Não foi possível registrar a assinatura.', 'error'); return; }
+
+        if (doc) logAudit('assinado', doc);
+        closeSignModal();
+        await refreshDocs();
+        renderList();
+        showToast('Documento assinado!', 'Sua assinatura eletrônica foi registrada.');
     };
 
     dropZone?.addEventListener('click', () => fileInput?.click());
@@ -244,6 +352,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const storagePath = `${myEmployeeId}/${Date.now()}_${selectedFile.name}`;
         let uploadedPath  = null;
 
+        // Reenvio do mesmo tipo substitui a versão anterior, sem apagar o histórico.
+        const existingCurrent = myDocs.find(d => d.source === 'colaborador' && d.tipo === tipo);
+
         const { error: uploadError } = await sb.storage
             .from('documents')
             .upload(storagePath, selectedFile, { contentType: selectedFile.type });
@@ -258,7 +369,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             storage_path: uploadedPath,
             source:       'colaborador',
             status:       'pendente',
-            created_by:   user.id
+            created_by:   user.id,
+            // Autoupload pelo próprio colaborador conta como consentimento LGPD.
+            lgpd_consentimento: true, lgpd_consentimento_em: new Date().toISOString(),
+            retido_ate: computeRetentionDate(tipo),
+            version: (existingCurrent?.version || 0) + 1,
+            replaces_document_id: existingCurrent?.id || null,
         }).select().single();
 
         if (insertError) {
@@ -266,6 +382,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Erro ao enviar documento.', 'Tente novamente.', 'error');
             return;
         }
+
+        if (existingCurrent) {
+            await sb.from('documents').update({ is_current: false }).eq('id', existingCurrent.id);
+        }
+        logAudit(existingCurrent ? 'substituido' : 'criado', inserted);
 
         selectedId = inserted.id;
         closeUploadModal();
@@ -275,7 +396,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     uploadModal?.addEventListener('click', (e) => { if (e.target === uploadModal) closeUploadModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUploadModal(); });
+    signModal?.addEventListener('click', (e) => { if (e.target === signModal) closeSignModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeUploadModal(); closeSignModal(); } });
 
     // ── Realtime: RH atualiza status de documento ──
     sb.channel('docs-colab')
@@ -316,13 +438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 4000);
     }
 
-    // ── Logout ──
-    window.logout = async () => {
-        await sb.auth.signOut();
-        window.location.href = '../screens/login.html';
-    };
-
     // ── Init ──
-    await refreshDocs();
+    await Promise.all([refreshDocs(), loadRequirements()]);
     renderList();
 });

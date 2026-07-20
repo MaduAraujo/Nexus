@@ -3,39 +3,46 @@
 let myEmployee    = null;   // dados do colaborador logado
 let myEmployeeId  = null;   // UUID
 let myVacations   = [];
+let colleagues    = [];
 let availableDays = 0;
 let acquisitivePeriod = null;
 
 // ─── Init ─────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = '../screens/login.html'; return; }
-
-    const { data: profile } = await sb.from('profiles')
-        .select('profile, employee_id')
-        .eq('id', user.id)
-        .single();
-
-    if (profile?.profile !== 'colaborador' || !profile.employee_id) {
-        window.location.href = '../screens/login.html';
-        return;
-    }
-
-    myEmployeeId = profile.employee_id;
-
-    const { data: emp } = await sb.from('employees').select('*').eq('id', myEmployeeId).single();
-    if (!emp) { window.location.href = '../screens/login.html'; return; }
-    myEmployee = emp;
+    const auth = await NexusAuth.requireProfile('colaborador', '*');
+    if (!auth) return;
+    myEmployeeId = auth.profile.employee_id;
+    myEmployee   = auth.employee;
 
     loadSidebarInfo();
+    applyContractTypeUI();
     await loadMyVacations();
+    await loadColleagues();
     await autoExpireVacations();
-    loadSummary();
+    await loadSummary();
     renderHistory();
     renderTimeline();
+    renderExpiredBanner();
     setupRealtimeSync();
 });
+
+// ─── Estagiário / Aprendiz ──────────────────────────────────────
+
+function isEstagioOuAprendiz(emp) {
+    const t = (emp?.contract_type || '').toLowerCase();
+    return t === 'estagio' || t === 'estágio' || t === 'aprendiz';
+}
+
+function applyContractTypeUI() {
+    if (!isEstagioOuAprendiz(myEmployee)) return;
+    const abonoRow = document.getElementById('req-abono')?.closest('.form-group');
+    if (abonoRow) abonoRow.style.display = 'none';
+    const hint = document.createElement('p');
+    hint.className = 'form-hint-block';
+    hint.innerHTML = '<i class="fas fa-circle-info"></i> Como estagiário/aprendiz, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
+    document.getElementById('req-obs')?.closest('.form-group')?.before(hint);
+}
 
 // ─── Sidebar ──────────────────────────────────────────────────
 
@@ -69,6 +76,20 @@ async function loadMyVacations() {
     myVacations = data || [];
 }
 
+async function loadColleagues() {
+    const { data } = await sb.from('colleague_directory').select('id,name,dept').neq('id', myEmployeeId);
+    colleagues = (data || []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+function getColleague(id) { return colleagues.find(c => c.id === id) || null; }
+
+function populateSubstitutoSelect() {
+    const sel = document.getElementById('req-substituto');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Nenhum</option>' +
+        colleagues.map(c => `<option value="${c.id}">${escHtml(c.name)}${c.dept ? ' — ' + escHtml(c.dept) : ''}</option>`).join('');
+}
+
 async function autoExpireVacations() {
     const today = new Date().toISOString().split('T')[0];
     const toExpire = myVacations.filter(v => v.status === 'aprovado' && v.end_date < today);
@@ -78,9 +99,115 @@ async function autoExpireVacations() {
     toExpire.forEach(v => v.status = 'concluido');
 }
 
+// ─── Compliance CLT: ciclos aquisitivos, faltas, fracionamento e vencimento ─
+
+const TABELA_FALTAS = [
+    { max: 5,        dias: 30 },
+    { max: 14,       dias: 24 },
+    { max: 23,       dias: 18 },
+    { max: 32,       dias: 12 },
+    { max: Infinity, dias: 0 },
+];
+function diasDireitoPorFaltas(faltas) {
+    return TABELA_FALTAS.find(f => faltas <= f.max).dias;
+}
+
+function buildAcquisitiveCycles(admDate, today) {
+    const cycles = [];
+    let cursor = new Date(admDate);
+    while (cursor <= today) {
+        const end = new Date(cursor.getFullYear() + 1, cursor.getMonth(), cursor.getDate() - 1);
+        cycles.push({ start: new Date(cursor), end });
+        cursor = new Date(cursor.getFullYear() + 1, cursor.getMonth(), cursor.getDate());
+    }
+    return cycles;
+}
+
+function idadeEm(birthDate, ref) {
+    if (!birthDate) return null;
+    const b = new Date(birthDate + 'T00:00:00');
+    let idade = ref.getFullYear() - b.getFullYear();
+    if (ref.getMonth() < b.getMonth() || (ref.getMonth() === b.getMonth() && ref.getDate() < b.getDate())) idade--;
+    return idade;
+}
+
+function countFractionsInCycle(cycle) {
+    if (!cycle) return [];
+    return myVacations.filter(v =>
+        v.status !== 'recusado' && v.status !== 'cancelado' &&
+        new Date(v.start_date + 'T00:00:00') >= cycle.start &&
+        new Date(v.start_date + 'T00:00:00') <= cycle.end
+    );
+}
+
+// Art. 130 CLT — faltas injustificadas (sem registro de ponto, sem justificativa aprovada,
+// excluindo domingos/feriados) no período aquisitivo informado.
+async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
+    const today    = new Date(); today.setHours(0,0,0,0);
+    const rangeEnd = cycleEnd < today ? cycleEnd : today;
+    if (rangeEnd < cycleStart) return 0;
+    const fmt = d => d.toISOString().split('T')[0];
+
+    const [{ data: recs }, { data: hols }, { data: adjs }] = await Promise.all([
+        sb.from('time_records').select('date,entrada').eq('employee_id', myEmployeeId).gte('date', fmt(cycleStart)).lte('date', fmt(rangeEnd)),
+        sb.from('holidays').select('date'),
+        sb.from('adjustment_requests').select('date').eq('employee_id', myEmployeeId).eq('tipo', 'falta').eq('status', 'aprovado').gte('date', fmt(cycleStart)).lte('date', fmt(rangeEnd)),
+    ]);
+    const recMap      = {}; (recs || []).forEach(r => { recMap[r.date] = r; });
+    const holidaySet   = new Set((hols || []).map(h => h.date));
+    const justifiedSet = new Set((adjs || []).map(a => a.date));
+
+    let faltas = 0;
+    for (let d = new Date(cycleStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+        const key = fmt(d);
+        if (d.getDay() === 0 || holidaySet.has(key) || justifiedSet.has(key)) continue;
+        const rec = recMap[key];
+        if (!rec || !rec.entrada) faltas++;
+    }
+    return faltas;
+}
+
+// Art. 137 CLT — férias não concedidas dentro do período concessivo (12 meses após o fim do
+// aquisitivo) geram direito a pagamento em dobro. Simplificação: 30 dias/ciclo fechado.
+function computeFeriasVencidas() {
+    if (!myEmployee?.admission_date || isEstagioOuAprendiz(myEmployee)) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const admDate = new Date(myEmployee.admission_date + 'T00:00:00');
+    const closedCycles = buildAcquisitiveCycles(admDate, today).filter(c => c.end < today);
+    if (!closedCycles.length) return null;
+
+    let usedRemaining = myVacations
+        .filter(v => v.status === 'aprovado' || v.status === 'concluido')
+        .reduce((sum, v) => sum + (v.days || 0), 0);
+
+    let expiredDays = 0, oldestConcessivo = null;
+    closedCycles.forEach(cycle => {
+        const consumed = Math.min(usedRemaining, 30);
+        usedRemaining -= consumed;
+        const pending = 30 - consumed;
+        if (pending > 0) {
+            const concessivo = new Date(cycle.end.getFullYear() + 1, cycle.end.getMonth(), cycle.end.getDate());
+            if (today > concessivo) {
+                expiredDays += pending;
+                if (!oldestConcessivo) oldestConcessivo = concessivo;
+            }
+        }
+    });
+    return expiredDays > 0 ? { days: expiredDays, since: oldestConcessivo } : null;
+}
+
+function renderExpiredBanner() {
+    const el = document.getElementById('expired-banner');
+    if (!el) return;
+    const vencida = computeFeriasVencidas();
+    if (!vencida) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Você tem <strong>${vencida.days} dias de férias vencidas</strong> desde ${vencida.since.toLocaleDateString('pt-BR')}. Por lei, o pagamento desses dias deve ser em dobro (art. 137 da CLT) — fale com o RH.`;
+    el.classList.remove('hidden');
+}
+
 // ─── Summary ──────────────────────────────────────────────────
 
-function loadSummary() {
+async function loadSummary() {
     const admission = myEmployee.admission_date;
     if (!admission) {
         ['val-saldo','val-periodo','val-vencer'].forEach(id => setEl(id, '—'));
@@ -91,18 +218,30 @@ function loadSummary() {
     const admDate = new Date(admission + 'T00:00:00');
     const months  = monthsDiff(admDate, today);
     const periods = Math.floor(months / 12);
-    const earned  = periods * 30;
+    const estagio = isEstagioOuAprendiz(myEmployee);
+
+    let earned = 0;
+    if (estagio) {
+        earned = periods * 30;
+    } else {
+        const closedCycles = buildAcquisitiveCycles(admDate, today).filter(c => c.end < today);
+        for (const cycle of closedCycles) {
+            const faltas = await calcFaltasInjustificadas(cycle.start, cycle.end);
+            earned += diasDireitoPorFaltas(faltas);
+        }
+    }
     const taken   = myVacations
         .filter(v => v.status === 'aprovado' || v.status === 'concluido')
         .reduce((s, v) => s + v.days - (v.abono ? 10 : 0), 0);
     availableDays = Math.max(0, earned - taken);
     acquisitivePeriod = calcAcquisitivePeriod(admDate, today);
     const daysLeft = Math.ceil((acquisitivePeriod.end - today) / 86400000);
+    const reducedByFaltas = !estagio && periods > 0 ? (periods * 30) - earned : 0;
 
     setEl('val-saldo', `${availableDays} dias`);
     setEl('sub-saldo', periods < 1
         ? `Aguardando completar 12 meses (${12 - months} meses restantes)`
-        : `${earned} ganhos · ${taken} utilizados`);
+        : `${earned} ganhos · ${taken} utilizados${reducedByFaltas > 0 ? ` · reduzido em ${reducedByFaltas}d por faltas` : ''}`);
     setEl('val-periodo', `${fmtBR(acquisitivePeriod.start)} – ${fmtBR(acquisitivePeriod.end)}`);
     setEl('sub-periodo', `${daysLeft} dias restantes no ciclo`);
 
@@ -154,7 +293,7 @@ function renderTimeline() {
     const toShow = myVacations.filter(v => {
         const s = new Date(v.start_date + 'T00:00:00');
         const e = new Date(v.end_date   + 'T00:00:00');
-        return (s.getFullYear() === year || e.getFullYear() === year) && v.status !== 'recusado';
+        return (s.getFullYear() === year || e.getFullYear() === year) && v.status !== 'recusado' && v.status !== 'cancelado';
     });
     if (toShow.length === 0) { barsEl.innerHTML = '<span class="tl-empty">Sem férias registradas para este ano</span>'; return; }
     barsEl.innerHTML = '';
@@ -177,6 +316,52 @@ function renderTimeline() {
     barsEl.appendChild(marker);
 }
 
+// ─── Exportar para calendário externo (Google Calendar / .ics) ──
+
+function icsDate(dateStr) { return dateStr.replace(/-/g, ''); }
+function icsDateExclusiveEnd(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+function buildIcsContent(title, startDate, endDate, description) {
+    const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const uid = `ferias-${startDate}-${endDate}-${Math.random().toString(36).slice(2)}@nexus`;
+    return [
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Nexus//Ferias//PT-BR', 'CALSCALE:GREGORIAN',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART;VALUE=DATE:${icsDate(startDate)}`,
+        `DTEND;VALUE=DATE:${icsDateExclusiveEnd(endDate)}`,
+        `SUMMARY:${title}`,
+        `DESCRIPTION:${description}`,
+        'END:VEVENT', 'END:VCALENDAR',
+    ].join('\r\n');
+}
+
+window.downloadIcs = function (id) {
+    const v = myVacations.find(v => v.id === id);
+    if (!v) return;
+    const title = `Férias — ${myEmployee.name}`;
+    const desc  = `Período de férias de ${fmtBR(new Date(v.start_date+'T00:00:00'))} a ${fmtBR(new Date(v.end_date+'T00:00:00'))} (${v.days} dias).`;
+    const blob  = new Blob([buildIcsContent(title, v.start_date, v.end_date, desc)], { type: 'text/calendar;charset=utf-8;' });
+    const url   = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `minhas_ferias_${v.start_date}.ics`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+};
+
+window.openGoogleCalendar = function (id) {
+    const v = myVacations.find(v => v.id === id);
+    if (!v) return;
+    const title   = encodeURIComponent(`Férias — ${myEmployee.name}`);
+    const details = encodeURIComponent(`Período de férias de ${fmtBR(new Date(v.start_date+'T00:00:00'))} a ${fmtBR(new Date(v.end_date+'T00:00:00'))} (${v.days} dias).`);
+    const dates   = `${icsDate(v.start_date)}/${icsDateExclusiveEnd(v.end_date)}`;
+    window.open(`https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`, '_blank');
+};
+
 // ─── History ──────────────────────────────────────────────────
 
 function renderHistory() {
@@ -196,8 +381,10 @@ function buildHistoryCard(v) {
         aprovado:  { label:'Aprovado',  cls:'badge--approved',  icon:'fa-check-circle' },
         recusado:  { label:'Recusado',  cls:'badge--rejected',  icon:'fa-times-circle' },
         concluido: { label:'Concluído', cls:'badge--concluded', icon:'fa-flag-checkered' },
+        cancelado: { label:'Cancelado', cls:'badge--cancelled', icon:'fa-ban' },
     };
     const s  = STATUS[v.status] || STATUS.pendente;
+    const substituto = v.substituto_id ? getColleague(v.substituto_id) : null;
     const el = document.createElement('div');
     el.className = 'history-card';
     el.innerHTML = `
@@ -208,6 +395,8 @@ function buildHistoryCard(v) {
                 <div class="hc-meta">
                     <span class="hc-meta-item"><i class="fas fa-calendar-day"></i> ${v.days} dias</span>
                     ${v.abono ? '<span class="tag-abono"><i class="fas fa-hand-holding-usd"></i> Abono Pecuniário</span>' : ''}
+                    ${v.coletiva ? '<span class="tag-abono tag-coletiva"><i class="fas fa-users"></i> Coletiva</span>' : ''}
+                    ${substituto ? `<span class="hc-meta-item"><i class="fas fa-user-group"></i> Cobertura: ${escHtml(substituto.name)}</span>` : ''}
                     <span class="hc-date">Solicitado em ${fmtBR(new Date(v.created_at))}</span>
                 </div>
             </div>
@@ -215,11 +404,46 @@ function buildHistoryCard(v) {
         <div class="hc-right">
             <span class="badge ${s.cls}"><i class="fas ${s.icon}"></i> ${s.label}</span>
             ${v.status === 'recusado' ? `<button class="btn-motivo" onclick="showReason(${JSON.stringify(v.rejection_reason || 'Motivo não informado.')})">Ver motivo</button>` : ''}
+            ${v.status === 'pendente' ? `<button class="btn-motivo btn-motivo--danger" onclick="cancelRequest('${v.id}')">Cancelar</button>` : ''}
+            ${(v.status === 'aprovado' || v.status === 'concluido') ? `
+                <div class="hc-cal-actions">
+                    <button class="btn-cal-sm" title="Adicionar ao Google Calendar" onclick="openGoogleCalendar('${v.id}')"><i class="fab fa-google"></i></button>
+                    <button class="btn-cal-sm" title="Baixar .ics (Outlook)" onclick="downloadIcs('${v.id}')"><i class="fas fa-file-arrow-down"></i></button>
+                </div>` : ''}
         </div>`;
     return el;
 }
 
+// ─── Cancelamento pelo colaborador ──────────────────────────────
+
+window.cancelRequest = async function (id) {
+    if (!confirm('Cancelar esta solicitação de férias pendente?')) return;
+    const { error } = await sb.from('vacations').update({ status: 'cancelado' }).eq('id', id).eq('status', 'pendente');
+    if (error) { showToast('Erro ao cancelar. Tente novamente.', 'error'); return; }
+    const vac = myVacations.find(v => v.id === id);
+    if (vac) vac.status = 'cancelado';
+    renderHistory(); renderTimeline();
+    await loadSummary();
+    showToast('Solicitação cancelada.', 'info');
+};
+
 // ─── Request modal ────────────────────────────────────────────
+
+function currentCycleFor(refDate) {
+    if (!myEmployee?.admission_date) return null;
+    const admDate = new Date(myEmployee.admission_date + 'T00:00:00');
+    const cycles  = buildAcquisitiveCycles(admDate, refDate);
+    return cycles.length ? cycles[cycles.length - 1] : null;
+}
+
+function renderFractionInfo(refDate) {
+    const el = document.getElementById('fraction-info');
+    if (!el || isEstagioOuAprendiz(myEmployee)) { if (el) el.classList.add('hidden'); return; }
+    const cycle = currentCycleFor(refDate);
+    const count = countFractionsInCycle(cycle).length;
+    el.innerHTML = `<i class="fas fa-layer-group"></i> Fração <strong>${count + 1} de 3</strong> permitidas neste período aquisitivo (art. 134 §1º CLT).`;
+    el.classList.remove('hidden');
+}
 
 window.openRequestModal = function () {
     const min    = new Date();
@@ -233,8 +457,10 @@ window.openRequestModal = function () {
     if (abonoEl)  { abonoEl.checked = false; abonoEl.disabled = true; }
     const obs = document.getElementById('req-obs');
     if (obs) obs.value = '';
+    populateSubstitutoSelect();
     setEl('days-count', 'Selecione as datas para ver o total de dias');
     document.getElementById('days-preview')?.setAttribute('class', 'days-preview');
+    renderFractionInfo(new Date());
     hideAlert();
     setConfirmDisabled(true);
     document.getElementById('request-modal')?.classList.add('active');
@@ -244,6 +470,39 @@ window.closeRequestModal = function () {
     document.getElementById('request-modal')?.classList.remove('active');
 };
 
+// Estimativa bruta de valor de férias: (salário/30) × dias de descanso + 1/3
+// constitucional, mais (salário/30) × 10 + 1/3 se houver abono pecuniário —
+// mesma fórmula usada no simulador de rescisão (calculo-rescisao.js), sem
+// descontos de INSS/IRRF (têm tabela própria para férias, fora de escopo aqui).
+function fmtBRLFerias(v) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+
+function updateValorFeriasPreview(days, abono) {
+    const wrap = document.getElementById('valor-ferias-preview');
+    if (!wrap) return;
+    const salario = Number(myEmployee?.salary) || 0;
+    if (!salario || !days || days <= 0) { wrap.classList.add('hidden'); return; }
+
+    const diaria = salario / 30;
+    const diasDescanso = abono ? days - 10 : days;
+    const valorFerias  = diaria * diasDescanso;
+    const tercoFerias  = valorFerias / 3;
+    const valorAbono   = abono ? diaria * 10 : 0;
+    const tercoAbono   = abono ? valorAbono / 3 : 0;
+    const total = valorFerias + tercoFerias + valorAbono + tercoAbono;
+
+    const rows = [
+        `<div class="vfp-row"><span>Férias (${diasDescanso}d)</span><strong>${fmtBRLFerias(valorFerias)}</strong></div>`,
+        `<div class="vfp-row"><span>1/3 constitucional</span><strong>${fmtBRLFerias(tercoFerias)}</strong></div>`,
+    ];
+    if (abono) {
+        rows.push(`<div class="vfp-row"><span>Abono pecuniário (10d)</span><strong>${fmtBRLFerias(valorAbono)}</strong></div>`);
+        rows.push(`<div class="vfp-row"><span>1/3 sobre o abono</span><strong>${fmtBRLFerias(tercoAbono)}</strong></div>`);
+    }
+    setEl('valor-ferias-rows', rows.join(''));
+    setEl('valor-ferias-total', fmtBRLFerias(total));
+    wrap.classList.remove('hidden');
+}
+
 window.calcDays = function () {
     const startVal = document.getElementById('req-start')?.value;
     const endVal   = document.getElementById('req-end')?.value;
@@ -252,17 +511,29 @@ window.calcDays = function () {
     const countEl  = document.getElementById('days-count');
     const hint     = document.getElementById('abono-hint');
     hideAlert();
-    if (!startVal || !endVal) { if (countEl) countEl.textContent = 'Selecione as datas para ver o total de dias'; if (preview) preview.className = 'days-preview'; setConfirmDisabled(true); return; }
+    if (!startVal || !endVal) { if (countEl) countEl.textContent = 'Selecione as datas para ver o total de dias'; if (preview) preview.className = 'days-preview'; setConfirmDisabled(true); document.getElementById('valor-ferias-preview')?.classList.add('hidden'); return; }
     const s    = new Date(startVal + 'T00:00:00');
     const e    = new Date(endVal   + 'T00:00:00');
     const days = Math.round((e - s) / 86400000) + 1;
-    if (days <= 0) { if (countEl) countEl.textContent = 'A data de fim deve ser após o início'; if (preview) preview.className = 'days-preview days-preview--error'; setConfirmDisabled(true); return; }
+    if (days <= 0) { if (countEl) countEl.textContent = 'A data de fim deve ser após o início'; if (preview) preview.className = 'days-preview days-preview--error'; setConfirmDisabled(true); document.getElementById('valor-ferias-preview')?.classList.add('hidden'); return; }
     const today   = new Date(); today.setHours(0,0,0,0);
     const advance = Math.round((s - today) / 86400000);
     let errors = [];
     if (advance < 30) errors.push(`Antecedência mínima de 30 dias (a partir de ${fmtBR(addDays(today, 30))})`);
     if (days > availableDays) errors.push(`Saldo insuficiente — você tem apenas ${availableDays} dias disponíveis`);
     if (days < 5) errors.push('O período mínimo de férias é de 5 dias corridos');
+
+    renderFractionInfo(s);
+    if (!isEstagioOuAprendiz(myEmployee)) {
+        const cycle   = currentCycleFor(s);
+        const others  = countFractionsInCycle(cycle);
+        const fractionNumber = others.length + 1;
+        if (fractionNumber > 3) errors.push('Você já utilizou as 3 frações de férias permitidas neste período aquisitivo (art. 134 §1º CLT)');
+        else if (fractionNumber === 3 && !others.some(v => (v.days || 0) >= 14) && days < 14) errors.push('Ao menos uma fração deve ter 14 dias corridos ou mais — esta seria sua última fração disponível neste ciclo (art. 134 §1º CLT)');
+        const idade = idadeEm(myEmployee.birth_date, s);
+        if (idade !== null && (idade < 18 || idade >= 50) && fractionNumber > 1) errors.push('Menores de 18 ou maiores de 50 anos devem gozar as férias em período único (art. 134 §2º CLT)');
+    }
+
     if (abonoEl) {
         if (days >= 20 && errors.length === 0) { abonoEl.disabled = false; if (hint) hint.textContent = 'Você pode converter 10 dias em pagamento adicional.'; }
         else { abonoEl.disabled = true; abonoEl.checked = false; if (hint) hint.textContent = days < 20 ? 'Disponível somente para 20 dias ou mais.' : ''; }
@@ -275,9 +546,11 @@ window.calcDays = function () {
         showAlert(errors.map(e => `<i class="fas fa-exclamation-triangle"></i> ${e}`).join('<br>'));
         if (preview) preview.className = 'days-preview days-preview--error';
         setConfirmDisabled(true);
+        document.getElementById('valor-ferias-preview')?.classList.add('hidden');
     } else {
         if (preview) preview.className = 'days-preview days-preview--ok';
         setConfirmDisabled(false);
+        updateValorFeriasPreview(days, abono);
     }
 };
 
@@ -285,6 +558,7 @@ window.submitRequest = async function () {
     const startVal = document.getElementById('req-start')?.value;
     const endVal   = document.getElementById('req-end')?.value;
     const abono    = document.getElementById('req-abono')?.checked ?? false;
+    const substitutoId = document.getElementById('req-substituto')?.value || null;
     const obs      = document.getElementById('req-obs')?.value.trim() ?? '';
     if (!startVal || !endVal) { showAlert('<i class="fas fa-exclamation-triangle"></i> Selecione as datas de início e fim.'); return; }
     const s    = new Date(startVal + 'T00:00:00');
@@ -295,6 +569,16 @@ window.submitRequest = async function () {
     if (days > availableDays) { showAlert(`<i class="fas fa-exclamation-triangle"></i> Saldo insuficiente (${availableDays} dias disponíveis).`); return; }
     if (days < 5) { showAlert('<i class="fas fa-exclamation-triangle"></i> Período mínimo de 5 dias.'); return; }
 
+    if (!isEstagioOuAprendiz(myEmployee)) {
+        const cycle  = currentCycleFor(s);
+        const others = countFractionsInCycle(cycle);
+        const fractionNumber = others.length + 1;
+        if (fractionNumber > 3) { showAlert('<i class="fas fa-exclamation-triangle"></i> Você já utilizou as 3 frações de férias permitidas neste período aquisitivo.'); return; }
+        if (fractionNumber === 3 && !others.some(v => (v.days || 0) >= 14) && days < 14) { showAlert('<i class="fas fa-exclamation-triangle"></i> Ao menos uma fração deve ter 14 dias corridos ou mais.'); return; }
+        const idade = idadeEm(myEmployee.birth_date, s);
+        if (idade !== null && (idade < 18 || idade >= 50) && fractionNumber > 1) { showAlert('<i class="fas fa-exclamation-triangle"></i> Menores de 18 ou maiores de 50 anos devem gozar as férias em período único.'); return; }
+    }
+
     const btn = document.getElementById('btn-confirm');
     if (btn) btn.disabled = true;
 
@@ -304,6 +588,7 @@ window.submitRequest = async function () {
         end_date:    endVal,
         days,
         abono:       abono && days >= 20,
+        substituto_id: substitutoId,
         obs,
         status:      'pendente',
     }).select().single();
@@ -316,7 +601,8 @@ window.submitRequest = async function () {
     closeRequestModal();
     showToast('Solicitação enviada! Aguardando aprovação do RH.', 'success');
     await autoExpireVacations();
-    loadSummary(); renderHistory(); renderTimeline();
+    await loadSummary();
+    renderHistory(); renderTimeline(); renderExpiredBanner();
 };
 
 window.showReason = function (reason) {
@@ -349,7 +635,8 @@ function setupRealtimeSync() {
             }
             await loadMyVacations();
             await autoExpireVacations();
-            loadSummary(); renderHistory(); renderTimeline();
+            await loadSummary();
+            renderHistory(); renderTimeline(); renderExpiredBanner();
         })
         .subscribe();
 }
