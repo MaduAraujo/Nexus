@@ -440,9 +440,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── ATENDIMENTO RH ────────────────────────────────────────────────────────
 
-    const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! 👋 Sou o **Agente de Atendimento RH**. Posso responder com seus dados reais — saldo de férias, banco de horas, holerites — ou te conectar a um analista.
-
-Selecione um tema abaixo ou descreva sua dúvida:`;
+    const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! Sou o Agente de Atendimento RH.
+Com o que posso te ajudar hoje?`;
 
     // Só os tópicos de atalho da saudação — a resposta em si vem do assistente com dados
     // reais (ai-employee-chat), não mais de um texto fixo por regex.
@@ -469,7 +468,7 @@ Selecione um tema abaixo ou descreva sua dúvida:`;
         list.innerHTML = '';
 
         if (!allTickets.length) {
-            list.innerHTML = '<li class="ch-loading" style="flex-direction:column;align-items:flex-start;gap:4px;"><span style="color:rgba(156,163,175,.9)">Nenhuma conversa ainda</span><span style="font-size:.72rem">Clique em "Nova conversa" para começar</span></li>';
+            list.innerHTML = '<li class="ch-loading" style="flex-direction:column;align-items:flex-start;gap:4px;"><span style="color:rgba(156,163,175,.9)">Nenhuma conversa ainda</span></li>';
             return;
         }
 
@@ -986,7 +985,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         const wall = $('kudos-wall');
         if (!wall) return;
         if (!allKudos.length) {
-            wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award" style="font-size:1.6rem;opacity:.4;display:block;margin-bottom:8px"></i>Nenhum reconhecimento ainda. Seja o primeiro a elogiar um colega!</div>`;
+            wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award" style="font-size:1.6rem;opacity:.4;display:block;margin-bottom:8px"></i>Nenhum reconhecimento ainda.</div>`;
             return;
         }
         wall.innerHTML = allKudos.map(k => `

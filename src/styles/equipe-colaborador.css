@@ -171,7 +171,7 @@ body {
 @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; max-width: 340px; }
+.toast-container { position: fixed; top: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; max-width: 340px; }
 .toast { background: var(--bg-white); border-radius: 10px; box-shadow: var(--shadow-md); padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; opacity: 0; transform: translateX(20px); transition: opacity .3s, transform .3s; border-left: 4px solid var(--accent); }
 .toast.show { opacity: 1; transform: translateX(0); }
 .toast.hide { opacity: 0; transform: translateX(20px); }

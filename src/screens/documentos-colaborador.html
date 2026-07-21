@@ -13,10 +13,14 @@
 
     <header class="topbar">
         <div class="topbar-left">
-            <a href="../screens/inicio-colaborador.html" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                <span>Voltar</span>
+            <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
+        </div>
+        <div class="topbar-right">
+            <button class="btn-upload" id="btn-upload" onclick="openUploadModal()" aria-label="Enviar Documento" title="Enviar Documento">
+                <i class="fas fa-arrow-up-from-bracket"></i>
+            </button>
         </div>
     </header>
 
@@ -69,9 +73,6 @@
                     </div>
                     <p class="doc-empty-title">Selecione um documento</p>
                     <p class="doc-empty-sub">Escolha um documento na lista ao lado para visualizar os detalhes.</p>
-                    <button class="btn-upload-empty" onclick="openUploadModal()">
-                        <i class="fas fa-upload"></i> Enviar Documento
-                    </button>
                 </div>
 
                 <!-- Detalhe do documento -->
@@ -183,7 +184,7 @@
     <div class="modal-overlay" id="upload-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-upload"></i> Enviar Documento</h3>
+                <h3><i class="fas fa-arrow-up-from-bracket"></i> Enviar Documento</h3>
                 <button class="close-modal" onclick="closeUploadModal()"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
@@ -205,8 +206,7 @@
                     <label>Arquivo</label>
                     <div class="drop-zone" id="drop-zone">
                         <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Arraste o arquivo ou <span>clique para selecionar</span></p>
-                        <small>PDF, DOCX, JPG — máx. 50 MB</small>
+                        <p><span>Clique para selecionar</span><br>ou arraste o arquivo</p>
                         <input type="file" id="file-input" accept=".pdf,.docx,.jpg,.jpeg,.png" hidden>
                     </div>
                     <div class="file-selected hidden" id="file-selected">
@@ -217,9 +217,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeUploadModal()">Cancelar</button>
                 <button class="btn-primary" onclick="submitUpload()">
-                    <i class="fas fa-upload"></i> Enviar
+                    Enviar
                 </button>
             </div>
         </div>

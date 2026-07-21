@@ -50,7 +50,7 @@ function setLoading(show) {
 async function loadData() {
     const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }] = await Promise.all([
         sb.from('employees')
-            .select('id,name,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao')
+            .select('id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao')
             .in('status', ['Ativo','ativo'])
             .order('name'),
         sb.from('payslips').select('*').eq('mes', currentMonth),
@@ -62,6 +62,7 @@ async function loadData() {
     employees = (empData || []).map(e => ({
         id:            e.id,
         name:          e.name,
+        cpf:           e.cpf,
         role:          e.role,
         dept:          e.dept,
         salary:        e.salary,
@@ -1302,6 +1303,43 @@ function setupExportDropdown() {
 
     document.getElementById('export-excel')?.addEventListener('click', () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportExcel(); });
     document.getElementById('export-pdf')?.addEventListener('click',   () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportPDF(); });
+    document.getElementById('export-csv')?.addEventListener('click',   () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportCSV(); });
+}
+
+// Exportação em CSV para contabilidade externa/eSocial: o motor de folha já calcula
+// INSS/IRRF/adicionais corretamente (buildPayslipData), mas até aqui esse dado só
+// existia dentro do Nexus — sem caminho de saída estruturado para o contador. Uma
+// linha por verba (provento/desconto) por colaborador, não um resumo — é o formato
+// que um contador de fato importa, mais próximo da granularidade que o eSocial exige.
+async function exportCSV() {
+    if (!employees.length) { showToast('Nada para exportar neste mês.', 'warning'); return; }
+    if (typeof XLSX === 'undefined') { showToast('Biblioteca de exportação não carregada.', 'error'); return; }
+
+    setLoading(true);
+    try {
+        const slips = await Promise.all(employees.map(emp => buildPayslipData(emp, currentMonth)));
+
+        const header = ['Competência', 'Colaborador', 'CPF', 'Departamento', 'Cargo', 'Tipo de Contrato', 'Tipo', 'Código', 'Descrição', 'Referência', 'Valor'];
+        const body = [];
+        employees.forEach((emp, i) => {
+            const slip = slips[i];
+            const common = [slip.competencia, emp.name, emp.cpf || '', emp.dept || '—', emp.role || '—', (emp.contractType || 'CLT').toUpperCase()];
+            slip.proventos.forEach(p => body.push([...common, 'Provento', p.cod, p.descricao, p.referencia, p.valor]));
+            slip.descontos.forEach(d => body.push([...common, 'Desconto', d.cod, d.descricao, d.referencia, d.valor]));
+        });
+
+        if (!body.length) { showToast('Nenhuma verba calculada para este mês.', 'warning'); return; }
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
+        XLSX.writeFile(wb, `folha-pagamento-${currentMonth}-contabilidade.csv`);
+        showToast('Exportação CSV concluída.', 'success');
+    } catch (e) {
+        console.error('exportCSV:', e);
+        showToast('Erro ao gerar CSV.', 'error');
+    } finally {
+        setLoading(false);
+    }
 }
 
 function exportExcel() {
@@ -1520,3 +1558,9 @@ function showToast(msg, type = 'success') {
 }
 
 async function logout() { await sb.auth.signOut(); window.location.href = '../screens/login.html'; }
+
+// Inerte no navegador (module não existe lá) — permite `require()` deste arquivo
+// nos testes automatizados (ver test/) sem precisar de bundler. Expõe só o
+// motor de cálculo puro (não depende de DOM/Supabase em si), não a orquestração
+// de tela que o resto do arquivo faz dentro do DOMContentLoaded.
+if (typeof module !== 'undefined' && module.exports) module.exports = { calcINSS, calcIRRF, calcRow, parseCurrency };

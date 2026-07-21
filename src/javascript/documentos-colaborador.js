@@ -119,18 +119,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="doc-list-empty">
                     <i class="fas fa-folder-open"></i>
                     <p>Nenhum documento</p>
-                    <span>Clique em "Enviar Documento" para começar</span>
+                    <span>Clique em <i class="fas fa-arrow-up-from-bracket"></i></span>
                 </div>`;
             showEmptyPanel();
             return;
         }
 
-        docList.innerHTML = myDocs.map(d => {
+        docList.innerHTML = myDocs.map((d, i) => {
             const { cls, fa } = getIconInfo(d.name);
             const st   = statusMap[d.status] || statusMap.pendente;
             const date = new Date(d.created_at).toLocaleDateString('pt-BR');
             return `
-                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" onclick="selectDocById('${d.id}')">
+                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s" onclick="selectDocById('${d.id}')">
                     <div class="doc-card-icon doc-card-icon--${cls}">
                         <i class="fas ${fa}"></i>
                     </div>
@@ -395,7 +395,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Documento enviado!', `${inserted.name} foi enviado para análise do RH.`);
     };
 
-    uploadModal?.addEventListener('click', (e) => { if (e.target === uploadModal) closeUploadModal(); });
     signModal?.addEventListener('click', (e) => { if (e.target === signModal) closeSignModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeUploadModal(); closeSignModal(); } });
 

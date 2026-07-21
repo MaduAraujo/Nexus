@@ -1,5 +1,5 @@
 /* comunicado-format.js — sanitização compartilhada do conteúdo formatado dos comunicados
-   Usado tanto pelo editor do RH (comunicação.js) quanto pela leitura do colaborador
+   Usado tanto pelo editor do RH (comunicacao.js) quanto pela leitura do colaborador
    (comunicados-colaborador.js), para que a mesma whitelist valha nos dois lados. */
 (function () {
     const ALLOWED_TAGS = new Set(['STRONG', 'B', 'UL', 'LI', 'A', 'BR', 'DIV', 'P']);

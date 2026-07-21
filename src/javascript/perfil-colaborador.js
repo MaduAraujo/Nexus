@@ -452,7 +452,6 @@
             applySession();
             buildColorSwatches();
             await calcBancoHoras();
-            showToast('Perfil atualizado pelo RH', 'success');
         })
         .subscribe();
 });

@@ -206,3 +206,7 @@ function calcularRescisao({ tipo, salario, admissao, demissao, saldoBancoHorasMi
 
 window.TIPOS_RESCISAO     = TIPOS_RESCISAO;
 window.calcularRescisao   = calcularRescisao;
+
+// Inerte no navegador (module não existe lá) — permite `require()` deste arquivo
+// nos testes automatizados (ver test/) sem precisar de bundler.
+if (typeof module !== 'undefined' && module.exports) module.exports = { TIPOS_RESCISAO, calcularRescisao, getDivisorHoraMensal };

@@ -63,13 +63,14 @@ function renderMonthList() {
     if (badge) badge.textContent = holerites.length;
     list.innerHTML = '';
     if (!holerites.length) {
-        list.innerHTML = `<div style="padding:20px;font-size:.84rem;color:var(--text-muted);text-align:center;">Nenhum holerite disponível.<br>Seus holerites aparecerão aqui após a confirmação do pagamento pelo RH.</div>`;
+        list.innerHTML = `<div style="padding:20px;font-size:.84rem;color:var(--text-muted);text-align:center;">Nenhum holerite disponível.</div>`;
         return;
     }
-    holerites.forEach(h => {
+    holerites.forEach((h, i) => {
         const card = document.createElement('div');
         card.className = 'month-card';
         card.setAttribute('data-id', h.id);
+        card.style.animationDelay = `${Math.min(i * 0.04, 0.4)}s`;
         card.onclick = () => selectPayslipById(h.id);
         card.innerHTML = `
             <div class="month-card-icon"><i class="fas fa-file-alt"></i></div>

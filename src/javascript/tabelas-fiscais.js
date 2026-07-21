@@ -38,3 +38,7 @@ const TABELA_FISCAL = {
 };
 
 window.TABELA_FISCAL = TABELA_FISCAL;
+
+// Inerte no navegador (module não existe lá) — permite `require()` deste arquivo
+// nos testes automatizados (ver test/) sem precisar de bundler.
+if (typeof module !== 'undefined' && module.exports) module.exports = { TABELA_FISCAL };

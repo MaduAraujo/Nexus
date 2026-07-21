@@ -244,6 +244,7 @@ ul { list-style: none; }
 }
 .export-option-icon--excel { background: var(--success-bg); color: #16a34a; }
 .export-option-icon--pdf   { background: var(--danger-bg);  color: var(--danger); }
+.export-option-icon--csv   { background: var(--info-bg);    color: var(--info); }
 
 .export-option-body  { display: flex; flex-direction: column; gap: 1px; }
 .export-option-title { font-size: .875rem; font-weight: 600; color: var(--text-primary); }

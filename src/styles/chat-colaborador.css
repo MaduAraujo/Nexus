@@ -709,7 +709,7 @@ body {
 
 .toast-container {
     position: fixed;
-    bottom: 24px; right: 24px;
+    top: 24px; right: 24px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -802,8 +802,8 @@ body {
 }
 .modal-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .98rem; font-weight: 700; color: var(--text-main); }
 .modal-sub   { font-size: .76rem; color: var(--text-muted); margin-top: 2px; }
-.modal-close { width: 30px; height: 30px; min-width: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
-.modal-close:hover { background: var(--bg-page); color: var(--text-main); }
+.modal-close { width: 30px; height: 30px; min-width: 30px; border: none; background: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); cursor: pointer; transition: background .18s, color .18s; }
+.modal-close:hover { background: rgba(239,68,68,.1); color: var(--danger); }
 
 .modal-body   { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
 .modal-footer { padding: 0 22px 22px; display: flex; justify-content: flex-end; }

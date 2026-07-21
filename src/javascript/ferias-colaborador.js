@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadSidebarInfo();
     applyContractTypeUI();
+    setupDatePickers();
     await loadMyVacations();
     await loadColleagues();
     await autoExpireVacations();
@@ -372,10 +373,10 @@ function renderHistory() {
     const sorted = [...myVacations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sorted.length === 0) { if (emptyEl) emptyEl.style.display = 'flex'; return; }
     if (emptyEl) emptyEl.style.display = 'none';
-    sorted.forEach(v => list.appendChild(buildHistoryCard(v)));
+    sorted.forEach((v, i) => list.appendChild(buildHistoryCard(v, i)));
 }
 
-function buildHistoryCard(v) {
+function buildHistoryCard(v, i = 0) {
     const STATUS = {
         pendente:  { label:'Pendente',  cls:'badge--pending',   icon:'fa-clock' },
         aprovado:  { label:'Aprovado',  cls:'badge--approved',  icon:'fa-check-circle' },
@@ -387,6 +388,7 @@ function buildHistoryCard(v) {
     const substituto = v.substituto_id ? getColleague(v.substituto_id) : null;
     const el = document.createElement('div');
     el.className = 'history-card';
+    el.style.animationDelay = `${Math.min(i * 0.05, 0.4)}s`;
     el.innerHTML = `
         <div class="hc-left">
             <div class="hc-icon"><i class="fas fa-umbrella-beach"></i></div>
@@ -427,6 +429,133 @@ window.cancelRequest = async function (id) {
     showToast('Solicitação cancelada.', 'info');
 };
 
+// ─── Trava de scroll do body enquanto um modal está aberto ─────
+
+let openModalCount = 0;
+function lockBodyScroll() { openModalCount++; document.body.style.overflow = 'hidden'; }
+function unlockBodyScroll() { openModalCount = Math.max(0, openModalCount - 1); if (openModalCount === 0) document.body.style.overflow = ''; }
+
+// ─── Date pickers (mesmo calendário clicável do Início do colaborador) ──
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+let startPicker = null;
+let endPicker   = null;
+const allDatePickers = [];
+
+function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
+    const trigger = document.getElementById(`${prefix}-trigger`);
+    const textEl  = document.getElementById(`${prefix}-text`);
+    const hidden  = document.getElementById(prefix);
+    const popover = document.getElementById(`${prefix}-popover`);
+    const titleEl = document.getElementById(`${prefix}-title`);
+    const gridEl  = document.getElementById(`${prefix}-grid`);
+    const prevBtn = document.getElementById(`${prefix}-prev`);
+    const nextBtn = document.getElementById(`${prefix}-next`);
+    if (!trigger || !popover) return null;
+
+    let viewYear, viewMonth, selected = null;
+
+    const sameDay = (a, b) => !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    const toISO   = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    function render() {
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const min = getMin?.() || null;
+        const max = getMax?.() || null;
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(viewYear, viewMonth, d);
+            cells.push({
+                day: d, muted: false, date,
+                isToday: sameDay(date, today),
+                isSelected: sameDay(date, selected),
+                disabled: (min && date < min) || (max && date > max),
+            });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c => {
+            if (c.muted) return `<button type="button" class="calendar-day calendar-day--muted" disabled>${c.day}</button>`;
+            const cls = ['calendar-day'];
+            if (c.isToday) cls.push('calendar-day--today');
+            if (c.isSelected) cls.push('calendar-day--selected');
+            return `<button type="button" class="${cls.join(' ')}" data-date="${toISO(c.date)}" ${c.disabled ? 'disabled' : ''}>${c.day}</button>`;
+        }).join('');
+    }
+
+    function open() {
+        allDatePickers.forEach(p => p !== api && p.close());
+        const base = selected || getMin?.() || new Date();
+        viewYear = base.getFullYear(); viewMonth = base.getMonth();
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    gridEl.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-date]');
+        if (!btn || btn.disabled) return;
+        const [y, m, d] = btn.dataset.date.split('-').map(Number);
+        selected = new Date(y, m - 1, d);
+        if (hidden) hidden.value = btn.dataset.date;
+        if (textEl) textEl.textContent = fmtBR(selected);
+        render();
+        close();
+        onSelect?.();
+    });
+
+    prevBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    nextBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+
+    const api = {
+        close,
+        reset() { selected = null; if (hidden) hidden.value = ''; if (textEl) textEl.textContent = 'Selecionar data'; close(); },
+    };
+    allDatePickers.push(api);
+    return api;
+}
+
+function setupDatePickers() {
+    startPicker = createDatePicker('req-start', {
+        getMin: () => addDays(new Date(new Date().setHours(0, 0, 0, 0)), 30),
+        onSelect: () => calcDays(),
+    });
+    endPicker = createDatePicker('req-end', {
+        getMin: () => {
+            const v = document.getElementById('req-start')?.value;
+            return v ? new Date(v + 'T00:00:00') : addDays(new Date(new Date().setHours(0, 0, 0, 0)), 30);
+        },
+        onSelect: () => calcDays(),
+    });
+}
+
 // ─── Request modal ────────────────────────────────────────────
 
 function currentCycleFor(refDate) {
@@ -446,13 +575,8 @@ function renderFractionInfo(refDate) {
 }
 
 window.openRequestModal = function () {
-    const min    = new Date();
-    min.setDate(min.getDate() + 30);
-    const minStr = min.toISOString().split('T')[0];
-    const startEl = document.getElementById('req-start');
-    const endEl   = document.getElementById('req-end');
-    if (startEl) { startEl.min = minStr; startEl.value = ''; }
-    if (endEl)   { endEl.min   = minStr; endEl.value   = ''; }
+    startPicker?.reset();
+    endPicker?.reset();
     const abonoEl = document.getElementById('req-abono');
     if (abonoEl)  { abonoEl.checked = false; abonoEl.disabled = true; }
     const obs = document.getElementById('req-obs');
@@ -464,10 +588,12 @@ window.openRequestModal = function () {
     hideAlert();
     setConfirmDisabled(true);
     document.getElementById('request-modal')?.classList.add('active');
+    lockBodyScroll();
 };
 
 window.closeRequestModal = function () {
     document.getElementById('request-modal')?.classList.remove('active');
+    unlockBodyScroll();
 };
 
 // Estimativa bruta de valor de férias: (salário/30) × dias de descanso + 1/3
@@ -608,14 +734,19 @@ window.submitRequest = async function () {
 window.showReason = function (reason) {
     setEl('detail-reason', reason || 'Motivo não informado.');
     document.getElementById('detail-modal')?.classList.add('active');
+    lockBodyScroll();
 };
 
 window.closeDetailModal = function () {
     document.getElementById('detail-modal')?.classList.remove('active');
+    unlockBodyScroll();
 };
 
 window.handleOverlayClick = function (e, modalId) {
-    if (e.target === e.currentTarget) document.getElementById(modalId)?.classList.remove('active');
+    if (e.target !== e.currentTarget) return;
+    if (modalId === 'request-modal') { closeRequestModal(); return; }
+    if (modalId === 'detail-modal')  { closeDetailModal(); return; }
+    document.getElementById(modalId)?.classList.remove('active');
 };
 
 // ─── Realtime ─────────────────────────────────────────────────
@@ -646,6 +777,7 @@ function setupRealtimeSync() {
 function addDays(d, n)    { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function clampDate(d, mn, mx) { return d < mn ? new Date(mn) : d > mx ? new Date(mx) : d; }
 function fmtBR(d)         { if (!d || isNaN(d)) return '—'; return d.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); }
+function escHtml(str)     { if (typeof str !== 'string') return str ?? ''; return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function setEl(id, html)  { const el = document.getElementById(id); if (el) el.innerHTML = html; }
 function monthsDiff(a, b) { return (b.getFullYear()-a.getFullYear())*12 + b.getMonth()-a.getMonth(); }
 function setConfirmDisabled(v) { const b = document.getElementById('btn-confirm'); if (b) b.disabled = v; }

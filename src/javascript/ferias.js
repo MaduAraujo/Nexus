@@ -287,6 +287,7 @@ function renderTable() {
         const name = emp ? emp.name : '—';
         const dept = emp ? (emp.dept || '—') : '—';
         const tr = document.createElement('tr');
+        tr.dataset.id = v.id;
         tr.innerHTML = `
             <td class="select-cell">${v.status === 'pendente' ? `<label class="checkbox-label row-check"><input type="checkbox" data-id="${v.id}" ${selectedIds.has(v.id) ? 'checked' : ''} onchange="toggleRowSelect('${v.id}', this.checked)"><span class="checkbox-box"></span></label>` : ''}</td>
             <td class="col-employee"><div class="emp-cell"><div><div class="emp-name">${escHtml(name)}</div><div class="emp-dept">${escHtml(dept)}</div></div></div></td>
@@ -1445,4 +1446,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupDatePicker('add-start');
     setupDatePicker('add-end');
     setupRealtimeSync();
+
+    // Deep link da busca universal (search.js): ?req=<id> pula direto para a
+    // solicitação, sem precisar filtrar/rolar a tabela manualmente.
+    const deepLinkReqId = new URLSearchParams(location.search).get('req');
+    if (deepLinkReqId) {
+        document.querySelector('.tab-btn[data-tab="requests"]')?.click();
+        const row = document.querySelector(`#requests-tbody tr[data-id="${deepLinkReqId}"]`);
+        if (row) {
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            row.classList.add('row-deep-link-highlight');
+            setTimeout(() => row.classList.remove('row-deep-link-highlight'), 2600);
+        }
+    }
 });

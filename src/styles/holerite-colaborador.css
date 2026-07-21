@@ -22,7 +22,10 @@
     --shadow-sm: 0 1px 3px rgba(0,0,0,.07);
     --shadow-md: 0 4px 16px rgba(0,0,0,.08);
 
-    --success-bg: #dcfce7;
+    --success-bg:   #dcfce7;
+    --success-text: #065f46;
+    --info-bg:      #eff6ff;
+    --info-text:    #1d4ed8;
     --danger:     #ef4444; --danger-bg: #fee2e2;
 
     --topbar-h: 64px;
@@ -41,7 +44,10 @@
 
     --border-color: rgba(255, 255, 255, 0.08);
 
-    --success-bg: rgba(16, 185, 129, 0.16);
+    --success-bg:   rgba(16, 185, 129, 0.16);
+    --success-text: #4ade80;
+    --info-bg:      rgba(59, 130, 246, 0.16);
+    --info-text:    #93c5fd;
     --danger-bg:  rgba(239, 68, 68, 0.16);
 }
 
@@ -119,64 +125,73 @@ body {
 /* ── Lista de Meses ───────────────────────────── */
 
 .month-list-panel {
-    width: 260px; flex-shrink: 0;
+    width: 268px; flex-shrink: 0;
     background: var(--bg-white);
-    border-radius: var(--radius); border: 1px solid var(--border-color);
+    border-radius: 16px; border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
     display: flex; flex-direction: column; overflow: hidden;
     height: fit-content;
     max-height: calc(100vh - var(--topbar-h) - 80px);
     position: sticky; top: calc(var(--topbar-h) + 16px);
+    transition: box-shadow .2s var(--ease);
 }
+.month-list-panel:hover { box-shadow: var(--shadow-md); }
 
 .month-list-header {
-    padding: 16px 18px 12px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--border-color);
     display: flex; align-items: center; justify-content: space-between;
-    background: #f8fafc; flex-shrink: 0;
+    background: var(--bg-page); flex-shrink: 0;
 }
 
 .month-list-title {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: .85rem; font-weight: 700; color: var(--text-main);
-    display: flex; align-items: center; gap: 7px;
+    display: flex; align-items: center; gap: 8px;
 }
-.month-list-title i { color: var(--accent); font-size: .78rem; }
+.month-list-title i {
+    color: var(--accent); font-size: .74rem;
+    width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+    background: var(--accent-light);
+    display: flex; align-items: center; justify-content: center;
+}
 
 .month-count-badge {
     background: var(--accent); color: #fff;
     font-size: .68rem; font-weight: 700;
-    padding: 2px 8px; border-radius: 99px;
+    padding: 2px 9px; border-radius: 99px;
+    box-shadow: 0 2px 8px rgba(99,102,241,.35);
 }
 
 .month-list {
-    overflow-y: auto; flex: 1;
-    scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
+    overflow-y: auto; flex: 1; padding: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--border-color) transparent;
 }
 .month-list::-webkit-scrollbar { width: 4px; }
-.month-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+.month-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 99px; }
 
 .month-card {
     display: flex; align-items: center; gap: 12px;
-    padding: 13px 16px; cursor: pointer;
-    border-bottom: 1px solid #f8fafc;
-    transition: background .15s; position: relative;
+    padding: 12px; cursor: pointer;
+    border-radius: 11px;
+    transition: background .18s var(--ease); position: relative;
+    animation: cardIn .3s var(--ease) both;
 }
-.month-card:hover  { background: #f8faff; }
-.month-card.active { background: #eef2ff; }
+.month-card:hover  { background: var(--bg-page); }
+.month-card.active { background: var(--accent-light); }
 .month-card.active::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-    width: 3px; background: var(--accent); border-radius: 0 3px 3px 0;
+    content: ''; position: absolute; left: 3px; top: 50%; translate: 0 -50%;
+    width: 3px; height: 60%; background: var(--accent); border-radius: 99px;
 }
 
 .month-card-icon {
-    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: .82rem;
-    background: #f1f5f9; color: var(--text-muted);
-    transition: background .15s, color .15s;
+    font-size: .84rem;
+    background: var(--bg-page); color: var(--text-muted);
+    transition: background .18s, color .18s;
 }
-.month-card.active .month-card-icon { background: var(--accent-light); color: var(--accent); }
+.month-card.active .month-card-icon { background: var(--accent); color: #fff; }
 
 .month-card-body { flex: 1; min-width: 0; }
 .month-card-competencia {
@@ -187,10 +202,12 @@ body {
 .month-card-liquido { font-size: .75rem; color: var(--text-muted); margin-top: 1px; display: block; }
 .month-card-arrow {
     color: var(--text-tertiary); font-size: .72rem; flex-shrink: 0;
-    opacity: 0; transition: opacity .15s;
+    opacity: 0; transform: translateX(-4px); transition: opacity .18s, transform .18s;
 }
 .month-card:hover .month-card-arrow,
-.month-card.active .month-card-arrow { opacity: 1; }
+.month-card.active .month-card-arrow { opacity: 1; transform: translateX(0); }
+
+@keyframes cardIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Painel do Holerite ───────────────────────── */
 
@@ -199,16 +216,19 @@ body {
 .payslip-empty {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    background: var(--bg-white); border-radius: var(--radius);
+    background: var(--bg-white); border-radius: 16px;
     border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
     padding: 48px 32px; text-align: center; min-height: 360px;
 }
 .payslip-empty-icon {
-    width: 64px; height: 64px; border-radius: 16px;
-    background: var(--accent-light); color: var(--accent);
+    width: 72px; height: 72px; border-radius: 20px;
+    background: linear-gradient(135deg, var(--accent-light), rgba(99,102,241,.04));
+    color: var(--accent);
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.5rem; margin-bottom: 16px;
+    font-size: 1.6rem; margin-bottom: 18px;
+    animation: floatY 3s ease-in-out infinite;
 }
+@keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 .payslip-empty-title { font-family:'Plus Jakarta Sans',sans-serif; font-size:1rem; font-weight:700; color:var(--text-main); margin-bottom:6px; }
 .payslip-empty-sub   { font-size:.84rem; color:var(--text-muted); max-width:280px; line-height:1.5; }
 
@@ -216,10 +236,12 @@ body {
 
 .payslip-actions {
     background: var(--bg-white); border: 1px solid var(--border-color);
-    border-radius: var(--radius); padding: 14px 20px;
+    border-radius: 14px; padding: 16px 22px;
     display: flex; align-items: center; justify-content: space-between;
-    box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 10px;
+    box-shadow: var(--shadow-sm); flex-wrap: wrap; gap: 12px;
+    transition: box-shadow .2s var(--ease);
 }
+.payslip-actions:hover { box-shadow: var(--shadow-md); }
 .payslip-actions-info { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .payslip-competencia-label {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -230,21 +252,30 @@ body {
     padding: 4px 10px; border-radius: 99px;
     font-size: .72rem; font-weight: 700;
 }
-.payslip-status-badge.published { background: var(--success-bg); color: #065f46; }
-.payslip-status-badge.paid      { background: #eff6ff; color: #1d4ed8; }
+.payslip-status-badge.published { background: var(--success-bg); color: var(--success-text); }
+.payslip-status-badge.paid      { background: var(--info-bg); color: var(--info-text); }
 .payslip-actions-btns { display: flex; gap: 8px; }
 
 .btn-print {
     display: inline-flex; align-items: center; gap: 7px;
-    background: var(--accent); color: #fff; border: none;
+    background: var(--accent); color: #fff; border: 1px solid transparent;
     padding: 9px 18px; border-radius: 9px;
     font-size: .82rem; font-weight: 600; cursor: pointer;
-    transition: background .18s, transform .1s;
+    transition: background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease), transform .1s;
     font-family: 'DM Sans', sans-serif; white-space: nowrap;
     box-shadow: 0 2px 8px rgba(99,102,241,.3);
 }
-.btn-print:hover  { background: var(--accent-hover); }
+.btn-print:hover  { background: var(--accent-hover); box-shadow: 0 4px 14px rgba(99,102,241,.38); }
 .btn-print:active { transform: scale(.97); }
+
+.btn-print.btn-ghost {
+    background: transparent; color: var(--text-main);
+    border-color: var(--border-color); box-shadow: none;
+}
+.btn-print.btn-ghost:hover {
+    background: var(--bg-page); border-color: var(--accent);
+    color: var(--accent); box-shadow: none;
+}
 
 /* ── Documento Holerite ───────────────────────── */
 
@@ -377,7 +408,7 @@ body {
 /* ── Toast ────────────────────────────────────── */
 
 .toast-container {
-    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    position: fixed; top: 24px; right: 24px; z-index: 9999;
     display: flex; flex-direction: column; gap: 10px;
     pointer-events: none; max-width: calc(100vw - 48px);
 }
@@ -387,11 +418,11 @@ body {
     font-size: .84rem; font-weight: 500;
     box-shadow: 0 6px 24px rgba(0,0,0,.22);
     pointer-events: auto;
-    transform: translateY(16px); opacity: 0;
+    transform: translateY(-16px); opacity: 0;
     transition: transform .3s var(--ease), opacity .3s ease;
 }
 .toast.show { transform: translateY(0); opacity: 1; }
-.toast.hide { transform: translateY(16px); opacity: 0; }
+.toast.hide { transform: translateY(-16px); opacity: 0; }
 .toast-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .78rem; flex-shrink: 0; }
 .toast-content { flex: 1; }
 .toast-title { font-size: .82rem; font-weight: 600; }
@@ -418,8 +449,8 @@ body {
     .month-list-panel { width: 100%; position: static; max-height: none; }
     .month-list { display: flex; gap: 8px; overflow-x: auto; padding: 12px; scrollbar-width: none; }
     .month-list::-webkit-scrollbar { display: none; }
-    .month-card { flex-shrink: 0; min-width: 160px; border-bottom: none; border-radius: 9px; border: 1px solid var(--border-color); }
-    .month-card.active::before { width: 100%; height: 3px; top: 0; left: 0; right: 0; bottom: auto; border-radius: 3px 3px 0 0; }
+    .month-card { flex-shrink: 0; min-width: 160px; border: 1px solid var(--border-color); }
+    .month-card.active::before { width: 100%; height: 3px; top: 0; left: 0; right: 0; bottom: auto; translate: none; border-radius: 3px 3px 0 0; }
     .month-list-header { border-bottom: none; }
 }
 
@@ -455,7 +486,7 @@ body {
     .payslip-actions { flex-direction: column; align-items: flex-start; }
     .payslip-actions-btns { width: 100%; }
     .btn-print { width: 100%; justify-content: center; }
-    .toast-container { bottom: 14px; right: 10px; left: 10px; max-width: unset; }
+    .toast-container { top: 14px; right: 10px; left: 10px; max-width: unset; }
     .toast { width: 100%; }
 }
 

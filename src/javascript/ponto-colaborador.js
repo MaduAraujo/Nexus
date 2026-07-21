@@ -19,6 +19,7 @@ let referenceDescriptorPromise = null; // Promise do descritor facial da foto de
 let holidaysMap   = {};   // { 'YYYY-MM-DD': { name, ... } } — para o cálculo de DSR
 let limiteExtraDiarioMin = 120; // CLT art. 59, §1º — sobrescrito por hr_settings em loadData()
 let pendingExcessoLegalMin = 0; // > 0 quando a saída pendente excede o limite legal diário
+let ajusteDatePicker = null, bankreqDatePicker = null; // instâncias do date-picker (ver createSimpleDayPicker)
 
 const EMPRESA = {
     nome: 'Nexus',
@@ -47,7 +48,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadFaceModels().catch(e => console.error('Falha ao carregar modelos de verificação facial:', e));
 
-    initSidebar();
     await loadData();
     setupRealtimeSync();
 
@@ -59,14 +59,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateClock();
     setInterval(updateClock, 1000);
 
-    const now = new Date();
-    const fmEl = $('filter-month');
-    if (fmEl) fmEl.value = `${now.getFullYear()}-${pad0(now.getMonth()+1)}`;
+    setupMonthFilterPicker();
+    ajusteDatePicker  = createSimpleDayPicker('ajuste-data');
+    bankreqDatePicker = createSimpleDayPicker('bankreq-data');
+    setupHorarioPicker();
+    setupTipoToggle();
+    setupAnexoPicker();
 
     renderUI();
     initLocation();
 
     document.querySelectorAll('.modal-overlay').forEach(el => {
+        if (el.id === 'modal-ajuste' || el.id === 'modal-bank-request') return;
         el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAllModals(); } });
@@ -187,32 +191,6 @@ function nextStep(rec) {
     return 'encerrado';
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────
-
-function initSidebar() {
-    const color = myEmployee.avatar_color || '#6366f1';
-    const ini   = initials(myEmployee.name);
-    const av = $('sidebar-avatar'); if (av) {
-        if (myEmployee.avatar_url) { av.style.background = `url(${myEmployee.avatar_url}) center/cover`; av.textContent = ''; }
-        else { av.style.background = color; av.textContent = ini; }
-    }
-    const nm = $('sidebar-name');   if (nm) nm.textContent = myEmployee.name || '—';
-    const rl = $('sidebar-role');   if (rl) rl.textContent = myEmployee.role || 'Colaborador';
-
-    const sidebar       = $('sidebar');
-    const sidebarToggle = $('sidebar-toggle');
-    const topbarMenuBtn = $('topbar-menu-btn');
-    const sidebarOverlay= $('sidebar-overlay');
-    const mainWrapper   = document.querySelector('.main-wrapper');
-    const isMobile = () => window.innerWidth <= 768;
-    const openSide  = () => { sidebar?.classList.add('open');    sidebarOverlay?.classList.add('active');    document.body.style.overflow='hidden'; };
-    const closeSide = () => { sidebar?.classList.remove('open'); sidebarOverlay?.classList.remove('active'); document.body.style.overflow=''; };
-    sidebarToggle?.addEventListener('click', e => { e.stopPropagation(); isMobile() ? (sidebar?.classList.contains('open') ? closeSide() : openSide()) : (() => { const c = sidebar?.classList.toggle('collapsed'); mainWrapper?.classList.toggle('sidebar-collapsed', c); })(); });
-    topbarMenuBtn?.addEventListener('click', e => { e.stopPropagation(); sidebar?.classList.contains('open') ? closeSide() : openSide(); });
-    sidebarOverlay?.addEventListener('click', closeSide);
-    window.addEventListener('resize', () => { if (!isMobile()) closeSide(); });
-}
-
 window.logout = async function () { await sb.auth.signOut(); window.location.href = '../screens/login.html'; };
 
 // ─── Clock ────────────────────────────────────────────────────
@@ -227,7 +205,7 @@ function updateClock() {
 // ─── Render UI ────────────────────────────────────────────────
 
 const STEP_META = {
-    entrada:        { label:'Registrar Entrada',    icon:'fa-sign-in-alt',  cls:'',             dotCls:'inativo',   hint:'Jornada não iniciada hoje.' },
+    entrada:        { label:'Registrar Entrada',    icon:'fa-sign-in-alt',  cls:'',             dotCls:'inativo',   hint:'' },
     saida_almoco:   { label:'Saída para Almoço',    icon:'fa-coffee',       cls:'btn-almoco',   dotCls:'ativo',     hint:'Registre quando sair para o almoço.' },
     retorno_almoco: { label:'Retorno do Almoço',    icon:'fa-utensils',     cls:'btn-retorno',  dotCls:'almoco',    hint:'Registre quando retornar do almoço.' },
     saida:          { label:'Registrar Saída',      icon:'fa-sign-out-alt', cls:'btn-saida',    dotCls:'ativo',     hint:'Registre sua saída ao final do expediente.' },
@@ -316,6 +294,95 @@ function renderStats() {
     if (el_j) { const j=getJornadaMin(); el_j.textContent=j===null?'Autônomo':(myEmployee?.work_load==='12x36'?'Escala 12x36':`${Math.floor(j/60)}h${j%60?pad0(j%60)+'min':''}/dia`); }
 }
 
+// ─── Filtro de mês (mesmo calendário clicável do Início do colaborador) ──
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function setupMonthFilterPicker() {
+    const trigger = $('filter-month-trigger');
+    const textEl  = $('filter-month-text');
+    const hidden  = $('filter-month');
+    const popover = $('filter-month-popover');
+    const titleEl = $('filter-month-title');
+    const gridEl  = $('filter-month-grid');
+    const prevBtn = $('filter-month-prev');
+    const nextBtn = $('filter-month-next');
+    if (!trigger || !popover) return;
+
+    const today = new Date();
+    let viewYear = today.getFullYear(), viewMonth = today.getMonth();
+
+    function setTriggerText(year, month) {
+        if (textEl) textEl.textContent = `${MESES_PT[month]} ${year}`;
+    }
+
+    function selectMonth(year, month) {
+        hidden.value = `${year}-${pad0(month + 1)}`;
+        setTriggerText(year, month);
+    }
+
+    function render() {
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}" data-day="${c.day}">${c.day}</button>`
+        ).join('');
+    }
+
+    function open() {
+        const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
+        viewYear  = selYear || today.getFullYear();
+        viewMonth = selMonth ? selMonth - 1 : today.getMonth();
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    gridEl.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-day]');
+        if (!btn || btn.classList.contains('calendar-day--muted')) return;
+        selectMonth(viewYear, viewMonth);
+        close();
+        renderHistorico();
+    });
+
+    prevBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    nextBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+
+    selectMonth(today.getFullYear(), today.getMonth());
+}
+
 window.renderHistorico = function () {
     const tbody = $('historico-tbody'); if (!tbody) return;
     const fmEl  = $('filter-month');
@@ -325,7 +392,7 @@ window.renderHistorico = function () {
     const filtroMes = fmEl?.value || mesAtual;
     const dias = Object.entries(recordsMap).filter(([k]) => k.startsWith(filtroMes)).sort(([a],[b]) => b.localeCompare(a));
     if (!dias.length) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-calendar-times"></i><p>Nenhum registro em ${filtroMes.replace('-','/')}</p><span>Os registros de ponto aparecerão aqui</span></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-calendar-times"></i><p>Nenhum registro em ${filtroMes.split('-').reverse().join('/')}</p><span>Os registros de ponto aparecerão aqui</span></div></td></tr>`;
         return;
     }
     const jornadaMin = getJornadaMin();
@@ -400,6 +467,29 @@ function renderTeamApprovals() {
     }).join('');
 }
 
+function setupTipoToggle() {
+    const toggle = $('bankreq-tipo-toggle');
+    const hidden = $('bankreq-tipo');
+    if (!toggle || !hidden) return;
+    toggle.addEventListener('click', e => {
+        const btn = e.target.closest('.type-toggle-card');
+        if (!btn) return;
+        hidden.value = btn.dataset.tipo;
+        toggle.querySelectorAll('.type-toggle-card').forEach(c => c.classList.toggle('active', c === btn));
+    });
+}
+
+function setupAnexoPicker() {
+    const btn    = $('bankreq-anexo-btn');
+    const input  = $('bankreq-anexo');
+    const nameEl = $('bankreq-anexo-name');
+    if (!btn || !input) return;
+    btn.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => {
+        if (nameEl) nameEl.textContent = input.files?.[0]?.name || 'Nenhum arquivo selecionado';
+    });
+}
+
 window.viewBankRequestAnexo = async function (id) {
     const r = [...bankRequests, ...teamRequests].find(x => x.id === id);
     if (!r?.anexo_path) return;
@@ -409,10 +499,13 @@ window.viewBankRequestAnexo = async function (id) {
 };
 
 window.openModalBankRequest = function () {
-    ['bankreq-data','bankreq-horas','bankreq-minutos','bankreq-justificativa'].forEach(id => { const el=$(id); if (el) el.value=''; });
+    ['bankreq-horas','bankreq-minutos','bankreq-justificativa'].forEach(id => { const el=$(id); if (el) el.value=''; });
     const tipo = $('bankreq-tipo'); if (tipo) tipo.value = 'credito';
+    document.querySelectorAll('#bankreq-tipo-toggle .type-toggle-card').forEach(c => c.classList.toggle('active', c.dataset.tipo === 'credito'));
     const anexo = $('bankreq-anexo'); if (anexo) anexo.value = '';
+    const anexoName = $('bankreq-anexo-name'); if (anexoName) anexoName.textContent = 'Nenhum arquivo selecionado';
     selectedAnexoFile = null;
+    bankreqDatePicker?.reset();
     ['err-bankreq-data','err-bankreq-valor','err-bankreq-just'].forEach(id => { const el=$(id); if (el) el.textContent=''; });
     openModal('modal-bank-request');
 };
@@ -1031,11 +1124,168 @@ function renderSyncStatus() {
 
 // ─── Ajuste modal ─────────────────────────────────────────────
 
+function createSimpleDayPicker(prefix) {
+    const trigger = $(`${prefix}-trigger`);
+    const textEl  = $(`${prefix}-text`);
+    const hidden  = $(prefix);
+    const popover = $(`${prefix}-popover`);
+    const titleEl = $(`${prefix}-title`);
+    const gridEl  = $(`${prefix}-grid`);
+    const prevBtn = $(`${prefix}-prev`);
+    const nextBtn = $(`${prefix}-next`);
+    if (!trigger || !popover) return null;
+
+    const today = new Date();
+    let viewYear = today.getFullYear(), viewMonth = today.getMonth();
+
+    function render() {
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}" data-day="${c.day}">${c.day}</button>`
+        ).join('');
+    }
+
+    function open() {
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    gridEl.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-day]');
+        if (!btn || btn.classList.contains('calendar-day--muted')) return;
+        const day = Number(btn.dataset.day);
+        hidden.value = `${viewYear}-${pad0(viewMonth + 1)}-${pad0(day)}`;
+        if (textEl) textEl.textContent = `${pad0(day)}/${pad0(viewMonth + 1)}/${viewYear}`;
+        close();
+    });
+
+    prevBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
+    nextBtn?.addEventListener('click', e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
+
+    return {
+        reset() {
+            hidden.value = '';
+            if (textEl) textEl.textContent = 'Selecionar data';
+            close();
+        },
+    };
+}
+
+function setupHorarioPicker() {
+    const trigger  = $('ajuste-horario-trigger');
+    const textEl   = $('ajuste-horario-text');
+    const hidden   = $('ajuste-horario');
+    const popover  = $('ajuste-horario-popover');
+    const hoursCol = $('ajuste-horario-hours');
+    const minsCol  = $('ajuste-horario-minutes');
+    if (!trigger || !popover) return;
+
+    let hour = null, minute = null;
+
+    hoursCol.innerHTML = Array.from({ length: 24 }, (_, h) => `<button type="button" class="time-item" data-hour="${h}">${pad0(h)}</button>`).join('');
+    minsCol.innerHTML  = Array.from({ length: 60 }, (_, m) => `<button type="button" class="time-item" data-min="${m}">${pad0(m)}</button>`).join('');
+
+    function updateValue() {
+        if (hour === null || minute === null) return;
+        hidden.value = `${pad0(hour)}:${pad0(minute)}`;
+        if (textEl) textEl.textContent = hidden.value;
+    }
+
+    function markSelected(col, attr, value) {
+        col.querySelectorAll('.time-item').forEach(btn => btn.classList.toggle('time-item--selected', Number(btn.dataset[attr]) === value));
+    }
+
+    function open() {
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        (hoursCol.querySelector('.time-item--selected') || hoursCol.firstElementChild)?.scrollIntoView({ block: 'center' });
+        (minsCol.querySelector('.time-item--selected') || minsCol.firstElementChild)?.scrollIntoView({ block: 'center' });
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    hoursCol.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-hour]');
+        if (!btn) return;
+        hour = Number(btn.dataset.hour);
+        markSelected(hoursCol, 'hour', hour);
+        updateValue();
+    });
+
+    minsCol.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-min]');
+        if (!btn) return;
+        minute = Number(btn.dataset.min);
+        markSelected(minsCol, 'min', minute);
+        updateValue();
+    });
+
+    window.resetHorarioPicker = function () {
+        hour = null; minute = null;
+        markSelected(hoursCol, 'hour', -1);
+        markSelected(minsCol, 'min', -1);
+        if (textEl) textEl.textContent = 'Selecionar horário';
+        close();
+    };
+}
+
 window.openModalAjuste = function () {
     ['ajuste-data','ajuste-horario','ajuste-justificativa'].forEach(id=>{const el=$(id);if(el)el.value='';});
     const tipo=$('ajuste-tipo');if(tipo)tipo.value='';
     ['err-ajuste-data','err-ajuste-tipo','err-ajuste-horario','err-ajuste-just'].forEach(id=>{const el=$(id);if(el)el.textContent='';});
     const hg=$('ajuste-horario-group');if(hg)hg.classList.remove('hidden');
+    ajusteDatePicker?.reset();
+    window.resetHorarioPicker?.();
     openModal('modal-ajuste');
 };
 

@@ -279,71 +279,60 @@ body {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+    margin-bottom: 30px;
 }
+
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .stat-card {
-    border-radius: 16px;
-    border: none;
-    box-shadow: 0 6px 24px rgba(0,0,0,.12);
-    padding: 22px 24px;
+    background: var(--bg-white);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    padding: 20px 22px;
     display: flex;
     align-items: center;
-    gap: 18px;
-    transition: box-shadow .25s, transform .2s;
-    position: relative;
-    overflow: hidden;
-    cursor: default;
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    right: -24px; bottom: -24px;
-    width: 100px; height: 100px;
-    border-radius: 50%;
-    background: rgba(255,255,255,.12);
-    pointer-events: none;
-}
-.stat-card::after {
-    content: '';
-    position: absolute;
-    right: 16px; top: -16px;
-    width: 60px; height: 60px;
-    border-radius: 50%;
-    background: rgba(255,255,255,.07);
-    pointer-events: none;
+    gap: 16px;
+    width: 100%; text-align: left;
+    transition: box-shadow .2s var(--ease), transform .2s var(--ease);
+    box-shadow: var(--shadow-sm);
+    animation: riseIn .45s var(--ease) backwards;
 }
 
 .stat-card:hover {
-    box-shadow: 0 12px 32px rgba(0,0,0,.18);
-    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
 }
 
-.stat-card--blue   { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); }
-.stat-card--purple { background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); }
-.stat-card--teal   { background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%); }
+.stat-card--blue   .stat-icon { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.stat-card--purple .stat-icon { background: linear-gradient(135deg, #34d399, #059669); }
+.stat-card--teal   .stat-icon { background: linear-gradient(135deg, #fbbf24, #d97706); }
 
 .stat-icon {
-    width: 50px; height: 50px;
-    border-radius: 13px; flex-shrink: 0;
+    width: 48px; height: 48px;
+    border-radius: 12px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
-    background: rgba(255,255,255,.22);
+    font-size: 1.15rem;
     color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
 }
 
-.stat-info { display: flex; flex-direction: column; }
+.stat-info { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; flex: 1; }
 
 .stat-value {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 2rem; font-weight: 800;
-    color: #fff; line-height: 1;
+    font-size: 1.75rem; font-weight: 800;
+    color: var(--text-main); line-height: 1;
+    letter-spacing: -.01em;
+    margin-top: 5px;
 }
 
 .stat-label {
-    font-size: .77rem;
-    color: rgba(255,255,255,.78);
-    margin-top: 5px; font-weight: 500;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* ── Toolbar ─────────────────────────────────── */
@@ -409,7 +398,7 @@ body {
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
-    display: flex; gap: 16px; padding: 20px 22px;
+    display: flex; align-items: center; gap: 16px; padding: 20px 22px;
     cursor: pointer;
     transition: box-shadow .2s, transform .15s, border-color .2s;
     animation: fadeIn .25s var(--ease);
@@ -445,7 +434,7 @@ body {
 .comunicado-icon-wrap {
     width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.05rem; margin-top: 2px;
+    font-size: 1.05rem;
     transition: transform .2s;
 }
 .comunicado-card:hover .comunicado-icon-wrap { transform: scale(1.08); }
@@ -574,8 +563,7 @@ body {
 
 .msg-modal-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 22px 24px 18px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 18px 20px 0;
     gap: 12px; flex-wrap: wrap;
     position: sticky; top: 0;
     background: var(--bg-white);
@@ -583,7 +571,7 @@ body {
     z-index: 1;
 }
 
-.msg-modal-dest-wrap { display: flex; align-items: center; gap: 10px; }
+.msg-modal-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .msg-modal-close {
     width: 34px; height: 34px; border-radius: 9px;
@@ -626,40 +614,6 @@ body {
     word-break: break-all;
 }
 .msg-modal-body a:hover { color: var(--accent-hover); }
-
-.modal-attachments {
-    padding: 0 24px 20px;
-    display: flex; flex-direction: column; gap: 8px;
-}
-
-.modal-attach-item {
-    display: flex; align-items: center; gap: 10px;
-    background: #fafbff; border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 10px 14px;
-    font-family: 'DM Sans', sans-serif; font-size: .85rem; color: var(--text-main);
-    cursor: pointer; text-align: left; width: 100%;
-    transition: border-color .18s, background .18s;
-}
-.modal-attach-item:hover { border-color: var(--accent); background: var(--accent-light); }
-.modal-attach-item i:first-child { color: var(--accent); font-size: .95rem; flex-shrink: 0; }
-.modal-attach-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.modal-attach-size { color: var(--text-muted); font-size: .72rem; flex-shrink: 0; }
-.modal-attach-open { font-size: .7rem !important; color: var(--text-muted) !important; flex-shrink: 0; }
-
-.msg-modal-footer {
-    padding: 0 24px 22px;
-    display: flex; justify-content: flex-end;
-}
-
-.msg-modal-close-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: #f3f4f6; border: 1px solid var(--border-color);
-    border-radius: 9px; padding: 9px 20px;
-    font-size: .84rem; font-weight: 600; color: var(--text-muted);
-    cursor: pointer; transition: background .18s, color .18s;
-    font-family: 'DM Sans', sans-serif;
-}
-.msg-modal-close-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
 
 /* ── Toast ───────────────────────────────────── */
 

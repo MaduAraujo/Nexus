@@ -32,22 +32,22 @@
                     <div class="stat-card stat-card--blue">
                         <div class="stat-icon"><i class="fas fa-bullhorn"></i></div>
                         <div class="stat-info">
-                            <span class="stat-value" id="stat-total">0</span>
                             <span class="stat-label">Total de comunicados</span>
+                            <span class="stat-value" id="stat-total">0</span>
                         </div>
                     </div>
                     <div class="stat-card stat-card--purple">
                         <div class="stat-icon"><i class="fas fa-globe"></i></div>
                         <div class="stat-info">
-                            <span class="stat-value" id="stat-todos">0</span>
                             <span class="stat-label">Para todos</span>
+                            <span class="stat-value" id="stat-todos">0</span>
                         </div>
                     </div>
                     <div class="stat-card stat-card--teal">
                         <div class="stat-icon"><i class="fas fa-building"></i></div>
                         <div class="stat-info">
-                            <span class="stat-value" id="stat-dept">0</span>
                             <span class="stat-label">Para o seu departamento</span>
+                            <span class="stat-value" id="stat-dept">0</span>
                         </div>
                     </div>
                 </div>
@@ -79,10 +79,9 @@
 <div id="msg-modal" class="msg-modal-overlay hidden" role="dialog" aria-modal="true">
     <div class="msg-modal-card">
         <div class="msg-modal-header">
-            <div class="msg-modal-dest-wrap">
-                <div class="comunicado-icon-wrap" id="modal-icon"><i class="fas fa-bullhorn"></i></div>
-                <span class="comunicado-dest" id="modal-dest"></span>
+            <div class="msg-modal-badges">
                 <span class="badge-cat" id="modal-cat"></span>
+                <span class="comunicado-dest" id="modal-dest"></span>
             </div>
             <button class="msg-modal-close" id="modal-close" aria-label="Fechar">
                 <i class="fas fa-times"></i>
@@ -90,12 +89,6 @@
         </div>
         <div class="msg-modal-date" id="modal-date"></div>
         <div class="msg-modal-body" id="modal-body"></div>
-        <div class="modal-attachments hidden" id="modal-attachments"></div>
-        <div class="msg-modal-footer">
-            <button class="msg-modal-close-btn" id="modal-close-btn">
-                <i class="fas fa-times"></i> Fechar
-            </button>
-        </div>
     </div>
 </div>
 

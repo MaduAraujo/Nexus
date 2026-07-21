@@ -62,6 +62,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const welcomeDateEl = document.getElementById('welcome-date-text');
     if (welcomeDateEl) welcomeDateEl.textContent = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
+    setupCalendar();
+
     // ── Helpers ──
     const PINK = '#ec4899';
 
@@ -288,7 +290,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             myEmployee = { ...myEmployee, ...updated };
             renderAll(myEmployee);
-            showToast('Perfil atualizado', 'success', 'Suas informações foram atualizadas pelo RH.');
         })
         .on('postgres_changes', {
             event: 'INSERT',
@@ -325,3 +326,82 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 3500);
     };
 });
+
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function setupCalendar() {
+    const trigger  = document.getElementById('topbar-date');
+    const popover  = document.getElementById('calendar-popover');
+    const titleEl  = document.getElementById('calendar-title');
+    const gridEl   = document.getElementById('calendar-grid');
+    const prevBtn  = document.getElementById('calendar-prev');
+    const nextBtn  = document.getElementById('calendar-next');
+    if (!trigger || !popover) return;
+
+    const today = new Date();
+    let viewYear  = today.getFullYear();
+    let viewMonth = today.getMonth();
+
+    function render() {
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+
+        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells.map(c =>
+            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+        ).join('');
+    }
+
+    function open() {
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+
+    function onEscape(e) { if (e.key === 'Escape') close(); }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    trigger.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+    });
+
+    prevBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        render();
+    });
+    nextBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        render();
+    });
+}

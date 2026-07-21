@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="../javascript/theme.js"></script>
-    <title>Banco de Horas</title>
+    <title>Registrar Ponto</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -16,6 +16,14 @@
             <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
+        </div>
+        <div class="topbar-right">
+            <button class="btn-icon-topbar" onclick="openModalAjuste()" aria-label="Solicitar Ajuste" title="Solicitar Ajuste">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn-icon-topbar" onclick="openModalBankRequest()" aria-label="Solicitar Compensação" title="Solicitar Compensação">
+                <i class="fas fa-clock-rotate-left"></i>
+            </button>
         </div>
     </header>
 
@@ -131,11 +139,7 @@
 
                 <div id="section-bank-requests">
                     <div class="section-header-row" style="margin-bottom:12px">
-                        <h2 class="section-title"><i class="fas fa-clock-rotate-left"></i> Minhas Solicitações de Banco de Horas</h2>
-                        <button class="btn-solicitar" onclick="openModalBankRequest()">
-                            <i class="fas fa-paper-plane"></i>
-                            <span>Solicitar Compensação</span>
-                        </button>
+                        <h2 class="section-title">Minhas Solicitações</h2>
                     </div>
                     <div class="solicitacoes-list" id="bank-requests-list"></div>
                 </div>
@@ -192,11 +196,24 @@
                 <div class="section-header-row historico-header">
                     <h2 class="section-title section-title--plain">Histórico de Ponto</h2>
                     <div class="history-filters">
-                        <input type="month" id="filter-month" onchange="renderHistorico()" />
-                        <button class="btn-solicitar" onclick="openModalAjuste()">
-                            <i class="fas fa-edit"></i>
-                            <span>Solicitar Ajuste</span>
-                        </button>
+                        <div class="date-field">
+                            <button type="button" class="date-trigger" id="filter-month-trigger" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span id="filter-month-text">—</span>
+                            </button>
+                            <input type="hidden" id="filter-month">
+                            <div class="calendar-popover" id="filter-month-popover">
+                                <div class="calendar-header">
+                                    <button type="button" class="calendar-nav-btn" id="filter-month-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                    <span class="calendar-title" id="filter-month-title">—</span>
+                                    <button type="button" class="calendar-nav-btn" id="filter-month-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                </div>
+                                <div class="calendar-weekdays">
+                                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                </div>
+                                <div class="calendar-grid" id="filter-month-grid"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -313,7 +330,24 @@
             <div class="form-row-2">
                 <div class="form-group">
                     <label>Data <span class="req">*</span></label>
-                    <input type="date" id="ajuste-data" />
+                    <div class="date-field">
+                        <button type="button" class="date-trigger" id="ajuste-data-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="ajuste-data-text">Selecionar data</span>
+                        </button>
+                        <input type="hidden" id="ajuste-data">
+                        <div class="calendar-popover" id="ajuste-data-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="ajuste-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="ajuste-data-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="ajuste-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="ajuste-data-grid"></div>
+                        </div>
+                    </div>
                     <span class="field-error" id="err-ajuste-data"></span>
                 </div>
                 <div class="form-group">
@@ -331,7 +365,20 @@
             </div>
             <div class="form-group" id="ajuste-horario-group">
                 <label>Horário correto <span class="req">*</span></label>
-                <input type="time" id="ajuste-horario" />
+                <div class="date-field">
+                    <button type="button" class="date-trigger" id="ajuste-horario-trigger" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-clock"></i>
+                        <span id="ajuste-horario-text">Selecionar horário</span>
+                    </button>
+                    <input type="hidden" id="ajuste-horario">
+                    <div class="time-popover" id="ajuste-horario-popover">
+                        <div class="time-cols">
+                            <div class="time-col" id="ajuste-horario-hours"></div>
+                            <div class="time-col-sep">:</div>
+                            <div class="time-col" id="ajuste-horario-minutes"></div>
+                        </div>
+                    </div>
+                </div>
                 <span class="field-error" id="err-ajuste-horario"></span>
             </div>
             <div class="form-group">
@@ -342,9 +389,8 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="closeModal('modal-ajuste')">Cancelar</button>
             <button class="btn-primary" onclick="enviarSolicitacao()">
-                <i class="fas fa-paper-plane"></i> Enviar Solicitação
+                Enviar Solicitação
             </button>
         </div>
     </div>
@@ -359,21 +405,47 @@
         <div class="modal-body">
             <div class="info-banner">
                 <i class="fas fa-info-circle"></i>
-                <span>A solicitação fica pendente até aprovação do seu gestor (ou do RH, se você não tiver gestor definido). Ela só afeta seu saldo depois de aprovada.</span>
+                <span>A solicitação fica pendente até aprovação do seu gestor ou do RH. Ela só afeta seu saldo depois de aprovada.</span>
             </div>
-            <div class="form-row-2">
-                <div class="form-group">
-                    <label>Tipo <span class="req">*</span></label>
-                    <select id="bankreq-tipo">
-                        <option value="credito">Crédito — horas trabalhadas a mais</option>
-                        <option value="debito">Débito — usar horas do banco / justificar falta</option>
-                    </select>
+            <div class="form-group">
+                <label>Tipo <span class="req">*</span></label>
+                <div class="type-toggle" id="bankreq-tipo-toggle">
+                    <button type="button" class="type-toggle-card active" data-tipo="credito">
+                        <div class="type-toggle-body">
+                            <span class="type-toggle-title">Crédito</span>
+                            <span class="type-toggle-sub">Horas trabalhadas a mais</span>
+                        </div>
+                    </button>
+                    <button type="button" class="type-toggle-card" data-tipo="debito">
+                        <div class="type-toggle-body">
+                            <span class="type-toggle-title">Débito</span>
+                            <span class="type-toggle-sub">Usar horas do banco / justificar falta</span>
+                        </div>
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label>Data de Referência <span class="req">*</span></label>
-                    <input type="date" id="bankreq-data" />
-                    <span class="field-error" id="err-bankreq-data"></span>
+                <input type="hidden" id="bankreq-tipo" value="credito">
+            </div>
+            <div class="form-group">
+                <label>Data de Referência <span class="req">*</span></label>
+                <div class="date-field">
+                    <button type="button" class="date-trigger" id="bankreq-data-trigger" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span id="bankreq-data-text">Selecionar data</span>
+                    </button>
+                    <input type="hidden" id="bankreq-data">
+                    <div class="calendar-popover" id="bankreq-data-popover">
+                        <div class="calendar-header">
+                            <button type="button" class="calendar-nav-btn" id="bankreq-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                            <span class="calendar-title" id="bankreq-data-title">—</span>
+                            <button type="button" class="calendar-nav-btn" id="bankreq-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="calendar-weekdays">
+                            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                        </div>
+                        <div class="calendar-grid" id="bankreq-data-grid"></div>
+                    </div>
                 </div>
+                <span class="field-error" id="err-bankreq-data"></span>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
@@ -392,15 +464,19 @@
                 <span class="field-error" id="err-bankreq-just"></span>
             </div>
             <div class="form-group">
-                <label>Anexo (atestado, comprovante...) <span class="label-optional">opcional</span></label>
-                <input type="file" id="bankreq-anexo" accept=".pdf,.jpg,.jpeg,.png" />
-                <span class="file-input-hint">.pdf, .jpg ou .png · até 10 MB</span>
+                <label>Anexo <span class="label-optional">opcional</span></label>
+                <div class="file-picker">
+                    <button type="button" class="btn-file-choose" id="bankreq-anexo-btn">
+                        <i class="fas fa-paperclip"></i> Escolher arquivo
+                    </button>
+                    <span class="file-picker-name" id="bankreq-anexo-name">Nenhum arquivo selecionado</span>
+                    <input type="file" id="bankreq-anexo" accept=".pdf,.jpg,.jpeg,.png" hidden />
+                </div>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="closeModal('modal-bank-request')">Cancelar</button>
             <button class="btn-primary" onclick="enviarBankRequest()">
-                <i class="fas fa-paper-plane"></i> Enviar Solicitação
+                Enviar Solicitação
             </button>
         </div>
     </div>

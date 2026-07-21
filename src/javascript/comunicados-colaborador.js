@@ -28,11 +28,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         'Evento':        { icon: 'fa-star',                 cls: 'cat--evento' },
         'Política':      { icon: 'fa-scale-balanced',       cls: 'cat--politica' },
     };
-    const categoriaBadge = (cat) => {
-        const info = CATEGORIA_INFO[cat] || CATEGORIA_INFO['Institucional'];
-        return `<span class="badge-cat ${info.cls}"><i class="fas ${info.icon}"></i> ${escHTML(cat)}</span>`;
-    };
-
     const escHTML  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
     const fmtDate  = iso => new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
@@ -44,16 +39,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (diff < 172800) return 'ontem';
         return fmtDate(iso);
     };
+    const fmtDateTime = iso => {
+        const d = new Date(iso);
+        const time = d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+        return `${fmtDate(iso)} às ${time}`;
+    };
 
     const PREVIEW_LEN = 220;
-
-    const fileIcon = (type) => type === 'application/pdf' ? 'fa-file-pdf' : (type || '').startsWith('image/') ? 'fa-file-image' : 'fa-file';
-    const fmtSize  = (bytes) => bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round((bytes || 0) / 1024)} KB`;
-
-    async function openAttachment(path) {
-        const { data } = await sb.storage.from('message-attachments').createSignedUrl(path, 3600);
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-    }
 
     // ─── State ───────────────────────────────────────────────
     const searchInput    = document.getElementById('search-input');
@@ -97,46 +89,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const msgModal = document.getElementById('msg-modal');
 
     function openModal(msg) {
-        const destInfo = DEST_ICON_MAP[msg.destino] || { icon: 'fa-users', cls: 'dest--outros' };
-        const iconEl = document.getElementById('modal-icon');
-        const destEl = document.getElementById('modal-dest');
         const dateEl = document.getElementById('modal-date');
         const bodyEl = document.getElementById('modal-body');
-        const attachEl = document.getElementById('modal-attachments');
+        const catEl  = document.getElementById('modal-cat');
+        const destEl = document.getElementById('modal-dest');
 
-        iconEl.className = `comunicado-icon-wrap ${destInfo.cls}`;
-        iconEl.innerHTML = `<i class="fas fa-bullhorn"></i>`;
-        destEl.className = `comunicado-dest ${destInfo.cls}`;
-        destEl.innerHTML = `<i class="fas ${destInfo.icon}"></i> ${escHTML(msg.destino)}`;
-        const catEl = document.getElementById('modal-cat');
         if (catEl) {
             const catInfo = CATEGORIA_INFO[msg.categoria] || CATEGORIA_INFO['Institucional'];
             catEl.className = `badge-cat ${catInfo.cls}`;
             catEl.innerHTML = `<i class="fas ${catInfo.icon}"></i> ${escHTML(msg.categoria)}`;
         }
-        dateEl.innerHTML = `<i class="fas fa-clock"></i> ${timeAgo(msg.created_at)} &mdash; ${fmtDate(msg.created_at)}`;
-        bodyEl.innerHTML = sanitizeComunicadoHTML(msg.texto);
-
-        const anexos = msg.anexos || [];
-        if (attachEl) {
-            attachEl.innerHTML = anexos.length ? anexos.map(a => `
-                <button type="button" class="modal-attach-item" data-path="${escHTML(a.path)}">
-                    <i class="fas ${fileIcon(a.type)}"></i>
-                    <span class="modal-attach-name">${escHTML(a.name)}</span>
-                    <span class="modal-attach-size">${fmtSize(a.size)}</span>
-                    <i class="fas fa-arrow-up-right-from-square modal-attach-open"></i>
-                </button>`).join('') : '';
-            attachEl.classList.toggle('hidden', !anexos.length);
+        if (destEl) {
+            const destInfo = DEST_ICON_MAP[msg.destino] || { icon: 'fa-users', cls: 'dest--outros' };
+            destEl.className = `comunicado-dest ${destInfo.cls}`;
+            destEl.innerHTML = `<i class="fas ${destInfo.icon}"></i> ${escHTML(msg.destino)}`;
         }
+        dateEl.innerHTML = `<i class="fas fa-clock"></i> ${fmtDateTime(msg.created_at)}`;
+        bodyEl.innerHTML = sanitizeComunicadoHTML(msg.texto);
 
         msgModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
-
-    document.getElementById('modal-attachments')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.modal-attach-item');
-        if (btn) openAttachment(btn.dataset.path);
-    });
 
     function closeModal() {
         msgModal?.classList.add('hidden');
@@ -144,8 +117,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     document.getElementById('modal-close')?.addEventListener('click', closeModal);
-    document.getElementById('modal-close-btn')?.addEventListener('click', closeModal);
-    msgModal?.addEventListener('click', e => { if (e.target === msgModal) closeModal(); });
 
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
@@ -185,12 +156,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const hasMore  = plainTexto.length > PREVIEW_LEN;
             return `
                 <article class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}" role="button" tabindex="0">
-                    <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas fa-bullhorn"></i></div>
+                    <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i></div>
                     <div class="comunicado-body">
                         <div class="comunicado-top">
                             <div class="comunicado-meta">
-                                ${categoriaBadge(m.categoria)}
-                                <span class="comunicado-dest ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i> ${escHTML(m.destino)}</span>
                                 ${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}
                                 ${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}
                             </div>

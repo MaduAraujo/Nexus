@@ -60,6 +60,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNotifPanel();
     setupExportButton();
     setupRealtimeSync();
+
+    // Deep link da busca universal (search.js): ?req=<id> pula direto para a
+    // solicitação, sem precisar trocar de aba/rolar a tabela manualmente.
+    const deepLinkReqId = new URLSearchParams(location.search).get('req');
+    if (deepLinkReqId) {
+        document.querySelector('.tab-btn[data-tab="solicitacoes"]')?.click();
+        document.querySelector('#tab-solicitacoes .chip[data-req-filter="todos"]')?.click(); // senão o filtro padrão "pendente" pode esconder a linha
+        const row = document.querySelector(`#requests-tbody tr[data-id="${deepLinkReqId}"]`);
+        if (row) {
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            row.classList.add('row-deep-link-highlight');
+            setTimeout(() => row.classList.remove('row-deep-link-highlight'), 2600);
+        }
+    }
 });
 
 // ─── Compliance: feriados, férias e configurações ──────────────
@@ -867,7 +881,7 @@ function buildRequestRow(r) {
     if (r.status === 'pendente') {
         actions += `<button class="btn-icon btn-icon--adjust" onclick="approveRequest('${r.id}')" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-icon btn-icon--delete" onclick="openRejectRequestModal('${r.id}')" title="Rejeitar"><i class="fas fa-xmark"></i></button>`;
     }
-    return `<tr><td><div class="emp-cell"><div><p class="emp-name">${empName}</p><p class="emp-dept">${empDept}</p></div></div></td><td>${origemBadge}</td><td>${tipoLabel}</td><td>${valor}</td><td>${fmtDate(r.date)}</td><td>${aprovador}</td><td>${statusBadge}</td><td><div class="actions-cell">${actions}</div></td></tr>`;
+    return `<tr data-id="${r.id}"><td><div class="emp-cell"><div><p class="emp-name">${empName}</p><p class="emp-dept">${empDept}</p></div></div></td><td>${origemBadge}</td><td>${tipoLabel}</td><td>${valor}</td><td>${fmtDate(r.date)}</td><td>${aprovador}</td><td>${statusBadge}</td><td><div class="actions-cell">${actions}</div></td></tr>`;
 }
 
 window.viewPontoSelfie = async function (path) {

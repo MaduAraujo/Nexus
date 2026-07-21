@@ -2413,6 +2413,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateDeptFilterOptions();
     renderTable(employees);
     renderAlertsBanner();
+
+    // Deep link da busca universal (search.js): ?emp=<id> abre o drawer direto,
+    // sem precisar achar o colaborador na lista/paginação manualmente.
+    const deepLinkEmpId = new URLSearchParams(location.search).get('emp');
+    if (deepLinkEmpId) openDrawer(deepLinkEmpId);
     renderStatsRow();
     setupFormListener();
     setupFilters();

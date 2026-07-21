@@ -43,18 +43,15 @@
         <aside class="chat-left" id="chat-left">
 
             <div class="chat-tabs">
-                <button class="chat-tab active" id="tab-social" data-tab="social">
+                <button class="chat-tab active" id="tab-social" data-tab="social" title="Social" aria-label="Social">
                     <i class="fas fa-comments"></i>
-                    <span>Social</span>
                 </button>
-                <button class="chat-tab" id="tab-rh" data-tab="rh">
+                <button class="chat-tab" id="tab-rh" data-tab="rh" title="Com o RH" aria-label="Com o RH">
                     <i class="fas fa-headset"></i>
-                    <span>Com o RH</span>
                     <span class="tab-badge" id="rh-tab-badge" style="display:none"></span>
                 </button>
-                <button class="chat-tab" id="tab-kudos" data-tab="kudos">
+                <button class="chat-tab" id="tab-kudos" data-tab="kudos" title="Reconhecimento" aria-label="Reconhecimento">
                     <i class="fas fa-award"></i>
-                    <span>Reconhecimento</span>
                 </button>
             </div>
 
@@ -90,10 +87,6 @@
 
             <!-- Mural de reconhecimento -->
             <div class="chat-list-panel hidden" id="panel-kudos">
-                <button class="new-ticket-btn" id="give-kudos-btn">
-                    <i class="fas fa-award"></i>
-                    <span>Dar reconhecimento</span>
-                </button>
                 <p class="kudos-panel-hint">Elogie publicamente um colega — todo mundo vê no mural ao lado.</p>
             </div>
 
@@ -110,8 +103,8 @@
                 <div class="chat-welcome-icon">
                     <i class="fas fa-comments"></i>
                 </div>
-                <h3>Bem-vindo ao Chat Nexus</h3>
-                <p>Selecione um canal para conversar com sua equipe, ou inicie uma conversa com o RH para tirar dúvidas e obter suporte.</p>
+                <h3>Bem-vindo ao Chat</h3>
+                <p>Selecione um canal para começar a conversar.</p>
                 <div class="chat-welcome-chips">
                     <span><i class="fas fa-lock"></i> Mensagens criptografadas</span>
                     <span><i class="fas fa-shield-alt"></i> Ambiente corporativo</span>
@@ -194,7 +187,7 @@
                         </div>
                     </div>
                     <button class="new-ticket-btn new-ticket-btn--inline" onclick="openKudosModal()">
-                        <i class="fas fa-award"></i><span>Dar reconhecimento</span>
+                        <span>Dar reconhecimento</span>
                     </button>
                 </div>
                 <div class="messages-scroll" id="kudos-scroll">
@@ -206,7 +199,7 @@
     </div>
 
     <!-- Modal: Dar reconhecimento -->
-    <div class="modal-overlay" id="kudos-modal" onclick="if(event.target===this) closeKudosModal()">
+    <div class="modal-overlay" id="kudos-modal">
         <div class="modal-card">
             <div class="modal-head">
                 <div class="modal-head-info">
@@ -240,20 +233,20 @@
                 <p class="modal-alert-inline hidden" id="kudos-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitKudos()"><i class="fas fa-paper-plane"></i><span>Publicar</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitKudos()"><span>Publicar</span></button>
             </div>
         </div>
     </div>
 
     <!-- Modal: Feedback anônimo -->
-    <div class="modal-overlay" id="anon-feedback-modal" onclick="if(event.target===this) closeAnonFeedbackModal()">
+    <div class="modal-overlay" id="anon-feedback-modal">
         <div class="modal-card">
             <div class="modal-head">
                 <div class="modal-head-info">
                     <div class="modal-head-icon"><i class="fas fa-user-secret"></i></div>
                     <div>
                         <h3 class="modal-title">Feedback Anônimo</h3>
-                        <p class="modal-sub">Ninguém no RH consegue saber quem enviou — nem seu nome é registrado.</p>
+                        <p class="modal-sub">Ninguém no RH consegue saber quem enviou.</p>
                     </div>
                 </div>
                 <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
@@ -276,7 +269,7 @@
                 <p class="modal-alert-inline hidden" id="anon-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitAnonFeedback()"><i class="fas fa-paper-plane"></i><span>Enviar anonimamente</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitAnonFeedback()"><span>Enviar</span></button>
             </div>
         </div>
     </div>

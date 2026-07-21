@@ -88,7 +88,7 @@
                     <div class="empty-state" id="history-empty">
                         <div class="empty-icon"><i class="fas fa-umbrella-beach"></i></div>
                         <p class="empty-title">Nenhuma solicitação ainda</p>
-                        <p class="empty-sub">Clique em "Solicitar Férias" para enviar seu primeiro pedido ao RH.</p>
+                        <p class="empty-sub">Clique em "Solicitar Férias" para enviar seu pedido.</p>
                     </div>
                 </div>
             </div>
@@ -97,7 +97,7 @@
 
 </body>
 
-<div class="modal-overlay" id="request-modal" onclick="handleOverlayClick(event,'request-modal')">
+<div class="modal-overlay" id="request-modal">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-head">
             <div class="modal-head-info">
@@ -115,12 +115,46 @@
         <div class="modal-body">
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label" for="req-start">Data de Início</label>
-                    <input type="date" id="req-start" class="form-input" onchange="calcDays()">
+                    <label class="form-label" for="req-start-trigger">Data de Início</label>
+                    <div class="date-field">
+                        <button type="button" class="date-trigger" id="req-start-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="req-start-text">Selecionar data</span>
+                        </button>
+                        <input type="hidden" id="req-start">
+                        <div class="calendar-popover" id="req-start-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="req-start-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="req-start-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="req-start-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="req-start-grid"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="req-end">Data de Fim</label>
-                    <input type="date" id="req-end" class="form-input" onchange="calcDays()">
+                    <label class="form-label" for="req-end-trigger">Data de Fim</label>
+                    <div class="date-field">
+                        <button type="button" class="date-trigger" id="req-end-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="req-end-text">Selecionar data</span>
+                        </button>
+                        <input type="hidden" id="req-end">
+                        <div class="calendar-popover" id="req-end-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="req-end-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="req-end-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="req-end-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="req-end-grid"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -173,9 +207,7 @@
         </div>
 
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeRequestModal()">Cancelar</button>
             <button class="btn-confirm" id="btn-confirm" onclick="submitRequest()" disabled>
-                <i class="fas fa-paper-plane"></i>
                 Enviar Solicitação
             </button>
         </div>
