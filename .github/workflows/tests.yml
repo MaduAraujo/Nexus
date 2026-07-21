@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Verificação rápida de sintaxe em todo o JS do projeto (node --test só
+      # exercita os 3 arquivos de cálculo puro — isso aqui pega erro de sintaxe
+      # em qualquer outro arquivo antes de chegar em produção).
+      - name: Check JS syntax
+        run: |
+          for f in $(find src/javascript -name '*.js'); do
+            node --check "$f"
+          done
+
+      - name: Run unit tests
+        run: npm test
