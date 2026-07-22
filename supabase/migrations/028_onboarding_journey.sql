@@ -1,7 +1,3 @@
--- Jornada de integração (onboarding) real de 30/60/90 dias — até aqui,
--- is_probation/probation_end_date só viravam um badge de status; não existia
--- nenhum checklist de fato para o colaborador acompanhar.
-
 CREATE TABLE IF NOT EXISTS onboarding_tasks (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   titulo      TEXT NOT NULL,
@@ -26,12 +22,9 @@ CREATE INDEX IF NOT EXISTS onboarding_progress_emp_idx ON onboarding_progress(em
 ALTER TABLE onboarding_tasks    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_progress ENABLE ROW LEVEL SECURITY;
 
--- Checklist é o mesmo para todo mundo (template global, como document_requirements)
--- — todo colaborador logado pode ler; só o RH edita o template.
 CREATE POLICY "onboarding_tasks_read_all" ON onboarding_tasks FOR SELECT USING (true);
 CREATE POLICY "onboarding_tasks_rh_all"   ON onboarding_tasks FOR ALL USING (is_rh());
 
--- Progresso: cada colaborador só marca/lê o próprio; RH vê e gerencia o de todos.
 CREATE POLICY "onboarding_progress_colab_own" ON onboarding_progress FOR ALL
   USING (employee_id = my_employee_id());
 CREATE POLICY "onboarding_progress_rh_all"    ON onboarding_progress FOR ALL USING (is_rh());

@@ -9,18 +9,27 @@
     margin-top: 16px;
 }
 
-.quick-actions .quick-card:nth-child(5) { animation-delay: 0.32s; }
-.quick-actions .quick-card:nth-child(6) { animation-delay: 0.38s; }
-.quick-actions .quick-card:nth-child(7) { animation-delay: 0.44s; }
+.quick-actions .quick-card:nth-child(5) {
+    animation-delay: 0.32s;
+}
+.quick-actions .quick-card:nth-child(6) {
+    animation-delay: 0.38s;
+}
+.quick-actions .quick-card:nth-child(7) {
+    animation-delay: 0.44s;
+}
 
-/* ─── Topbar date + calendar popover ─── */
-
-.topbar-right { position: relative; }
+.topbar-right {
+    position: relative;
+}
 
 .topbar-date {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: background 0.18s, border-color 0.18s, color 0.18s;
+    transition:
+        background 0.18s,
+        border-color 0.18s,
+        color 0.18s;
 }
 
 .topbar-date:hover {
@@ -34,7 +43,9 @@
     color: #fff;
 }
 
-.topbar-date.active i { color: var(--accent); }
+.topbar-date.active i {
+    color: var(--accent);
+}
 
 .calendar-popover {
     position: absolute;
@@ -52,7 +63,10 @@
     pointer-events: none;
     transform: translateY(-8px) scale(0.96);
     transform-origin: top right;
-    transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0.18s;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        visibility 0.18s;
 }
 
 .calendar-popover.open {
@@ -90,7 +104,9 @@
     justify-content: center;
     font-size: 0.68rem;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition:
+        background 0.15s,
+        color 0.15s;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -133,11 +149,15 @@
     font-weight: 500;
     color: var(--text-main);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition:
+        background 0.15s,
+        color 0.15s;
     -webkit-tap-highlight-color: transparent;
 }
 
-.calendar-day:hover { background: var(--bg-page); }
+.calendar-day:hover {
+    background: var(--bg-page);
+}
 
 .calendar-day--muted {
     color: var(--text-tertiary);
@@ -150,8 +170,14 @@
     font-weight: 700;
 }
 
-.calendar-day--today:hover { background: var(--accent-hover); }
+.calendar-day--today:hover {
+    background: var(--accent-hover);
+}
 
 @media (max-width: 480px) {
-    .calendar-popover { right: -12px; width: 268px; padding: 14px; }
+    .calendar-popover {
+        right: -12px;
+        width: 268px;
+        padding: 14px;
+    }
 }

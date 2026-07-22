@@ -1,6 +1,3 @@
-/* comunicado-format.js — sanitização compartilhada do conteúdo formatado dos comunicados
-   Usado tanto pelo editor do RH (comunicacao.js) quanto pela leitura do colaborador
-   (comunicados-colaborador.js), para que a mesma whitelist valha nos dois lados. */
 (function () {
     const ALLOWED_TAGS = new Set(['STRONG', 'B', 'UL', 'LI', 'A', 'BR', 'DIV', 'P']);
     const BLOCKED_REMOVE_TAGS = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'SVG']);
@@ -13,7 +10,7 @@
     }
 
     function stripAllAttributes(node) {
-        Array.from(node.attributes).forEach(a => node.removeAttribute(a.name));
+        Array.from(node.attributes).forEach((a) => node.removeAttribute(a.name));
     }
 
     function cleanNode(node) {
@@ -22,8 +19,14 @@
 
         const tag = node.tagName;
 
-        if (BLOCKED_REMOVE_TAGS.has(tag)) { node.remove(); return; }
-        if (!ALLOWED_TAGS.has(tag)) { unwrap(node); return; }
+        if (BLOCKED_REMOVE_TAGS.has(tag)) {
+            node.remove();
+            return;
+        }
+        if (!ALLOWED_TAGS.has(tag)) {
+            unwrap(node);
+            return;
+        }
 
         if (tag === 'A') {
             const href = node.getAttribute('href') || '';

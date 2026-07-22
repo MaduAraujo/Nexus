@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Minha Equipe</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/equipe-colaborador.css">
 </head>
 <body>
-
     <header class="topbar">
         <div class="topbar-left">
             <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
@@ -22,7 +21,6 @@
 
     <main class="content">
         <div class="page-body">
-
             <div id="section-not-manager" class="empty-state hidden">
                 <i class="fas fa-people-group"></i>
                 <p>Você ainda não lidera nenhum colaborador</p>
@@ -30,7 +28,6 @@
             </div>
 
             <div id="team-content" class="hidden" style="display:flex; flex-direction:column; gap:24px;">
-
                 <div>
                     <div class="section-header-row">
                         <h2 class="section-title"><i class="fas fa-umbrella-beach"></i> Férias pendentes de aprovação</h2>
@@ -49,7 +46,6 @@
                     <p class="privacy-note"><i class="fas fa-shield-halved"></i> Por política de privacidade (LGPD), dados salariais e bancários do time não ficam visíveis para o gestor — só para o RH.</p>
                     <div class="team-grid" id="team-grid" style="margin-top:12px"></div>
                 </div>
-
             </div>
         </div>
     </main>
@@ -94,11 +90,12 @@
             </div>
         </div>
     </div>
-
+    
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/equipe-colaborador.js"></script>
 </body>
 </html>

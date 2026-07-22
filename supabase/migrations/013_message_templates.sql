@@ -1,5 +1,3 @@
--- Modelos salvos de comunicados (para avisos recorrentes)
-
 CREATE TABLE IF NOT EXISTS message_templates (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome       TEXT NOT NULL,

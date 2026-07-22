@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Colaboradores</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/colaboradores.css">
     <link rel="stylesheet" href="../styles/btn-back.css">
+    <link rel="stylesheet" href="../styles/search-widget.css">
 </head>
 <body>
 <div class="layout">
@@ -200,6 +201,37 @@
                                             <label for="probation-end-date">Fim do Período de Experiência</label>
                                             <div class="date-field">
                                                 <input type="text" id="probation-end-date" class="date-input" placeholder="dd/mm/aaaa" readonly>
+                                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                                <div class="calendar-popover">
+                                                    <div class="calendar-header">
+                                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                                        <span class="calendar-title" data-cal-title>—</span>
+                                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                                    </div>
+                                                    <div class="calendar-weekdays">
+                                                        <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                                    </div>
+                                                    <div class="calendar-grid" data-cal-grid></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label>Em Aviso Prévio?</label>
+                                        <div class="radio-group row-radio">
+                                            <label><input type="radio" name="em-aviso-previo" value="nao"> Não</label>
+                                            <label><input type="radio" name="em-aviso-previo" value="sim"> Sim</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="aviso-previo-details" class="conditional-field" style="display:none;">
+                                    <div class="form-row">
+                                        <div class="form-group form-group--narrow">
+                                            <label for="aviso-previo-end-date">Fim do Aviso Prévio</label>
+                                            <div class="date-field">
+                                                <input type="text" id="aviso-previo-end-date" class="date-input" placeholder="dd/mm/aaaa" readonly>
                                                 <i class="fas fa-calendar-day date-field-icon"></i>
                                                 <div class="calendar-popover">
                                                     <div class="calendar-header">
@@ -922,11 +954,8 @@
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
     <div id="employee-drawer" class="drawer">
-
-        <!-- ── Header ──────────────────────────────── -->
         <div class="drawer-header">
             <div class="drawer-header-actions">
-                <!-- menu ⋮ -->
                 <div class="dropdown" id="drawer-dropdown-wrap">
                     <button class="btn-options" id="btn-drawer-options"
                             onclick="toggleDropdown(event)"
@@ -934,7 +963,6 @@
                         <i class="fas fa-ellipsis-v"></i>
                     </button>
                     <div id="drawer-dropdown" class="dropdown-content">
-                        <!-- menu principal -->
                         <div id="main-menu-options">
                             <a href="javascript:void(0)" onclick="handleEditFromDrawer()">
                                 <i class="fas fa-edit"></i> Editar Dados
@@ -957,7 +985,6 @@
                                 <i class="fas fa-trash-alt"></i> Excluir Colaborador
                             </a>
                         </div>
-                        <!-- submenu status -->
                         <div id="status-submenu-options" class="hidden">
                             <a href="javascript:void(0)" onclick="event.stopPropagation(); backToMainMenu()" class="btn-back">
                                 <i class="fas fa-arrow-left"></i> Voltar
@@ -967,13 +994,11 @@
                         </div>
                     </div>
                 </div>
-                <!-- fechar -->
                 <button class="btn-close-drawer" onclick="closeDrawer()" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <!-- perfil -->
             <div class="drawer-profile">
                 <div class="drawer-avatar-wrap">
                     <img class="drawer-avatar-img hidden" id="drawer-avatar-img" alt="Foto de perfil" />
@@ -986,7 +1011,6 @@
             </div>
         </div>
 
-        <!-- ── Body ────────────────────────────────── -->
         <div class="drawer-body">
             <div class="drawer-section">
                 <p class="drawer-section-label"><i class="fas fa-briefcase"></i> Vínculo</p>
@@ -1033,6 +1057,13 @@
                             <p><span id="view-probation" class="badge"></span></p>
                         </div>
                     </div>
+                    <div class="info-item hidden" id="view-aviso-previo-wrap">
+                        <div class="info-icon"><i class="fas fa-door-open"></i></div>
+                        <div>
+                            <strong>Aviso Prévio</strong>
+                            <p><span id="view-aviso-previo" class="badge"></span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1047,8 +1078,6 @@
                 </div>
             </div>
         </div>
-
-
     </div>
 </div>
 
@@ -1222,11 +1251,13 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
-<script src="../javascript/search.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/search.js"></script>
+<script src="../javascript/domain/clt-domain.js"></script>
 <script src="../javascript/colaboradores.js"></script>
 </body>
 </html>

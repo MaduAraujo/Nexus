@@ -1,73 +1,82 @@
 document.addEventListener('DOMContentLoaded', async () => {
-
-    // ── Auth ──────────────────────────────────────────────────────────────────
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
     const myEmployeeId = auth.profile.employee_id;
-    let myEmployee      = auth.employee;
+    const myEmployee = auth.employee;
 
-    // ── Estado ────────────────────────────────────────────────────────────────
-    let currentTab      = 'social';
+    let currentTab = 'social';
     let currentChannelId = null;
-    let currentChannel   = null;
-    let currentTicketId  = null;
-    let isEscalated      = false;
-    let activeChatSub    = null;
-    let activeTicketSub  = null;
-    let typingTimer      = null;
-    const unreadCounts   = {};   // { channelId: number }
+    let currentTicketId = null;
+    let isEscalated = false;
+    let activeChatSub = null;
+    let activeTicketSub = null;
+    let typingTimer = null;
+    const unreadCounts = {};
 
-    // ── Utilidades ────────────────────────────────────────────────────────────
-    const esc = s => String(s || '')
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const esc = (s) =>
+        String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 
-    const initials = name =>
-        (name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
+    const initials = (name) =>
+        (name || '?')
+            .split(' ')
+            .slice(0, 2)
+            .map((w) => w[0]?.toUpperCase() || '')
+            .join('');
 
-    const fmtTime = ts => new Date(ts).toLocaleTimeString('pt-BR',{ hour:'2-digit', minute:'2-digit' });
+    const fmtTime = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    const fmtAgo = ts => {
+    const fmtAgo = (ts) => {
         const d = Math.floor((Date.now() - new Date(ts)) / 60000);
         if (d < 1) return 'agora';
         if (d < 60) return `${d}min atrás`;
         const h = Math.floor(d / 60);
         if (h < 24) return `${h}h atrás`;
-        return new Date(ts).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+        return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
     };
 
-    const scrollBottom = id => {
+    const scrollBottom = (id) => {
         const el = document.getElementById(id);
-        if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        if (el)
+            requestAnimationFrame(() => {
+                el.scrollTop = el.scrollHeight;
+            });
     };
 
-    const $ = id => document.getElementById(id);
+    const $ = (id) => document.getElementById(id);
 
-    // ── Painel esquerdo mobile (chat-left drawer) ─────────────────────────────
-    const chatLeft      = document.getElementById('chat-left');
-    const chatOverlay   = document.getElementById('chat-overlay');
-    const panelsBtn     = document.getElementById('topbar-panels-btn');
+    const chatLeft = document.getElementById('chat-left');
+    const chatOverlay = document.getElementById('chat-overlay');
+    const panelsBtn = document.getElementById('topbar-panels-btn');
 
-    const openChatLeft  = () => { chatLeft?.classList.add('open'); chatOverlay?.classList.add('active'); };
-    const closeChatLeft = () => { chatLeft?.classList.remove('open'); chatOverlay?.classList.remove('active'); };
+    const openChatLeft = () => {
+        chatLeft?.classList.add('open');
+        chatOverlay?.classList.add('active');
+    };
+    const closeChatLeft = () => {
+        chatLeft?.classList.remove('open');
+        chatOverlay?.classList.remove('active');
+    };
 
-    panelsBtn?.addEventListener('click',   openChatLeft);
+    panelsBtn?.addEventListener('click', openChatLeft);
     chatOverlay?.addEventListener('click', closeChatLeft);
 
-    // ── Abas Social / Com o RH / Reconhecimento ────────────────────────────────
-    const tabBtns   = document.querySelectorAll('.chat-tab');
-    const panelMap  = { social: $('panel-social'), rh: $('panel-rh'), kudos: $('panel-kudos') };
+    const tabBtns = document.querySelectorAll('.chat-tab');
+    const panelMap = { social: $('panel-social'), rh: $('panel-rh'), kudos: $('panel-kudos') };
 
-    tabBtns.forEach(btn => {
+    tabBtns.forEach((btn) => {
         btn.addEventListener('click', () => {
             const tab = btn.dataset.tab;
             if (tab === currentTab) return;
             currentTab = tab;
-            tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            tabBtns.forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
             Object.entries(panelMap).forEach(([k, el]) => {
                 if (el) el.classList.toggle('hidden', k !== tab);
             });
-            // Ao trocar para RH sem ticket aberto: esconde chat areas, mostra welcome
             if (tab === 'rh' && !currentTicketId) showWelcome();
             if (tab === 'social' && !currentChannelId) showWelcome();
             if (tab === 'kudos') showKudosArea();
@@ -75,11 +84,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // ── Funções de visibilidade das áreas ─────────────────────────────────────
     const chatWelcome = $('chat-welcome');
-    const chatArea    = $('chat-area');
-    const hrArea      = $('hr-area');
-    const kudosArea   = $('kudos-area');
+    const chatArea = $('chat-area');
+    const hrArea = $('hr-area');
+    const kudosArea = $('kudos-area');
 
     function showWelcome() {
         chatWelcome?.classList.remove('hidden');
@@ -109,7 +117,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         kudosArea?.classList.remove('hidden');
     }
 
-    // ── Topbar info ───────────────────────────────────────────────────────────
     function setTopbarChannel(icon, name) {
         const iconEl = $('topbar-channel-icon');
         const nameEl = $('topbar-channel-name');
@@ -117,12 +124,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (nameEl) nameEl.textContent = name;
     }
 
-    // ── Presença ──────────────────────────────────────────────────────────────
     let onlineCount = 0;
 
     function setupPresence() {
         const presenceCh = sb.channel('chat:presence', {
-            config: { presence: { key: myEmployeeId } }
+            config: { presence: { key: myEmployeeId } },
         });
 
         presenceCh
@@ -131,33 +137,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 onlineCount = Object.keys(state).length;
                 updatePresenceUI();
             })
-            .subscribe(async status => {
+            .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
                     await presenceCh.track({
                         employee_id: myEmployeeId,
                         name: myEmployee.name,
-                        online_at: new Date().toISOString()
+                        online_at: new Date().toISOString(),
                     });
                 }
             });
     }
 
     function updatePresenceUI() {
-        const pill   = $('presence-pill');
-        const numEl  = $('presence-number');
+        const pill = $('presence-pill');
+        const numEl = $('presence-number');
         if (!pill || !numEl) return;
         numEl.textContent = onlineCount;
         pill.style.display = currentChannelId ? 'flex' : 'none';
     }
 
-    // ── Render avatar helper ──────────────────────────────────────────────────
     function avatarStyle(e) {
         if (!e) return `style="background:#6366f1"`;
         if (e.avatar_url) return `style="background:url(${e.avatar_url}) center/cover"`;
         return `style="background:${e.avatar_color || '#6366f1'}"`;
     }
-
-    // ── CANAL SOCIAL ──────────────────────────────────────────────────────────
 
     let allChannels = [];
 
@@ -168,43 +171,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: channels } = await sb.from('chat_channels').select('*').order('name');
         allChannels = channels || [];
 
-        // Auto-join #geral e canal do departamento
-        const geral = allChannels.find(c => c.slug === 'geral');
+        const geral = allChannels.find((c) => c.slug === 'geral');
         if (geral) await joinChannel(geral.id);
         if (myEmployee.dept) {
-            const deptSlug = myEmployee.dept.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            const deptCh   = allChannels.find(c => c.dept === myEmployee.dept || c.slug === deptSlug);
+            const deptSlug = myEmployee.dept
+                .toLowerCase()
+                .replace(/\s+/g, '-')
+                .replace(/[^a-z0-9-]/g, '');
+            const deptCh = allChannels.find((c) => c.dept === myEmployee.dept || c.slug === deptSlug);
             if (deptCh) await joinChannel(deptCh.id);
         }
 
-        // Carrega quais canais o colaborador faz parte
-        const { data: memberships } = await sb.from('chat_channel_members')
-            .select('channel_id').eq('employee_id', myEmployeeId);
+        const { data: memberships } = await sb.from('chat_channel_members').select('channel_id').eq('employee_id', myEmployeeId);
 
-        const memberOf = new Set((memberships || []).map(m => m.channel_id));
+        const memberOf = new Set((memberships || []).map((m) => m.channel_id));
 
         list.innerHTML = '';
 
-        // Canais que o usuário faz parte primeiro, depois os outros
-        const mine  = allChannels.filter(c => memberOf.has(c.id));
-        const other = allChannels.filter(c => !memberOf.has(c.id));
+        const mine = allChannels.filter((c) => memberOf.has(c.id));
+        const other = allChannels.filter((c) => !memberOf.has(c.id));
 
         if (mine.length) {
             const hd = document.createElement('li');
             hd.className = 'channel-section-hd';
-            hd.style.cssText = 'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);';
+            hd.style.cssText =
+                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);';
             hd.textContent = 'Meus canais';
             list.appendChild(hd);
-            mine.forEach(c => list.appendChild(buildChannelItem(c, true)));
+            mine.forEach((c) => list.appendChild(buildChannelItem(c, true)));
         }
 
         if (other.length) {
             const hd = document.createElement('li');
             hd.className = 'channel-section-hd';
-            hd.style.cssText = 'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
+            hd.style.cssText =
+                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
             hd.textContent = 'Outros canais';
             list.appendChild(hd);
-            other.forEach(c => list.appendChild(buildChannelItem(c, false)));
+            other.forEach((c) => list.appendChild(buildChannelItem(c, false)));
         }
 
         if (!mine.length && !other.length) {
@@ -216,13 +220,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const li = document.createElement('li');
         li.className = 'channel-item';
         li.dataset.channelId = channel.id;
-        li.dataset.member    = isMember ? '1' : '0';
+        li.dataset.member = isMember ? '1' : '0';
 
-        const unread  = unreadCounts[channel.id] || 0;
+        const unread = unreadCounts[channel.id] || 0;
         const iconMap = {
-            'globe': 'fa-globe', 'code': 'fa-code', 'user-tie': 'fa-user-tie',
-            'dollar-sign': 'fa-dollar-sign', 'bullhorn': 'fa-bullhorn',
-            'gavel': 'fa-gavel', 'building': 'fa-building', 'lightbulb': 'fa-lightbulb'
+            globe: 'fa-globe',
+            code: 'fa-code',
+            'user-tie': 'fa-user-tie',
+            'dollar-sign': 'fa-dollar-sign',
+            bullhorn: 'fa-bullhorn',
+            gavel: 'fa-gavel',
+            building: 'fa-building',
+            lightbulb: 'fa-lightbulb',
         };
         const faIcon = iconMap[channel.icon] || 'fa-hashtag';
 
@@ -237,7 +246,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function joinChannel(channelId) {
-        await sb.from('chat_channel_members')
+        await sb
+            .from('chat_channel_members')
             .upsert({ channel_id: channelId, employee_id: myEmployeeId }, { onConflict: 'channel_id,employee_id', ignoreDuplicates: true });
     }
 
@@ -247,36 +257,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             isMember = true;
         }
 
-        currentChannelId  = channel.id;
-        currentChannel    = channel;
-        currentTicketId   = null;
-        isEscalated       = false;
+        currentChannelId = channel.id;
+        currentTicketId = null;
+        isEscalated = false;
 
-        // Atualiza UI da lista
-        document.querySelectorAll('.channel-item').forEach(li => {
+        document.querySelectorAll('.channel-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.channelId === channel.id);
         });
 
-        // Zera unread
         unreadCounts[channel.id] = 0;
         updateChannelBadge(channel.id);
         updateSidebarUnread();
 
-        // Topbar
         setTopbarChannel('#', channel.name);
         const areaName = $('chat-area-name');
         const areaDesc = $('chat-area-desc');
         if (areaName) areaName.textContent = `#${channel.name}`;
         if (areaDesc) areaDesc.textContent = channel.description || '';
 
-        // Input placeholder
         const input = $('chat-input');
         if (input) input.placeholder = `Mensagem para #${channel.name}...`;
 
         showChatArea();
         closeChatLeft();
 
-        // Presença
         const pill = $('presence-pill');
         if (pill) pill.style.display = 'flex';
 
@@ -290,27 +294,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-        const { data: msgs } = await sb.from('chat_messages')
+        const { data: msgs } = await sb
+            .from('chat_messages')
             .select('*, employees(name, avatar_url, avatar_color, role)')
             .eq('channel_id', channelId)
             .order('created_at', { ascending: true })
             .limit(80);
 
         list.innerHTML = '';
-        (msgs || []).forEach(m => appendMessage(m, false));
+        (msgs || []).forEach((m) => appendMessage(m, false));
         scrollBottom('messages-scroll');
     }
 
     function appendMessage(msg, doScroll = true) {
         const list = $('messages-list');
         if (!list) return;
-        const e    = msg.employees || {};
+        const e = msg.employees || {};
         const mine = msg.employee_id === myEmployeeId;
 
         const group = document.createElement('div');
         group.className = `msg-group ${mine ? 'is-mine' : 'is-other'}`;
 
-        const avatarStr = mine ? '' : `
+        const avatarStr = mine
+            ? ''
+            : `
             <div class="msg-avatar" ${avatarStyle(e)} title="${esc(e.name)}">
                 ${e.avatar_url ? '' : esc(initials(e.name))}
             </div>`;
@@ -332,37 +339,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     function subscribeToChannel(channelId) {
         if (activeChatSub) sb.removeChannel(activeChatSub);
 
-        activeChatSub = sb.channel(`chat:${channelId}`)
-            .on('postgres_changes', {
-                event: 'INSERT', schema: 'public', table: 'chat_messages',
-                filter: `channel_id=eq.${channelId}`
-            }, async payload => {
-                const msg = payload.new;
-                if (msg.employee_id === myEmployeeId) return; // já foi adicionado ao enviar
+        activeChatSub = sb
+            .channel(`chat:${channelId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'chat_messages',
+                    filter: `channel_id=eq.${channelId}`,
+                },
+                async (payload) => {
+                    const msg = payload.new;
+                    if (msg.employee_id === myEmployeeId) return;
 
-                // Busca dados do employee para o avatar
-                const { data: e } = await sb.from('employees')
-                    .select('name, avatar_url, avatar_color, role').eq('id', msg.employee_id).single();
-                appendMessage({ ...msg, employees: e || {} });
+                    const { data: e } = await sb.from('employees').select('name, avatar_url, avatar_color, role').eq('id', msg.employee_id).single();
+                    appendMessage({ ...msg, employees: e || {} });
 
-                // Unread se canal não estiver visível
-                if (currentChannelId !== channelId) {
-                    unreadCounts[channelId] = (unreadCounts[channelId] || 0) + 1;
-                    updateChannelBadge(channelId);
-                    updateSidebarUnread();
+                    if (currentChannelId !== channelId) {
+                        unreadCounts[channelId] = (unreadCounts[channelId] || 0) + 1;
+                        updateChannelBadge(channelId);
+                        updateSidebarUnread();
+                    }
                 }
-            })
+            )
             .subscribe();
     }
 
-    // Typing indicator via Realtime Broadcast
     let typingChannel = null;
 
     function subscribeToTyping(channelId) {
         if (typingChannel) sb.removeChannel(typingChannel);
 
-        typingChannel = sb.channel(`typing:${channelId}`)
-            .on('broadcast', { event: 'typing' }, payload => {
+        typingChannel = sb
+            .channel(`typing:${channelId}`)
+            .on('broadcast', { event: 'typing' }, (payload) => {
                 if (payload.payload?.employee_id === myEmployeeId) return;
                 showTyping(payload.payload?.name || 'alguém');
                 clearTimeout(typingTimer);
@@ -372,9 +383,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showTyping(name) {
-        const ind  = $('typing-indicator');
+        const ind = $('typing-indicator');
         const text = $('typing-text');
-        if (ind)  ind.classList.remove('hidden');
+        if (ind) ind.classList.remove('hidden');
         if (text) text.textContent = `${name} está digitando...`;
         scrollBottom('messages-scroll');
     }
@@ -383,25 +394,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('typing-indicator')?.classList.add('hidden');
     }
 
-    // Input do chat social
-    const chatInput   = $('chat-input');
+    const chatInput = $('chat-input');
     const chatSendBtn = $('chat-send-btn');
 
     chatInput?.addEventListener('input', () => {
         autoResize(chatInput);
         chatSendBtn.disabled = !chatInput.value.trim();
 
-        // Broadcast typing
         if (currentChannelId && typingChannel) {
             typingChannel.send({
-                type: 'broadcast', event: 'typing',
-                payload: { employee_id: myEmployeeId, name: myEmployee.name }
+                type: 'broadcast',
+                event: 'typing',
+                payload: { employee_id: myEmployeeId, name: myEmployee.name },
             });
         }
     });
 
-    chatInput?.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendSocialMessage(); }
+    chatInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendSocialMessage();
+        }
     });
 
     chatSendBtn?.addEventListener('click', sendSocialMessage);
@@ -414,15 +427,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatSendBtn.disabled = true;
         autoResize(chatInput);
 
-        const { data: msg, error } = await sb.from('chat_messages').insert({
-            channel_id: currentChannelId,
-            employee_id: myEmployeeId,
-            content: text
-        }).select().single();
+        const { data: msg, error } = await sb
+            .from('chat_messages')
+            .insert({
+                channel_id: currentChannelId,
+                employee_id: myEmployeeId,
+                content: text,
+            })
+            .select()
+            .single();
 
-        if (error) { showToast('Erro ao enviar mensagem', 'error'); return; }
+        if (error) {
+            showToast('Erro ao enviar mensagem', 'error');
+            return;
+        }
 
-        // Adiciona mensagem imediatamente (otimista)
         appendMessage({ ...msg, employees: myEmployee });
     }
 
@@ -434,17 +453,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         badge.style.display = count > 0 ? 'flex' : 'none';
     }
 
-    function updateSidebarUnread() {
-        // sem sidebar — sem badge global de não-lidas
-    }
-
-    // ── ATENDIMENTO RH ────────────────────────────────────────────────────────
+    function updateSidebarUnread() {}
 
     const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! Sou o Agente de Atendimento RH.
 Com o que posso te ajudar hoje?`;
 
-    // Só os tópicos de atalho da saudação — a resposta em si vem do assistente com dados
-    // reais (ai-employee-chat), não mais de um texto fixo por regex.
     const HR_TOPICS = ['Qual meu saldo de férias?', 'Quando vence meu banco de horas?', 'Meu último holerite', 'Documentos', 'Falar com analista'];
 
     let allTickets = [];
@@ -453,10 +466,7 @@ Com o que posso te ajudar hoje?`;
         const list = $('ticket-list');
         if (!list) return;
 
-        const { data: tickets } = await sb.from('hr_tickets')
-            .select('*')
-            .eq('employee_id', myEmployeeId)
-            .order('updated_at', { ascending: false });
+        const { data: tickets } = await sb.from('hr_tickets').select('*').eq('employee_id', myEmployeeId).order('updated_at', { ascending: false });
 
         allTickets = tickets || [];
         renderTicketList();
@@ -468,15 +478,16 @@ Com o que posso te ajudar hoje?`;
         list.innerHTML = '';
 
         if (!allTickets.length) {
-            list.innerHTML = '<li class="ch-loading" style="flex-direction:column;align-items:flex-start;gap:4px;"><span style="color:rgba(156,163,175,.9)">Nenhuma conversa ainda</span></li>';
+            list.innerHTML =
+                '<li class="ch-loading" style="flex-direction:column;align-items:flex-start;gap:4px;"><span style="color:rgba(156,163,175,.9)">Nenhuma conversa ainda</span></li>';
             return;
         }
 
-        allTickets.forEach(t => list.appendChild(buildTicketItem(t)));
+        allTickets.forEach((t) => list.appendChild(buildTicketItem(t)));
     }
 
     const statusLabel = { bot: 'Bot', aguardando_rh: 'Aguardando RH', em_atendimento: 'Em atendimento', resolvido: 'Resolvido' };
-    const statusDot   = { bot: 'tsd-bot', aguardando_rh: 'tsd-waiting', em_atendimento: 'tsd-human', resolvido: 'tsd-solved' };
+    const statusDot = { bot: 'tsd-bot', aguardando_rh: 'tsd-waiting', em_atendimento: 'tsd-human', resolvido: 'tsd-solved' };
 
     function buildTicketItem(ticket) {
         const li = document.createElement('li');
@@ -497,13 +508,20 @@ Com o que posso te ajudar hoje?`;
     $('new-ticket-btn')?.addEventListener('click', createTicket);
 
     async function createTicket() {
-        const { data: ticket, error } = await sb.from('hr_tickets').insert({
-            employee_id: myEmployeeId,
-            subject: 'Atendimento RH',
-            status: 'bot'
-        }).select().single();
+        const { data: ticket, error } = await sb
+            .from('hr_tickets')
+            .insert({
+                employee_id: myEmployeeId,
+                subject: 'Atendimento RH',
+                status: 'bot',
+            })
+            .select()
+            .single();
 
-        if (error || !ticket) { showToast('Erro ao iniciar atendimento', 'error'); return; }
+        if (error || !ticket) {
+            showToast('Erro ao iniciar atendimento', 'error');
+            return;
+        }
 
         allTickets.unshift(ticket);
         renderTicketList();
@@ -511,25 +529,22 @@ Com o que posso te ajudar hoje?`;
     }
 
     async function selectTicket(ticket) {
-        currentTicketId  = ticket.id;
+        currentTicketId = ticket.id;
         currentChannelId = null;
-        isEscalated      = ticket.status === 'aguardando_rh' || ticket.status === 'em_atendimento';
+        isEscalated = ticket.status === 'aguardando_rh' || ticket.status === 'em_atendimento';
 
-        document.querySelectorAll('.ticket-item').forEach(li => {
+        document.querySelectorAll('.ticket-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.ticketId === ticket.id);
         });
 
-        // Topbar
         setTopbarChannel('<i class="fas fa-headset" style="color:var(--accent-hr)"></i>', 'Agente RH');
 
-        // Header da área RH
         const areaName = $('hr-area-name');
         const areaStatus = $('hr-area-status');
         if (areaName) areaName.textContent = ticket.subject || 'Atendimento RH';
         if (areaStatus) areaStatus.textContent = statusLabel[ticket.status] || 'Bot';
         updateHrStatusBadge(ticket.status);
 
-        // Input
         const hrInput = $('hr-input');
         if (hrInput) hrInput.disabled = ticket.status === 'resolvido';
         const hrSendBtn = $('hr-send-btn');
@@ -541,7 +556,6 @@ Com o que posso te ajudar hoje?`;
         await loadTicketMessages(ticket.id);
         subscribeToTicket(ticket.id);
 
-        // Se é novo (sem mensagens), bot saúda
         const list = $('hr-messages-list');
         if (list && list.children.length === 0) {
             await sendBotMessage(ticket.id, HR_BOT_GREETING, HR_TOPICS);
@@ -550,7 +564,6 @@ Com o que posso te ajudar hoje?`;
         maybeShowCsatPrompt(ticket);
     }
 
-    // ── CSAT: avaliação do atendimento assim que o ticket é resolvido ─────────
     function maybeShowCsatPrompt(ticket) {
         if (ticket.status !== 'resolvido' || ticket.csat_rating) return;
         const list = $('hr-messages-list');
@@ -561,11 +574,11 @@ Com o que posso te ajudar hoje?`;
         wrap.innerHTML = `
             <span>Como você avalia este atendimento?</span>
             <div class="csat-stars">
-                ${[1,2,3,4,5].map(n => `<button type="button" class="csat-star" data-rating="${n}" aria-label="${n} estrela${n>1?'s':''}"><i class="fas fa-star"></i></button>`).join('')}
+                ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="csat-star" data-rating="${n}" aria-label="${n} estrela${n > 1 ? 's' : ''}"><i class="fas fa-star"></i></button>`).join('')}
             </div>`;
 
         const stars = wrap.querySelectorAll('.csat-star');
-        stars.forEach(btn => {
+        stars.forEach((btn) => {
             btn.addEventListener('mouseenter', () => highlightStars(stars, Number(btn.dataset.rating)));
             btn.addEventListener('click', () => submitCsat(ticket.id, Number(btn.dataset.rating), wrap));
         });
@@ -576,16 +589,17 @@ Com o que posso te ajudar hoje?`;
     }
 
     function highlightStars(stars, rating) {
-        stars.forEach(btn => btn.classList.toggle('active', Number(btn.dataset.rating) <= rating));
+        stars.forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.rating) <= rating));
     }
 
     async function submitCsat(ticketId, rating, wrapEl) {
-        const { error } = await sb.from('hr_tickets')
-            .update({ csat_rating: rating, csat_rated_at: new Date().toISOString() })
-            .eq('id', ticketId);
-        if (error) { showToast('Não foi possível enviar sua avaliação', 'error'); return; }
+        const { error } = await sb.from('hr_tickets').update({ csat_rating: rating, csat_rated_at: new Date().toISOString() }).eq('id', ticketId);
+        if (error) {
+            showToast('Não foi possível enviar sua avaliação', 'error');
+            return;
+        }
 
-        const idx = allTickets.findIndex(t => t.id === ticketId);
+        const idx = allTickets.findIndex((t) => t.id === ticketId);
         if (idx !== -1) allTickets[idx] = { ...allTickets[idx], csat_rating: rating };
 
         wrapEl.innerHTML = `<span class="csat-thanks"><i class="fas fa-circle-check" style="color:var(--success)"></i> Obrigado pela avaliação!</span>`;
@@ -593,7 +607,7 @@ Com o que posso te ajudar hoje?`;
     }
 
     function updateHrStatusBadge(status) {
-        const dot   = $('hr-status-dot');
+        const dot = $('hr-status-dot');
         const label = $('hr-status-label');
         if (dot) {
             dot.className = 'presence-dot';
@@ -610,11 +624,10 @@ Com o que posso te ajudar hoje?`;
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-        const { data: msgs } = await sb.from('hr_ticket_messages')
-            .select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+        const { data: msgs } = await sb.from('hr_ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
 
         list.innerHTML = '';
-        (msgs || []).forEach(m => appendTicketMessage(m, false));
+        (msgs || []).forEach((m) => appendTicketMessage(m, false));
         scrollBottom('hr-messages-scroll');
     }
 
@@ -623,7 +636,6 @@ Com o que posso te ajudar hoje?`;
         if (!list) return;
 
         if (msg.role === 'user') {
-            const mine = msg.employee_id === myEmployeeId;
             const group = document.createElement('div');
             group.className = 'msg-group is-mine';
             group.innerHTML = `
@@ -655,18 +667,17 @@ Com o que posso te ajudar hoje?`;
         if (doScroll) scrollBottom('hr-messages-scroll');
     }
 
-    // Converte **negrito** → <strong> e quebras de linha — mesmo formatador usado tanto
-    // pras respostas estáticas (saudação) quanto pro texto que chega em streaming do
-    // assistente com dados reais (ver streamAiEmployeeReply).
     function formatBotMd(content) {
-        return esc(content).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        return esc(content)
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
     }
 
     function appendBotMessage(content, quickReplies, ts) {
         const list = $('hr-messages-list');
         if (!list) return;
 
-        const now   = ts || new Date().toISOString();
+        const now = ts || new Date().toISOString();
         const group = document.createElement('div');
         group.className = 'msg-group is-bot';
 
@@ -675,7 +686,7 @@ Com o que posso te ajudar hoje?`;
         let qrHtml = '';
         if (quickReplies && quickReplies.length) {
             qrHtml = `<div class="quick-replies">
-                ${quickReplies.map(qr => `<button class="qr-btn" data-qr="${esc(qr)}">${esc(qr)}</button>`).join('')}
+                ${quickReplies.map((qr) => `<button class="qr-btn" data-qr="${esc(qr)}">${esc(qr)}</button>`).join('')}
             </div>`;
         }
 
@@ -691,8 +702,7 @@ Com o que posso te ajudar hoje?`;
                 </div>
             </div>`;
 
-        // Listeners dos quick replies
-        group.querySelectorAll('.qr-btn').forEach(btn => {
+        group.querySelectorAll('.qr-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const text = btn.dataset.qr;
                 disableAllQuickReplies();
@@ -705,7 +715,7 @@ Com o que posso te ajudar hoje?`;
     }
 
     function disableAllQuickReplies() {
-        document.querySelectorAll('#hr-messages-list .qr-btn, #hr-messages-list .escalate-cta').forEach(btn => {
+        document.querySelectorAll('#hr-messages-list .qr-btn, #hr-messages-list .escalate-cta').forEach((btn) => {
             btn.disabled = true;
             btn.style.opacity = '.45';
             btn.style.pointerEvents = 'none';
@@ -713,13 +723,16 @@ Com o que posso te ajudar hoje?`;
     }
 
     async function sendBotMessage(ticketId, content, quickReplies = null) {
-        // Salva no banco
-        const { data: msg } = await sb.from('hr_ticket_messages').insert({
-            ticket_id: ticketId,
-            employee_id: null,
-            role: 'bot',
-            content
-        }).select().single();
+        const { data: msg } = await sb
+            .from('hr_ticket_messages')
+            .insert({
+                ticket_id: ticketId,
+                employee_id: null,
+                role: 'bot',
+                content,
+            })
+            .select()
+            .single();
 
         appendBotMessage(content, quickReplies, msg?.created_at);
     }
@@ -727,13 +740,16 @@ Com o que posso te ajudar hoje?`;
     async function handleHrUserInput(text) {
         if (!currentTicketId || isEscalated) return;
 
-        // Salva mensagem do usuário
-        const { data: userMsg } = await sb.from('hr_ticket_messages').insert({
-            ticket_id: currentTicketId,
-            employee_id: myEmployeeId,
-            role: 'user',
-            content: text
-        }).select().single();
+        const { data: userMsg } = await sb
+            .from('hr_ticket_messages')
+            .insert({
+                ticket_id: currentTicketId,
+                employee_id: myEmployeeId,
+                role: 'user',
+                content: text,
+            })
+            .select()
+            .single();
 
         appendTicketMessage({ ...userMsg, role: 'user' });
 
@@ -746,27 +762,19 @@ Com o que posso te ajudar hoje?`;
         await streamAiEmployeeReply(text);
     }
 
-    // Busca até as últimas 30 mensagens do ticket (user/bot) pra dar contexto de
-    // conversa ao assistente — mensagens 'rh' nunca aparecem aqui porque, uma vez
-    // escalado (isEscalated), handleHrUserInput já retorna antes de chegar aqui.
     async function getTicketAiHistory(ticketId) {
-        const { data } = await sb.from('hr_ticket_messages')
+        const { data } = await sb
+            .from('hr_ticket_messages')
             .select('role, content')
             .eq('ticket_id', ticketId)
             .in('role', ['user', 'bot'])
             .order('created_at', { ascending: true })
             .limit(30);
-        return (data || []).map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content }));
+        return (data || []).map((m) => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content }));
     }
 
-    // Assistente conversacional com dados reais da sessão do colaborador (saldo de
-    // férias, banco de horas, holerites...) — mesma arquitetura de tool-calling/streaming
-    // já validada em alertas.js (chat do RH), só que via ai-employee-chat, escopada ao
-    // próprio colaborador em vez do snapshot geral de RH.
     async function streamAiEmployeeReply(text) {
         const history = await getTicketAiHistory(currentTicketId);
-        // A última entrada do history já é a pergunta que acabamos de salvar — envia
-        // separado como `message` e o resto como contexto, mesmo formato do ai-alerts.
         const historyContext = history.slice(0, -1);
 
         const list = $('hr-messages-list');
@@ -790,13 +798,15 @@ Com o que posso te ajudar hoje?`;
         const bubble = $(bubbleId);
         let fullText = '';
         try {
-            const { data: { session } } = await sb.auth.getSession();
+            const {
+                data: { session },
+            } = await sb.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-employee-chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'apikey': SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${session.access_token}`,
+                    apikey: SUPABASE_ANON_KEY,
                 },
                 body: JSON.stringify({ message: text, history: historyContext }),
             });
@@ -805,7 +815,7 @@ Com o que posso te ajudar hoje?`;
                 throw new Error(errData.error || `Erro ${res.status}`);
             }
 
-            const reader  = res.body.getReader();
+            const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
             while (true) {
@@ -823,9 +833,12 @@ Com o que posso te ajudar hoje?`;
                         const delta = JSON.parse(raw).choices?.[0]?.delta?.content;
                         if (delta) {
                             fullText += delta;
-                            if (bubble) { bubble.innerHTML = formatBotMd(fullText) + '<span class="stream-cursor"></span>'; scrollBottom('hr-messages-scroll'); }
+                            if (bubble) {
+                                bubble.innerHTML = formatBotMd(fullText) + '<span class="stream-cursor"></span>';
+                                scrollBottom('hr-messages-scroll');
+                            }
                         }
-                    } catch { /* linha incompleta */ }
+                    } catch {}
                 }
             }
         } catch (err) {
@@ -836,11 +849,14 @@ Com o que posso te ajudar hoje?`;
 
         await sb.from('hr_ticket_messages').insert({ ticket_id: currentTicketId, employee_id: null, role: 'bot', content: fullText });
 
-        // Sempre deixa a opção de escalar visível, independente do que o assistente respondeu.
         const qrHtml = `<div class="quick-replies"><button class="qr-btn" data-qr="Falar com analista">Falar com analista</button></div>`;
         group.querySelector('.msg-content-wrap')?.insertAdjacentHTML('beforeend', qrHtml);
-        group.querySelectorAll('.qr-btn').forEach(btn => {
-            btn.addEventListener('click', () => { const t = btn.dataset.qr; disableAllQuickReplies(); handleHrUserInput(t); });
+        group.querySelectorAll('.qr-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const t = btn.dataset.qr;
+                disableAllQuickReplies();
+                handleHrUserInput(t);
+            });
         });
         scrollBottom('hr-messages-scroll');
     }
@@ -852,12 +868,12 @@ Com o que posso te ajudar hoje?`;
         await sb.from('hr_tickets').update({ status: 'aguardando_rh', subject: 'Atendimento solicitado' }).eq('id', currentTicketId);
 
         const sysMsg = '— Conversa transferida para analista de RH. Aguarde o atendimento. —';
-        const { data: msg } = await sb.from('hr_ticket_messages').insert({
+        await sb.from('hr_ticket_messages').insert({
             ticket_id: currentTicketId,
             employee_id: null,
             role: 'bot',
-            content: sysMsg
-        }).select().single();
+            content: sysMsg,
+        });
 
         const list = $('hr-messages-list');
         if (list) {
@@ -867,22 +883,23 @@ Com o que posso te ajudar hoje?`;
             list.appendChild(sys);
         }
 
-        await sendBotMessage(currentTicketId,
+        await sendBotMessage(
+            currentTicketId,
             `Certo! Transferi sua conversa para um **analista de RH** 🟢
 
 Assim que estiver disponível, um analista irá continuar aqui neste mesmo chat. Não precisa sair desta tela.
 
-Tempo estimado de resposta: **até 1 dia útil**.`, null
+Tempo estimado de resposta: **até 1 dia útil**.`,
+            null
         );
 
         updateHrStatusBadge('aguardando_rh');
         const areaStatus = $('hr-area-status');
         if (areaStatus) areaStatus.textContent = 'Aguardando analista de RH';
 
-        // Atualiza lista de tickets
         await loadTickets();
         if (currentTicketId) {
-            document.querySelectorAll('.ticket-item').forEach(li => {
+            document.querySelectorAll('.ticket-item').forEach((li) => {
                 li.classList.toggle('active', li.dataset.ticketId === currentTicketId);
             });
         }
@@ -893,34 +910,46 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
     function subscribeToTicket(ticketId) {
         if (activeTicketSub) sb.removeChannel(activeTicketSub);
 
-        activeTicketSub = sb.channel(`hr:${ticketId}`)
-            .on('postgres_changes', {
-                event: 'INSERT', schema: 'public', table: 'hr_ticket_messages',
-                filter: `ticket_id=eq.${ticketId}`
-            }, payload => {
-                const msg = payload.new;
-                if (msg.role === 'rh') {
-                    appendTicketMessage(msg);
-                    updateHrStatusBadge('em_atendimento');
+        activeTicketSub = sb
+            .channel(`hr:${ticketId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'hr_ticket_messages',
+                    filter: `ticket_id=eq.${ticketId}`,
+                },
+                (payload) => {
+                    const msg = payload.new;
+                    if (msg.role === 'rh') {
+                        appendTicketMessage(msg);
+                        updateHrStatusBadge('em_atendimento');
+                    }
                 }
-            })
-            .on('postgres_changes', {
-                event: 'UPDATE', schema: 'public', table: 'hr_tickets',
-                filter: `id=eq.${ticketId}`
-            }, payload => {
-                const t = payload.new;
-                updateHrStatusBadge(t.status);
-                const areaStatus = $('hr-area-status');
-                if (areaStatus) areaStatus.textContent = statusLabel[t.status] || t.status;
-                isEscalated = t.status !== 'bot';
-                loadTickets();
-                maybeShowCsatPrompt(t);
-            })
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'hr_tickets',
+                    filter: `id=eq.${ticketId}`,
+                },
+                (payload) => {
+                    const t = payload.new;
+                    updateHrStatusBadge(t.status);
+                    const areaStatus = $('hr-area-status');
+                    if (areaStatus) areaStatus.textContent = statusLabel[t.status] || t.status;
+                    isEscalated = t.status !== 'bot';
+                    loadTickets();
+                    maybeShowCsatPrompt(t);
+                }
+            )
             .subscribe();
     }
 
-    // Input RH
-    const hrInput   = $('hr-input');
+    const hrInput = $('hr-input');
     const hrSendBtn = $('hr-send-btn');
 
     hrInput?.addEventListener('input', () => {
@@ -928,8 +957,11 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         hrSendBtn.disabled = !hrInput.value.trim() || isEscalated;
     });
 
-    hrInput?.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendHrMessage(); }
+    hrInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendHrMessage();
+        }
     });
 
     hrSendBtn?.addEventListener('click', sendHrMessage);
@@ -943,40 +975,28 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         await handleHrUserInput(text);
     }
 
-    // ── Reconhecimento entre pares (kudos) ──────────────────────────────────────
-
     const KUDOS_CAT_LABEL = { colaboracao: 'Colaboração', inovacao: 'Inovação', lideranca: 'Liderança', superacao: 'Superação', mentoria: 'Mentoria' };
-    let colleagues  = [];
-    let allKudos    = [];
-    let kudosSub    = null;
+    let colleagues = [];
+    let allKudos = [];
 
     async function loadColleagues() {
         const { data } = await sb.from('colleague_directory').select('id,name,dept').neq('id', myEmployeeId).order('name');
         colleagues = data || [];
     }
 
-    // kudos.select() não pode mais embutir o join via FK para employees (o
-    // colleague_directory fechou a visibilidade de linha "qualquer ativo vê
-    // qualquer ativo" na tabela base — ver migration 040), então from/to são
-    // resolvidos aqui a partir do colleague_directory já carregado por
-    // loadColleagues(), com fallback para o próprio usuário (que não aparece no
-    // directory por causa do .neq acima).
     function kudosDirMap() {
-        const dirMap = new Map(colleagues.map(c => [c.id, c]));
+        const dirMap = new Map(colleagues.map((c) => [c.id, c]));
         dirMap.set(myEmployeeId, { id: myEmployeeId, name: myEmployee.name, avatar_url: myEmployee.avatar_url, avatar_color: myEmployee.avatar_color });
         return dirMap;
     }
 
     async function loadKudos() {
-        const { data } = await sb.from('kudos')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(60);
+        const { data } = await sb.from('kudos').select('*').order('created_at', { ascending: false }).limit(60);
         const dirMap = kudosDirMap();
-        allKudos = (data || []).map(k => ({
+        allKudos = (data || []).map((k) => ({
             ...k,
             from: dirMap.get(k.from_employee_id) || null,
-            to:   dirMap.get(k.to_employee_id) || null,
+            to: dirMap.get(k.to_employee_id) || null,
         }));
         renderKudosWall();
     }
@@ -988,7 +1008,9 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
             wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award" style="font-size:1.6rem;opacity:.4;display:block;margin-bottom:8px"></i>Nenhum reconhecimento ainda.</div>`;
             return;
         }
-        wall.innerHTML = allKudos.map(k => `
+        wall.innerHTML = allKudos
+            .map(
+                (k) => `
             <div class="kudos-card">
                 <div class="kudos-card-head">
                     <span class="kudos-card-names">${esc(k.from?.name || '—')} <i class="fas fa-arrow-right"></i> ${esc(k.to?.name || '—')}</span>
@@ -996,18 +1018,20 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
                 </div>
                 <p class="kudos-card-msg">${esc(k.message)}</p>
                 <span class="kudos-card-time">${fmtAgo(k.created_at)}</span>
-            </div>`).join('');
+            </div>`
+            )
+            .join('');
     }
 
     function setupKudosRealtime() {
-        kudosSub = sb.channel('kudos-colab')
+        sb.channel('kudos-colab')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kudos' }, () => loadKudos())
             .subscribe();
     }
 
     window.openKudosModal = function () {
         const sel = $('kudos-colleague');
-        if (sel) sel.innerHTML = colleagues.map(c => `<option value="${c.id}">${esc(c.name)}${c.dept ? ' — ' + esc(c.dept) : ''}</option>`).join('');
+        if (sel) sel.innerHTML = colleagues.map((c) => `<option value="${c.id}">${esc(c.name)}${c.dept ? ' — ' + esc(c.dept) : ''}</option>`).join('');
         const msgEl = $('kudos-message');
         if (msgEl) msgEl.value = '';
         $('kudos-error')?.classList.add('hidden');
@@ -1019,22 +1043,35 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
     };
 
     window.submitKudos = async function () {
-        const toId   = $('kudos-colleague')?.value;
+        const toId = $('kudos-colleague')?.value;
         const categoria = $('kudos-categoria')?.value || 'colaboracao';
         const message = $('kudos-message')?.value.trim();
-        const errEl  = $('kudos-error');
+        const errEl = $('kudos-error');
 
         if (!toId || !message) {
-            if (errEl) { errEl.textContent = 'Selecione um colega e escreva uma mensagem.'; errEl.classList.remove('hidden'); }
+            if (errEl) {
+                errEl.textContent = 'Selecione um colega e escreva uma mensagem.';
+                errEl.classList.remove('hidden');
+            }
             return;
         }
 
-        const { data, error } = await sb.from('kudos').insert({
-            from_employee_id: myEmployeeId, to_employee_id: toId, categoria, message,
-        }).select('*').single();
+        const { data, error } = await sb
+            .from('kudos')
+            .insert({
+                from_employee_id: myEmployeeId,
+                to_employee_id: toId,
+                categoria,
+                message,
+            })
+            .select('*')
+            .single();
 
         if (error) {
-            if (errEl) { errEl.textContent = 'Não foi possível publicar. Tente novamente.'; errEl.classList.remove('hidden'); }
+            if (errEl) {
+                errEl.textContent = 'Não foi possível publicar. Tente novamente.';
+                errEl.classList.remove('hidden');
+            }
             return;
         }
 
@@ -1044,9 +1081,6 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         closeKudosModal();
         showToast('Reconhecimento publicado!', 'success', 'Seu colega vai adorar ver isso no mural.');
     };
-
-    // ── Feedback anônimo ao RH ──────────────────────────────────────────────────
-    // Sem employee_id em nenhum lugar — nem o cliente sabe reconstruir quem enviou.
 
     $('anon-feedback-btn')?.addEventListener('click', () => {
         const msgEl = $('anon-message');
@@ -1061,17 +1095,23 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
 
     window.submitAnonFeedback = async function () {
         const categoria = $('anon-categoria')?.value || 'outro';
-        const message   = $('anon-message')?.value.trim();
-        const errEl      = $('anon-error');
+        const message = $('anon-message')?.value.trim();
+        const errEl = $('anon-error');
 
         if (!message) {
-            if (errEl) { errEl.textContent = 'Escreva sua mensagem antes de enviar.'; errEl.classList.remove('hidden'); }
+            if (errEl) {
+                errEl.textContent = 'Escreva sua mensagem antes de enviar.';
+                errEl.classList.remove('hidden');
+            }
             return;
         }
 
         const { error } = await sb.from('anonymous_feedback').insert({ categoria, message });
         if (error) {
-            if (errEl) { errEl.textContent = 'Não foi possível enviar. Tente novamente.'; errEl.classList.remove('hidden'); }
+            if (errEl) {
+                errEl.textContent = 'Não foi possível enviar. Tente novamente.';
+                errEl.classList.remove('hidden');
+            }
             return;
         }
 
@@ -1079,18 +1119,15 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
         showToast('Feedback enviado anonimamente!', 'success', 'Obrigado — o RH vai receber sua mensagem sem nenhuma identificação.');
     };
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     function autoResize(el) {
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     }
 
-    const delay = ms => new Promise(r => setTimeout(r, ms));
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-    // ── Toast ─────────────────────────────────────────────────────────────────
     window.showToast = function (title, type = 'success', msg = '') {
-        const icons = { success:'fa-check', error:'fa-times', warning:'fa-exclamation-triangle', info:'fa-info' };
+        const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = $('toast-container');
         if (!container) return;
         const toast = document.createElement('div');
@@ -1106,16 +1143,18 @@ Tempo estimado de resposta: **até 1 dia útil**.`, null
             </button>`;
         container.appendChild(toast);
         requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 4000);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        }, 4000);
     };
 
-    // ── Logout ────────────────────────────────────────────────────────────────
     window.logout = async function () {
         await sb.auth.signOut();
         window.location.href = '../screens/login.html';
     };
 
-    // ── Init ──────────────────────────────────────────────────────────────────
     setupPresence();
     await loadChannels();
     await loadTickets();

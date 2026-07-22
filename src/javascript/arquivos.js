@@ -1,73 +1,79 @@
 ﻿document.addEventListener('DOMContentLoaded', async () => {
-    const searchInput    = document.getElementById('search-input');
-    const searchClear    = document.getElementById('search-clear');
-    const filesTbody     = document.getElementById('files-tbody');
-    const uploadModal    = document.getElementById('upload-modal');
-    const dropZone       = document.getElementById('drop-zone');
-    const fileInput      = document.getElementById('file-input');
-    const cameraInput    = document.getElementById('camera-input');
-    const btnCamera      = document.getElementById('btn-camera');
+    const searchInput = document.getElementById('search-input');
+    const searchClear = document.getElementById('search-clear');
+    const filesTbody = document.getElementById('files-tbody');
+    const uploadModal = document.getElementById('upload-modal');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const cameraInput = document.getElementById('camera-input');
+    const btnCamera = document.getElementById('btn-camera');
     const filesSelectedList = document.getElementById('files-selected-list');
-    const ocrHint        = document.getElementById('ocr-hint');
-    const ocrHintText     = document.getElementById('ocr-hint-text');
-    const uploadValidade   = document.getElementById('upload-validade');
+    const ocrHint = document.getElementById('ocr-hint');
+    const ocrHintText = document.getElementById('ocr-hint-text');
+    const uploadValidade = document.getElementById('upload-validade');
     const uploadLgpdConsent = document.getElementById('upload-lgpd-consent');
-    const vencendoCard     = document.getElementById('vencendo-card');
-    const checklistBanner       = document.getElementById('checklist-banner');
+    const vencendoCard = document.getElementById('vencendo-card');
+    const checklistBanner = document.getElementById('checklist-banner');
     const checklistBannerToggle = document.getElementById('checklist-banner-toggle');
-    const checklistBannerText   = document.getElementById('checklist-banner-text');
-    const checklistBannerBody   = document.getElementById('checklist-banner-body');
-    const filterStatus   = document.getElementById('filter-status');
-    const filterDept     = document.getElementById('filter-dept');
+    const checklistBannerText = document.getElementById('checklist-banner-text');
+    const checklistBannerBody = document.getElementById('checklist-banner-body');
+    const filterStatus = document.getElementById('filter-status');
+    const filterDept = document.getElementById('filter-dept');
     const filterDateStart = document.getElementById('filter-date-start');
-    const filterDateEnd   = document.getElementById('filter-date-end');
-    const filterClearBtn  = document.getElementById('filter-clear-btn');
-    const filterDateTrigger     = document.getElementById('filter-date-trigger');
+    const filterDateEnd = document.getElementById('filter-date-end');
+    const filterClearBtn = document.getElementById('filter-clear-btn');
+    const filterDateTrigger = document.getElementById('filter-date-trigger');
     const filterDateTriggerText = document.getElementById('filter-date-trigger-text');
     const filterCalendarPopover = document.getElementById('filter-calendar-popover');
-    const filterCalendarTitle   = document.getElementById('filter-calendar-title');
-    const filterCalendarGrid    = document.getElementById('filter-calendar-grid');
-    const filterCalendarPrev    = document.getElementById('filter-calendar-prev');
-    const filterCalendarNext    = document.getElementById('filter-calendar-next');
-    const filterCalendarClear   = document.getElementById('filter-calendar-clear');
-    const filterCalendarApply   = document.getElementById('filter-calendar-apply');
+    const filterCalendarTitle = document.getElementById('filter-calendar-title');
+    const filterCalendarGrid = document.getElementById('filter-calendar-grid');
+    const filterCalendarPrev = document.getElementById('filter-calendar-prev');
+    const filterCalendarNext = document.getElementById('filter-calendar-next');
+    const filterCalendarClear = document.getElementById('filter-calendar-clear');
+    const filterCalendarApply = document.getElementById('filter-calendar-apply');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const bulkBar        = document.getElementById('bulk-bar');
-    const bulkBarCount    = document.getElementById('bulk-bar-count');
-    const bulkBarActions  = document.getElementById('bulk-bar-actions');
-    const bulkBarClear    = document.getElementById('bulk-bar-clear');
-    const notifWrapper   = document.getElementById('notif-wrapper');
-    const btnNotif       = document.getElementById('btn-notif');
-    const notifPanel     = document.getElementById('notif-panel');
-    const notifBadge     = document.getElementById('notif-badge');
+    const bulkBar = document.getElementById('bulk-bar');
+    const bulkBarCount = document.getElementById('bulk-bar-count');
+    const bulkBarActions = document.getElementById('bulk-bar-actions');
+    const bulkBarClear = document.getElementById('bulk-bar-clear');
+    const notifWrapper = document.getElementById('notif-wrapper');
+    const btnNotif = document.getElementById('btn-notif');
+    const notifPanel = document.getElementById('notif-panel');
+    const notifBadge = document.getElementById('notif-badge');
     const notifPanelBody = document.getElementById('notif-panel-body');
     const auditFilterAction = document.getElementById('audit-filter-action');
-    const auditLogList      = document.getElementById('audit-log-list');
+    const auditLogList = document.getElementById('audit-log-list');
 
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
 
-    let activeTab    = 'admissional';
+    let activeTab = 'admissional';
     let selectedFiles = [];
-    let employees    = [];
+    let employees = [];
     let filterEmployeeId = null;
     let terminatedEmployees = [];
-    let rhDocs       = [];
-    let colabDocs    = [];
+    let rhDocs = [];
+    let colabDocs = [];
     let requirements = [];
     let checklistOpen = false;
-    let selectedIds  = new Set();
+    const selectedIds = new Set();
     let auditLogEntries = [];
 
-    // Prazos de guarda padrão em anos (referência CLT/prescrição trabalhista) — ajustável pelo jurídico.
     const RETENTION_YEARS = {
-        'Contrato de Trabalho': 30, 'Termo de Rescisão': 30, 'Homologação': 30, 'Guia FGTS': 30,
-        'Carteira de Trabalho': 30, 'Exame Admissional': 20, 'Exame Demissional': 20,
-        'Aviso Prévio': 5, 'RG': 5, 'CPF': 5, 'Comprovante de Residência': 5,
+        'Contrato de Trabalho': 30,
+        'Termo de Rescisão': 30,
+        Homologação: 30,
+        'Guia FGTS': 30,
+        'Carteira de Trabalho': 30,
+        'Exame Admissional': 20,
+        'Exame Demissional': 20,
+        'Aviso Prévio': 5,
+        RG: 5,
+        CPF: 5,
+        'Comprovante de Residência': 5,
     };
     const DEFAULT_RETENTION_YEARS = 5;
 
-    // Tipos que exigem ciência formal do colaborador (assinatura eletrônica simples).
     const SIGNATURE_TIPOS = ['Contrato de Trabalho', 'Termo de Rescisão', 'Aviso Prévio', 'Homologação'];
 
     function computeRetentionDate(tipo) {
@@ -79,29 +85,28 @@
 
     function getExpiryInfo(dataValidade) {
         if (!dataValidade) return null;
-        const today = new Date(); today.setHours(0,0,0,0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const exp = new Date(dataValidade + 'T00:00:00');
         const diffDays = Math.round((exp - today) / 86400000);
-        if (diffDays < 0)  return { cls:'badge--vencido', label:'Vencido',              alert:true };
-        if (diffDays <= 30) return { cls:'badge--avencer', label:`Vence em ${diffDays}d`, alert:true };
-        return { cls:'badge--valido', label: fmtDate(dataValidade), alert:false };
+        if (diffDays < 0) return { cls: 'badge--vencido', label: 'Vencido', alert: true };
+        if (diffDays <= 30) return { cls: 'badge--avencer', label: `Vence em ${diffDays}d`, alert: true };
+        return { cls: 'badge--valido', label: fmtDate(dataValidade), alert: false };
     }
 
     async function logAudit(action, doc) {
         await sb.from('document_audit_log').insert({
-            document_id: doc.id || null, document_name: doc.name, employee_id: doc.employee_id || null,
-            action, operator_name: 'Administrador', operator_email: user.email,
+            document_id: doc.id || null,
+            document_name: doc.name,
+            employee_id: doc.employee_id || null,
+            action,
+            operator_name: 'Administrador',
+            operator_email: user.email,
         });
     }
 
-    // Expurgo automático LGPD: ao carregar a tela, remove (arquivo + registro) qualquer
-    // documento — atual ou versão antiga substituída — cujo prazo de guarda (retido_ate)
-    // já venceu. Sem isso, o campo retido_ate era só um dado exibido, nunca uma ação real
-    // (o "direito ao esquecimento" da LGPD exige a eliminação, não só o alerta de vencido).
     async function runLgpdPurge() {
-        const { data: expired } = await sb.from('documents')
-            .select('id,name,employee_id,storage_path')
-            .lt('retido_ate', new Date().toISOString().slice(0, 10));
+        const { data: expired } = await sb.from('documents').select('id,name,employee_id,storage_path').lt('retido_ate', new Date().toISOString().slice(0, 10));
         if (!expired?.length) return 0;
 
         for (const doc of expired) {
@@ -109,8 +114,12 @@
             const { error } = await sb.from('documents').delete().eq('id', doc.id);
             if (error) continue;
             await sb.from('document_audit_log').insert({
-                document_id: doc.id, document_name: doc.name, employee_id: doc.employee_id || null,
-                action: 'excluido', operator_name: 'Sistema (expurgo automático LGPD)', operator_email: 'sistema@nexus',
+                document_id: doc.id,
+                document_name: doc.name,
+                employee_id: doc.employee_id || null,
+                action: 'excluido',
+                operator_name: 'Sistema (expurgo automático LGPD)',
+                operator_email: 'sistema@nexus',
             });
         }
         return expired.length;
@@ -118,8 +127,8 @@
 
     async function loadData() {
         const [{ data: empData }, { data: termData }, { data: docData }, { data: reqData }] = await Promise.all([
-            sb.from('employees').select('id,name,dept').neq('status','Inativo').order('name'),
-            sb.from('employees').select('id,name,dept').eq('status','Inativo').order('name'),
+            sb.from('employees').select('id,name,dept').neq('status', 'Inativo').order('name'),
+            sb.from('employees').select('id,name,dept').eq('status', 'Inativo').order('name'),
             sb.from('documents').select('*').order('created_at', { ascending: false }),
             sb.from('document_requirements').select('*').eq('obrigatorio', true),
         ]);
@@ -127,47 +136,60 @@
         terminatedEmployees = termData || [];
         requirements = reqData || [];
         const all = docData || [];
-        rhDocs    = all.filter(d => d.source === 'Administrador');
-        colabDocs = all.filter(d => d.source === 'colaborador');
+        rhDocs = all.filter((d) => d.source === 'Administrador');
+        colabDocs = all.filter((d) => d.source === 'colaborador');
         populateDeptFilter();
     }
 
     function empName(empId) {
-        const e = employees.find(e => e.id === empId) || terminatedEmployees.find(e => e.id === empId);
+        const e = employees.find((e) => e.id === empId) || terminatedEmployees.find((e) => e.id === empId);
         return e ? e.name : '—';
     }
 
     function empDept(empId) {
-        const e = employees.find(e => e.id === empId) || terminatedEmployees.find(e => e.id === empId);
+        const e = employees.find((e) => e.id === empId) || terminatedEmployees.find((e) => e.id === empId);
         return e?.dept || null;
     }
 
     function populateDeptFilter() {
         if (!filterDept) return;
         const current = filterDept.value;
-        const depts = [...new Set(employees.concat(terminatedEmployees).map(e => e.dept).filter(Boolean))].sort();
-        filterDept.innerHTML = '<option value="">Todos os departamentos</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+        const depts = [
+            ...new Set(
+                employees
+                    .concat(terminatedEmployees)
+                    .map((e) => e.dept)
+                    .filter(Boolean)
+            ),
+        ].sort();
+        filterDept.innerHTML = '<option value="">Todos os departamentos</option>' + depts.map((d) => `<option value="${d}">${d}</option>`).join('');
         if (depts.includes(current)) filterDept.value = current;
     }
 
-    function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—'; }
+    function fmtDate(iso) {
+        return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+    }
 
     function esc(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     function getFileIcon(name) {
         const ext = (name || '').split('.').pop().toLowerCase();
-        if (ext === 'pdf')  return { cls:'file-icon--pdf',   icon:'fa-file-pdf' };
-        if (['doc','docx'].includes(ext)) return { cls:'file-icon--doc', icon:'fa-file-word' };
-        if (['jpg','jpeg','png'].includes(ext)) return { cls:'file-icon--img', icon:'fa-file-image' };
-        return { cls:'file-icon--other', icon:'fa-file' };
+        if (ext === 'pdf') return { cls: 'file-icon--pdf', icon: 'fa-file-pdf' };
+        if (['doc', 'docx'].includes(ext)) return { cls: 'file-icon--doc', icon: 'fa-file-word' };
+        if (['jpg', 'jpeg', 'png'].includes(ext)) return { cls: 'file-icon--img', icon: 'fa-file-image' };
+        return { cls: 'file-icon--other', icon: 'fa-file' };
     }
 
     const statusMap = {
-        pendente: { cls:'badge--pendente', label:'Pendente',  icon:'fa-clock' },
-        aprovado: { cls:'badge--aprovado', label:'Aprovado',  icon:'fa-check-circle' },
-        recusado: { cls:'badge--recusado', label:'Recusado',  icon:'fa-times-circle' },
+        pendente: { cls: 'badge--pendente', label: 'Pendente', icon: 'fa-clock' },
+        aprovado: { cls: 'badge--aprovado', label: 'Aprovado', icon: 'fa-check-circle' },
+        recusado: { cls: 'badge--recusado', label: 'Recusado', icon: 'fa-times-circle' },
     };
 
     function validadeCell(dataValidade) {
@@ -187,7 +209,8 @@
 
     function signBadge(doc) {
         if (!doc.requer_assinatura) return '';
-        if (doc.assinado_em) return `<span class="badge badge--assinado" title="Assinado por ${doc.assinado_por || '—'} em ${fmtDate(doc.assinado_em)}"><i class="fas fa-signature"></i> Assinado</span>`;
+        if (doc.assinado_em)
+            return `<span class="badge badge--assinado" title="Assinado por ${doc.assinado_por || '—'} em ${fmtDate(doc.assinado_em)}"><i class="fas fa-signature"></i> Assinado</span>`;
         return `<span class="badge badge--aguardando" title="Aguardando assinatura eletrônica do colaborador"><i class="fas fa-pen-nib"></i> Aguardando assinatura</span>`;
     }
 
@@ -212,118 +235,137 @@
 
         if (activeTab === 'colaborador') {
             filterStatus?.classList.remove('hidden');
-            const current = colabDocs.filter(d => d.is_current !== false);
-            const filtered = current.filter(d => {
+            const current = colabDocs.filter((d) => d.is_current !== false);
+            const filtered = current.filter((d) => {
                 if (filterStatus?.value && d.status !== filterStatus.value) return false;
                 if (!passesCommonFilters(d)) return false;
                 if (!q) return true;
-                return (d.name||'').toLowerCase().includes(q) || empName(d.employee_id).toLowerCase().includes(q) || (d.tipo||'').toLowerCase().includes(q);
+                return (d.name || '').toLowerCase().includes(q) || empName(d.employee_id).toLowerCase().includes(q) || (d.tipo || '').toLowerCase().includes(q);
             });
-            updateBulkBar(filtered.map(d => d.id));
-            if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-users"></i></div><p class="empty-state-title">Nenhum documento de colaborador</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</p></div></td></tr>`; return; }
-            filesTbody.innerHTML = filtered.map(d => {
-                const { cls, icon } = getFileIcon(d.name);
-                const st = statusMap[d.status] || statusMap.pendente;
-                return `<tr>
+            updateBulkBar(filtered.map((d) => d.id));
+            if (!filtered.length) {
+                filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-users"></i></div><p class="empty-state-title">Nenhum documento de colaborador</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</p></div></td></tr>`;
+                return;
+            }
+            filesTbody.innerHTML = filtered
+                .map((d) => {
+                    const { cls, icon } = getFileIcon(d.name);
+                    const st = statusMap[d.status] || statusMap.pendente;
+                    return `<tr>
                     ${checkboxCell(d.id)}
-                    <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo)||''} ${versionBadge(d)}</div></div></div></td>
+                    <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo) || ''} ${versionBadge(d)}</div></div></div></td>
                     <td>${empName(d.employee_id)}</td>
                     <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${st.label}</span></td>
                     <td class="file-date">${fmtDate(d.created_at)}</td>
-                    <td class="file-size">${d.size_label||'—'}</td>
+                    <td class="file-size">${d.size_label || '—'}</td>
                     <td>${validadeCell(d.data_validade)}</td>
                     <td><div class="actions-cell">
                         <button class="btn-icon btn-icon--approve" title="Aprovar"  onclick="approveColabDoc('${d.id}')"><i class="fas fa-check"></i></button>
                         <button class="btn-icon btn-icon--reject"  title="Recusar"  onclick="rejectColabDoc('${d.id}')"><i class="fas fa-times"></i></button>
                         ${historyBtn(d)}
-                        <button class="btn-icon btn-icon--delete"  title="Excluir"  onclick="deleteColabDoc('${d.id}','${d.storage_path||''}')"><i class="fas fa-trash"></i></button>
+                        <button class="btn-icon btn-icon--delete"  title="Excluir"  onclick="deleteColabDoc('${d.id}','${d.storage_path || ''}')"><i class="fas fa-trash"></i></button>
                     </div></td>
                 </tr>`;
-            }).join('');
+                })
+                .join('');
             return;
         }
 
         filterStatus?.classList.add('hidden');
-        const filtered = rhDocs.filter(f => {
+        const filtered = rhDocs.filter((f) => {
             if (f.category !== activeTab) return false;
             if (f.is_current === false) return false;
             if (!passesCommonFilters(f)) return false;
             if (!q) return true;
-            return (f.name||'').toLowerCase().includes(q) || empName(f.employee_id).toLowerCase().includes(q) || (f.tipo||'').toLowerCase().includes(q);
+            return (f.name || '').toLowerCase().includes(q) || empName(f.employee_id).toLowerCase().includes(q) || (f.tipo || '').toLowerCase().includes(q);
         });
-        updateBulkBar(filtered.map(f => f.id));
+        updateBulkBar(filtered.map((f) => f.id));
 
-        if (!filtered.length) { filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><p class="empty-state-title">Nenhum arquivo encontrado</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Clique em "Enviar Arquivo" para adicionar'}</p></div></td></tr>`; return; }
+        if (!filtered.length) {
+            filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><p class="empty-state-title">Nenhum arquivo encontrado</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Clique em "Enviar Arquivo" para adicionar'}</p></div></td></tr>`;
+            return;
+        }
 
-        filesTbody.innerHTML = filtered.map(f => {
-            const { cls, icon } = getFileIcon(f.name);
-            const badgeCls   = f.category === 'admissional' ? 'badge--admissional' : 'badge--demissional';
-            const badgeLabel = f.category === 'admissional' ? 'Admissional' : 'Demissional';
-            return `<tr>
+        filesTbody.innerHTML = filtered
+            .map((f) => {
+                const { cls, icon } = getFileIcon(f.name);
+                const badgeCls = f.category === 'admissional' ? 'badge--admissional' : 'badge--demissional';
+                const badgeLabel = f.category === 'admissional' ? 'Admissional' : 'Demissional';
+                return `<tr>
                 ${checkboxCell(f.id)}
-                <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo)||''} ${versionBadge(f)} ${signBadge(f)}</div></div></div></td>
+                <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo) || ''} ${versionBadge(f)} ${signBadge(f)}</div></div></div></td>
                 <td>${empName(f.employee_id)}</td>
                 <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
                 <td class="file-date">${fmtDate(f.created_at)}</td>
-                <td class="file-size">${f.size_label||'—'}</td>
+                <td class="file-size">${f.size_label || '—'}</td>
                 <td>${validadeCell(f.data_validade)}</td>
                 <td><div class="actions-cell">
-                    <button class="btn-icon btn-icon--view"   title="Visualizar" onclick="viewFile('${f.id}','${f.storage_path||''}')"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon btn-icon--view"   title="Visualizar" onclick="viewFile('${f.id}','${f.storage_path || ''}')"><i class="fas fa-eye"></i></button>
                     ${historyBtn(f)}
-                    <button class="btn-icon btn-icon--delete" title="Excluir"    onclick="deleteFile('${f.id}','${f.storage_path||''}')"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon btn-icon--delete" title="Excluir"    onclick="deleteFile('${f.id}','${f.storage_path || ''}')"><i class="fas fa-trash"></i></button>
                 </div></td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
     }
 
     function updateStats() {
-        document.getElementById('total-count').textContent       = rhDocs.length + colabDocs.length;
-        document.getElementById('admissional-count').textContent = rhDocs.filter(f => f.category === 'admissional').length;
-        document.getElementById('demissional-count').textContent = rhDocs.filter(f => f.category === 'demissional').length;
+        document.getElementById('total-count').textContent = rhDocs.length + colabDocs.length;
+        document.getElementById('admissional-count').textContent = rhDocs.filter((f) => f.category === 'admissional').length;
+        document.getElementById('demissional-count').textContent = rhDocs.filter((f) => f.category === 'demissional').length;
 
         const allDocs = rhDocs.concat(colabDocs);
-        const vencendoCount = allDocs.filter(d => getExpiryInfo(d.data_validade)?.alert).length;
+        const vencendoCount = allDocs.filter((d) => getExpiryInfo(d.data_validade)?.alert).length;
         document.getElementById('vencendo-count').textContent = vencendoCount;
         vencendoCard?.classList.toggle('has-alerts', vencendoCount > 0);
     }
 
     function computeChecklistPending(category) {
-        const reqTipos = requirements.filter(r => r.category === category).map(r => r.tipo);
+        const reqTipos = requirements.filter((r) => r.category === category).map((r) => r.tipo);
         if (!reqTipos.length) return [];
         const pool = category === 'admissional' ? employees : terminatedEmployees;
-        return pool.map(emp => {
-            // Conta tanto documentos enviados pelo RH quanto autoenvios do colaborador já aprovados —
-            // sem isso, um colaborador que envia o próprio RG pelo portal nunca "quita" o checklist do RH.
-            const rhTipos = rhDocs.filter(d => d.employee_id === emp.id && d.category === category).map(d => d.tipo);
-            const colabTipos = colabDocs.filter(d => d.employee_id === emp.id && d.status === 'aprovado').map(d => d.tipo);
-            const empTipos = rhTipos.concat(colabTipos);
-            const missing = reqTipos.filter(t => !empTipos.includes(t));
-            return { emp, missing };
-        }).filter(p => p.missing.length > 0);
+        return pool
+            .map((emp) => {
+                const rhTipos = rhDocs.filter((d) => d.employee_id === emp.id && d.category === category).map((d) => d.tipo);
+                const colabTipos = colabDocs.filter((d) => d.employee_id === emp.id && d.status === 'aprovado').map((d) => d.tipo);
+                const empTipos = rhTipos.concat(colabTipos);
+                const missing = reqTipos.filter((t) => !empTipos.includes(t));
+                return { emp, missing };
+            })
+            .filter((p) => p.missing.length > 0);
     }
 
     function renderChecklistBanner() {
         if (!checklistBanner) return;
-        if (activeTab !== 'admissional' && activeTab !== 'demissional') { checklistBanner.classList.add('hidden'); return; }
+        if (activeTab !== 'admissional' && activeTab !== 'demissional') {
+            checklistBanner.classList.add('hidden');
+            return;
+        }
 
         const pending = computeChecklistPending(activeTab);
-        if (!pending.length) { checklistBanner.classList.add('hidden'); return; }
+        if (!pending.length) {
+            checklistBanner.classList.add('hidden');
+            return;
+        }
 
         checklistBanner.classList.remove('hidden');
         const label = activeTab === 'admissional' ? 'admissionais' : 'demissionais';
         checklistBannerText.textContent = `${pending.length} colaborador${pending.length > 1 ? 'es' : ''} com documentos ${label} pendentes`;
         checklistBanner.classList.toggle('open', checklistOpen);
-        checklistBannerBody.innerHTML = pending.map(p => `
+        checklistBannerBody.innerHTML = pending
+            .map(
+                (p) => `
             <div class="checklist-row">
                 <span class="checklist-row-name">${p.emp.name}</span>
-                ${p.missing.map(t => `<button type="button" class="checklist-chip" onclick="openUploadModal('${p.emp.id}','${activeTab}','${t.replace(/'/g,"\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
-            </div>`).join('');
+                ${p.missing.map((t) => `<button type="button" class="checklist-chip" onclick="openUploadModal('${p.emp.id}','${activeTab}','${t.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
+            </div>`
+            )
+            .join('');
     }
 
-    // ── Central de pendências (notificações no app) ──
     function buildNotifications() {
         const items = [];
-        rhDocs.concat(colabDocs).forEach(d => {
+        rhDocs.concat(colabDocs).forEach((d) => {
             if (d.is_current === false) return;
             const info = getExpiryInfo(d.data_validade);
             if (info?.alert) {
@@ -331,12 +373,16 @@
                 items.push({ type, docId: d.id, category: d.category || 'colaborador', label: `${d.name} — ${info.label.toLowerCase()}` });
             }
         });
-        colabDocs.filter(d => d.status === 'recusado' && d.is_current !== false).forEach(d => {
-            items.push({ type: 'recusado', docId: d.id, category: 'colaborador', label: `${d.name} foi recusado — aguardando reenvio` });
-        });
-        rhDocs.filter(d => d.requer_assinatura && !d.assinado_em && d.is_current !== false).forEach(d => {
-            items.push({ type: 'assinatura', docId: d.id, category: d.category, label: `${d.name} aguardando assinatura de ${empName(d.employee_id)}` });
-        });
+        colabDocs
+            .filter((d) => d.status === 'recusado' && d.is_current !== false)
+            .forEach((d) => {
+                items.push({ type: 'recusado', docId: d.id, category: 'colaborador', label: `${d.name} foi recusado — aguardando reenvio` });
+            });
+        rhDocs
+            .filter((d) => d.requer_assinatura && !d.assinado_em && d.is_current !== false)
+            .forEach((d) => {
+                items.push({ type: 'assinatura', docId: d.id, category: d.category, label: `${d.name} aguardando assinatura de ${empName(d.employee_id)}` });
+            });
         return items;
     }
 
@@ -349,7 +395,10 @@
         notifBadge.textContent = total > 99 ? '99+' : String(total);
         notifBadge.classList.toggle('hidden', total === 0);
 
-        if (!total) { notifPanelBody.innerHTML = `<div class="notif-empty"><i class="fas fa-circle-check"></i><p>Nenhuma pendência no momento</p></div>`; return; }
+        if (!total) {
+            notifPanelBody.innerHTML = `<div class="notif-empty"><i class="fas fa-circle-check"></i><p>Nenhuma pendência no momento</p></div>`;
+            return;
+        }
 
         const iconMap = { vencido: 'fa-triangle-exclamation', avencer: 'fa-clock', recusado: 'fa-times-circle', assinatura: 'fa-pen-nib' };
         const rows = [];
@@ -362,7 +411,7 @@
                 </div>
             </div>`);
         }
-        items.slice(0, 25).forEach(it => {
+        items.slice(0, 25).forEach((it) => {
             rows.push(`<div class="notif-item" onclick="goToNotifItem('${it.docId}','${it.category}')">
                 <div class="notif-item-icon notif-item-icon--${it.type}"><i class="fas ${iconMap[it.type]}"></i></div>
                 <div class="notif-item-body"><span class="notif-item-title">${it.label}</span></div>
@@ -371,27 +420,40 @@
         notifPanelBody.innerHTML = rows.join('');
     }
 
-    window.closeNotifPanel = () => { notifPanel?.classList.add('hidden'); };
+    window.closeNotifPanel = () => {
+        notifPanel?.classList.add('hidden');
+    };
 
     window.goToNotifItem = (docId, category) => {
         const tab = category === 'colaborador' ? 'colaborador' : category;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
         activeTab = tab;
         selectedIds.clear();
-        const doc = rhDocs.find(d => d.id === docId) || colabDocs.find(d => d.id === docId);
-        if (searchInput && doc) { searchInput.value = doc.name; searchClear?.classList.remove('hidden'); }
+        const doc = rhDocs.find((d) => d.id === docId) || colabDocs.find((d) => d.id === docId);
+        if (searchInput && doc) {
+            searchInput.value = doc.name;
+            searchClear?.classList.remove('hidden');
+        }
         renderTable();
         closeNotifPanel();
     };
 
-    btnNotif?.addEventListener('click', e => { e.stopPropagation(); notifPanel?.classList.toggle('hidden'); });
-    document.addEventListener('click', e => { if (notifWrapper && !notifWrapper.contains(e.target)) notifPanel?.classList.add('hidden'); });
+    btnNotif?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notifPanel?.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (notifWrapper && !notifWrapper.contains(e.target)) notifPanel?.classList.add('hidden');
+    });
 
-    checklistBannerToggle?.addEventListener('click', () => { checklistOpen = !checklistOpen; checklistBanner.classList.toggle('open', checklistOpen); });
+    checklistBannerToggle?.addEventListener('click', () => {
+        checklistOpen = !checklistOpen;
+        checklistBanner.classList.toggle('open', checklistOpen);
+    });
 
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
             activeTab = btn.getAttribute('data-tab');
             if (searchInput) searchInput.value = '';
@@ -401,16 +463,28 @@
         });
     });
 
-    searchInput?.addEventListener('input', () => { filterEmployeeId = null; searchClear?.classList.toggle('hidden', !searchInput.value.trim()); renderTable(); });
-    searchClear?.addEventListener('click', () => { filterEmployeeId = null; searchInput.value = ''; searchClear.classList.add('hidden'); renderTable(); });
+    searchInput?.addEventListener('input', () => {
+        filterEmployeeId = null;
+        searchClear?.classList.toggle('hidden', !searchInput.value.trim());
+        renderTable();
+    });
+    searchClear?.addEventListener('click', () => {
+        filterEmployeeId = null;
+        searchInput.value = '';
+        searchClear.classList.add('hidden');
+        renderTable();
+    });
 
     function updateFilterClearVisibility() {
         const active = !!(filterStatus?.value || filterDept?.value || filterDateStart?.value || filterDateEnd?.value);
         filterClearBtn?.classList.toggle('hidden', !active);
     }
 
-    [filterStatus, filterDept].forEach(el => {
-        el?.addEventListener('change', () => { updateFilterClearVisibility(); renderTable(); });
+    [filterStatus, filterDept].forEach((el) => {
+        el?.addEventListener('change', () => {
+            updateFilterClearVisibility();
+            renderTable();
+        });
     });
 
     filterClearBtn?.addEventListener('click', () => {
@@ -418,22 +492,26 @@
         if (filterDept) filterDept.value = '';
         if (filterDateStart) filterDateStart.value = '';
         if (filterDateEnd) filterDateEnd.value = '';
-        calRangeStart = null; calRangeEnd = null;
+        calRangeStart = null;
+        calRangeEnd = null;
         updateFilterDateTriggerText();
         updateFilterClearVisibility();
         renderTable();
     });
 
-    // ── Calendário do filtro de período (mesmo padrão visual do calendário da tela do painel) ──
     const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const pad2 = n => String(n).padStart(2, '0');
-    const toISODate = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    const fmtShort  = d => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
-    const parseISODate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const toISODate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const fmtShort = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+    const parseISODate = (s) => {
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    };
 
-    let calRangeStart = null, calRangeEnd = null;
+    let calRangeStart = null,
+        calRangeEnd = null;
     const today = new Date();
-    let calViewYear  = today.getFullYear();
+    let calViewYear = today.getFullYear();
     let calViewMonth = today.getMonth();
 
     function updateFilterDateTriggerText() {
@@ -454,8 +532,8 @@
         if (!filterCalendarTitle || !filterCalendarGrid) return;
         filterCalendarTitle.textContent = `${MESES_PT[calViewMonth]} ${calViewYear}`;
 
-        const startOffset     = new Date(calViewYear, calViewMonth, 1).getDay();
-        const daysInMonth     = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+        const startOffset = new Date(calViewYear, calViewMonth, 1).getDay();
+        const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
         const daysInPrevMonth = new Date(calViewYear, calViewMonth, 0).getDate();
 
         const cells = [];
@@ -464,23 +542,25 @@
             const date = new Date(calViewYear, calViewMonth, d);
             const isToday = d === today.getDate() && calViewMonth === today.getMonth() && calViewYear === today.getFullYear();
             const isStart = calRangeStart && date.getTime() === calRangeStart.getTime();
-            const isEnd   = calRangeEnd && date.getTime() === calRangeEnd.getTime();
+            const isEnd = calRangeEnd && date.getTime() === calRangeEnd.getTime();
             const inRange = calRangeStart && calRangeEnd && date > calRangeStart && date < calRangeEnd;
             cells.push({ day: d, muted: false, isToday, isStart, isEnd, inRange });
         }
         let next = 1;
         while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
 
-        filterCalendarGrid.innerHTML = cells.map((c, i) => {
-            const cls = ['calendar-day'];
-            if (c.muted) cls.push('calendar-day--muted');
-            if (c.isToday) cls.push('calendar-day--today');
-            if (c.inRange) cls.push('calendar-day--in-range');
-            if (c.isStart) cls.push('calendar-day--range-start');
-            if (c.isEnd) cls.push('calendar-day--range-end');
-            const dataDay = c.muted ? '' : ` data-day="${c.day}"`;
-            return `<button type="button" class="${cls.join(' ')}"${dataDay}>${c.day}</button>`;
-        }).join('');
+        filterCalendarGrid.innerHTML = cells
+            .map((c, i) => {
+                const cls = ['calendar-day'];
+                if (c.muted) cls.push('calendar-day--muted');
+                if (c.isToday) cls.push('calendar-day--today');
+                if (c.inRange) cls.push('calendar-day--in-range');
+                if (c.isStart) cls.push('calendar-day--range-start');
+                if (c.isEnd) cls.push('calendar-day--range-end');
+                const dataDay = c.muted ? '' : ` data-day="${c.day}"`;
+                return `<button type="button" class="${cls.join(' ')}"${dataDay}>${c.day}</button>`;
+            })
+            .join('');
     }
 
     function positionFilterCalendar() {
@@ -490,20 +570,22 @@
         let left = rect.left;
         if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
         if (left < 12) left = 12;
-        filterCalendarPopover.style.top  = `${rect.bottom + 8}px`;
+        filterCalendarPopover.style.top = `${rect.bottom + 8}px`;
         filterCalendarPopover.style.left = `${left}px`;
     }
 
     function onFilterCalendarOutsideClick(e) {
         if (!filterCalendarPopover.contains(e.target) && !filterDateTrigger.contains(e.target)) closeFilterCalendar();
     }
-    function onFilterCalendarEscape(e) { if (e.key === 'Escape') closeFilterCalendar(); }
+    function onFilterCalendarEscape(e) {
+        if (e.key === 'Escape') closeFilterCalendar();
+    }
 
     function openFilterCalendar() {
         calRangeStart = filterDateStart?.value ? parseISODate(filterDateStart.value) : null;
-        calRangeEnd   = filterDateEnd?.value   ? parseISODate(filterDateEnd.value)   : null;
+        calRangeEnd = filterDateEnd?.value ? parseISODate(filterDateEnd.value) : null;
         const base = calRangeStart || today;
-        calViewYear  = base.getFullYear();
+        calViewYear = base.getFullYear();
         calViewMonth = base.getMonth();
         renderFilterCalendar();
         positionFilterCalendar();
@@ -522,17 +604,18 @@
         window.removeEventListener('resize', positionFilterCalendar);
     }
 
-    filterDateTrigger?.addEventListener('click', e => {
+    filterDateTrigger?.addEventListener('click', (e) => {
         e.stopPropagation();
         filterCalendarPopover?.classList.contains('open') ? closeFilterCalendar() : openFilterCalendar();
     });
 
-    filterCalendarGrid?.addEventListener('click', e => {
+    filterCalendarGrid?.addEventListener('click', (e) => {
         const btn = e.target.closest('.calendar-day[data-day]');
         if (!btn) return;
         const clicked = new Date(calViewYear, calViewMonth, Number(btn.getAttribute('data-day')));
         if (!calRangeStart || (calRangeStart && calRangeEnd)) {
-            calRangeStart = clicked; calRangeEnd = null;
+            calRangeStart = clicked;
+            calRangeEnd = null;
         } else if (clicked < calRangeStart) {
             calRangeStart = clicked;
         } else {
@@ -541,19 +624,28 @@
         renderFilterCalendar();
     });
 
-    filterCalendarPrev?.addEventListener('click', e => {
+    filterCalendarPrev?.addEventListener('click', (e) => {
         e.stopPropagation();
-        calViewMonth--; if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+        calViewMonth--;
+        if (calViewMonth < 0) {
+            calViewMonth = 11;
+            calViewYear--;
+        }
         renderFilterCalendar();
     });
-    filterCalendarNext?.addEventListener('click', e => {
+    filterCalendarNext?.addEventListener('click', (e) => {
         e.stopPropagation();
-        calViewMonth++; if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+        calViewMonth++;
+        if (calViewMonth > 11) {
+            calViewMonth = 0;
+            calViewYear++;
+        }
         renderFilterCalendar();
     });
 
     filterCalendarClear?.addEventListener('click', () => {
-        calRangeStart = null; calRangeEnd = null;
+        calRangeStart = null;
+        calRangeEnd = null;
         if (filterDateStart) filterDateStart.value = '';
         if (filterDateEnd) filterDateEnd.value = '';
         updateFilterDateTriggerText();
@@ -564,32 +656,33 @@
 
     filterCalendarApply?.addEventListener('click', () => {
         if (filterDateStart) filterDateStart.value = calRangeStart ? toISODate(calRangeStart) : '';
-        if (filterDateEnd) filterDateEnd.value = (calRangeEnd || calRangeStart) ? toISODate(calRangeEnd || calRangeStart) : '';
+        if (filterDateEnd) filterDateEnd.value = calRangeEnd || calRangeStart ? toISODate(calRangeEnd || calRangeStart) : '';
         updateFilterDateTriggerText();
         updateFilterClearVisibility();
         renderTable();
         closeFilterCalendar();
     });
 
-    // ── Seleção em massa ──
     function updateBulkBar(visibleIds) {
         if (!bulkBar) return;
         for (const id of Array.from(selectedIds)) {
-            const stillExists = rhDocs.some(d => d.id === id) || colabDocs.some(d => d.id === id);
+            const stillExists = rhDocs.some((d) => d.id === id) || colabDocs.some((d) => d.id === id);
             if (!stillExists) selectedIds.delete(id);
         }
 
         if (selectAllCheckbox) {
-            const selectedVisible = visibleIds.filter(id => selectedIds.has(id)).length;
+            const selectedVisible = visibleIds.filter((id) => selectedIds.has(id)).length;
             selectAllCheckbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
             selectAllCheckbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
         }
 
-        if (!selectedIds.size) { bulkBar.classList.add('hidden'); return; }
+        if (!selectedIds.size) {
+            bulkBar.classList.add('hidden');
+            return;
+        }
         bulkBar.classList.remove('hidden');
         bulkBarCount.textContent = `${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}`;
 
-        const ids = Array.from(selectedIds);
         if (activeTab === 'colaborador') {
             bulkBarActions.innerHTML = `
                 <button type="button" class="bulk-bar-btn bulk-bar-btn--success" onclick="bulkApproveColab()"><i class="fas fa-check"></i> Aprovar</button>
@@ -602,33 +695,45 @@
         }
     }
 
-    filesTbody?.addEventListener('change', e => {
+    filesTbody?.addEventListener('change', (e) => {
         const cb = e.target.closest('.row-check');
         if (!cb) return;
         const id = cb.getAttribute('data-id');
-        if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
-        const visibleIds = Array.from(filesTbody.querySelectorAll('.row-check')).map(el => el.getAttribute('data-id'));
+        if (cb.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        const visibleIds = Array.from(filesTbody.querySelectorAll('.row-check')).map((el) => el.getAttribute('data-id'));
         updateBulkBar(visibleIds);
     });
 
     selectAllCheckbox?.addEventListener('change', () => {
         const visibleChecks = Array.from(filesTbody.querySelectorAll('.row-check'));
-        const visibleIds = visibleChecks.map(el => el.getAttribute('data-id'));
-        if (selectAllCheckbox.checked) visibleIds.forEach(id => selectedIds.add(id));
-        else visibleIds.forEach(id => selectedIds.delete(id));
-        visibleChecks.forEach(el => { el.checked = selectAllCheckbox.checked; });
+        const visibleIds = visibleChecks.map((el) => el.getAttribute('data-id'));
+        if (selectAllCheckbox.checked) visibleIds.forEach((id) => selectedIds.add(id));
+        else visibleIds.forEach((id) => selectedIds.delete(id));
+        visibleChecks.forEach((el) => {
+            el.checked = selectAllCheckbox.checked;
+        });
         updateBulkBar(visibleIds);
     });
 
-    bulkBarClear?.addEventListener('click', () => { selectedIds.clear(); renderTable(); });
+    bulkBarClear?.addEventListener('click', () => {
+        selectedIds.clear();
+        renderTable();
+    });
 
     window.bulkApproveColab = async () => {
         const ids = Array.from(selectedIds);
         const { error } = await sb.from('documents').update({ status: 'aprovado' }).in('id', ids);
-        if (error) { showToast('Erro', 'Não foi possível aprovar os documentos selecionados.', 'error'); return; }
-        ids.forEach(id => {
-            const doc = colabDocs.find(d => d.id === id);
-            if (doc) { doc.status = 'aprovado'; logAudit('aprovado', doc); }
+        if (error) {
+            showToast('Erro', 'Não foi possível aprovar os documentos selecionados.', 'error');
+            return;
+        }
+        ids.forEach((id) => {
+            const doc = colabDocs.find((d) => d.id === id);
+            if (doc) {
+                doc.status = 'aprovado';
+                logAudit('aprovado', doc);
+            }
         });
         selectedIds.clear();
         renderTable();
@@ -638,10 +743,16 @@
     window.bulkRejectColab = async () => {
         const ids = Array.from(selectedIds);
         const { error } = await sb.from('documents').update({ status: 'recusado' }).in('id', ids);
-        if (error) { showToast('Erro', 'Não foi possível recusar os documentos selecionados.', 'error'); return; }
-        ids.forEach(id => {
-            const doc = colabDocs.find(d => d.id === id);
-            if (doc) { doc.status = 'recusado'; logAudit('recusado', doc); }
+        if (error) {
+            showToast('Erro', 'Não foi possível recusar os documentos selecionados.', 'error');
+            return;
+        }
+        ids.forEach((id) => {
+            const doc = colabDocs.find((d) => d.id === id);
+            if (doc) {
+                doc.status = 'recusado';
+                logAudit('recusado', doc);
+            }
         });
         selectedIds.clear();
         renderTable();
@@ -651,13 +762,16 @@
     window.bulkDeleteColab = async () => {
         if (!confirmDelete(selectedIds.size)) return;
         const ids = Array.from(selectedIds);
-        const docs = ids.map(id => colabDocs.find(d => d.id === id)).filter(Boolean);
-        const paths = docs.map(d => d.storage_path).filter(Boolean);
+        const docs = ids.map((id) => colabDocs.find((d) => d.id === id)).filter(Boolean);
+        const paths = docs.map((d) => d.storage_path).filter(Boolean);
         if (paths.length) await sb.storage.from('documents').remove(paths);
         const { error } = await sb.from('documents').delete().in('id', ids);
-        if (error) { showToast('Erro', 'Não foi possível excluir os documentos selecionados.', 'error'); return; }
-        docs.forEach(d => logAudit('excluido', d));
-        colabDocs = colabDocs.filter(d => !ids.includes(d.id));
+        if (error) {
+            showToast('Erro', 'Não foi possível excluir os documentos selecionados.', 'error');
+            return;
+        }
+        docs.forEach((d) => logAudit('excluido', d));
+        colabDocs = colabDocs.filter((d) => !ids.includes(d.id));
         selectedIds.clear();
         renderTable();
         showToast('Documentos excluídos!', `${ids.length} documento${ids.length > 1 ? 's' : ''} removido${ids.length > 1 ? 's' : ''}.`, 'error');
@@ -666,13 +780,16 @@
     window.bulkDeleteRh = async () => {
         if (!confirmDelete(selectedIds.size)) return;
         const ids = Array.from(selectedIds);
-        const docs = ids.map(id => rhDocs.find(f => f.id === id)).filter(Boolean);
-        const paths = docs.map(d => d.storage_path).filter(Boolean);
+        const docs = ids.map((id) => rhDocs.find((f) => f.id === id)).filter(Boolean);
+        const paths = docs.map((d) => d.storage_path).filter(Boolean);
         if (paths.length) await sb.storage.from('documents').remove(paths);
         const { error } = await sb.from('documents').delete().in('id', ids);
-        if (error) { showToast('Erro', 'Não foi possível excluir os arquivos selecionados.', 'error'); return; }
-        docs.forEach(d => logAudit('excluido', d));
-        rhDocs = rhDocs.filter(f => !ids.includes(f.id));
+        if (error) {
+            showToast('Erro', 'Não foi possível excluir os arquivos selecionados.', 'error');
+            return;
+        }
+        docs.forEach((d) => logAudit('excluido', d));
+        rhDocs = rhDocs.filter((f) => !ids.includes(f.id));
         selectedIds.clear();
         renderTable();
         showToast('Arquivos excluídos!', `${ids.length} arquivo${ids.length > 1 ? 's' : ''} removido${ids.length > 1 ? 's' : ''}.`, 'error');
@@ -680,27 +797,37 @@
 
     window.bulkDownloadRh = async () => {
         const ids = Array.from(selectedIds);
-        const docs = ids.map(id => rhDocs.find(f => f.id === id)).filter(d => d?.storage_path);
-        if (!docs.length) { showToast('Nada para baixar', 'Nenhum arquivo com download disponível na seleção.', 'warning'); return; }
+        const docs = ids.map((id) => rhDocs.find((f) => f.id === id)).filter((d) => d?.storage_path);
+        if (!docs.length) {
+            showToast('Nada para baixar', 'Nenhum arquivo com download disponível na seleção.', 'warning');
+            return;
+        }
         for (const doc of docs) {
             const { data } = await sb.storage.from('documents').createSignedUrl(doc.storage_path, 3600);
             if (!data?.signedUrl) continue;
             try {
-                const res  = await fetch(data.signedUrl);
+                const res = await fetch(data.signedUrl);
                 const blob = await res.blob();
-                const url  = URL.createObjectURL(blob);
+                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url; a.download = doc.name; document.body.appendChild(a); a.click(); a.remove();
+                a.href = url;
+                a.download = doc.name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
                 URL.revokeObjectURL(url);
-            } catch { /* segue para o próximo arquivo */ }
+            } catch {}
         }
         showToast('Download iniciado', `${docs.length} arquivo${docs.length > 1 ? 's' : ''} baixado${docs.length > 1 ? 's' : ''}.`, 'success');
     };
 
     window.approveColabDoc = async (id) => {
         const { error } = await sb.from('documents').update({ status: 'aprovado' }).eq('id', id);
-        if (error) { showToast('Erro', 'Não foi possível aprovar o documento.', 'error'); return; }
-        const doc = colabDocs.find(d => d.id === id);
+        if (error) {
+            showToast('Erro', 'Não foi possível aprovar o documento.', 'error');
+            return;
+        }
+        const doc = colabDocs.find((d) => d.id === id);
         if (doc) doc.status = 'aprovado';
         renderTable();
         if (doc) logAudit('aprovado', doc);
@@ -709,8 +836,11 @@
 
     window.rejectColabDoc = async (id) => {
         const { error } = await sb.from('documents').update({ status: 'recusado' }).eq('id', id);
-        if (error) { showToast('Erro', 'Não foi possível recusar o documento.', 'error'); return; }
-        const doc = colabDocs.find(d => d.id === id);
+        if (error) {
+            showToast('Erro', 'Não foi possível recusar o documento.', 'error');
+            return;
+        }
+        const doc = colabDocs.find((d) => d.id === id);
         if (doc) doc.status = 'recusado';
         renderTable();
         if (doc) logAudit('recusado', doc);
@@ -719,33 +849,44 @@
 
     window.deleteColabDoc = async (id, storagePath) => {
         if (!confirmDelete()) return;
-        const doc = colabDocs.find(d => d.id === id);
+        const doc = colabDocs.find((d) => d.id === id);
         if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         const { error } = await sb.from('documents').delete().eq('id', id);
-        if (error) { showToast('Erro', 'Não foi possível excluir o documento.', 'error'); return; }
-        colabDocs = colabDocs.filter(d => d.id !== id);
+        if (error) {
+            showToast('Erro', 'Não foi possível excluir o documento.', 'error');
+            return;
+        }
+        colabDocs = colabDocs.filter((d) => d.id !== id);
         renderTable();
         if (doc) logAudit('excluido', doc);
         showToast('Documento excluído!', 'O arquivo foi removido com sucesso.', 'error');
     };
 
     window.viewFile = async (id, storagePath) => {
-        if (!storagePath) { showToast('Arquivo indisponível', 'Caminho do arquivo não encontrado.', 'warning'); return; }
+        if (!storagePath) {
+            showToast('Arquivo indisponível', 'Caminho do arquivo não encontrado.', 'warning');
+            return;
+        }
         const { data } = await sb.storage.from('documents').createSignedUrl(storagePath, 3600);
         if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-        const doc = rhDocs.concat(colabDocs).find(d => d.id === id);
+        const doc = rhDocs.concat(colabDocs).find((d) => d.id === id);
         if (doc?.employee_id) NexusAuth.logAccess(doc.employee_id, 'documento', doc.name);
     };
 
     window.showVersionHistory = (id) => {
         const pool = rhDocs.concat(colabDocs);
         const chain = [];
-        let current = pool.find(d => d.id === id);
-        while (current) { chain.push(current); current = current.replaces_document_id ? pool.find(d => d.id === current.replaces_document_id) : null; }
+        let current = pool.find((d) => d.id === id);
+        while (current) {
+            chain.push(current);
+            current = current.replaces_document_id ? pool.find((d) => d.id === current.replaces_document_id) : null;
+        }
         if (!chain.length) return;
 
         const body = document.getElementById('history-modal-body');
-        body.innerHTML = chain.map((d, i) => `
+        body.innerHTML = chain
+            .map(
+                (d, i) => `
             <div class="history-row${i === 0 ? ' history-row--current' : ''}">
                 <div class="history-row-badge">v${d.version}${i === 0 ? ' · atual' : ''}</div>
                 <div class="history-row-body">
@@ -753,7 +894,9 @@
                     <span class="history-row-meta">${fmtDate(d.created_at)} · ${d.size_label || '—'}</span>
                 </div>
                 ${d.storage_path ? `<button class="btn-icon btn-icon--view" title="Visualizar" onclick="viewFile('${d.id}','${d.storage_path}')"><i class="fas fa-eye"></i></button>` : ''}
-            </div>`).join('');
+            </div>`
+            )
+            .join('');
         document.getElementById('history-modal')?.classList.add('open');
         document.body.style.overflow = 'hidden';
     };
@@ -763,9 +906,23 @@
         document.body.style.overflow = '';
     };
 
-    // ── Histórico de auditoria (document_audit_log) ──
-    const AUDIT_ACTION_LABELS = { criado: 'Criado', substituido: 'Substituído', aprovado: 'Aprovado', recusado: 'Recusado', assinado: 'Assinado', excluido: 'Excluído' };
-    const AUDIT_ACTION_ICONS  = { criado: 'fa-plus', substituido: 'fa-clock-rotate-left', aprovado: 'fa-check', recusado: 'fa-times', assinado: 'fa-signature', excluido: 'fa-trash' };
+    const AUDIT_ACTION_LABELS = {
+        criado: 'Criado',
+        substituido: 'Substituído',
+        aprovado: 'Aprovado',
+        recusado: 'Recusado',
+        assinado: 'Assinado',
+        excluido: 'Excluído',
+    };
+
+    const AUDIT_ACTION_ICONS = {
+        criado: 'fa-plus',
+        substituido: 'fa-clock-rotate-left',
+        aprovado: 'fa-check',
+        recusado: 'fa-times',
+        assinado: 'fa-signature',
+        excluido: 'fa-trash',
+    };
 
     async function loadAuditLog() {
         const { data } = await sb.from('document_audit_log').select('*').order('created_at', { ascending: false }).limit(300);
@@ -775,21 +932,26 @@
     function renderAuditLog() {
         if (!auditLogList) return;
         const filterVal = auditFilterAction?.value || '';
-        const filtered = filterVal ? auditLogEntries.filter(l => l.action === filterVal) : auditLogEntries;
-        if (!filtered.length) { auditLogList.innerHTML = `<div class="audit-empty">Nenhum registro encontrado.</div>`; return; }
-        auditLogList.innerHTML = filtered.map(l => {
-            const label = AUDIT_ACTION_LABELS[l.action] || l.action;
-            const icon  = AUDIT_ACTION_ICONS[l.action] || 'fa-circle';
-            const emp   = empName(l.employee_id);
-            const when  = new Date(l.created_at).toLocaleString('pt-BR');
-            return `<div class="audit-row">
+        const filtered = filterVal ? auditLogEntries.filter((l) => l.action === filterVal) : auditLogEntries;
+        if (!filtered.length) {
+            auditLogList.innerHTML = `<div class="audit-empty">Nenhum registro encontrado.</div>`;
+            return;
+        }
+        auditLogList.innerHTML = filtered
+            .map((l) => {
+                const label = AUDIT_ACTION_LABELS[l.action] || l.action;
+                const icon = AUDIT_ACTION_ICONS[l.action] || 'fa-circle';
+                const emp = empName(l.employee_id);
+                const when = new Date(l.created_at).toLocaleString('pt-BR');
+                return `<div class="audit-row">
                 <div class="audit-row-icon audit-row-icon--${l.action}"><i class="fas ${icon}"></i></div>
                 <div class="audit-row-body">
                     <span class="audit-row-title"><b>${label}</b> — ${l.document_name}${emp !== '—' ? ` (${emp})` : ''}</span>
                     <span class="audit-row-meta">${l.operator_name || '—'} · ${when}</span>
                 </div>
             </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
     window.openAuditModal = async () => {
@@ -806,15 +968,21 @@
 
     auditFilterAction?.addEventListener('change', renderAuditLog);
 
-    // ── Configuração do checklist obrigatório (document_requirements) ──
     function renderRequirementsGroup(category) {
         const container = document.getElementById(`requirements-${category}`);
         if (!container) return;
-        const items = requirements.filter(r => r.category === category);
-        if (!items.length) { container.innerHTML = `<p class="requirements-empty">Nenhum tipo obrigatório cadastrado.</p>`; return; }
-        container.innerHTML = items.map(r => `
+        const items = requirements.filter((r) => r.category === category);
+        if (!items.length) {
+            container.innerHTML = `<p class="requirements-empty">Nenhum tipo obrigatório cadastrado.</p>`;
+            return;
+        }
+        container.innerHTML = items
+            .map(
+                (r) => `
             <span class="requirements-chip">${r.tipo}<button type="button" onclick="removeRequirement('${r.id}')" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>
-        `).join('');
+        `
+            )
+            .join('');
     }
 
     function renderRequirementsModal() {
@@ -838,7 +1006,10 @@
         const tipo = input?.value.trim();
         if (!tipo) return;
         const { data, error } = await sb.from('document_requirements').insert({ category, tipo, obrigatorio: true }).select().single();
-        if (error) { showToast('Erro', 'Não foi possível adicionar — talvez esse tipo já esteja cadastrado.', 'error'); return; }
+        if (error) {
+            showToast('Erro', 'Não foi possível adicionar — talvez esse tipo já esteja cadastrado.', 'error');
+            return;
+        }
         requirements.push(data);
         input.value = '';
         renderRequirementsModal();
@@ -849,27 +1020,36 @@
 
     window.removeRequirement = async (id) => {
         const { error } = await sb.from('document_requirements').delete().eq('id', id);
-        if (error) { showToast('Erro', 'Não foi possível remover o tipo.', 'error'); return; }
-        requirements = requirements.filter(r => r.id !== id);
+        if (error) {
+            showToast('Erro', 'Não foi possível remover o tipo.', 'error');
+            return;
+        }
+        requirements = requirements.filter((r) => r.id !== id);
         renderRequirementsModal();
         renderChecklistBanner();
         renderNotifPanel();
         showToast('Tipo removido', 'O checklist foi atualizado.', 'success');
     };
 
-    ['requirements-add-admissional', 'requirements-add-demissional'].forEach(id => {
-        document.getElementById(id)?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); addRequirement(id.endsWith('admissional') ? 'admissional' : 'demissional'); }
+    ['requirements-add-admissional', 'requirements-add-demissional'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addRequirement(id.endsWith('admissional') ? 'admissional' : 'demissional');
+            }
         });
     });
 
     window.deleteFile = async (id, storagePath) => {
         if (!confirmDelete()) return;
-        const doc = rhDocs.find(f => f.id === id);
+        const doc = rhDocs.find((f) => f.id === id);
         if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         const { error } = await sb.from('documents').delete().eq('id', id);
-        if (error) { showToast('Erro', 'Não foi possível excluir o arquivo.', 'error'); return; }
-        rhDocs = rhDocs.filter(f => f.id !== id);
+        if (error) {
+            showToast('Erro', 'Não foi possível excluir o arquivo.', 'error');
+            return;
+        }
+        rhDocs = rhDocs.filter((f) => f.id !== id);
         renderTable();
         if (doc) logAudit('excluido', doc);
         showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
@@ -881,22 +1061,26 @@
         const isSelect = sel.tagName === 'SELECT';
         if (isSelect) {
             sel.innerHTML = '<option value="">Selecione o colaborador...</option>';
-            employees.forEach(e => {
+            employees.forEach((e) => {
                 const opt = document.createElement('option');
-                opt.value = e.id; opt.textContent = e.name;
+                opt.value = e.id;
+                opt.textContent = e.name;
                 sel.appendChild(opt);
             });
         }
     }
 
     window.openUploadModal = (employeeId, category, tipo) => {
-        uploadModal?.classList.add('open'); document.body.style.overflow = 'hidden'; populateEmployeeSelect();
+        uploadModal?.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        populateEmployeeSelect();
         const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
         if (employeeId && empEl) empEl.value = employeeId;
         if (category && tipo) document.getElementById('upload-category').value = `${category}|${tipo}`;
     };
     window.closeUploadModal = () => {
-        uploadModal?.classList.remove('open'); document.body.style.overflow = '';
+        uploadModal?.classList.remove('open');
+        document.body.style.overflow = '';
         const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
         if (empEl) empEl.value = '';
         document.getElementById('upload-category').value = '';
@@ -906,31 +1090,51 @@
     };
 
     dropZone?.addEventListener('click', () => fileInput?.click());
-    dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone?.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
     dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone?.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); addSelectedFiles(e.dataTransfer.files); });
-    fileInput?.addEventListener('change', () => { addSelectedFiles(fileInput.files); fileInput.value = ''; });
+    dropZone?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        addSelectedFiles(e.dataTransfer.files);
+    });
+    fileInput?.addEventListener('change', () => {
+        addSelectedFiles(fileInput.files);
+        fileInput.value = '';
+    });
     btnCamera?.addEventListener('click', () => cameraInput?.click());
-    cameraInput?.addEventListener('change', () => { addSelectedFiles(cameraInput.files); cameraInput.value = ''; });
+    cameraInput?.addEventListener('change', () => {
+        addSelectedFiles(cameraInput.files);
+        cameraInput.value = '';
+    });
 
     function renderSelectedFiles() {
         if (!filesSelectedList) return;
         filesSelectedList.classList.toggle('hidden', selectedFiles.length === 0);
         dropZone?.classList.toggle('hidden', selectedFiles.length > 0);
-        filesSelectedList.innerHTML = selectedFiles.map((f, i) => `
+        filesSelectedList.innerHTML = selectedFiles
+            .map(
+                (f, i) => `
             <div class="file-selected-item">
                 <div class="file-selected-icon"><i class="fas fa-file-circle-check"></i></div>
                 <span>${f.name}</span>
                 <button type="button" onclick="removeSelectedFile(${i})" aria-label="Remover arquivo"><i class="fas fa-xmark"></i></button>
-            </div>`).join('');
+            </div>`
+            )
+            .join('');
     }
 
     function addSelectedFiles(fileList) {
         const files = Array.from(fileList || []);
         let ocrCandidate = null;
         for (const file of files) {
-            if (file.size > 50 * 1024 * 1024) { showToast('Arquivo muito grande!', `${file.name} ultrapassa o limite de 50 MB.`, 'warning'); continue; }
-            if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) continue;
+            if (file.size > 50 * 1024 * 1024) {
+                showToast('Arquivo muito grande!', `${file.name} ultrapassa o limite de 50 MB.`, 'warning');
+                continue;
+            }
+            if (selectedFiles.some((f) => f.name === file.name && f.size === file.size)) continue;
             selectedFiles.push(file);
             if (!ocrCandidate && /\.(jpe?g|png)$/i.test(file.name)) ocrCandidate = file;
         }
@@ -951,7 +1155,6 @@
         ocrHint?.classList.add('hidden');
     };
 
-    // Sugestão de tipo por OCR (Tesseract.js) — best-effort, o RH sempre confirma antes de enviar.
     const OCR_KEYWORDS = [
         { tipo: 'RG', match: ['REGISTRO GERAL', 'CARTEIRA DE IDENTIDADE', 'REPUBLICA FEDERATIVA'] },
         { tipo: 'CPF', match: ['CADASTRO DE PESSOA', 'CPF', 'RECEITA FEDERAL'] },
@@ -966,21 +1169,28 @@
         { tipo: 'Guia FGTS', match: ['FGTS', 'GUIA DE RECOLHIMENTO'] },
     ];
 
-    function stripAccents(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+    function stripAccents(s) {
+        return s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
 
     async function runOcrSuggestion(file) {
         if (typeof Tesseract === 'undefined' || !ocrHint) return;
         ocrHint.classList.remove('hidden');
         ocrHintText.textContent = 'Analisando documento com OCR para sugerir o tipo…';
         try {
-            const { data: { text } } = await Tesseract.recognize(file, 'por');
+            const {
+                data: { text },
+            } = await Tesseract.recognize(file, 'por');
             const upper = stripAccents(text || '').toUpperCase();
-            const found = OCR_KEYWORDS.find(k => k.match.some(kw => upper.includes(stripAccents(kw))));
-            if (!found) { ocrHintText.textContent = 'Não foi possível sugerir o tipo automaticamente. Selecione manualmente.'; return; }
+            const found = OCR_KEYWORDS.find((k) => k.match.some((kw) => upper.includes(stripAccents(kw))));
+            if (!found) {
+                ocrHintText.textContent = 'Não foi possível sugerir o tipo automaticamente. Selecione manualmente.';
+                return;
+            }
 
             const select = document.getElementById('upload-category');
-            const preferred = Array.from(select.options).find(o => o.value === `${activeTab}|${found.tipo}`);
-            const anyMatch  = preferred || Array.from(select.options).find(o => o.value.endsWith(`|${found.tipo}`));
+            const preferred = Array.from(select.options).find((o) => o.value === `${activeTab}|${found.tipo}`);
+            const anyMatch = preferred || Array.from(select.options).find((o) => o.value.endsWith(`|${found.tipo}`));
             if (anyMatch && !select.value) {
                 select.value = anyMatch.value;
                 ocrHintText.textContent = `Tipo sugerido por OCR: "${found.tipo}" — confira antes de enviar.`;
@@ -993,46 +1203,69 @@
     }
 
     window.submitUpload = async () => {
-        const empEl      = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
+        const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
         const categoryRaw = document.getElementById('upload-category').value;
-        if (!categoryRaw)  { showToast('Campo obrigatório', 'Selecione a categoria do arquivo.', 'warning'); return; }
-        if (!selectedFiles.length) { showToast('Campo obrigatório', 'Selecione ao menos um arquivo para enviar.', 'warning'); return; }
-        if (!uploadLgpdConsent?.checked) { showToast('Consentimento LGPD', 'Confirme o consentimento do colaborador para enviar o documento.', 'warning'); return; }
+        if (!categoryRaw) {
+            showToast('Campo obrigatório', 'Selecione a categoria do arquivo.', 'warning');
+            return;
+        }
+        if (!selectedFiles.length) {
+            showToast('Campo obrigatório', 'Selecione ao menos um arquivo para enviar.', 'warning');
+            return;
+        }
+        if (!uploadLgpdConsent?.checked) {
+            showToast('Consentimento LGPD', 'Confirme o consentimento do colaborador para enviar o documento.', 'warning');
+            return;
+        }
 
         const [category, tipo] = categoryRaw.split('|');
-        const empId    = empEl?.tagName === 'SELECT' ? (empEl.value || null) : null;
-        const empInput = empEl?.tagName === 'INPUT'  ? empEl.value.trim() : null;
-        const lookupEmp = empInput ? employees.find(e => e.name.toLowerCase() === empInput.toLowerCase()) : null;
+        const empId = empEl?.tagName === 'SELECT' ? empEl.value || null : null;
+        const empInput = empEl?.tagName === 'INPUT' ? empEl.value.trim() : null;
+        const lookupEmp = empInput ? employees.find((e) => e.name.toLowerCase() === empInput.toLowerCase()) : null;
         const finalEmpId = empId || lookupEmp?.id || null;
 
-        // Só o primeiro arquivo do lote substitui uma versão existente do mesmo tipo — os demais
-        // (ex.: RG frente + verso enviados juntos) entram como documentos independentes, não como
-        // versões sucessivas um do outro.
         let docToSupersede = finalEmpId
-            ? rhDocs.find(d => d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false)
+            ? rhDocs.find((d) => d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false)
             : null;
 
         let successCount = 0;
         for (const file of selectedFiles) {
-            const sizeKB   = Math.round(file.size / 1024);
+            const sizeKB = Math.round(file.size / 1024);
             const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-            const storagePath = `rh/${Date.now()}_${file.name.replace(/\s/g,'_')}`;
+            const storagePath = `rh/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
 
             const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, file);
-            if (uploadError) { showToast('Erro no upload', `Não foi possível enviar ${file.name}.`, 'error'); continue; }
+            if (uploadError) {
+                showToast('Erro no upload', `Não foi possível enviar ${file.name}.`, 'error');
+                continue;
+            }
 
-            const { data: inserted, error: dbError } = await sb.from('documents').insert({
-                name: file.name, employee_id: finalEmpId, category, tipo,
-                size_label: sizeLabel, storage_path: storagePath, source: 'Administrador', created_by: user.id,
-                data_validade: uploadValidade?.value || null,
-                retido_ate: computeRetentionDate(tipo),
-                lgpd_consentimento: true, lgpd_consentimento_em: new Date().toISOString(),
-                version: (docToSupersede?.version || 0) + 1,
-                replaces_document_id: docToSupersede?.id || null,
-                requer_assinatura: SIGNATURE_TIPOS.includes(tipo),
-            }).select().single();
+            const { data: inserted, error: dbError } = await sb
+                .from('documents')
+                .insert({
+                    name: file.name,
+                    employee_id: finalEmpId,
+                    category,
+                    tipo,
+                    size_label: sizeLabel,
+                    storage_path: storagePath,
+                    source: 'Administrador',
+                    created_by: user.id,
+                    data_validade: uploadValidade?.value || null,
+                    retido_ate: computeRetentionDate(tipo),
+                    lgpd_consentimento: true,
+                    lgpd_consentimento_em: new Date().toISOString(),
+                    version: (docToSupersede?.version || 0) + 1,
+                    replaces_document_id: docToSupersede?.id || null,
+                    requer_assinatura: SIGNATURE_TIPOS.includes(tipo),
+                })
+                .select()
+                .single();
 
-            if (dbError) { showToast('Erro ao salvar', `${file.name} foi enviado mas não foi possível salvar os dados.`, 'error'); continue; }
+            if (dbError) {
+                showToast('Erro ao salvar', `${file.name} foi enviado mas não foi possível salvar os dados.`, 'error');
+                continue;
+            }
 
             if (docToSupersede) {
                 await sb.from('documents').update({ is_current: false }).eq('id', docToSupersede.id);
@@ -1048,13 +1281,17 @@
         if (!successCount) return;
 
         activeTab = category;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === category));
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === category));
         closeUploadModal();
         renderTable();
-        showToast('Arquivos carregados com sucesso', `${successCount} arquivo${successCount > 1 ? 's' : ''} adicionado${successCount > 1 ? 's' : ''}.`, 'success');
+        showToast(
+            'Arquivos carregados com sucesso',
+            `${successCount} arquivo${successCount > 1 ? 's' : ''} adicionado${successCount > 1 ? 's' : ''}.`,
+            'success'
+        );
     };
 
-    document.addEventListener('keydown', e => {
+    document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         closeUploadModal();
         closeHistoryModal();
@@ -1071,22 +1308,32 @@
         .subscribe();
 
     function confirmDelete(count) {
-        const msg = count > 1
-            ? `Deseja realmente excluir os ${count} arquivos selecionados? Esta ação não pode ser desfeita.`
-            : 'Deseja realmente excluir este arquivo? Esta ação não pode ser desfeita.';
+        const msg =
+            count > 1
+                ? `Deseja realmente excluir os ${count} arquivos selecionados? Esta ação não pode ser desfeita.`
+                : 'Deseja realmente excluir este arquivo? Esta ação não pode ser desfeita.';
         return window.confirm(msg);
     }
 
     function showToast(title, msg, type = 'success') {
-        const icons = { success:'fa-check', error:'fa-times', warning:'fa-exclamation-triangle' };
+        const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle' };
         let container = document.getElementById('toast-container');
-        if (!container) { container = document.createElement('div'); container.id = 'toast-container'; container.className = 'toast-container'; document.body.appendChild(container); }
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type]||'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${title}</p><p class="toast-msg">${msg}</p></div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)"><i class="fas fa-times"></i></button>`;
+        toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || 'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${title}</p><p class="toast-msg">${msg}</p></div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)"><i class="fas fa-times"></i></button>`;
         container.appendChild(toast);
         requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 4000);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        }, 4000);
     }
 
     await loadData();
@@ -1094,13 +1341,17 @@
     const purgedCount = await runLgpdPurge();
     if (purgedCount > 0) {
         await loadData();
-        showToast('Expurgo automático LGPD', `${purgedCount} documento${purgedCount > 1 ? 's' : ''} com prazo de guarda vencido ${purgedCount > 1 ? 'foram removidos' : 'foi removido'} automaticamente.`, 'warning');
+        showToast(
+            'Expurgo automático LGPD',
+            `${purgedCount} documento${purgedCount > 1 ? 's' : ''} com prazo de guarda vencido ${purgedCount > 1 ? 'foram removidos' : 'foi removido'} automaticamente.`,
+            'warning'
+        );
     }
 
     const params = new URLSearchParams(window.location.search);
     const colabParam = params.get('colaborador');
     if (colabParam) {
-        const emp = employees.find(e => e.id === colabParam) || terminatedEmployees.find(e => e.id === colabParam);
+        const emp = employees.find((e) => e.id === colabParam) || terminatedEmployees.find((e) => e.id === colabParam);
         filterEmployeeId = colabParam;
         if (emp && searchInput) {
             searchInput.value = emp.name;

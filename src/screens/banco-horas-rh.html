@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Gestão de Horas</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/banco-horas-rh.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
+    <link rel="stylesheet" href="../styles/search-widget.css" />
 </head>
 <body>
 <div class="layout">
-
     <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar">
             <div class="topbar-left">
@@ -59,7 +59,6 @@
 
         <main class="content">
             <div class="page-body">
-
                 <div class="stats-row-header">
                     <button class="stats-row-toggle" id="stats-row-toggle" onclick="toggleStatsRow()" aria-label="Ver indicadores" title="Ver indicadores">
                         <i class="fas fa-chevron-right" id="stats-row-chevron"></i>
@@ -316,13 +315,11 @@
                     <p class="table-count" id="audit-count"></p>
                 </div>
                 </div>
-
             </div>
         </main>
     </div>
 </div>
 
-<!-- ── Modal: Detalhes ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="detail-modal">
     <div class="modal-content modal-content--lg">
         <div class="modal-header">
@@ -337,7 +334,6 @@
     </div>
 </div>
 
-<!-- ── Modal: Ajuste Manual ────────────────────────────────────── -->
 <div class="modal-overlay" id="adjust-modal">
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
@@ -401,7 +397,6 @@
     </div>
 </div>
 
-<!-- ── Modal: Gerenciar Feriados ───────────────────────────────── -->
 <div class="modal-overlay" id="holidays-modal">
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
@@ -445,7 +440,6 @@
     </div>
 </div>
 
-<!-- ── Modal: Rejeitar Solicitação ──────────────────────────────── -->
 <div class="modal-overlay" id="reject-request-modal" onclick="handleOverlayClick(event,'reject-request-modal')">
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
@@ -472,7 +466,6 @@
     </div>
 </div>
 
-<!-- ── Modal: Configurações de Compliance ──────────────────────── -->
 <div class="modal-overlay" id="settings-modal">
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
@@ -505,12 +498,14 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
-<script src="../javascript/search.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/search.js"></script>
+<script src="../javascript/domain/clt-domain.js"></script>
 <script src="../javascript/banco-horas-rh.js"></script>
 </body>
 </html>

@@ -1,16 +1,11 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-// pagamentos.js roda via <script> no navegador: registra seu init em
-// document.addEventListener('DOMContentLoaded', ...) (nunca disparado aqui, então
-// nunca tenta de fato tocar o DOM) e termina com atribuições `window.X = ...`.
 global.window = global;
 global.document = { addEventListener: () => {} };
 
-// TABELA_FISCAL precisa existir como global antes de chamar calcINSS/calcIRRF —
-// mesma relação implícita entre arquivos que existe no navegador (dois <script>
-// separados, carregados nesta ordem em pagamentos.html).
-global.TABELA_FISCAL = require('../src/javascript/tabelas-fiscais.js').TABELA_FISCAL;
+global.TABELA_FISCAL = require('../src/javascript/domain/tabelas-fiscais.js').TABELA_FISCAL;
+require('../src/javascript/domain/clt-domain.js');
 
 const { calcINSS, calcIRRF, calcRow, parseCurrency } = require('../src/javascript/pagamentos.js');
 
@@ -40,7 +35,7 @@ describe('calcINSS', () => {
 describe('calcIRRF', () => {
     test('isento abaixo do primeiro limite', () => {
         assert.equal(calcIRRF(2000), 0);
-        assert.equal(calcIRRF(2428.80), 0);
+        assert.equal(calcIRRF(2428.8), 0);
     });
 
     test('passa a descontar acima do primeiro limite', () => {
@@ -105,11 +100,15 @@ describe('calcRow', () => {
 
     test('benefícios (VR/VA/VT) somam ao bruto; desconto de VT é limitado a 6% do salário', () => {
         const r = calcRow({
-            salary: 4000, contractType: 'clt',
-            benValeRefeicao: '25,00', benValeAlimentacao: '400,00',
-            valeTransporte: 'sim', conducoesdia: '2', valorPassagem: '4,50',
+            salary: 4000,
+            contractType: 'clt',
+            benValeRefeicao: '25,00',
+            benValeAlimentacao: '400,00',
+            valeTransporte: 'sim',
+            conducoesdia: '2',
+            valorPassagem: '4,50',
         });
-        const vtBruto = 4.5 * 2 * 22; // 198
+        const vtBruto = 4.5 * 2 * 22;
         assert.equal(r.benef, +(25 * 22 + 400 + vtBruto).toFixed(2));
         const descVT = +(r.descontos - r.inss - r.irrf).toFixed(2);
         assert.ok(descVT > 0);

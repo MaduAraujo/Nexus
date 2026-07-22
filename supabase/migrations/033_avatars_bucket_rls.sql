@@ -1,10 +1,3 @@
--- Bucket de avatares usado em perfil-colaborador.js (handlePhotoUpload/removePhoto),
--- criado até aqui só manualmente no dashboard, sem policy de storage.objects — ou seja,
--- qualquer colaborador autenticado podia sobrescrever/apagar o avatar de qualquer outro
--- (o caminho `storagePath = myEmployeeId` só era respeitado no cliente, sem garantia no banco).
--- Público para leitura porque a foto aparece em telas de outros colaboradores (diretório
--- de equipe, chat, kudos), então getPublicUrl() precisa funcionar sem sessão autenticada.
-
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'avatars', 'avatars', true, 10485760,

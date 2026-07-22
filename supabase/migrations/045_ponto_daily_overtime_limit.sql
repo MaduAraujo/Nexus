@@ -1,23 +1,6 @@
--- Limite legal de horas extras diárias (CLT art. 59, §1º) só bloqueava no lançamento
--- manual do RH (banco-horas-rh.js, submitAdjust) — o próprio ato de bater "Saída" em
--- ponto-colaborador.js não sabia do limite, e o excesso só aparecia depois como badge
--- "Excesso 2h+" em banco-horas-rh.js, quando o RH abrisse aquela tela por conta própria.
---
--- Não dá para "bloquear" um horário de saída real (falsificar o ponto para esconder
--- excesso é ilegal) — em vez disso, o colaborador precisa registrar o ato do ponto: ao
--- confirmar uma saída que ultrapassaria o limite, uma justificativa obrigatória é
--- exigida na hora (ver confirmarRegistro em ponto-colaborador.js) e o RH é notificado
--- de imediato via burnout_alerts, em vez de só descobrir depois olhando a tabela.
-
--- ponto-colaborador.js precisa ler o limite configurado pelo RH para avisar/exigir
--- justificativa no momento certo. Só SELECT — edição continua exclusiva do RH
--- (rh_hr_settings_all, FOR ALL). Mesmo padrão de colabo_holidays_select (migration 019).
 CREATE POLICY "colabo_hr_settings_select" ON hr_settings FOR SELECT
   USING (my_employee_id() IS NOT NULL);
 
--- Colaborador não tem INSERT/UPDATE em burnout_alerts (só rh_burnout_all e
--- colabo_burnout_own FOR SELECT) — esta RPC concentra a escrita, restrita à própria
--- linha do dia do colaborador autenticado, sem abrir a tabela inteira.
 CREATE OR REPLACE FUNCTION report_daily_overtime_alert(
   p_titulo   TEXT,
   p_mensagem TEXT

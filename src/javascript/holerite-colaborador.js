@@ -1,35 +1,38 @@
-/* ════════════════════════════════════════════════
-   holerite-colaborador.js — Supabase
-   ════════════════════════════════════════════════ */
-
-let myEmployee   = null;
+let myEmployee = null;
 let myEmployeeId = null;
-let holerites    = [];
-let currentId    = null;
+let holerites = [];
+let currentId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
     myEmployeeId = auth.profile.employee_id;
-    myEmployee   = auth.employee;
+    myEmployee = auth.employee;
 
     loadSidebarInfo();
     await loadPayslips();
     setupRealtimeSync();
 });
 
-// ─── Sidebar ──────────────────────────────────────────────────
-
 function loadSidebarInfo() {
-    const name  = myEmployee.name || '—';
+    const name = myEmployee.name || '—';
     const color = myEmployee.avatar_color || '#6366f1';
-    const ini   = name.split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
+    const ini = name
+        .split(' ')
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() || '')
+        .join('');
     const avatarEl = document.getElementById('sidebar-avatar');
-    const nameEl   = document.getElementById('sidebar-name');
-    const roleEl   = document.getElementById('sidebar-role');
+    const nameEl = document.getElementById('sidebar-name');
+    const roleEl = document.getElementById('sidebar-role');
     if (avatarEl) {
-        if (myEmployee.avatar_url) { avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`; avatarEl.textContent = ''; }
-        else { avatarEl.style.background = color; avatarEl.textContent = ini; }
+        if (myEmployee.avatar_url) {
+            avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`;
+            avatarEl.textContent = '';
+        } else {
+            avatarEl.style.background = color;
+            avatarEl.textContent = ini;
+        }
     }
     if (nameEl) nameEl.textContent = name;
     if (roleEl) roleEl.textContent = myEmployee.role || 'Colaborador';
@@ -40,24 +43,16 @@ window.logout = async function () {
     window.location.href = '../screens/login.html';
 };
 
-// ─── Data ─────────────────────────────────────────────────────
-
 async function loadPayslips() {
-    const { data } = await sb.from('payslips')
-        .select('*')
-        .eq('employee_id', myEmployeeId)
-        .eq('status', 'pago')
-        .order('mes', { ascending: false });
+    const { data } = await sb.from('payslips').select('*').eq('employee_id', myEmployeeId).eq('status', 'pago').order('mes', { ascending: false });
     holerites = data || [];
     renderMonthList();
     buildMobileSelect();
     if (holerites.length > 0) selectPayslipById(holerites[0].id);
 }
 
-// ─── Render list ──────────────────────────────────────────────
-
 function renderMonthList() {
-    const list  = document.getElementById('month-list');
+    const list = document.getElementById('month-list');
     const badge = document.getElementById('month-count-badge');
     if (!list) return;
     if (badge) badge.textContent = holerites.length;
@@ -87,26 +82,25 @@ function buildMobileSelect() {
     const sel = document.getElementById('month-select-mobile');
     if (!sel) return;
     sel.innerHTML = '<option value="">Selecione o mês...</option>';
-    holerites.forEach(h => {
+    holerites.forEach((h) => {
         const opt = document.createElement('option');
-        opt.value = h.id; opt.textContent = h.mes_formatado || h.mes;
+        opt.value = h.id;
+        opt.textContent = h.mes_formatado || h.mes;
         sel.appendChild(opt);
     });
 }
 
 window.selectPayslipById = function (id) {
-    const h = holerites.find(x => x.id === id);
+    const h = holerites.find((x) => x.id === id);
     if (!h) return;
     currentId = id;
-    document.querySelectorAll('.month-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-id') === id));
+    document.querySelectorAll('.month-card').forEach((c) => c.classList.toggle('active', c.getAttribute('data-id') === id));
     const mSel = document.getElementById('month-select-mobile');
     if (mSel && mSel.value !== id) mSel.value = id;
     document.getElementById('payslip-empty')?.classList.add('hidden');
     document.getElementById('payslip-wrap')?.classList.remove('hidden');
     renderPayslip(h);
 };
-
-// ─── Render payslip ───────────────────────────────────────────
 
 function renderPayslip(h) {
     setText('action-competencia', h.mes_formatado || h.mes);
@@ -117,33 +111,47 @@ function renderPayslip(h) {
         badge.innerHTML = `<i class="fas fa-check-circle"></i> ${isPago ? 'Pago' : 'Publicado'}`;
     }
     setText('doc-competencia', `Competência: ${h.competencia}`);
-    setText('doc-name',        myEmployee.name);
-    setText('doc-matricula',   String(myEmployee.id).slice(0,8).toUpperCase());
-    setText('doc-cargo',       myEmployee.role || '—');
-    setText('doc-dept',        myEmployee.dept || '—');
-    setText('doc-admissao',    formatDateBR(myEmployee.admission_date));
-    setText('doc-contrato',    myEmployee.contract_type || 'CLT');
+    setText('doc-name', myEmployee.name);
+    setText('doc-matricula', String(myEmployee.id).slice(0, 8).toUpperCase());
+    setText('doc-cargo', myEmployee.role || '—');
+    setText('doc-dept', myEmployee.dept || '—');
+    setText('doc-admissao', formatDateBR(myEmployee.admission_date));
+    setText('doc-contrato', myEmployee.contract_type || 'CLT');
 
     const proventos = h.proventos || [];
     const descontos = h.descontos || [];
 
     const provTbody = document.getElementById('proventos-tbody');
-    if (provTbody) provTbody.innerHTML = !proventos.length ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum provento</td></tr>` :
-        proventos.map(p=>`<tr><td class="col-cod">${p.cod}</td><td>${escapeHTML(p.descricao)}</td><td class="col-ref">${escapeHTML(p.referencia)}</td><td class="col-val">${formatCurrencyRaw(p.valor)}</td></tr>`).join('');
+    if (provTbody)
+        provTbody.innerHTML = !proventos.length
+            ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum provento</td></tr>`
+            : proventos
+                  .map(
+                      (p) =>
+                          `<tr><td class="col-cod">${p.cod}</td><td>${escapeHTML(p.descricao)}</td><td class="col-ref">${escapeHTML(p.referencia)}</td><td class="col-val">${formatCurrencyRaw(p.valor)}</td></tr>`
+                  )
+                  .join('');
 
     const descTbody = document.getElementById('descontos-tbody');
-    if (descTbody) descTbody.innerHTML = !descontos.length ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum desconto</td></tr>` :
-        descontos.map(d=>`<tr><td class="col-cod">${d.cod}</td><td>${escapeHTML(d.descricao)}</td><td class="col-ref">${escapeHTML(d.referencia)}</td><td class="col-val">${formatCurrencyRaw(d.valor)}</td></tr>`).join('');
+    if (descTbody)
+        descTbody.innerHTML = !descontos.length
+            ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum desconto</td></tr>`
+            : descontos
+                  .map(
+                      (d) =>
+                          `<tr><td class="col-cod">${d.cod}</td><td>${escapeHTML(d.descricao)}</td><td class="col-ref">${escapeHTML(d.referencia)}</td><td class="col-val">${formatCurrencyRaw(d.valor)}</td></tr>`
+                  )
+                  .join('');
 
     setText('total-proventos', formatCurrency(h.total_proventos));
     setText('total-descontos', formatCurrency(h.total_descontos));
-    setText('doc-liquido',     formatCurrency(h.salario_liquido));
-    setText('doc-validade',    h.competencia);
+    setText('doc-liquido', formatCurrency(h.salario_liquido));
+    setText('doc-validade', h.competencia);
 }
 
-window.printPayslip = function () { if (currentId) window.print(); };
-
-// ─── Comparativo histórico ──────────────────────────────────────
+window.printPayslip = function () {
+    if (currentId) window.print();
+};
 
 let comparativoChart = null;
 
@@ -162,47 +170,57 @@ function renderComparativoChart() {
     if (!canvas || typeof Chart === 'undefined') return;
 
     const sorted = [...holerites].sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12);
-    if (comparativoChart) { comparativoChart.destroy(); comparativoChart = null; }
-    if (!sorted.length) { canvas.classList.add('hidden'); emptyEl?.classList.remove('hidden'); return; }
-    canvas.classList.remove('hidden'); emptyEl?.classList.add('hidden');
+    if (comparativoChart) {
+        comparativoChart.destroy();
+        comparativoChart = null;
+    }
+    if (!sorted.length) {
+        canvas.classList.add('hidden');
+        emptyEl?.classList.remove('hidden');
+        return;
+    }
+    canvas.classList.remove('hidden');
+    emptyEl?.classList.add('hidden');
 
     comparativoChart = new Chart(canvas, {
         type: 'line',
         data: {
-            labels: sorted.map(h => h.mes_formatado || h.mes),
-            datasets: [{
-                label: 'Salário líquido',
-                data: sorted.map(h => Number(h.salario_liquido) || 0),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99,102,241,.08)',
-                fill: true, tension: .3,
-                pointRadius: 4, pointBackgroundColor: '#6366f1', pointBorderColor: '#fff', pointBorderWidth: 2,
-            }],
+            labels: sorted.map((h) => h.mes_formatado || h.mes),
+            datasets: [
+                {
+                    label: 'Salário líquido',
+                    data: sorted.map((h) => Number(h.salario_liquido) || 0),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#6366f1',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                },
+            ],
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: ctx => ` ${formatCurrency(ctx.parsed.y)}` } },
+                tooltip: { callbacks: { label: (ctx) => ` ${formatCurrency(ctx.parsed.y)}` } },
             },
             scales: {
-                y: { beginAtZero: true, ticks: { callback: v => formatCurrency(v) }, grid: { color: 'rgba(0,0,0,.05)' } },
+                y: { beginAtZero: true, ticks: { callback: (v) => formatCurrency(v) }, grid: { color: 'rgba(0,0,0,.05)' } },
                 x: { grid: { display: false } },
             },
         },
     });
 }
 
-// ─── Informe de rendimentos anual ────────────────────────────────
-// Consolida os holerites pagos do ano: soma de proventos, INSS (cod 901) e
-// IRRF (cod 902) — mesmos códigos gerados em pagamentos.js — para dar ao
-// colaborador um resumo pronto para a declaração de IR, sem depender do RH.
-
 window.openInformeModal = function () {
     const sel = document.getElementById('informe-year-select');
-    const years = [...new Set(holerites.map(h => h.mes.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
+    const years = [...new Set(holerites.map((h) => h.mes.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
     if (sel) {
-        sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+        sel.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join('');
     }
     document.getElementById('informe-modal')?.classList.add('active');
     renderInforme(years[0] || String(new Date().getFullYear()));
@@ -213,25 +231,34 @@ window.closeInformeModal = function () {
 };
 
 function summarizeInforme(year) {
-    const doAno = holerites.filter(h => h.mes.startsWith(year));
+    const doAno = holerites.filter((h) => h.mes.startsWith(year));
     const totalProventos = doAno.reduce((s, h) => s + (Number(h.total_proventos) || 0), 0);
-    const totalLiquido   = doAno.reduce((s, h) => s + (Number(h.salario_liquido) || 0), 0);
-    const codSum = (cod) => doAno.reduce((s, h) => s + (h.descontos || []).filter(d => d.cod === cod).reduce((ss, d) => ss + (Number(d.valor) || 0), 0), 0);
+    const totalLiquido = doAno.reduce((s, h) => s + (Number(h.salario_liquido) || 0), 0);
+    const codSum = (cod) => doAno.reduce((s, h) => s + (h.descontos || []).filter((d) => d.cod === cod).reduce((ss, d) => ss + (Number(d.valor) || 0), 0), 0);
     const totalInss = codSum('901');
     const totalIrrf = codSum('902');
     return { doAno: doAno.sort((a, b) => a.mes.localeCompare(b.mes)), totalProventos, totalInss, totalIrrf, totalLiquido };
 }
 
 window.renderInforme = function (year) {
-    const content  = document.getElementById('informe-content');
-    const emptyEl  = document.getElementById('informe-empty');
+    const content = document.getElementById('informe-content');
+    const emptyEl = document.getElementById('informe-empty');
     if (!content) return;
     const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
 
-    if (!doAno.length) { content.innerHTML = ''; emptyEl?.classList.remove('hidden'); return; }
+    if (!doAno.length) {
+        content.innerHTML = '';
+        emptyEl?.classList.remove('hidden');
+        return;
+    }
     emptyEl?.classList.add('hidden');
 
-    const rows = doAno.map(h => `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td class="col-val">${formatCurrency(h.total_proventos)}</td><td class="col-val">${formatCurrency(h.total_descontos)}</td><td class="col-val">${formatCurrency(h.salario_liquido)}</td></tr>`).join('');
+    const rows = doAno
+        .map(
+            (h) =>
+                `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td class="col-val">${formatCurrency(h.total_proventos)}</td><td class="col-val">${formatCurrency(h.total_descontos)}</td><td class="col-val">${formatCurrency(h.salario_liquido)}</td></tr>`
+        )
+        .join('');
 
     content.innerHTML = `
         <div class="informe-summary">
@@ -247,12 +274,17 @@ window.renderInforme = function (year) {
 };
 
 window.printInforme = function () {
-    const sel  = document.getElementById('informe-year-select');
+    const sel = document.getElementById('informe-year-select');
     const year = sel?.value || String(new Date().getFullYear());
     const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
     if (!doAno.length) return;
 
-    const rows = doAno.map(h => `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td style="text-align:right">${formatCurrency(h.total_proventos)}</td><td style="text-align:right">${formatCurrency(h.total_descontos)}</td><td style="text-align:right">${formatCurrency(h.salario_liquido)}</td></tr>`).join('');
+    const rows = doAno
+        .map(
+            (h) =>
+                `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td style="text-align:right">${formatCurrency(h.total_proventos)}</td><td style="text-align:right">${formatCurrency(h.total_descontos)}</td><td style="text-align:right">${formatCurrency(h.salario_liquido)}</td></tr>`
+        )
+        .join('');
 
     const win = window.open('', '_blank', 'width=760,height=700');
     if (!win) return;
@@ -288,44 +320,66 @@ window.printInforme = function () {
     setTimeout(() => win.print(), 300);
 };
 
-// ─── Realtime ─────────────────────────────────────────────────
-
 function setupRealtimeSync() {
     sb.channel('payslips-colab')
-        .on('postgres_changes', { event:'*', schema:'public', table:'payslips', filter:`employee_id=eq.${myEmployeeId}` }, async () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payslips', filter: `employee_id=eq.${myEmployeeId}` }, async () => {
             await loadPayslips();
             if (currentId) {
-                const h = holerites.find(x => x.id === currentId);
-                if (h) renderPayslip(h); else if (holerites.length) selectPayslipById(holerites[0].id);
+                const h = holerites.find((x) => x.id === currentId);
+                if (h) renderPayslip(h);
+                else if (holerites.length) selectPayslipById(holerites[0].id);
             }
             showToast('Holerite atualizado pelo RH.', 'success');
         })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'employees', filter:`id=eq.${myEmployeeId}` }, async (payload) => {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'employees', filter: `id=eq.${myEmployeeId}` }, async (payload) => {
             const emp = payload.new;
             if (emp.status === 'Inativo') {
                 showToast('Conta desativada pelo RH', 'error');
-                setTimeout(async () => { await sb.auth.signOut(); window.location.href = '../screens/login.html'; }, 2500);
+                setTimeout(async () => {
+                    await sb.auth.signOut();
+                    window.location.href = '../screens/login.html';
+                }, 2500);
             }
         })
         .subscribe();
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
-
-function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val??'—';}
-function formatCurrency(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
-function formatCurrencyRaw(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function formatDateBR(str){if(!str)return'—';const[y,m,d]=str.split('-');return`${d}/${m}/${y}`;}
-function escapeHTML(str){return String(str??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? '—';
+}
+function formatCurrency(v) {
+    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function formatCurrencyRaw(v) {
+    return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function formatDateBR(str) {
+    if (!str) return '—';
+    const [y, m, d] = str.split('-');
+    return `${d}/${m}/${y}`;
+}
+function escapeHTML(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function showToast(title, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
-    const icons = { success:'fa-check', error:'fa-times', warning:'fa-exclamation-triangle' };
-    const toast  = document.createElement('div');
+    const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle' };
+    const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type]||'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${escapeHTML(title)}</p></div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),300)"><i class="fas fa-times"></i></button>`;
+    toast.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || 'fa-check'}"></i></div><div class="toast-content"><p class="toast-title">${escapeHTML(title)}</p></div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),300)"><i class="fas fa-times"></i></button>`;
     container.appendChild(toast);
-    requestAnimationFrame(()=>requestAnimationFrame(()=>toast.classList.add('show')));
-    setTimeout(()=>{toast.classList.remove('show');toast.classList.add('hide');setTimeout(()=>toast.remove(),300);},4000);
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }

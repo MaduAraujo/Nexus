@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://nexus-nine-zeta.vercel.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -49,7 +49,6 @@ serve(async (req) => {
 
     const redirect = redirectTo || Deno.env.get("SUPABASE_URL")!;
 
-    // Tenta convidar novo usuário — Supabase envia o e-mail automaticamente
     const { data: inviteData, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: redirect,
       data: { first_access_pending: true },
@@ -62,7 +61,6 @@ serve(async (req) => {
       });
     }
 
-    // Usuário já existe — envia reset de senha via Supabase
     const { data: list } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
     const existing = list?.users?.find(u => u.email === email);
 

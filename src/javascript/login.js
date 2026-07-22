@@ -40,7 +40,7 @@ function setForgotBtnLoading(btnId, textId, spinId, on) {
 }
 
 window.setForgotStep = function (step) {
-    [1, 2, 3, 4].forEach(i => {
+    [1, 2, 3, 4].forEach((i) => {
         const panel = document.getElementById('forgot-s' + i);
         const dot = document.getElementById('fdot-' + i);
         if (panel) panel.style.display = i === step ? 'block' : 'none';
@@ -90,7 +90,10 @@ window.onFirstAccessEmailInput = function () {
 
 window.selectProfile = function (type, el) {
     selectedProfileType = type;
-    document.querySelectorAll('#form-profile .profile-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-checked', 'false'); });
+    document.querySelectorAll('#form-profile .profile-card').forEach((c) => {
+        c.classList.remove('selected');
+        c.setAttribute('aria-checked', 'false');
+    });
     el.classList.add('selected');
     el.setAttribute('aria-checked', 'true');
     const continueBtn = document.getElementById('btn-continue');
@@ -132,7 +135,7 @@ window.goToLogin = function () {
 };
 
 window.goToProfileSelection = function () {
-    document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
     const profileSection = document.getElementById('form-profile');
     if (profileSection) profileSection.classList.add('active');
     document.getElementById('login-user').value = '';
@@ -141,7 +144,10 @@ window.goToProfileSelection = function () {
     const passSection = document.getElementById('login-pass-section');
     if (passSection) passSection.style.display = '';
     selectedProfileType = null;
-    document.querySelectorAll('#form-profile .profile-card').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-checked', 'false'); });
+    document.querySelectorAll('#form-profile .profile-card').forEach((c) => {
+        c.classList.remove('selected');
+        c.setAttribute('aria-checked', 'false');
+    });
     const continueBtn = document.getElementById('btn-continue');
     if (continueBtn) continueBtn.disabled = true;
     setNavBack(false);
@@ -156,7 +162,7 @@ function setNavBack(visible, onClick) {
 
 window.switchTab = function (tab) {
     if (tab !== 'login' && tab !== 'forgot') return;
-    document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
     const target = document.getElementById('form-' + tab);
     if (target) target.classList.add('active');
     setNavBack(true, tab === 'login' ? goToProfileSelection : backToLogin);
@@ -196,7 +202,7 @@ window.handleLogin = async function () {
     try {
         const { data, error } = await sb.auth.signInWithPassword({
             email: emailInput,
-            password: passInput
+            password: passInput,
         });
 
         if (error) {
@@ -209,10 +215,7 @@ window.handleLogin = async function () {
             return;
         }
 
-        const { data: profile, error: profileError } = await sb.from('profiles')
-            .select('profile, employee_id')
-            .eq('id', data.user.id)
-            .single();
+        const { data: profile, error: profileError } = await sb.from('profiles').select('profile, employee_id').eq('id', data.user.id).single();
 
         if (profileError || !profile) {
             await sb.auth.signOut();
@@ -234,16 +237,11 @@ window.handleLogin = async function () {
         }
 
         if (profile.profile === 'colaborador' && profile.employee_id) {
-            await sb.from('employees')
-                .update({ last_access: new Date().toISOString() })
-                .eq('id', profile.employee_id);
+            await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
         }
 
-        window.location.href = profile.profile === 'Administrador'
-            ? '../screens/inicio-rh.html'
-            : '../screens/inicio-colaborador.html';
-
-    } catch (err) {
+        window.location.href = profile.profile === 'Administrador' ? '../screens/inicio-rh.html' : '../screens/inicio-colaborador.html';
+    } catch {
         setLoginLoading(false);
         showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
     }
@@ -311,9 +309,7 @@ window.forgotValidatePass = function () {
     const hasNumber = /[0-9]/.test(np);
     const valid = hasLength && hasLetter && hasNumber && np === cp;
     if (btn) btn.disabled = !valid;
-    if (err) err.textContent = cp && !valid
-        ? np !== cp ? 'As senhas não coincidem.' : 'Mínimo 8 caracteres com letras e números.'
-        : '';
+    if (err) err.textContent = cp && !valid ? (np !== cp ? 'As senhas não coincidem.' : 'Mínimo 8 caracteres com letras e números.') : '';
 };
 
 window.forgotReset = async function () {
@@ -358,27 +354,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.validateCreatePass = function () {
-        const np  = document.getElementById('create-pass-new')?.value    || '';
-        const cp  = document.getElementById('create-pass-confirm')?.value || '';
+        const np = document.getElementById('create-pass-new')?.value || '';
+        const cp = document.getElementById('create-pass-confirm')?.value || '';
         const err = document.getElementById('create-pass-err');
         const btn = document.getElementById('btn-create-pass');
         const valid = np.length >= 8 && np === cp;
         if (btn) btn.disabled = !valid;
         if (!err) return;
-        if (!cp)                err.textContent = '';
+        if (!cp) err.textContent = '';
         else if (np.length < 8) err.textContent = 'Mínimo 8 caracteres.';
-        else if (np !== cp)     err.textContent = 'As senhas não coincidem.';
-        else                    err.textContent = '';
+        else if (np !== cp) err.textContent = 'As senhas não coincidem.';
+        else err.textContent = '';
     };
 
     window.submitCreatePass = async function () {
-        const np   = document.getElementById('create-pass-new')?.value || '';
-        const btn  = document.getElementById('btn-create-pass');
+        const np = document.getElementById('create-pass-new')?.value || '';
+        const btn = document.getElementById('btn-create-pass');
         const text = document.getElementById('btn-create-pass-text');
         const spin = document.getElementById('spin-create-pass');
         if (!np || np.length < 8) return;
 
-        if (btn)  btn.disabled       = true;
+        if (btn) btn.disabled = true;
         if (text) text.style.opacity = '0';
         if (spin) spin.style.display = 'block';
 
@@ -388,7 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (error) {
-            if (btn)  btn.disabled       = false;
+            if (btn) btn.disabled = false;
             if (text) text.style.opacity = '1';
             if (spin) spin.style.display = 'none';
             const err = document.getElementById('create-pass-err');
@@ -402,7 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function setupFirstAccess(authSession) {
         if (!authSession?.user || _firstAccessSession) return;
-        document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
         document.getElementById('form-first-access')?.classList.add('active');
         const faEmailInput = document.getElementById('first-access-email');
         if (faEmailInput) faEmailInput.value = authSession.user.email ?? '';
@@ -412,9 +408,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function isFirstAccessSession(authSession) {
         if (!authSession?.user) return false;
-        
+
         if (authSession.user.user_metadata?.first_access_pending) return true;
-        
+
         return isInvite;
     }
 
@@ -430,7 +426,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    const { data: { session } } = await sb.auth.getSession();
+    const {
+        data: { session },
+    } = await sb.auth.getSession();
 
     if (_isPasswordRecovery) return;
 
@@ -440,10 +438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const { data: profile } = await sb.from('profiles')
-            .select('profile')
-            .eq('id', session.user.id)
-            .single();
+        const { data: profile } = await sb.from('profiles').select('profile').eq('id', session.user.id).single();
         if (profile?.profile === 'Administrador') {
             window.location.href = '../screens/inicio-rh.html';
             return;
@@ -454,7 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    document.getElementById('login-user')?.addEventListener('keydown', e => {
+    document.getElementById('login-user')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleLogin();
     });
 });

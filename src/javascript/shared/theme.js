@@ -1,8 +1,12 @@
 (function () {
-    var STORAGE_KEY = 'nexus-theme';
+    const STORAGE_KEY = 'nexus-theme';
 
     function getStored() {
-        try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+        try {
+            return localStorage.getItem(STORAGE_KEY);
+        } catch {
+            return null;
+        }
     }
 
     function apply(theme) {
@@ -11,9 +15,11 @@
     }
 
     function toggle() {
-        var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         apply(next);
-        try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+        try {
+            localStorage.setItem(STORAGE_KEY, next);
+        } catch {}
         return next;
     }
 
@@ -23,6 +29,6 @@
         toggle: toggle,
         current: function () {
             return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        }
+        },
     };
 })();

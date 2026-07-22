@@ -1,6 +1,3 @@
--- Compliance de documentos: validade/alerta de vencimento, trilha LGPD (consentimento + retenção)
--- e checklist de documentos obrigatórios por admissão/demissão.
-
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS data_validade         DATE;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS retido_ate            DATE;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS lgpd_consentimento    BOOLEAN DEFAULT FALSE;
@@ -8,7 +5,6 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS lgpd_consentimento_em TIMESTAMPTZ
 
 CREATE INDEX IF NOT EXISTS documents_validade_idx ON documents(data_validade);
 
--- Backfill do prazo de guarda para documentos já existentes (mesma tabela de anos usada no upload).
 UPDATE documents SET retido_ate = (created_at::date + (
     CASE tipo
       WHEN 'Contrato de Trabalho' THEN 30
@@ -22,7 +18,6 @@ UPDATE documents SET retido_ate = (created_at::date + (
     END) * INTERVAL '1 year')::date
 WHERE retido_ate IS NULL;
 
--- Checklist de documentos obrigatórios por categoria (admissional/demissional)
 CREATE TABLE IF NOT EXISTS document_requirements (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category    TEXT NOT NULL CHECK (category IN ('admissional','demissional')),
@@ -48,8 +43,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio) VALUES
   ('demissional','Guia FGTS', true)
 ON CONFLICT (category, tipo) DO NOTHING;
 
--- Log de auditoria de documentos (quem enviou/aprovou/recusou/excluiu e quando).
--- document_id não tem FK pois o registro deve sobreviver à exclusão do documento.
 CREATE TABLE IF NOT EXISTS document_audit_log (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id    UUID,

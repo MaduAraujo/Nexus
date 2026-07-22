@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Registrar Ponto</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
@@ -29,7 +29,6 @@
 
     <main class="content">
             <div class="page-body">
-
                 <div class="hero-row">
                     <div class="saldo-card">
                         <div class="saldo-icon" id="saldo-icon">
@@ -505,11 +504,13 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/domain/clt-domain.js"></script>
 <script src="../javascript/ponto-colaborador.js"></script>
 </body>
 </html>

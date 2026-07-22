@@ -1,22 +1,10 @@
-// ai-employee-chat — assistente conversacional do COLABORADOR, com dados reais da
-// própria sessão (mesma arquitetura de supabase/functions/ai-alerts: system prompt com
-// snapshot de dados + Groq streaming), mas escopado a um único colaborador em vez do
-// snapshot geral de RH.
-//
-// Diferença de segurança importante em relação a ai-alerts: aquela função usa o client
-// admin (service role) porque o RH tem visão da empresa toda. Aqui usamos o client do
-// PRÓPRIO chamador (JWT do colaborador) para buscar os dados — mesmo que a query tenha
-// algum bug de filtro, a RLS de colaborador (my_employee_id()) impede vazar dado de
-// outra pessoa. Defesa em profundidade, não só o filtro .eq('employee_id', ...).
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://nexus-nine-zeta.vercel.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// ─── Jornada / cálculo de ponto (mesma regra de ponto-colaborador.js) ──────────
 
 function getJornadaMin(emp: any): number | null {
   const tipo = String(emp?.contract_type || "clt").toLowerCase();
@@ -43,8 +31,6 @@ function calcWorkedMin(rec: any): number {
   return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
 }
 
-// Ledger FIFO de banco de horas por competência (mesma lógica de loadBankLedger em
-// banco-horas-rh.js), simplificado pra um único colaborador.
 function calcBancoHorasLedger(
   records: any[],
   adjustments: any[],
@@ -101,11 +87,6 @@ function calcBancoHorasLedger(
   return { saldoMin, proximoVencimento, minutosVencendo, minutosVencidos };
 }
 
-// ─── Férias (mesma fórmula de calcAcquisitivePeriod em ferias-colaborador.js para o
-// período aquisitivo atual; saldo é uma ESTIMATIVA simplificada — não desconta dias por
-// faltas injustificadas no período, ver diasDireitoPorFaltas no client, então pode ser
-// um pouco otimista em casos com muitas faltas. Documentado no prompt do sistema). ────
-
 function calcAcquisitivePeriod(admDate: Date, today: Date): { start: Date; end: Date } {
   const start = new Date(admDate);
   while (new Date(start.getFullYear() + 1, start.getMonth(), start.getDate()) <= today) {
@@ -125,7 +106,7 @@ function calcFeriasSnapshot(emp: any, vacations: any[]) {
   const admDate = new Date(emp.admission_date + "T00:00:00");
   const months = monthsDiff(admDate, today);
   const periods = Math.floor(months / 12);
-  const earned = periods * 30; // simplificação: sem desconto por faltas injustificadas
+  const earned = periods * 30; 
   const taken = vacations
     .filter((v) => v.status === "aprovado" || v.status === "concluido")
     .reduce((s, v) => s + v.days - (v.abono ? 10 : 0), 0);
@@ -138,8 +119,6 @@ function calcFeriasSnapshot(emp: any, vacations: any[]) {
     dias_restantes_no_ciclo_atual: diasRestantesCiclo,
   };
 }
-
-// ─── Snapshot completo do colaborador ──────────────────────────────────────────
 
 async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([

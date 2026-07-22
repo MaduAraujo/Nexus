@@ -1,11 +1,3 @@
--- Aprovar um adjustment_requests hoje só trocava o status para 'aprovado' (ver
--- alertas.js, executeAction/approve_adjustment) — a correção do horário nunca era
--- escrita de volta em time_records. Ou seja, "aprovar" um ajuste de ponto virava
--- só um rótulo: o registro de ponto errado continuava errado, e o cálculo de
--- banco de horas/rescisão/folha (todos lidos direto de time_records) nunca via a
--- correção. Mesmo padrão de approve_bank_request (migration 020): RPC
--- SECURITY DEFINER que decide e escreve o efeito colateral atomicamente.
-
 ALTER TABLE adjustment_requests ADD COLUMN IF NOT EXISTS decided_by_name  TEXT;
 ALTER TABLE adjustment_requests ADD COLUMN IF NOT EXISTS decided_by_email TEXT;
 ALTER TABLE adjustment_requests ADD COLUMN IF NOT EXISTS decided_at       TIMESTAMPTZ;
@@ -31,8 +23,6 @@ BEGIN
     RAISE EXCEPTION 'Decisão inválida: %', p_decision;
   END IF;
 
-  -- Só RH decide (mesma regra documentada na migration 035 — o colaborador só cria
-  -- a própria solicitação).
   IF NOT is_rh() THEN
     RAISE EXCEPTION 'Você não tem permissão para decidir esta solicitação';
   END IF;
@@ -45,21 +35,12 @@ BEGIN
     RAISE EXCEPTION 'Esta solicitação já foi decidida';
   END IF;
 
-  -- Justificativa de falta não corrige um horário de ponto (não há o que escrever
-  -- em time_records) — só documenta a ausência como justificada.
   IF p_decision = 'aprovado' AND v_req.tipo <> 'falta' THEN
     IF v_req.horario IS NULL THEN
       RAISE EXCEPTION 'Solicitação sem horário informado';
     END IF;
 
-    v_col := replace(v_req.tipo, '-', '_'); -- 'saida-almoco' -> 'saida_almoco' etc.
-    -- Domínio fechado pelo CHECK de adjustment_requests.tipo — nunca chega aqui com
-    -- valor fora de entrada/saida-almoco/retorno-almoco/saida (falta já foi excluída
-    -- acima), então o identificador dinâmico abaixo é seguro.
-
-    -- Horário do formulário (<input type="time">, ponto-colaborador.js) é sempre
-    -- local — Brasília não observa horário de verão desde 2019, então o offset fixo
-    -- é seguro (mesma premissa da migration 036).
+    v_col := replace(v_req.tipo, '-', '_'); 
     v_ts := (v_req.date::TEXT || ' ' || v_req.horario::TEXT || ' America/Sao_Paulo')::TIMESTAMPTZ;
 
     SELECT EXISTS(

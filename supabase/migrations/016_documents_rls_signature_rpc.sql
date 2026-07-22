@@ -1,6 +1,3 @@
--- Restringe a exclusão do colaborador aos próprios documentos autoenviados
--- (antes, "colabo_docs_own" permitia excluir qualquer documento vinculado a ele,
--- inclusive contratos e termos enviados pelo RH).
 DROP POLICY IF EXISTS "colabo_docs_own" ON documents;
 
 CREATE POLICY "colabo_docs_select_own" ON documents FOR SELECT
@@ -12,16 +9,10 @@ CREATE POLICY "colabo_docs_insert_own" ON documents FOR INSERT
 CREATE POLICY "colabo_docs_delete_own" ON documents FOR DELETE
   USING (employee_id = my_employee_id() AND source = 'colaborador');
 
--- Necessário para o versionamento: ao reenviar um documento, o colaborador marca a
--- própria versão anterior como superada (is_current = false). Só alcança documentos
--- que ele mesmo enviou — nunca os de origem "Administrador".
 CREATE POLICY "colabo_docs_update_own" ON documents FOR UPDATE
   USING (employee_id = my_employee_id() AND source = 'colaborador')
   WITH CHECK (employee_id = my_employee_id() AND source = 'colaborador');
 
--- A assinatura eletrônica passa a ser feita por uma função com privilégios elevados
--- em vez de um UPDATE direto do colaborador na tabela — evita ter que conceder
--- ao colaborador permissão de update em documents (que reabriria a mesma brecha).
 CREATE OR REPLACE FUNCTION sign_document(p_document_id UUID, p_signer_name TEXT)
 RETURNS void
 LANGUAGE plpgsql

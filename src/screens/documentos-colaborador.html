@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Meus Documentos</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/documentos-colaborador.css">
 </head>
 <body>
-
     <header class="topbar">
         <div class="topbar-left">
             <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
@@ -25,8 +24,6 @@
     </header>
 
     <main class="content">
-
-        <!-- Documentos obrigatórios pendentes -->
         <div class="pending-docs-banner hidden" id="pending-docs-banner">
             <div class="pending-docs-header">
                 <i class="fas fa-triangle-exclamation"></i>
@@ -35,7 +32,6 @@
             <div class="pending-docs-chips" id="pending-docs-chips"></div>
         </div>
 
-        <!-- Seletor mobile -->
         <div class="mobile-doc-select" id="mobile-doc-select">
             <label class="mobile-doc-label">
                 <i class="fas fa-folder-open"></i>
@@ -46,10 +42,8 @@
             </select>
         </div>
 
-        <!-- Layout dois painéis -->
-        <div class="docs-layout">
 
-            <!-- ── Painel esquerdo: lista ── -->
+        <div class="docs-layout">
             <div class="doc-list-panel" id="doc-list-panel">
                 <div class="doc-list-header">
                     <h3 class="doc-list-title">
@@ -58,15 +52,11 @@
                     </h3>
                     <span class="doc-count-badge" id="doc-count-badge">0</span>
                 </div>
-                <div class="doc-list" id="doc-list">
-                    <!-- gerado via JS -->
-                </div>
+                <div class="doc-list" id="doc-list"></div>
             </div>
 
-            <!-- ── Painel direito: detalhe ── -->
-            <div class="doc-panel" id="doc-panel">
 
-                <!-- Estado vazio -->
+            <div class="doc-panel" id="doc-panel">
                 <div class="doc-empty" id="doc-empty">
                     <div class="doc-empty-icon">
                         <i class="fas fa-folder-open"></i>
@@ -75,10 +65,8 @@
                     <p class="doc-empty-sub">Escolha um documento na lista ao lado para visualizar os detalhes.</p>
                 </div>
 
-                <!-- Detalhe do documento -->
-                <div class="doc-wrap hidden" id="doc-wrap">
 
-                    <!-- Barra de ações -->
+                <div class="doc-wrap hidden" id="doc-wrap">
                     <div class="doc-actions" id="doc-actions">
                         <div class="doc-actions-info">
                             <span class="doc-actions-name" id="action-doc-name">—</span>
@@ -102,10 +90,7 @@
                         </div>
                     </div>
 
-                    <!-- Documento estilizado -->
                     <div class="doc-card" id="doc-card">
-
-                        <!-- Cabeçalho -->
                         <div class="doc-card-header">
                             <div class="doc-company">
                                 <div class="doc-logo">Ne<span>x</span>us</div>
@@ -120,7 +105,7 @@
                             </div>
                         </div>
 
-                        <!-- Grid de informações -->
+
                         <div class="doc-info-grid">
                             <div class="doc-field">
                                 <span class="doc-field-label">Colaborador</span>
@@ -148,7 +133,7 @@
                             </div>
                         </div>
 
-                        <!-- Preview do arquivo -->
+
                         <div class="doc-preview-area doc-preview-area--clickable" onclick="viewSelectedDoc()" role="button" tabindex="0">
                             <div class="doc-preview-icon" id="detail-file-icon">
                                 <i class="fas fa-file"></i>
@@ -160,7 +145,7 @@
                             <i class="fas fa-up-right-from-square doc-preview-open-icon"></i>
                         </div>
 
-                        <!-- Rodapé -->
+
                         <div class="doc-card-footer">
                             <div class="doc-footer-left" id="assinatura-area">
                                 <div class="assinatura-line"></div>
@@ -173,14 +158,12 @@
                                 </p>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- Modal de envio -->
     <div class="modal-overlay" id="upload-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -224,7 +207,7 @@
         </div>
     </div>
 
-    <!-- Modal de assinatura eletrônica -->
+
     <div class="modal-overlay" id="sign-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -249,11 +232,12 @@
             </div>
         </div>
     </div>
-
+    
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/documentos-colaborador.js"></script>
 </body>
 </html>

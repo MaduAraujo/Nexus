@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Chat</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
@@ -11,8 +11,6 @@
     <link rel="stylesheet" href="../styles/chat-colaborador.css">
 </head>
 <body>
-
-    <!-- ─── Topbar ─────────────────────────────────────────────────────── -->
     <header class="topbar">
         <div class="topbar-left">
             <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
@@ -36,12 +34,8 @@
         </div>
     </header>
 
-    <!-- ─── Chat shell ──────────────────────────────────────────────────── -->
     <div class="chat-shell">
-
-        <!-- Painel esquerdo: abas + listas -->
         <aside class="chat-left" id="chat-left">
-
             <div class="chat-tabs">
                 <button class="chat-tab active" id="tab-social" data-tab="social" title="Social" aria-label="Social">
                     <i class="fas fa-comments"></i>
@@ -55,7 +49,6 @@
                 </button>
             </div>
 
-            <!-- Lista de canais -->
             <div class="chat-list-panel" id="panel-social">
                 <div class="channel-section-hd">Canais</div>
                 <ul class="channel-list" id="channel-list">
@@ -66,7 +59,6 @@
                 </ul>
             </div>
 
-            <!-- Lista de tickets RH -->
             <div class="chat-list-panel hidden" id="panel-rh">
                 <button class="new-ticket-btn" id="new-ticket-btn">
                     <i class="fas fa-plus-circle"></i>
@@ -85,20 +77,14 @@
                 </ul>
             </div>
 
-            <!-- Mural de reconhecimento -->
             <div class="chat-list-panel hidden" id="panel-kudos">
                 <p class="kudos-panel-hint">Elogie publicamente um colega — todo mundo vê no mural ao lado.</p>
             </div>
-
         </aside>
 
-        <!-- Overlay para fechar chat-left no mobile -->
         <div class="chat-overlay" id="chat-overlay"></div>
 
-        <!-- Área principal -->
         <section class="chat-main">
-
-            <!-- Estado vazio -->
             <div class="chat-welcome" id="chat-welcome">
                 <div class="chat-welcome-icon">
                     <i class="fas fa-comments"></i>
@@ -112,7 +98,6 @@
                 </div>
             </div>
 
-            <!-- Chat social -->
             <div class="chat-area hidden" id="chat-area">
                 <div class="chat-area-header">
                     <div class="chat-area-title">
@@ -146,7 +131,6 @@
                 </div>
             </div>
 
-            <!-- Atendimento RH -->
             <div class="chat-area hidden" id="hr-area">
                 <div class="chat-area-header">
                     <div class="chat-area-title">
@@ -176,7 +160,6 @@
                 </div>
             </div>
 
-            <!-- Mural de reconhecimento -->
             <div class="chat-area hidden" id="kudos-area">
                 <div class="chat-area-header">
                     <div class="chat-area-title">
@@ -198,7 +181,6 @@
         </section>
     </div>
 
-    <!-- Modal: Dar reconhecimento -->
     <div class="modal-overlay" id="kudos-modal">
         <div class="modal-card">
             <div class="modal-head">
@@ -238,7 +220,6 @@
         </div>
     </div>
 
-    <!-- Modal: Feedback anônimo -->
     <div class="modal-overlay" id="anon-feedback-modal">
         <div class="modal-card">
             <div class="modal-head">
@@ -277,8 +258,8 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/chat-colaborador.js"></script>
 </body>
 </html>

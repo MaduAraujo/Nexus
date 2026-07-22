@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
   push:
@@ -22,14 +22,105 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Verificação rápida de sintaxe em todo o JS do projeto (node --test só
-      # exercita os 3 arquivos de cálculo puro — isso aqui pega erro de sintaxe
-      # em qualquer outro arquivo antes de chegar em produção).
       - name: Check JS syntax
         run: |
           for f in $(find src/javascript -name '*.js'); do
             node --check "$f"
           done
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Run unit tests
         run: npm test
+
+  rls-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: public.ecr.aws/supabase/postgres:17.6.1.111
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 54322:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Load schema (storage.* errors are expected - that service isn't provisioned here)
+        run: psql "postgresql://postgres:postgres@localhost:54322/postgres" -f supabase/schema.sql
+
+      - name: Grant table access to anon/authenticated (mirrors hosted project's API auto-expose)
+        run: psql "postgresql://postgres:postgres@localhost:54322/postgres" -f test-support/local-test-db-grants.sql
+
+      - name: Run RLS integration tests
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
+        run: npm run test:integration
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (db + auth + rest only, storage/realtime/etc. not needed for login/dashboard flow)
+        run: supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,edge-runtime,functions
+
+      - name: Load schema (storage.* errors are expected - that service isn't provisioned here)
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
+
+      - name: Grant table access to anon/authenticated (mirrors hosted project's API auto-expose)
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

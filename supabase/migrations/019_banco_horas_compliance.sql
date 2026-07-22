@@ -1,7 +1,3 @@
--- Compliance de banco de horas: feriados (para não contar falta em dia não útil),
--- configurações de vencimento do banco de horas (CLT art. 59 §2º — 6 meses, ou mais
--- se houver acordo coletivo) e limite legal de horas extras diárias (CLT art. 59 — 2h/dia).
-
 CREATE TABLE IF NOT EXISTS holidays (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   date         DATE NOT NULL,
@@ -18,7 +14,6 @@ CREATE POLICY "rh_holidays_all"      ON holidays FOR ALL USING (is_rh());
 CREATE POLICY "colabo_holidays_select" ON holidays FOR SELECT
   USING (my_employee_id() IS NOT NULL);
 
--- Feriados nacionais de 2026 (pré-carregados; RH pode editar/adicionar/remover).
 INSERT INTO holidays (date, name, abrangencia) VALUES
   ('2026-01-01', 'Confraternização Universal',    'nacional'),
   ('2026-02-16', 'Carnaval (Segunda-feira)',      'facultativo'),
@@ -35,7 +30,6 @@ INSERT INTO holidays (date, name, abrangencia) VALUES
   ('2026-12-25', 'Natal',                          'nacional')
 ON CONFLICT (date) DO NOTHING;
 
--- Configurações globais de compliance do banco de horas (linha única).
 CREATE TABLE IF NOT EXISTS hr_settings (
   id                          SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   banco_horas_vencimento_meses INTEGER NOT NULL DEFAULT 6,

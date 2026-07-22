@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Atendimento ao Colaborador</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/btn-back.css">
     <link rel="stylesheet" href="../styles/chat-rh.css" />
+    <link rel="stylesheet" href="../styles/search-widget.css" />
 </head>
 <body>
     <header class="topbar">
@@ -34,7 +35,6 @@
         </div>
     </header>
 
-    <!-- Modal: Feedback anônimo (RH) -->
     <div class="modal-overlay" id="anon-feedback-modal" onclick="if(event.target===this) closeAnonFeedbackModal()">
         <div class="modal-card modal-card--lg">
             <div class="modal-head">
@@ -172,9 +172,9 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
-<script src="../javascript/search.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/search.js"></script>
 <script src="../javascript/chat-rh.js"></script>
 </body>
 </html>

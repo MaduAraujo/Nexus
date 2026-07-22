@@ -1,9 +1,22 @@
 {
-  "scripts": {
-    "test": "node --test"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.105.2"
-  }
+    "scripts": {
+        "test": "node --test",
+        "test:integration": "node --test test-integration/rls-policies.js",
+        "test:e2e": "playwright test",
+        "lint": "eslint src/javascript test test-support test-integration e2e",
+        "lint:fix": "eslint src/javascript test test-support test-integration e2e --fix",
+        "format": "prettier --write \"src/**/*.{js,css,json}\" \"test/**/*.js\" \"test-support/**/*.js\" \"test-integration/**/*.js\" \"e2e/**/*.js\" \"*.{js,json}\"",
+        "format:check": "prettier --check \"src/**/*.{js,css,json}\" \"test/**/*.js\" \"test-support/**/*.js\" \"test-integration/**/*.js\" \"e2e/**/*.js\" \"*.{js,json}\""
+    },
+    "dependencies": {
+        "@supabase/ssr": "^0.10.2",
+        "@supabase/supabase-js": "^2.105.2"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.61.1",
+        "eslint": "^10.7.0",
+        "globals": "^17.7.0",
+        "pg": "^8.22.0",
+        "prettier": "^3.9.6"
+    }
 }

@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Pagamentos</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/pagamentos.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
+    <link rel="stylesheet" href="../styles/search-widget.css" />
 </head>
 <body>
     <div class="layout">
@@ -358,7 +359,6 @@
                 </div>
 
                 <div class="modal-alert error" id="rescisao-error"></div>
-
                 <div id="rescisao-result" class="hidden"></div>
             </div>
             <div class="modal-footer">
@@ -373,16 +373,17 @@
     </div>
 
     <div id="toast-container" class="toast-container"></div>
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../javascript/supabase-client.js"></script>
-    <script src="../javascript/auth.js"></script>
-    <script src="../javascript/search.js"></script>
-    <script src="../javascript/tabelas-fiscais.js"></script>
-    <script src="../javascript/calculo-rescisao.js"></script>
+    <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/auth.js"></script>
+    <script src="../javascript/shared/search.js"></script>
+    <script src="../javascript/domain/tabelas-fiscais.js"></script>
+    <script src="../javascript/domain/clt-domain.js"></script>
+    <script src="../javascript/domain/calculo-rescisao.js"></script>
     <script src="../javascript/pagamentos.js"></script>
 </body>
 </html>

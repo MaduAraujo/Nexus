@@ -1,15 +1,15 @@
-﻿const pad0 = n => String(n).padStart(2, '0');
+﻿const pad0 = (n) => String(n).padStart(2, '0');
 
-let currentMonth  = '';
+let currentMonth = '';
 let currentSearch = '';
-let currentDept   = '';
+let currentDept = '';
 let currentDeptHol = '';
-let allRows       = [];
-let employees     = [];
-let payslips      = [];
-let rhUser        = null;
+let allRows = [];
+let employees = [];
+let payslips = [];
+let rhUser = null;
 let currentSlipData = null;
-let selectedIds   = new Set();
+const selectedIds = new Set();
 let lastRescisaoCalc = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!auth) return;
         rhUser = auth.user;
 
-        setText('rh-sidebar-name',   'Administrador');
-        setText('rh-sidebar-role',   'Recursos Humanos');
+        setText('rh-sidebar-name', 'Administrador');
+        setText('rh-sidebar-role', 'Recursos Humanos');
         setText('rh-sidebar-avatar', 'ADM');
 
         setupSidebar();
@@ -49,31 +49,34 @@ function setLoading(show) {
 
 async function loadData() {
     const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }] = await Promise.all([
-        sb.from('employees')
-            .select('id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao')
-            .in('status', ['Ativo','ativo'])
+        sb
+            .from('employees')
+            .select(
+                'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao'
+            )
+            .in('status', ['Ativo', 'ativo'])
             .order('name'),
         sb.from('payslips').select('*').eq('mes', currentMonth),
     ]);
 
-    if (empErr)  console.error('Erro ao carregar colaboradores:', empErr.message);
+    if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
     if (slipErr) console.error('Erro ao carregar holerites:', slipErr.message);
 
-    employees = (empData || []).map(e => ({
-        id:            e.id,
-        name:          e.name,
-        cpf:           e.cpf,
-        role:          e.role,
-        dept:          e.dept,
-        salary:        e.salary,
-        contractType:  e.contract_type,
-        workLoad:      e.work_load,
+    employees = (empData || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        cpf: e.cpf,
+        role: e.role,
+        dept: e.dept,
+        salary: e.salary,
+        contractType: e.contract_type,
+        workLoad: e.work_load,
         admissionDate: e.admission_date,
-        email:         e.email,
-        valeTransporte:    e.vale_transporte ? 'sim' : 'nao',
-        valorPassagem:     e.valor_passagem,
-        conducoesdia:       e.conducoes_dia,
-        benValeRefeicao:    e.vale_refeicao    ? String(e.vale_refeicao)    : null,
+        email: e.email,
+        valeTransporte: e.vale_transporte ? 'sim' : 'nao',
+        valorPassagem: e.valor_passagem,
+        conducoesdia: e.conducoes_dia,
+        benValeRefeicao: e.vale_refeicao ? String(e.vale_refeicao) : null,
         benValeAlimentacao: e.vale_alimentacao ? String(e.vale_alimentacao) : null,
     }));
     payslips = slipData || [];
@@ -94,13 +97,11 @@ async function refresh() {
     }
 }
 
-// Faixas, alíquotas e deduções vêm de tabelas-fiscais.js (atualizado
-// anualmente, sem tocar nesta lógica de cálculo).
 function calcINSS(salBase) {
     if (salBase <= 0) return 0;
     const faixas = TABELA_FISCAL.inss.faixas;
-    const teto   = faixas[faixas.length - 1].limite;
-    const base   = Math.min(salBase, teto); // acima do teto, contribuição fica congelada
+    const teto = faixas[faixas.length - 1].limite;
+    const base = Math.min(salBase, teto);
     for (const f of faixas) {
         if (base <= f.limite) return +(base * f.aliquota - f.deducao).toFixed(2);
     }
@@ -116,33 +117,42 @@ function calcIRRF(base) {
 
 function parseCurrency(str) {
     if (!str) return 0;
-    return parseFloat(String(str).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+    return (
+        parseFloat(
+            String(str)
+                .replace(/[^\d,]/g, '')
+                .replace(',', '.')
+        ) || 0
+    );
 }
 
 function calcRow(emp) {
-    const salary    = Number(emp.salary) || 0;
-    const ct        = (emp.contractType || 'clt').toLowerCase();
-    const isPJ      = ct === 'pj';
+    const salary = Number(emp.salary) || 0;
+    const ct = (emp.contractType || 'clt').toLowerCase();
+    const isPJ = ct === 'pj';
     const isAprendiz = ct === 'aprendiz';
-    let inss = 0, irrf = 0, benef = 0, descVT = 0;
+    let inss = 0,
+        irrf = 0,
+        benef = 0,
+        descVT = 0;
 
     if (!isPJ) {
         inss = isAprendiz ? +(salary * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(salary);
         if (!isAprendiz) irrf = calcIRRF(salary - inss);
 
-        if (emp.benValeRefeicao)    benef += parseCurrency(emp.benValeRefeicao) * 22;
+        if (emp.benValeRefeicao) benef += parseCurrency(emp.benValeRefeicao) * 22;
         if (emp.benValeAlimentacao) benef += parseCurrency(emp.benValeAlimentacao);
 
         if (emp.valeTransporte === 'sim') {
-            const condDia  = parseInt(emp.conducoesdia || '2', 10);
-            const valPass  = parseCurrency(emp.valorPassagem || '0');
-            const vtBruto  = +(valPass * condDia * 22).toFixed(2);
-            descVT = +Math.min(salary * 0.06, vtBruto).toFixed(2);
+            const condDia = parseInt(emp.conducoesdia || '2', 10);
+            const valPass = parseCurrency(emp.valorPassagem || '0');
+            const vtBruto = +(valPass * condDia * 22).toFixed(2);
+            descVT = +Math.min(salary * CLTDomain.VALE_TRANSPORTE_DESCONTO_MAX_PERCENTUAL, vtBruto).toFixed(2);
             benef += vtBruto;
         }
     }
     benef = +benef.toFixed(2);
-    const bruto   = +(salary + benef).toFixed(2);
+    const bruto = +(salary + benef).toFixed(2);
     const liquido = +(bruto - inss - irrf - descVT).toFixed(2);
     return { salary, inss, irrf, benef, bruto, descontos: +(inss + irrf + descVT).toFixed(2), liquido, isPJ };
 }
@@ -168,63 +178,70 @@ async function buildPayslipData(emp, monthKey) {
             const condDia = parseInt(emp.conducoesdia || '2', 10);
             const valPass = parseCurrency(emp.valorPassagem || '0');
             const vtBruto = +(valPass * condDia * 22).toFixed(2);
-            const descVT  = +Math.min(calc.salary * 0.06, vtBruto).toFixed(2);
+            const descVT = +Math.min(calc.salary * CLTDomain.VALE_TRANSPORTE_DESCONTO_MAX_PERCENTUAL, vtBruto).toFixed(2);
             if (vtBruto > 0) {
                 proventos.push({ cod: '012', descricao: 'Vale Transporte', referencia: `${condDia} cond/dia`, valor: vtBruto });
                 if (descVT > 0) descontos.push({ cod: '903', descricao: 'Desc. Vale Transporte', referencia: '6%', valor: descVT });
             }
         }
 
-        // Adicional noturno / domingo-feriado: apurado dos registros de ponto reais do
-        // mês (calcAdicionaisMes), não mais só um badge informativo em banco-horas-rh.js.
         const jornadaMin = getJornadaMinRH(emp);
         const { noturnoMin, feriadoMin, intervaloDeficitMin } = await calcAdicionaisMes(emp.id, jornadaMin, monthKey);
-        const valorHora = calc.salary / DIVISOR_HORA_MENSAL_RH;
-        let valorNoturno = 0, valorFeriado = 0, valorDsr = 0;
+        const valorHora = calc.salary / CLTDomain.getDivisorHoraMensal(jornadaMin, emp.workLoad);
+        let valorNoturno = 0,
+            valorFeriado = 0,
+            valorDsr = 0;
         if (noturnoMin > 0) {
-            // Hora noturna reduzida (CLT art. 73 §1º): cada 52min30s trabalhados entre
-            // 22h-5h conta como 1h cheia — por isso a divisão é por 52.5, não por 60.
-            valorNoturno = +((noturnoMin / 52.5) * valorHora * 0.20).toFixed(2);
-            if (valorNoturno > 0) proventos.push({ cod: '020', descricao: 'Adicional Noturno (20% — CLT art. 73, hora reduzida)', referencia: `${(noturnoMin / 60).toFixed(1)}h reais`, valor: valorNoturno });
+            valorNoturno = +((noturnoMin / 52.5) * valorHora * CLTDomain.ADICIONAL_NOTURNO_PERCENTUAL).toFixed(2);
+            if (valorNoturno > 0)
+                proventos.push({
+                    cod: '020',
+                    descricao: 'Adicional Noturno (20% — CLT art. 73, hora reduzida)',
+                    referencia: `${(noturnoMin / 60).toFixed(1)}h reais`,
+                    valor: valorNoturno,
+                });
         }
         if (feriadoMin > 0) {
-            valorFeriado = +((feriadoMin / 60) * valorHora * 1.00).toFixed(2);
-            if (valorFeriado > 0) proventos.push({ cod: '021', descricao: 'Adicional Domingo/Feriado Trabalhado (100% — Súmula 146 TST)', referencia: `${(feriadoMin / 60).toFixed(1)}h`, valor: valorFeriado });
+            valorFeriado = +((feriadoMin / 60) * valorHora * CLTDomain.ADICIONAL_DOMINGO_FERIADO_PERCENTUAL).toFixed(2);
+            if (valorFeriado > 0)
+                proventos.push({
+                    cod: '021',
+                    descricao: 'Adicional Domingo/Feriado Trabalhado (100% — Súmula 146 TST)',
+                    referencia: `${(feriadoMin / 60).toFixed(1)}h`,
+                    valor: valorFeriado,
+                });
         }
 
-        // Indenização de intervalo intrajornada suprimido (CLT art. 71 §4º, 50% sobre a
-        // hora normal) — mesma detecção que já existia só como alerta em
-        // ponto-colaborador.js/banco-horas-rh.js, agora virando linha de pagamento real.
-        // Natureza INDENIZATÓRIA (Lei 13.467/2017): não entra na base de INSS/IRRF abaixo.
         if (intervaloDeficitMin > 0) {
-            const valorIntervalo = +((intervaloDeficitMin / 60) * valorHora * 1.50).toFixed(2);
-            if (valorIntervalo > 0) proventos.push({ cod: '022', descricao: 'Indenização de Intervalo Intrajornada (50% — CLT art. 71 §4º)', referencia: `${(intervaloDeficitMin / 60).toFixed(1)}h`, valor: valorIntervalo });
+            const valorIntervalo = +((intervaloDeficitMin / 60) * valorHora * CLTDomain.INTERVALO_INDENIZACAO_MULTIPLICADOR).toFixed(2);
+            if (valorIntervalo > 0)
+                proventos.push({
+                    cod: '022',
+                    descricao: 'Indenização de Intervalo Intrajornada (50% — CLT art. 71 §4º)',
+                    referencia: `${(intervaloDeficitMin / 60).toFixed(1)}h`,
+                    valor: valorIntervalo,
+                });
         }
 
-        // DSR perdido (Lei 605/49 art. 6º) — só desconta quando o RH já REJEITOU
-        // definitivamente a justificativa da falta (ver approve_adjustment_request,
-        // migration 044); enquanto pendente, não há desconto (a falta ainda pode ser
-        // justificada).
         const { semanasComPerda } = await calcDsrDescontoMes(emp.id, monthKey);
         if (semanasComPerda > 0) {
             valorDsr = +((calc.salary / 30) * semanasComPerda).toFixed(2);
-            if (valorDsr > 0) descontos.push({ cod: '904', descricao: 'Desconto de DSR (falta injustificada — Lei 605/49 art. 6º)', referencia: `${semanasComPerda} semana${semanasComPerda > 1 ? 's' : ''}`, valor: valorDsr });
+            if (valorDsr > 0)
+                descontos.push({
+                    cod: '904',
+                    descricao: 'Desconto de DSR (falta injustificada — Lei 605/49 art. 6º)',
+                    referencia: `${semanasComPerda} semana${semanasComPerda > 1 ? 's' : ''}`,
+                    valor: valorDsr,
+                });
         }
 
-        // INSS/IRRF recalculados sobre salário + adicionais de natureza remuneratória
-        // (noturno, feriado/domingo) menos o desconto de DSR (falta reduz o próprio
-        // salário de contribuição, como qualquer falta) — não mais só sobre o
-        // salário-base isolado. A indenização de intervalo (022) fica de fora da base:
-        // natureza indenizatória, mesma premissa já documentada em calculo-rescisao.js.
         const isAprendiz = (emp.contractType || '').toLowerCase() === 'aprendiz';
         const baseContribuicao = Math.max(0, +(calc.salary + valorNoturno + valorFeriado - valorDsr).toFixed(2));
         const inssRecalc = isAprendiz ? +(baseContribuicao * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(baseContribuicao);
         const irrfRecalc = isAprendiz ? 0 : calcIRRF(baseContribuicao - inssRecalc);
 
         if (inssRecalc > 0) {
-            const ref = isAprendiz
-                ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%`
-                : `${((inssRecalc / baseContribuicao) * 100).toFixed(1)}%`;
+            const ref = isAprendiz ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%` : `${((inssRecalc / baseContribuicao) * 100).toFixed(1)}%`;
             descontos.push({ cod: '901', descricao: 'INSS', referencia: ref, valor: inssRecalc });
         }
         if (irrfRecalc > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrfRecalc });
@@ -232,55 +249,57 @@ async function buildPayslipData(emp, monthKey) {
 
     const totalProventos = +proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
     const totalDescontos = +descontos.reduce((s, d) => s + d.valor, 0).toFixed(2);
-    const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     return {
-        employee_id:     emp.id,
-        mes:             monthKey,
-        mes_formatado:   `${MESES[month - 1]} ${year}`,
-        competencia:     `${pad0(month)}/${year}`,
+        employee_id: emp.id,
+        mes: monthKey,
+        mes_formatado: `${MESES[month - 1]} ${year}`,
+        competencia: `${pad0(month)}/${year}`,
         proventos,
         descontos,
         total_proventos: totalProventos,
         total_descontos: totalDescontos,
         salario_liquido: +(totalProventos - totalDescontos).toFixed(2),
-        status:          'publicado',
+        status: 'publicado',
     };
 }
 
 function buildFolhaRows() {
-    allRows = employees.map(emp => {
-        const calc  = calcRow(emp);
-        const slip  = payslips.find(p => p.employee_id === emp.id) || null;
-        const pago  = slip?.status === 'pago';
+    allRows = employees.map((emp) => {
+        const calc = calcRow(emp);
+        const slip = payslips.find((p) => p.employee_id === emp.id) || null;
+        const pago = slip?.status === 'pago';
         const gerado = !!slip;
         return { emp, calc, slip, pago, gerado };
     });
 }
 
 function loadKPIs() {
-    let totalBruto = 0, totalLiquido = 0, totalPagos = 0;
-    allRows.forEach(r => {
-        totalBruto   += r.calc.bruto;
+    let totalBruto = 0,
+        totalLiquido = 0,
+        totalPagos = 0;
+    allRows.forEach((r) => {
+        totalBruto += r.calc.bruto;
         totalLiquido += r.calc.liquido;
         if (r.pago) totalPagos++;
     });
-    setText('kpi-bruto',   fmtCurrency(totalBruto));
+    setText('kpi-bruto', fmtCurrency(totalBruto));
     setText('kpi-liquido', fmtCurrency(totalLiquido));
-    setText('kpi-colab',   allRows.length);
-    setText('kpi-pagos',   `${totalPagos}/${allRows.length}`);
+    setText('kpi-colab', allRows.length);
+    setText('kpi-pagos', `${totalPagos}/${allRows.length}`);
 
-    const total    = allRows.length;
-    const allPaid  = total > 0 && totalPagos === total;
-    const pending  = total - totalPagos;
+    const total = allRows.length;
+    const allPaid = total > 0 && totalPagos === total;
+    const pending = total - totalPagos;
 
     const statusCard = document.getElementById('stat-card-status');
     if (statusCard) {
         statusCard.classList.toggle('stat-card--complete', allPaid);
-        if (total === 0)         statusCard.title = 'Pagos — holerites quitados';
-        else if (allPaid)        statusCard.title = 'Pagos — folha encerrada';
-        else if (pending === 1)  statusCard.title = 'Pagos — 1 colaborador pendente';
-        else                     statusCard.title = `Pagos — ${pending} colaboradores pendentes`;
+        if (total === 0) statusCard.title = 'Pagos — holerites quitados';
+        else if (allPaid) statusCard.title = 'Pagos — folha encerrada';
+        else if (pending === 1) statusCard.title = 'Pagos — 1 colaborador pendente';
+        else statusCard.title = `Pagos — ${pending} colaboradores pendentes`;
     }
 }
 
@@ -303,7 +322,7 @@ function renderFolha() {
     const tbody = document.getElementById('folha-tbody');
     if (!tbody) return;
 
-    const filtered = allRows.filter(r => {
+    const filtered = allRows.filter((r) => {
         if (r.pago) return false;
         if (currentSearch && !r.emp.name.toLowerCase().includes(currentSearch) && !(r.emp.dept || '').toLowerCase().includes(currentSearch)) return false;
         if (currentDept && (r.emp.dept || '') !== currentDept) return false;
@@ -318,7 +337,7 @@ function renderFolha() {
         return;
     }
 
-    tbody.innerHTML = filtered.map(r => buildFolhaRow(r)).join('');
+    tbody.innerHTML = filtered.map((r) => buildFolhaRow(r)).join('');
     setText('folha-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''} na folha`);
     updateSummary(filtered);
     updateSelectionUI(filtered);
@@ -326,9 +345,9 @@ function renderFolha() {
 
 function buildFolhaRow(r) {
     const { emp, calc, pago } = r;
-    const ini   = initials(emp.name);
+    const ini = initials(emp.name);
     const color = nameToColor(emp.name);
-    const ct    = (emp.contractType || 'CLT').toUpperCase();
+    const ct = (emp.contractType || 'CLT').toUpperCase();
 
     const statusBadge = pago
         ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
@@ -355,7 +374,7 @@ function buildFolhaRow(r) {
 
 window.toggleRowSelect = function (empId, cb) {
     if (cb.checked) selectedIds.add(empId);
-    else            selectedIds.delete(empId);
+    else selectedIds.delete(empId);
 
     const tr = cb.closest('tr');
     tr?.classList.toggle('row-selected', cb.checked);
@@ -367,8 +386,8 @@ window.toggleRowSelect = function (empId, cb) {
 
 window.toggleSelectAll = function (headerCb) {
     const visibleIds = getVisibleIds();
-    if (headerCb.checked) visibleIds.forEach(id => selectedIds.add(id));
-    else                  visibleIds.forEach(id => selectedIds.delete(id));
+    if (headerCb.checked) visibleIds.forEach((id) => selectedIds.add(id));
+    else visibleIds.forEach((id) => selectedIds.delete(id));
     renderFolha();
 };
 
@@ -379,14 +398,14 @@ window.limparSelecao = function () {
 
 function getVisibleIds() {
     return Array.from(document.querySelectorAll('#folha-tbody .cb-row'))
-        .map(cb => cb.dataset.empId)
+        .map((cb) => cb.dataset.empId)
         .filter(Boolean);
 }
 
 function syncHeaderCheckbox(visibleIds) {
     const headerCb = document.getElementById('select-all-cb');
     if (!headerCb) return;
-    const selectedVisible = visibleIds.filter(id => selectedIds.has(id));
+    const selectedVisible = visibleIds.filter((id) => selectedIds.has(id));
     if (selectedVisible.length === 0) {
         headerCb.checked = false;
         headerCb.indeterminate = false;
@@ -400,13 +419,13 @@ function syncHeaderCheckbox(visibleIds) {
 }
 
 function updateSelectionUI(filtered) {
-    const visibleIds = (filtered || []).map(r => r.emp.id);
+    const visibleIds = (filtered || []).map((r) => r.emp.id);
     syncHeaderCheckbox(visibleIds);
     showBulkBar();
 }
 
 function showBulkBar() {
-    const bar   = document.getElementById('bulk-bar');
+    const bar = document.getElementById('bulk-bar');
     const count = document.getElementById('bulk-count');
     if (!bar) return;
     const n = selectedIds.size;
@@ -420,36 +439,59 @@ function showBulkBar() {
 
 window.marcarSelecionadosPagos = async function () {
     if (!selectedIds.size) return;
-    const rows = allRows.filter(r => selectedIds.has(r.emp.id) && !r.pago);
-    if (!rows.length) { showToast('Todos os selecionados já estão pagos.', 'info'); return; }
+    const rows = allRows.filter((r) => selectedIds.has(r.emp.id) && !r.pago);
+    if (!rows.length) {
+        showToast('Todos os selecionados já estão pagos.', 'info');
+        return;
+    }
     setLoading(true);
     try {
-        const pagoEm   = new Date().toISOString();
-        const slipsData = await Promise.all(rows.map(async r => ({
-            ...(await buildPayslipData(r.emp, currentMonth)),
-            status:     'pago',
-            pago_em:    pagoEm,
-            created_by: rhUser?.id,
-        })));
+        const pagoEm = new Date().toISOString();
+        const slipsData = await Promise.all(
+            rows.map(async (r) => ({
+                ...(await buildPayslipData(r.emp, currentMonth)),
+                status: 'pago',
+                pago_em: pagoEm,
+                created_by: rhUser?.id,
+            }))
+        );
         const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
-        if (error) { showToast(`Erro: ${error.message}`, 'error'); return; }
-        rows.forEach(r => { r.pago = true; r.gerado = true; });
+        if (error) {
+            showToast(`Erro: ${error.message}`, 'error');
+            return;
+        }
+        rows.forEach((r) => {
+            r.pago = true;
+            r.gerado = true;
+        });
         loadKPIs();
-        showToast(`${rows.length} colaborador${rows.length !== 1 ? 'es' : ''} marcado${rows.length !== 1 ? 's' : ''} como pago${rows.length !== 1 ? 's' : ''}.`, 'success');
+        showToast(
+            `${rows.length} colaborador${rows.length !== 1 ? 'es' : ''} marcado${rows.length !== 1 ? 's' : ''} como pago${rows.length !== 1 ? 's' : ''}.`,
+            'success'
+        );
         await refresh();
     } finally {
         setLoading(false);
     }
 };
 
-
 function updateSummary(rows) {
-    let bruto = 0, inss = 0, irrf = 0, benef = 0, liquido = 0;
-    rows.forEach(r => { bruto += r.calc.salary; inss += r.calc.inss; irrf += r.calc.irrf; benef += r.calc.benef; liquido += r.calc.liquido; });
-    setText('sum-bruto',   fmtCurrency(bruto));
-    setText('sum-inss',    fmtCurrency(inss));
-    setText('sum-irrf',    fmtCurrency(irrf));
-    setText('sum-benef',   fmtCurrency(benef));
+    let bruto = 0,
+        inss = 0,
+        irrf = 0,
+        benef = 0,
+        liquido = 0;
+    rows.forEach((r) => {
+        bruto += r.calc.salary;
+        inss += r.calc.inss;
+        irrf += r.calc.irrf;
+        benef += r.calc.benef;
+        liquido += r.calc.liquido;
+    });
+    setText('sum-bruto', fmtCurrency(bruto));
+    setText('sum-inss', fmtCurrency(inss));
+    setText('sum-irrf', fmtCurrency(irrf));
+    setText('sum-benef', fmtCurrency(benef));
     setText('sum-liquido', fmtCurrency(liquido));
 }
 
@@ -471,9 +513,9 @@ function renderHolerites(q = '', dept = '') {
     const tbody = document.getElementById('hol-tbody');
     if (!tbody) return;
 
-    const filtered = allRows.filter(r => {
+    const filtered = allRows.filter((r) => {
         if (!r.pago) return false;
-        if (q    && !r.emp.name.toLowerCase().includes(q) && !(r.emp.dept || '').toLowerCase().includes(q)) return false;
+        if (q && !r.emp.name.toLowerCase().includes(q) && !(r.emp.dept || '').toLowerCase().includes(q)) return false;
         if (dept && (r.emp.dept || '') !== dept) return false;
         return true;
     });
@@ -488,16 +530,17 @@ function renderHolerites(q = '', dept = '') {
     const monthLabel = new Date(+year, parseInt(monthNum) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const competLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-    tbody.innerHTML = filtered.map(r => {
-        const { emp, calc, slip, pago } = r;
-        const ini   = initials(emp.name);
-        const color = nameToColor(emp.name);
+    tbody.innerHTML = filtered
+        .map((r) => {
+            const { emp, calc, slip, pago } = r;
+            const ini = initials(emp.name);
+            const color = nameToColor(emp.name);
 
-        const statusBadge = pago
-            ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-            : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+            const statusBadge = pago
+                ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
+                : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
 
-        return `<tr>
+            return `<tr>
             <td data-label="Colaborador"><div class="emp-cell"><div class="emp-avatar" style="background:${color}">${ini}</div><div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
             <td data-label="Competência">${competLabel}</td>
             <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
@@ -508,13 +551,14 @@ function renderHolerites(q = '', dept = '') {
                 </button>
             </div></td>
         </tr>`;
-    }).join('');
+        })
+        .join('');
 
     setText('hol-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''}`);
 }
 
 window.verHolerite = function (empId) {
-    const row = allRows.find(r => r.emp.id === empId);
+    const row = allRows.find((r) => r.emp.id === empId);
     if (!row || !row.slip) return;
     renderSlipModal(row.emp, row.slip);
     renderSlipBankInfo(row.emp, row.slip);
@@ -525,20 +569,25 @@ window.verHolerite = function (empId) {
 
 window.executarMarcarTodosPagos = async function () {
     closeModal('confirm-modal');
-    const pendentes = allRows.filter(r => !r.pago);
+    const pendentes = allRows.filter((r) => !r.pago);
     if (!pendentes.length) return;
 
     setLoading(true);
     try {
-        const pagoEm   = new Date().toISOString();
-        const slipsData = await Promise.all(pendentes.map(async r => ({
-            ...(await buildPayslipData(r.emp, currentMonth)),
-            status:     'pago',
-            pago_em:    pagoEm,
-            created_by: rhUser?.id,
-        })));
+        const pagoEm = new Date().toISOString();
+        const slipsData = await Promise.all(
+            pendentes.map(async (r) => ({
+                ...(await buildPayslipData(r.emp, currentMonth)),
+                status: 'pago',
+                pago_em: pagoEm,
+                created_by: rhUser?.id,
+            }))
+        );
         const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
-        if (error) { showToast(`Erro ao marcar pagamentos: ${error.message}`, 'error'); return; }
+        if (error) {
+            showToast(`Erro ao marcar pagamentos: ${error.message}`, 'error');
+            return;
+        }
         showToast(`${pendentes.length} colaboradores marcados como pagos.`, 'success');
         await refresh();
     } finally {
@@ -553,23 +602,29 @@ function renderSlipModal(emp, slip) {
     const body = document.getElementById('slip-modal-body');
     if (!body) return;
 
-    const provRows = (slip.proventos || []).map(p =>
-        `<tr>
+    const provRows = (slip.proventos || [])
+        .map(
+            (p) =>
+                `<tr>
             <td>${p.cod}</td>
             <td>${escHtml(p.descricao)}</td>
             <td style="color:var(--text-secondary)">${p.referencia}</td>
             <td class="td-val">${fmtCurrency(p.valor)}</td>
         </tr>`
-    ).join('');
+        )
+        .join('');
 
-    const descRows = (slip.descontos || []).map(d =>
-        `<tr>
+    const descRows = (slip.descontos || [])
+        .map(
+            (d) =>
+                `<tr>
             <td>${d.cod}</td>
             <td>${escHtml(d.descricao)}</td>
             <td style="color:var(--text-secondary)">${d.referencia}</td>
             <td class="td-val" style="color:var(--danger)">${fmtCurrency(d.valor)}</td>
         </tr>`
-    ).join('');
+        )
+        .join('');
 
     const isPago = slip.status === 'pago';
 
@@ -621,203 +676,158 @@ function renderSlipModal(emp, slip) {
     <div class="slip-bank-info hidden" id="slip-bank-info"></div>`;
 }
 
-// Jornada diária em minutos por tipo de contrato/carga horária — mesma regra usada em
-// ponto-colaborador.js / banco-horas-rh.js. PJ retorna null (não tem jornada CLT).
 function getJornadaMinRH(emp) {
-    const tipo = (emp?.contractType || 'clt').toLowerCase();
-    if (tipo === 'pj') return null;
-    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
-    const workLoad = emp?.workLoad || '';
-    if (workLoad === '12x36') return 12 * 60;
-    const m = workLoad.match(/^(\d+)h/);
-    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
-    return 8 * 60;
+    return CLTDomain.resolveJornadaMin({ contractType: emp?.contractType, workLoad: emp?.workLoad });
 }
 
-function diffMinRH(a, b) { return Math.round((new Date(b) - new Date(a)) / 60000); }
-
-// Divisor padrão para converter salário mensal em valor-hora (jornada de 220h/mês —
-// o mais usado na folha brasileira, mesma premissa de calculo-rescisao.js).
-const DIVISOR_HORA_MENSAL_RH = 220;
+function diffMinRH(a, b) {
+    return CLTDomain.diffMin(a, b);
+}
 
 let holidaysCacheRH = null;
 async function getHolidaysMapRH() {
     if (holidaysCacheRH) return holidaysCacheRH;
     const { data } = await sb.from('holidays').select('date,name');
     holidaysCacheRH = {};
-    (data || []).forEach(h => { holidaysCacheRH[h.date] = h; });
+    (data || []).forEach((h) => {
+        holidaysCacheRH[h.date] = h;
+    });
     return holidaysCacheRH;
 }
 
-function isSundayRH(dateKey) { return new Date(`${dateKey}T12:00:00`).getDay() === 0; }
+function isSundayRH(dateKey) {
+    return CLTDomain.isSunday(dateKey);
+}
 
-// Minutos de sobreposição entre [start,end] e qualquer janela noturna 22h-05h (CLT art.
-// 73). Varre dia a dia porque um turno pode atravessar a meia-noite.
 function nightOverlapMinRH(start, end) {
-    let total = 0;
-    const cursor = new Date(start);
-    cursor.setHours(0, 0, 0, 0);
-    cursor.setDate(cursor.getDate() - 1);
-    while (cursor <= end) {
-        const winStart = new Date(cursor); winStart.setHours(22, 0, 0, 0);
-        const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 1); winEnd.setHours(5, 0, 0, 0);
-        const ovStart = start > winStart ? start : winStart;
-        const ovEnd   = end   < winEnd   ? end   : winEnd;
-        if (ovEnd > ovStart) total += Math.round((ovEnd - ovStart) / 60000);
-        cursor.setDate(cursor.getDate() + 1);
-    }
-    return total;
+    return CLTDomain.nightOverlapMin(start, end);
 }
 
 function workSegmentsRH(r) {
-    const segs = [];
-    if (r.entrada && r.saida_almoco) segs.push([new Date(r.entrada), new Date(r.saida_almoco)]);
-    if (r.retorno_almoco && r.saida) segs.push([new Date(r.retorno_almoco), new Date(r.saida)]);
-    if (!r.saida_almoco && r.entrada && r.saida) segs.push([new Date(r.entrada), new Date(r.saida)]);
-    return segs;
-}
-
-// Intervalo intrajornada obrigatório (CLT art. 71) — mesma regra de ponto-colaborador.js
-// / banco-horas-rh.js: >6h de jornada exige 1h; entre 4h e 6h exige 15min.
-function getIntervaloMinObrigatorioRH(jornadaMin) {
-    if (jornadaMin === null) return 0;
-    if (jornadaMin > 6 * 60) return 60;
-    if (jornadaMin > 4 * 60) return 15;
-    return 0;
+    return CLTDomain.workSegments(r);
 }
 
 function calcIntervaloDeficitMinRH(rec, jornadaMin) {
-    if (!rec.entrada || !rec.saida) return 0;
-    const obrigatorio = getIntervaloMinObrigatorioRH(jornadaMin);
-    if (obrigatorio <= 0) return 0;
-    const realizado = (rec.saida_almoco && rec.retorno_almoco) ? diffMinRH(rec.saida_almoco, rec.retorno_almoco) : 0;
-    return Math.max(0, obrigatorio - realizado);
+    return CLTDomain.calcIntervaloDeficitMin(rec, jornadaMin);
 }
 
-// Apura, a partir dos registros de ponto reais do mês, o adicional noturno (CLT art.
-// 73, mínimo 20% sobre a hora normal — a conversão pra hora noturna reduzida de
-// 52min30s acontece em buildPayslipData, não aqui, porque só lá o valorHora está
-// disponível), o adicional de domingo/feriado trabalhado (Súmula 146 TST, 100% quando
-// não há folga compensatória — o sistema não rastreia folga compensatória, então todo
-// trabalho em domingo/feriado é tratado como pago em dinheiro) e o déficit de intervalo
-// intrajornada (CLT art. 71) — mesma detecção que já existia como alerta em
-// ponto-colaborador.js/banco-horas-rh.js, agora também usada pra gerar a linha de
-// pagamento real.
 async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
-    if (jornadaMin === null) return { noturnoMin: 0, feriadoMin: 0, intervaloDeficitMin: 0 }; // PJ não tem jornada CLT
+    if (jornadaMin === null) return { noturnoMin: 0, feriadoMin: 0, intervaloDeficitMin: 0 };
     const [{ data: recs }, holidaysMap] = await Promise.all([
-        sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${monthKey}-01`).lt('date', nextMonthKey(monthKey)),
+        sb
+            .from('time_records')
+            .select('date,entrada,saida_almoco,retorno_almoco,saida')
+            .eq('employee_id', empId)
+            .gte('date', `${monthKey}-01`)
+            .lt('date', nextMonthKey(monthKey)),
         getHolidaysMapRH(),
     ]);
-    let noturnoMin = 0, feriadoMin = 0, intervaloDeficitMin = 0;
-    (recs || []).forEach(r => {
+    let noturnoMin = 0,
+        feriadoMin = 0,
+        intervaloDeficitMin = 0;
+    (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
         const segs = workSegmentsRH(r);
-        segs.forEach(([s, e]) => { noturnoMin += nightOverlapMinRH(s, e); });
+        segs.forEach(([s, e]) => {
+            noturnoMin += nightOverlapMinRH(s, e);
+        });
         if (isSundayRH(r.date) || holidaysMap[r.date]) {
-            segs.forEach(([s, e]) => { feriadoMin += diffMinRH(s, e); });
+            segs.forEach(([s, e]) => {
+                feriadoMin += diffMinRH(s, e);
+            });
         }
         intervaloDeficitMin += calcIntervaloDeficitMinRH(r, jornadaMin);
     });
     return { noturnoMin, feriadoMin, intervaloDeficitMin };
 }
 
-// DSR (Descanso Semanal Remunerado, Lei 605/49 art. 6º): falta cuja justificativa foi
-// definitivamente REJEITADA pelo RH (não "pendente" — só depois da decisão final) faz o
-// colaborador perder o DSR daquela semana. Retorna quantas semanas distintas do mês
-// tiveram essa perda, para descontar 1 diária por semana na folha.
 function weekStartKeyRH(dateKey) {
-    const d = new Date(`${dateKey}T12:00:00`);
-    const dow = d.getDay();
-    d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
-    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+    return CLTDomain.weekStartKey(dateKey);
 }
 
 async function calcDsrDescontoMes(empId, monthKey) {
-    const { data: faltas } = await sb.from('adjustment_requests')
+    const { data: faltas } = await sb
+        .from('adjustment_requests')
         .select('date')
         .eq('employee_id', empId)
         .eq('tipo', 'falta')
         .eq('status', 'rejeitado')
         .gte('date', `${monthKey}-01`)
         .lt('date', nextMonthKey(monthKey));
-    const semanas = new Set((faltas || []).map(f => weekStartKeyRH(f.date)));
+    const semanas = new Set((faltas || []).map((f) => weekStartKeyRH(f.date)));
     return { semanasComPerda: semanas.size };
 }
 
-// Saldo do banco de horas no mês de competência — só como referência para o RH,
-// não entra no cálculo de proventos/descontos do holerite (o desconto/pagamento do
-// banco de horas acontece na rescisão — ver getSaldoBancoHorasReal, usado pelo
-// simulador de rescisão).
 async function renderSlipBankInfo(emp, slip) {
     const el = document.getElementById('slip-bank-info');
     if (!el) return;
     const jornadaMin = getJornadaMinRH(emp);
-    if (jornadaMin === null || !slip.mes) { el.classList.add('hidden'); return; }
+    if (jornadaMin === null || !slip.mes) {
+        el.classList.add('hidden');
+        return;
+    }
 
     const [{ data: recs }, { data: adjs }] = await Promise.all([
-        sb.from('time_records').select('entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', emp.id).gte('date', `${slip.mes}-01`).lt('date', nextMonthKey(slip.mes)),
-        sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', emp.id).gte('date', `${slip.mes}-01`).lt('date', nextMonthKey(slip.mes)).is('deleted_at', null),
+        sb
+            .from('time_records')
+            .select('entrada,saida_almoco,retorno_almoco,saida')
+            .eq('employee_id', emp.id)
+            .gte('date', `${slip.mes}-01`)
+            .lt('date', nextMonthKey(slip.mes)),
+        sb
+            .from('bank_adjustments')
+            .select('tipo,minutos')
+            .eq('employee_id', emp.id)
+            .gte('date', `${slip.mes}-01`)
+            .lt('date', nextMonthKey(slip.mes))
+            .is('deleted_at', null),
     ]);
     let net = 0;
-    (recs || []).forEach(r => {
+    (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        const worked = r.saida_almoco
-            ? diffMinRH(r.entrada, r.saida_almoco) + ((r.retorno_almoco && r.saida) ? diffMinRH(r.retorno_almoco, r.saida) : 0)
-            : diffMinRH(r.entrada, r.saida);
-        net += worked - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
     });
-    (adjs || []).forEach(a => { net += a.tipo === 'credito' ? a.minutos : -a.minutos; });
+    (adjs || []).forEach((a) => {
+        net += a.tipo === 'credito' ? a.minutos : -a.minutos;
+    });
 
-    const abs = Math.abs(net), h = Math.floor(abs / 60), m = String(abs % 60).padStart(2, '0');
+    const abs = Math.abs(net),
+        h = Math.floor(abs / 60),
+        m = String(abs % 60).padStart(2, '0');
     const sinal = net > 0 ? '+' : net < 0 ? '-' : '';
     el.innerHTML = `<i class="fas fa-clock"></i> Saldo do banco de horas na competência ${slip.competencia || slip.mes} (referência, não incluso nos totais acima): <strong>${sinal}${h}h ${m}min</strong>`;
     el.className = `slip-bank-info ${net > 0 ? 'positivo' : net < 0 ? 'negativo' : ''}`;
 }
 
-// Saldo REAL de banco de horas de todo o período de casa até a data de desligamento
-// (não só do mês corrente) — soma de time_records (horas trabalhadas - jornada) e
-// bank_adjustments (créditos/débitos manuais do RH), em minutos. Usado pelo simulador
-// de rescisão (calculo-rescisao.js) para não estimar o saldo "no escuro".
 async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr) {
-    if (jornadaMin === null) return 0; // PJ não tem banco de horas
+    if (jornadaMin === null) return 0;
     const [{ data: recs }, { data: adjs }] = await Promise.all([
         sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).lte('date', ateDataStr),
         sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', empId).lte('date', ateDataStr).is('deleted_at', null),
     ]);
     let net = 0;
-    (recs || []).forEach(r => {
+    (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        const worked = r.saida_almoco
-            ? diffMinRH(r.entrada, r.saida_almoco) + ((r.retorno_almoco && r.saida) ? diffMinRH(r.retorno_almoco, r.saida) : 0)
-            : diffMinRH(r.entrada, r.saida);
-        net += worked - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
     });
-    (adjs || []).forEach(a => { net += a.tipo === 'credito' ? a.minutos : -a.minutos; });
+    (adjs || []).forEach((a) => {
+        net += a.tipo === 'credito' ? a.minutos : -a.minutos;
+    });
     return net;
 }
 
-// Média mensal (R$) de adicional noturno + adicional de domingo/feriado efetivamente
-// PAGOS em holerite (cod 020/021 — ver buildPayslipData) nos últimos até 12 meses antes
-// da rescisão. Reflexo Súmula 347 TST na base do 13º/férias (ver calculo-rescisao.js) —
-// só cobre o que virou dinheiro de fato; banco de horas compensado como folga não entra
-// aqui (não há "média salarial" pra refletir se a hora virou tempo, não pagamento).
 async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
     const desde = new Date(ateDataStr);
     desde.setMonth(desde.getMonth() - 12);
     const desdeKey = desde.toISOString().slice(0, 7);
     const ateKey = ateDataStr.slice(0, 7);
 
-    const { data: slips } = await sb.from('payslips')
-        .select('mes,proventos')
-        .eq('employee_id', empId)
-        .gte('mes', desdeKey)
-        .lt('mes', ateKey);
+    const { data: slips } = await sb.from('payslips').select('mes,proventos').eq('employee_id', empId).gte('mes', desdeKey).lt('mes', ateKey);
     if (!slips || !slips.length) return 0;
 
     let total = 0;
-    slips.forEach(s => {
-        (s.proventos || []).forEach(p => {
+    slips.forEach((s) => {
+        (s.proventos || []).forEach((p) => {
             if (p.cod === '020' || p.cod === '021') total += Number(p.valor) || 0;
         });
     });
@@ -825,21 +835,17 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
 }
 
 function nextMonthKey(monthKey) {
-    const [y, m] = monthKey.split('-').map(Number);
-    const next = new Date(y, m, 1);
-    return `${next.getFullYear()}-${pad0(next.getMonth() + 1)}-01`;
+    return CLTDomain.nextMonthKey(monthKey);
 }
 
-// ─── Simulador de Rescisão (cálculo local em calculo-rescisao.js) ─────────
 window.openRescisaoModal = function () {
     const sel = document.getElementById('rescisao-emp');
     if (sel) {
-        sel.innerHTML = '<option value="">Selecione</option>' +
-            employees.map(e => `<option value="${e.id}">${escHtml(e.name)}</option>`).join('');
+        sel.innerHTML = '<option value="">Selecione</option>' + employees.map((e) => `<option value="${e.id}">${escHtml(e.name)}</option>`).join('');
         sel.value = '';
     }
     document.getElementById('rescisao-admissao').value = '';
-    document.getElementById('rescisao-salario').value  = '';
+    document.getElementById('rescisao-salario').value = '';
     window.setRescisaoDate?.('');
     const errEl = document.getElementById('rescisao-error');
     if (errEl) errEl.textContent = '';
@@ -851,26 +857,23 @@ window.openRescisaoModal = function () {
     openModal('rescisao-modal');
 };
 
-// Trava a seleção de colaborador/tipo/data assim que o cálculo é confirmado
-// como válido — evita que o RH troque o colaborador no formulário e confirme
-// o desligamento de outra pessoa com o resultado antigo ainda na tela.
 function setRescisaoInputsDisabled(disabled) {
-    document.getElementById('rescisao-emp').disabled          = disabled;
-    document.getElementById('rescisao-tipo').disabled         = disabled;
+    document.getElementById('rescisao-emp').disabled = disabled;
+    document.getElementById('rescisao-tipo').disabled = disabled;
     document.getElementById('rescisao-data-trigger').disabled = disabled;
 }
 
 window.onRescisaoEmpChange = function () {
     const empId = document.getElementById('rescisao-emp')?.value;
-    const emp = employees.find(e => e.id === empId);
+    const emp = employees.find((e) => e.id === empId);
     document.getElementById('rescisao-admissao').value = emp ? fmtDate(emp.admissionDate) : '';
-    document.getElementById('rescisao-salario').value  = emp ? fmtCurrency(emp.salary) : '';
+    document.getElementById('rescisao-salario').value = emp ? fmtCurrency(emp.salary) : '';
 };
 
 window.calcularRescisaoModal = async function () {
-    const errEl      = document.getElementById('rescisao-error');
-    const resultEl   = document.getElementById('rescisao-result');
-    const calcBtn    = document.getElementById('btn-calcular-rescisao');
+    const errEl = document.getElementById('rescisao-error');
+    const resultEl = document.getElementById('rescisao-result');
+    const calcBtn = document.getElementById('btn-calcular-rescisao');
     if (errEl) errEl.textContent = '';
     resultEl?.classList.add('hidden');
     document.getElementById('btn-confirmar-desligamento')?.classList.add('hidden');
@@ -878,29 +881,48 @@ window.calcularRescisaoModal = async function () {
     setRescisaoInputsDisabled(false);
     lastRescisaoCalc = null;
 
-    const empId   = document.getElementById('rescisao-emp')?.value;
-    const emp     = employees.find(e => e.id === empId);
+    const empId = document.getElementById('rescisao-emp')?.value;
+    const emp = employees.find((e) => e.id === empId);
     const dataStr = document.getElementById('rescisao-data')?.value;
-    const tipo    = document.getElementById('rescisao-tipo')?.value || 'sem_justa_causa';
+    const tipo = document.getElementById('rescisao-tipo')?.value || 'sem_justa_causa';
 
-    if (!emp)                { if (errEl) errEl.textContent = 'Selecione um colaborador.'; return; }
-    if (!emp.admissionDate)  { if (errEl) errEl.textContent = 'Colaborador sem data de admissão cadastrada.'; return; }
-    if (!dataStr)            { if (errEl) errEl.textContent = 'Informe a data de desligamento.'; return; }
+    if (!emp) {
+        if (errEl) errEl.textContent = 'Selecione um colaborador.';
+        return;
+    }
+    if (!emp.admissionDate) {
+        if (errEl) errEl.textContent = 'Colaborador sem data de admissão cadastrada.';
+        return;
+    }
+    if (!dataStr) {
+        if (errEl) errEl.textContent = 'Informe a data de desligamento.';
+        return;
+    }
 
     const [ay, am, ad] = emp.admissionDate.split('-').map(Number);
     const admissao = new Date(ay, am - 1, ad);
     const [dy, dm, dd] = dataStr.split('-').map(Number);
     const demissao = new Date(dy, dm - 1, dd);
 
-    if (demissao <= admissao) { if (errEl) errEl.textContent = 'A data de desligamento deve ser posterior à admissão.'; return; }
+    if (demissao <= admissao) {
+        if (errEl) errEl.textContent = 'A data de desligamento deve ser posterior à admissão.';
+        return;
+    }
 
     const salario = Number(emp.salary) || 0;
-    if (salario <= 0) { if (errEl) errEl.textContent = 'Colaborador sem salário cadastrado.'; return; }
+    if (salario <= 0) {
+        if (errEl) errEl.textContent = 'Colaborador sem salário cadastrado.';
+        return;
+    }
 
     const btnOriginalHTML = calcBtn?.innerHTML;
-    if (calcBtn) { calcBtn.disabled = true; calcBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apurando banco de horas…'; }
+    if (calcBtn) {
+        calcBtn.disabled = true;
+        calcBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apurando banco de horas…';
+    }
     const jornadaMin = getJornadaMinRH(emp);
-    let saldoBancoHorasMin = 0, mediaAdicionaisHabituais = 0;
+    let saldoBancoHorasMin = 0,
+        mediaAdicionaisHabituais = 0;
     try {
         [saldoBancoHorasMin, mediaAdicionaisHabituais] = await Promise.all([
             getSaldoBancoHorasReal(emp.id, jornadaMin, dataStr),
@@ -909,7 +931,10 @@ window.calcularRescisaoModal = async function () {
     } catch (err) {
         console.error('Erro ao apurar banco de horas/médias habituais para a rescisão:', err.message);
     } finally {
-        if (calcBtn) { calcBtn.disabled = false; calcBtn.innerHTML = btnOriginalHTML; }
+        if (calcBtn) {
+            calcBtn.disabled = false;
+            calcBtn.innerHTML = btnOriginalHTML;
+        }
     }
 
     const r = calcularRescisao({ tipo, salario, admissao, demissao, saldoBancoHorasMin, jornadaMin, workLoad: emp.workLoad, mediaAdicionaisHabituais });
@@ -922,8 +947,6 @@ window.calcularRescisaoModal = async function () {
     setRescisaoInputsDisabled(true);
 };
 
-// Gera o PDF do detalhamento de verbas rescisórias (mesmo padrão visual do
-// exportPDF da folha) e devolve como Blob, para upload direto no Storage.
 function gerarPdfRescisao(emp, r, dataStr) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -946,7 +969,7 @@ function gerarPdfRescisao(emp, r, dataStr) {
     doc.autoTable({
         startY: 56,
         head: [['Verba', 'Referência', 'Valor (R$)']],
-        body: r.verbas.map(v => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
+        body: r.verbas.map((v) => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
         headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 9 },
         styles: { fontSize: 9 },
         theme: 'striped',
@@ -958,7 +981,7 @@ function gerarPdfRescisao(emp, r, dataStr) {
         doc.autoTable({
             startY: finalY,
             head: [['Encargo da Empresa', 'Referência', 'Valor (R$)']],
-            body: r.encargos.map(v => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
+            body: r.encargos.map((v) => [v.descricao, String(v.dias), fmtCurrency(v.valor)]),
             headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: 'bold', fontSize: 9 },
             styles: { fontSize: 9 },
             theme: 'striped',
@@ -979,29 +1002,37 @@ function gerarPdfRescisao(emp, r, dataStr) {
     return doc.output('blob');
 }
 
-// Passo final do fluxo de desligamento: registra a decisão do RH de forma
-// rastreável (employee_audit), anexa o detalhamento como documento em
-// `documents` (categoria demissional, já esperado pelo checklist de
-// document_requirements) e inativa o colaborador — antes disso, a simulação
-// não deixava nenhum rastro no sistema.
 window.confirmarDesligamento = async function () {
     if (!lastRescisaoCalc) return;
     const { emp, dataStr, resultado: r } = lastRescisaoCalc;
 
-    if (!confirm(`Confirmar o desligamento de ${emp.name} em ${fmtDate(dataStr)}?\n\nIsso vai marcar o colaborador como Inativo e gerar um registro de auditoria e um documento de rescisão.`)) return;
+    if (
+        !confirm(
+            `Confirmar o desligamento de ${emp.name} em ${fmtDate(dataStr)}?\n\nIsso vai marcar o colaborador como Inativo e gerar um registro de auditoria e um documento de rescisão.`
+        )
+    )
+        return;
 
     const btn = document.getElementById('btn-confirmar-desligamento');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando…'; }
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando…';
+    }
 
     try {
-        if (typeof window.jspdf === 'undefined') { showToast('Biblioteca PDF não carregada.', 'error'); return; }
+        if (typeof window.jspdf === 'undefined') {
+            showToast('Biblioteca PDF não carregada.', 'error');
+            return;
+        }
 
-        const { error: statusError } = await sb.from('employees')
-            .update({ status: 'Inativo', termination_date: dataStr })
-            .eq('id', emp.id);
-        if (statusError) { showToast('Não foi possível atualizar o status do colaborador.', 'error'); return; }
+        const { error: statusError } = await sb.from('employees').update({ status: 'Inativo', termination_date: dataStr }).eq('id', emp.id);
+        if (statusError) {
+            showToast('Não foi possível atualizar o status do colaborador.', 'error');
+            return;
+        }
 
-        await sb.from('vacations')
+        await sb
+            .from('vacations')
             .update({ status: 'recusado', rejection_reason: 'Colaborador desligado pelo RH.', rejected_at: new Date().toISOString() })
             .eq('employee_id', emp.id)
             .eq('status', 'pendente');
@@ -1011,15 +1042,24 @@ window.confirmarDesligamento = async function () {
         const storagePath = `rh/${Date.now()}_${fileName}`;
 
         const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, blob, { contentType: 'application/pdf' });
-        if (uploadError) { showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning'); }
-        else {
-            const retidoAte = new Date(); retidoAte.setFullYear(retidoAte.getFullYear() + 30);
+        if (uploadError) {
+            showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning');
+        } else {
+            const retidoAte = new Date();
+            retidoAte.setFullYear(retidoAte.getFullYear() + 30);
             await sb.from('documents').insert({
-                name: fileName, employee_id: emp.id, category: 'demissional', tipo: 'Termo de Rescisão',
-                size_label: `${Math.round(blob.size / 1024)} KB`, storage_path: storagePath,
-                source: 'Administrador', status: 'aprovado', created_by: rhUser.id,
+                name: fileName,
+                employee_id: emp.id,
+                category: 'demissional',
+                tipo: 'Termo de Rescisão',
+                size_label: `${Math.round(blob.size / 1024)} KB`,
+                storage_path: storagePath,
+                source: 'Administrador',
+                status: 'aprovado',
+                created_by: rhUser.id,
                 retido_ate: retidoAte.toISOString().slice(0, 10),
-                lgpd_consentimento: true, lgpd_consentimento_em: new Date().toISOString(),
+                lgpd_consentimento: true,
+                lgpd_consentimento_em: new Date().toISOString(),
             });
         }
 
@@ -1027,10 +1067,18 @@ window.confirmarDesligamento = async function () {
             employee_id: emp.id,
             changes: [
                 { field: 'status', label: 'Status', oldValue: 'Ativo', newValue: 'Inativo' },
-                { field: 'rescisao', label: 'Rescisão', oldValue: null, newValue: {
-                    tipo: r.label, dataDesligamento: dataStr, custoTotal: r.custoTotal,
-                    totalVerbas: r.totalVerbas, totalEncargos: r.totalEncargos,
-                } },
+                {
+                    field: 'rescisao',
+                    label: 'Rescisão',
+                    oldValue: null,
+                    newValue: {
+                        tipo: r.label,
+                        dataDesligamento: dataStr,
+                        custoTotal: r.custoTotal,
+                        totalVerbas: r.totalVerbas,
+                        totalEncargos: r.totalEncargos,
+                    },
+                },
             ],
             operator_name: rhUser?.email?.split('@')[0] || 'RH',
             operator_email: rhUser?.email || '',
@@ -1040,7 +1088,10 @@ window.confirmarDesligamento = async function () {
         closeModal('rescisao-modal');
         await refresh();
     } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-signature"></i> Confirmar Desligamento'; }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-file-signature"></i> Confirmar Desligamento';
+        }
     }
 };
 
@@ -1048,16 +1099,22 @@ function renderRescisaoResult(r) {
     const el = document.getElementById('rescisao-result');
     if (!el) return;
 
-    const rows = itens => itens.map(v =>
-        `<tr><td>${escHtml(v.descricao)}</td><td style="color:var(--text-secondary)">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`
-    ).join('');
+    const rows = (itens) =>
+        itens
+            .map(
+                (v) =>
+                    `<tr><td>${escHtml(v.descricao)}</td><td style="color:var(--text-secondary)">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`
+            )
+            .join('');
 
-    const encargosSection = r.encargos.length ? `
+    const encargosSection = r.encargos.length
+        ? `
         <p class="slip-section-title">Encargos da Empresa</p>
         <table class="slip-table">
             <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
             <tbody>${rows(r.encargos)}</tbody>
-        </table>` : '';
+        </table>`
+        : '';
 
     el.innerHTML = `
         <p class="slip-section-title">Verbas Rescisórias</p>
@@ -1082,23 +1139,22 @@ function renderRescisaoResult(r) {
         </div>`;
 }
 
-// Calendário do campo "Data de Desligamento" — mesmo padrão visual/estrutural
-// do calendário da tela Painel (inicio-rh.html), com seleção de dia exato.
 function setupRescisaoDatePicker() {
-    const MESES_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     const trigger = document.getElementById('rescisao-data-trigger');
     const popover = document.getElementById('rescisao-data-popover');
     const titleEl = document.getElementById('rescisao-data-title');
-    const gridEl  = document.getElementById('rescisao-data-grid');
+    const gridEl = document.getElementById('rescisao-data-grid');
     const prevBtn = document.getElementById('rescisao-data-prev');
     const nextBtn = document.getElementById('rescisao-data-next');
-    const hidden  = document.getElementById('rescisao-data');
-    const label   = document.getElementById('rescisao-data-label');
+    const hidden = document.getElementById('rescisao-data');
+    const label = document.getElementById('rescisao-data-label');
     if (!trigger || !popover) return;
 
     const today = new Date();
-    let viewYear = today.getFullYear(), viewMonth = today.getMonth();
+    let viewYear = today.getFullYear(),
+        viewMonth = today.getMonth();
 
     function setValue(y, m, d) {
         hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
@@ -1108,8 +1164,8 @@ function setupRescisaoDatePicker() {
     function render() {
         titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
 
-        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
-        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
         const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
         const cells = [];
@@ -1121,11 +1177,14 @@ function setupRescisaoDatePicker() {
         let next = 1;
         while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
 
-        gridEl.innerHTML = cells.map(c =>
-            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
-        ).join('');
+        gridEl.innerHTML = cells
+            .map(
+                (c) =>
+                    `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+            )
+            .join('');
 
-        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach(el => {
+        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach((el) => {
             el.addEventListener('click', () => {
                 setValue(viewYear, viewMonth, parseInt(el.textContent, 10));
                 close();
@@ -1134,7 +1193,11 @@ function setupRescisaoDatePicker() {
     }
 
     function open() {
-        if (hidden.value) { const [y, m] = hidden.value.split('-').map(Number); viewYear = y; viewMonth = m - 1; }
+        if (hidden.value) {
+            const [y, m] = hidden.value.split('-').map(Number);
+            viewYear = y;
+            viewMonth = m - 1;
+        }
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -1149,19 +1212,47 @@ function setupRescisaoDatePicker() {
         document.removeEventListener('keydown', onEscape);
     }
 
-    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
-    function onEscape(e) { if (e.key === 'Escape') close(); }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
 
-    trigger.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? close() : open(); });
-    prevBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
-    nextBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
-    popover.addEventListener('click', e => e.stopPropagation());
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth--;
+        if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+        }
+        render();
+    });
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth++;
+        if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+        }
+        render();
+    });
+    popover.addEventListener('click', (e) => e.stopPropagation());
 
     window.setRescisaoDate = function (dateStr) {
-        if (!dateStr) { hidden.value = ''; label.textContent = 'Selecione a data'; return; }
+        if (!dateStr) {
+            hidden.value = '';
+            label.textContent = 'Selecione a data';
+            return;
+        }
         const [y, m, d] = dateStr.split('-').map(Number);
         setValue(y, m - 1, d);
-        viewYear = y; viewMonth = m - 1;
+        viewYear = y;
+        viewMonth = m - 1;
     };
 }
 
@@ -1170,12 +1261,18 @@ window.printCurrentSlip = function () {
     const { emp, slip } = currentSlipData;
 
     const isPago = slip.status === 'pago';
-    const provRows = (slip.proventos || []).map(p =>
-        `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${p.referencia}</td><td style="text-align:right;font-weight:700">${fmtCurrency(p.valor)}</td></tr>`
-    ).join('');
-    const descRows = (slip.descontos || []).map(d =>
-        `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${d.referencia}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtCurrency(d.valor)}</td></tr>`
-    ).join('');
+    const provRows = (slip.proventos || [])
+        .map(
+            (p) =>
+                `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${p.referencia}</td><td style="text-align:right;font-weight:700">${fmtCurrency(p.valor)}</td></tr>`
+        )
+        .join('');
+    const descRows = (slip.descontos || [])
+        .map(
+            (d) =>
+                `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${d.referencia}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtCurrency(d.valor)}</td></tr>`
+        )
+        .join('');
 
     const cssHref = new URL('../styles/holerite-print.css', window.location.href).href;
     const win = window.open('', '_blank', 'width=820,height=700');
@@ -1222,8 +1319,8 @@ window.printCurrentSlip = function () {
 };
 
 function populateDeptFilters() {
-    const depts = [...new Set(employees.map(e => e.dept || '').filter(Boolean))].sort();
-    buildDeptChips('dept-filter-chips',     'btn-dept-filter',     depts, currentDept,    'setDeptFilter');
+    const depts = [...new Set(employees.map((e) => e.dept || '').filter(Boolean))].sort();
+    buildDeptChips('dept-filter-chips', 'btn-dept-filter', depts, currentDept, 'setDeptFilter');
     buildDeptChips('dept-hol-filter-chips', 'btn-dept-hol-filter', depts, currentDeptHol, 'setDeptHolFilter');
 }
 
@@ -1233,33 +1330,43 @@ function buildDeptChips(chipsId, btnId, depts, selected, fnName) {
 
     chipsEl.innerHTML = [
         `<button type="button" class="chip${!selected ? ' chip--active' : ''}" data-dept="" onclick="${fnName}(this)">Todos os departamentos</button>`,
-        ...depts.map(d => `<button type="button" class="chip${d === selected ? ' chip--active' : ''}" data-dept="${escHtml(d)}" onclick="${fnName}(this)">${escHtml(d)}</button>`),
+        ...depts.map(
+            (d) =>
+                `<button type="button" class="chip${d === selected ? ' chip--active' : ''}" data-dept="${escHtml(d)}" onclick="${fnName}(this)">${escHtml(d)}</button>`
+        ),
     ].join('');
 
     document.getElementById(btnId)?.classList.toggle('filtered', !!selected);
 }
 
-// ─── Filtro de departamento (padrão .btn-filter da tela Gestão de Horas) ───
 function setupDeptFilterDropdown(wrapId, btnId, menuId, chevronId) {
-    const wrap    = document.getElementById(wrapId);
-    const btn     = document.getElementById(btnId);
-    const menu    = document.getElementById(menuId);
+    const wrap = document.getElementById(wrapId);
+    const btn = document.getElementById(btnId);
+    const menu = document.getElementById(menuId);
     const chevron = document.getElementById(chevronId);
     if (!wrap || !btn || !menu) return;
 
-    function open()  { btn.classList.add('open');    menu.classList.add('open');    chevron?.classList.add('open'); }
-    function close() { btn.classList.remove('open'); menu.classList.remove('open'); chevron?.classList.remove('open'); }
+    function open() {
+        btn.classList.add('open');
+        menu.classList.add('open');
+        chevron?.classList.add('open');
+    }
+    function close() {
+        btn.classList.remove('open');
+        menu.classList.remove('open');
+        chevron?.classList.remove('open');
+    }
 
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.contains('open') ? close() : open();
     });
-    menu.addEventListener('click', e => e.stopPropagation());
+    menu.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', close);
 }
 
 function setDeptFilterCommon(btn, chipsId, btnId, chevronId, menuId) {
-    document.querySelectorAll(`#${chipsId} .chip`).forEach(c => c.classList.remove('chip--active'));
+    document.querySelectorAll(`#${chipsId} .chip`).forEach((c) => c.classList.remove('chip--active'));
     btn.classList.add('chip--active');
     const dept = btn.dataset.dept || '';
     document.getElementById(btnId)?.classList.toggle('filtered', !!dept);
@@ -1281,54 +1388,78 @@ window.setDeptHolFilter = function (btn) {
 
 function setupRealtimeSync() {
     sb.channel('payslips-rh')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payslips' },  async () => { await refresh(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => { await refresh(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payslips' }, async () => {
+            await refresh();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => {
+            await refresh();
+        })
         .subscribe();
 }
 
 function setupExportDropdown() {
-    const btn     = document.getElementById('btn-export');
-    const menu    = document.getElementById('export-menu');
+    const btn = document.getElementById('btn-export');
+    const menu = document.getElementById('export-menu');
     const chevron = btn?.querySelector('.export-chevron');
     if (!btn || !menu) return;
 
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const open = menu.classList.toggle('open');
         btn.classList.toggle('open', open);
         chevron?.classList.toggle('rotated', open);
     });
-    document.addEventListener('click', () => { menu.classList.remove('open'); btn.classList.remove('open'); chevron?.classList.remove('rotated'); });
-    menu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => {
+        menu.classList.remove('open');
+        btn.classList.remove('open');
+        chevron?.classList.remove('rotated');
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
 
-    document.getElementById('export-excel')?.addEventListener('click', () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportExcel(); });
-    document.getElementById('export-pdf')?.addEventListener('click',   () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportPDF(); });
-    document.getElementById('export-csv')?.addEventListener('click',   () => { menu.classList.remove('open'); chevron?.classList.remove('rotated'); exportCSV(); });
+    document.getElementById('export-excel')?.addEventListener('click', () => {
+        menu.classList.remove('open');
+        chevron?.classList.remove('rotated');
+        exportExcel();
+    });
+    document.getElementById('export-pdf')?.addEventListener('click', () => {
+        menu.classList.remove('open');
+        chevron?.classList.remove('rotated');
+        exportPDF();
+    });
+    document.getElementById('export-csv')?.addEventListener('click', () => {
+        menu.classList.remove('open');
+        chevron?.classList.remove('rotated');
+        exportCSV();
+    });
 }
 
-// Exportação em CSV para contabilidade externa/eSocial: o motor de folha já calcula
-// INSS/IRRF/adicionais corretamente (buildPayslipData), mas até aqui esse dado só
-// existia dentro do Nexus — sem caminho de saída estruturado para o contador. Uma
-// linha por verba (provento/desconto) por colaborador, não um resumo — é o formato
-// que um contador de fato importa, mais próximo da granularidade que o eSocial exige.
 async function exportCSV() {
-    if (!employees.length) { showToast('Nada para exportar neste mês.', 'warning'); return; }
-    if (typeof XLSX === 'undefined') { showToast('Biblioteca de exportação não carregada.', 'error'); return; }
+    if (!employees.length) {
+        showToast('Nada para exportar neste mês.', 'warning');
+        return;
+    }
+    if (typeof XLSX === 'undefined') {
+        showToast('Biblioteca de exportação não carregada.', 'error');
+        return;
+    }
 
     setLoading(true);
     try {
-        const slips = await Promise.all(employees.map(emp => buildPayslipData(emp, currentMonth)));
+        const slips = await Promise.all(employees.map((emp) => buildPayslipData(emp, currentMonth)));
 
         const header = ['Competência', 'Colaborador', 'CPF', 'Departamento', 'Cargo', 'Tipo de Contrato', 'Tipo', 'Código', 'Descrição', 'Referência', 'Valor'];
         const body = [];
         employees.forEach((emp, i) => {
             const slip = slips[i];
             const common = [slip.competencia, emp.name, emp.cpf || '', emp.dept || '—', emp.role || '—', (emp.contractType || 'CLT').toUpperCase()];
-            slip.proventos.forEach(p => body.push([...common, 'Provento', p.cod, p.descricao, p.referencia, p.valor]));
-            slip.descontos.forEach(d => body.push([...common, 'Desconto', d.cod, d.descricao, d.referencia, d.valor]));
+            slip.proventos.forEach((p) => body.push([...common, 'Provento', p.cod, p.descricao, p.referencia, p.valor]));
+            slip.descontos.forEach((d) => body.push([...common, 'Desconto', d.cod, d.descricao, d.referencia, d.valor]));
         });
 
-        if (!body.length) { showToast('Nenhuma verba calculada para este mês.', 'warning'); return; }
+        if (!body.length) {
+            showToast('Nenhuma verba calculada para este mês.', 'warning');
+            return;
+        }
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
@@ -1343,10 +1474,13 @@ async function exportCSV() {
 }
 
 function exportExcel() {
-    if (typeof XLSX === 'undefined') { showToast('Biblioteca Excel não carregada.', 'error'); return; }
-    const wb     = XLSX.utils.book_new();
+    if (typeof XLSX === 'undefined') {
+        showToast('Biblioteca Excel não carregada.', 'error');
+        return;
+    }
+    const wb = XLSX.utils.book_new();
     const header = ['Colaborador', 'Departamento', 'Contrato', 'Salário Bruto', 'INSS', 'IRRF', 'Benefícios', 'Líquido', 'Status'];
-    const body   = allRows.map(r => [
+    const body = allRows.map((r) => [
         r.emp.name,
         r.emp.dept || '—',
         (r.emp.contractType || 'CLT').toUpperCase(),
@@ -1363,7 +1497,10 @@ function exportExcel() {
 }
 
 function exportPDF() {
-    if (typeof window.jspdf === 'undefined') { showToast('Biblioteca PDF não carregada.', 'error'); return; }
+    if (typeof window.jspdf === 'undefined') {
+        showToast('Biblioteca PDF não carregada.', 'error');
+        return;
+    }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -1376,8 +1513,8 @@ function exportPDF() {
 
     doc.autoTable({
         startY: 28,
-        head:   [['Colaborador', 'Departamento', 'Contrato', 'Bruto', 'INSS', 'IRRF', 'Benefícios', 'Líquido', 'Status']],
-        body:   allRows.map(r => [
+        head: [['Colaborador', 'Departamento', 'Contrato', 'Bruto', 'INSS', 'IRRF', 'Benefícios', 'Líquido', 'Status']],
+        body: allRows.map((r) => [
             r.emp.name,
             r.emp.dept || '—',
             (r.emp.contractType || 'CLT').toUpperCase(),
@@ -1388,32 +1525,29 @@ function exportPDF() {
             fmtCurrency(r.calc.liquido),
             r.pago ? 'Pago' : r.gerado ? 'Gerado' : 'Pendente',
         ]),
-        headStyles:          { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-        alternateRowStyles:  { fillColor: [248, 249, 250] },
-        margin:              { left: 14, right: 14 },
-        theme:               'striped',
-        styles:              { fontSize: 9 },
+        headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        alternateRowStyles: { fillColor: [248, 249, 250] },
+        margin: { left: 14, right: 14 },
+        theme: 'striped',
+        styles: { fontSize: 9 },
     });
     doc.save(`folha-pagamento-${currentMonth}.pdf`);
     showToast('Exportação PDF concluída.', 'success');
 }
 
-// Calendário no mesmo padrão da tela Painel (inicio-rh.html): grade de dias do mês,
-// navegação por mês anterior/próximo. Diferença: aqui clicar num dia seleciona o
-// mês (competência) exibido na folha, em vez de ser só informativo.
 function setupCustomMonthPicker() {
-    const MESES_LONG = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-    const trigger  = document.getElementById('month-picker-btn');
-    const popover  = document.getElementById('month-picker-dropdown');
-    const titleEl  = document.getElementById('mpd-title');
-    const gridEl   = document.getElementById('mpd-grid');
-    const prevBtn  = document.getElementById('mpd-prev-month');
-    const nextBtn  = document.getElementById('mpd-next-month');
+    const trigger = document.getElementById('month-picker-btn');
+    const popover = document.getElementById('month-picker-dropdown');
+    const titleEl = document.getElementById('mpd-title');
+    const gridEl = document.getElementById('mpd-grid');
+    const prevBtn = document.getElementById('mpd-prev-month');
+    const nextBtn = document.getElementById('mpd-next-month');
     if (!trigger || !popover) return;
 
     const today = new Date();
-    let viewYear, viewMonth; // viewMonth: 0-based
+    let viewYear, viewMonth;
 
     function updateLabel() {
         const [y, m] = currentMonth.split('-');
@@ -1424,8 +1558,8 @@ function setupCustomMonthPicker() {
     function render() {
         titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
 
-        const startOffset     = new Date(viewYear, viewMonth, 1).getDay();
-        const daysInMonth     = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
         const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
         const cells = [];
@@ -1437,11 +1571,14 @@ function setupCustomMonthPicker() {
         let next = 1;
         while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
 
-        gridEl.innerHTML = cells.map(c =>
-            `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
-        ).join('');
+        gridEl.innerHTML = cells
+            .map(
+                (c) =>
+                    `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+            )
+            .join('');
 
-        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach(el => {
+        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach((el) => {
             el.addEventListener('click', () => {
                 currentMonth = `${viewYear}-${pad0(viewMonth + 1)}`;
                 updateLabel();
@@ -1453,7 +1590,8 @@ function setupCustomMonthPicker() {
 
     function open() {
         const [y, m] = currentMonth.split('-').map(Number);
-        viewYear = y; viewMonth = m - 1;
+        viewYear = y;
+        viewMonth = m - 1;
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -1470,59 +1608,122 @@ function setupCustomMonthPicker() {
         document.removeEventListener('keydown', onEscape);
     }
 
-    function onOutsideClick(e) { if (!popover.contains(e.target) && !trigger.contains(e.target)) close(); }
-    function onEscape(e) { if (e.key === 'Escape') close(); }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
 
-    trigger.addEventListener('click', e => { e.stopPropagation(); popover.classList.contains('open') ? close() : open(); });
-    prevBtn.addEventListener('click', e => { e.stopPropagation(); viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); });
-    nextBtn.addEventListener('click',  e => { e.stopPropagation(); viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); });
-    popover.addEventListener('click', e => e.stopPropagation());
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth--;
+        if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+        }
+        render();
+    });
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth++;
+        if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+        }
+        render();
+    });
+    popover.addEventListener('click', (e) => e.stopPropagation());
 
     updateLabel();
 }
 
 window.switchTab = function (btn, name) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(`tab-${name}`)?.classList.add('active');
 };
 
-function openModal(id)  { const el = document.getElementById(id); if (el) { el.classList.add('open');  document.body.style.overflow = 'hidden'; } }
-function closeModal(id) { const el = document.getElementById(id); if (el) { el.classList.remove('open'); document.body.style.overflow = ''; } }
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+}
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
 window.closeModal = closeModal;
-window.handleOverlayClick = function (e, id) { if (e.target === document.getElementById(id)) closeModal(id); };
+window.handleOverlayClick = function (e, id) {
+    if (e.target === document.getElementById(id)) closeModal(id);
+};
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+        document.querySelectorAll('.modal-overlay.open').forEach((m) => m.classList.remove('open'));
         document.body.style.overflow = '';
     }
 });
 
 function setupSidebar() {
-    const sidebar  = document.getElementById('sidebar');
-    const toggle   = document.getElementById('sidebar-toggle');
-    const topbar   = document.getElementById('topbar-menu-btn');
-    const overlay  = document.getElementById('sidebar-overlay');
-    const wrapper  = document.getElementById('main-wrapper');
+    const sidebar = document.getElementById('sidebar');
+    const toggle = document.getElementById('sidebar-toggle');
+    const topbar = document.getElementById('topbar-menu-btn');
+    const overlay = document.getElementById('sidebar-overlay');
+    const wrapper = document.getElementById('main-wrapper');
     const isMobile = () => window.innerWidth <= 768;
-    const open     = () => { sidebar?.classList.add('open'); overlay?.classList.add('active'); document.body.style.overflow = 'hidden'; };
-    const close    = () => { sidebar?.classList.remove('open'); overlay?.classList.remove('active'); document.body.style.overflow = ''; };
+    const open = () => {
+        sidebar?.classList.add('open');
+        overlay?.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+    const close = () => {
+        sidebar?.classList.remove('open');
+        overlay?.classList.remove('active');
+        document.body.style.overflow = '';
+    };
 
-    toggle?.addEventListener('click', e => {
+    toggle?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (isMobile()) { sidebar?.classList.contains('open') ? close() : open(); }
-        else { const c = sidebar?.classList.toggle('collapsed'); wrapper?.classList.toggle('sidebar-collapsed', c); }
+        if (isMobile()) {
+            sidebar?.classList.contains('open') ? close() : open();
+        } else {
+            const c = sidebar?.classList.toggle('collapsed');
+            wrapper?.classList.toggle('sidebar-collapsed', c);
+        }
     });
-    topbar?.addEventListener('click',  e => { e.stopPropagation(); sidebar?.classList.contains('open') ? close() : open(); });
+    topbar?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar?.classList.contains('open') ? close() : open();
+    });
     overlay?.addEventListener('click', close);
-    window.addEventListener('resize', () => { if (!isMobile()) close(); });
+    window.addEventListener('resize', () => {
+        if (!isMobile()) close();
+    });
 }
 
-function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
-function fmtCurrency(v)   { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-function fmtDate(str)     { if (!str) return '—'; const [y, m, d] = str.split('-'); return `${d}/${m}/${y}`; }
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+function fmtCurrency(v) {
+    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function fmtDate(str) {
+    if (!str) return '—';
+    const [y, m, d] = str.split('-');
+    return `${d}/${m}/${y}`;
+}
 
 function fmtMonthLabel(key) {
     if (!key) return '';
@@ -1531,18 +1732,25 @@ function fmtMonthLabel(key) {
     return lbl.charAt(0).toUpperCase() + lbl.slice(1);
 }
 
-function initials(name) { return (name || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join(''); }
+function initials(name) {
+    return (name || '?')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() || '')
+        .join('');
+}
 
 function nameToColor(name) {
-    const p = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#f97316','#0ea5e9','#14b8a6'];
+    const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
     let h = 0;
-    for (const c of (name || '')) h = (h * 31 + c.charCodeAt(0)) | 0;
+    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
     return p[Math.abs(h) % p.length];
 }
 
 function escHtml(str) {
     if (typeof str !== 'string') return str ?? '';
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function showToast(msg, type = 'success') {
@@ -1554,13 +1762,12 @@ function showToast(msg, type = 'success') {
     t.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div><div style="flex:1">${escHtml(msg)}</div><button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast')?.remove(),300)"><i class="fas fa-times"></i></button>`;
     c.appendChild(t);
     requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
-    setTimeout(() => { t.classList.remove('show'); t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 4500);
+    setTimeout(() => {
+        t.classList.remove('show');
+        t.classList.add('hide');
+        setTimeout(() => t.remove(), 300);
+    }, 4500);
 }
 
-async function logout() { await sb.auth.signOut(); window.location.href = '../screens/login.html'; }
 
-// Inerte no navegador (module não existe lá) — permite `require()` deste arquivo
-// nos testes automatizados (ver test/) sem precisar de bundler. Expõe só o
-// motor de cálculo puro (não depende de DOM/Supabase em si), não a orquestração
-// de tela que o resto do arquivo faz dentro do DOMContentLoaded.
 if (typeof module !== 'undefined' && module.exports) module.exports = { calcINSS, calcIRRF, calcRow, parseCurrency };

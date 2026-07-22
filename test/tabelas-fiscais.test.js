@@ -1,17 +1,9 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-// tabelas-fiscais.js roda via <script> no navegador e termina com `window.X = ...`;
-// no Node, basta window existir para essas atribuições não lançarem erro.
 global.window = global;
 
-const { TABELA_FISCAL } = require('../src/javascript/tabelas-fiscais.js');
-
-// Estes testes não validam se os VALORES batem com a portaria/instrução normativa
-// vigente (isso exige conferência humana contra a fonte oficial na atualização anual,
-// como o próprio comentário do arquivo já diz) — validam que a ESTRUTURA da tabela
-// não quebra silenciosamente numa atualização futura (faixa fora de ordem, aliquota
-// decrescente, campo faltando etc.), o que quebraria calcINSS/calcIRRF sem avisar.
+const { TABELA_FISCAL } = require('../src/javascript/domain/tabelas-fiscais.js');
 
 describe('TABELA_FISCAL.inss', () => {
     test('faixas em ordem crescente de limite', () => {

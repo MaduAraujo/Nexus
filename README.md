@@ -25,6 +25,7 @@ Empresas perdem horas toda semana gerenciando ponto em planilha, férias por e-m
 ## Índice
 
 - [Como começar](#como-começar)
+- [Configuração local](#configuração-local)
 - [Painel do RH](#painel-do-rh)
 - [Portal do Colaborador](#portal-do-colaborador)
 - [Inteligência Artificial](#inteligência-artificial)
@@ -39,10 +40,7 @@ A plataforma opera com dois perfis de acesso: **RH / Administrador** e **Colabor
 
 **1. Acesse o painel do RH**
 
-| Campo | Valor |
-|---|---|
-| E-mail | `rh@nexus.com` |
-| Senha | `Fam@1234` |
+As credenciais de demonstração não ficam publicadas aqui — solicite acesso diretamente à autora do projeto.
 
 **2. Cadastre os colaboradores:**
 No módulo **Colaboradores**, adicione os membros da equipe.
@@ -52,6 +50,87 @@ Ao cadastrar, a plataforma envia automaticamente um convite por e-mail para o co
 
 **4. Colaborador acessa o portal:**
 O colaborador recebe o convite, define sua senha e passa a ter acesso ao próprio portal — com ponto, holerites, documentos e muito mais.
+
+---
+
+## Configuração local
+
+O Nexus é **HTML/CSS/JS puro, sem framework e sem build step** — não há bundler, então basta servir os arquivos estaticamente. O backend é 100% Supabase (Postgres + Auth + Storage + Realtime + Edge Functions).
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 20+ (só para rodar lint, testes e o servidor estático de desenvolvimento — não é usado em produção)
+- Uma conta/projeto no [Supabase](https://supabase.com/) (para rodar contra a nuvem) **ou** [Docker](https://www.docker.com/) + [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) (para rodar 100% localmente, inclusive os testes de integração e E2E)
+
+### 1. Clonar e instalar dependências
+
+```bash
+git clone https://github.com/MaduAraujo/Nexus.git
+cd Nexus
+npm install
+```
+
+### 2. Configurar o cliente Supabase
+
+Copie o arquivo de exemplo e preencha com as credenciais do seu projeto Supabase (Project Settings → API):
+
+```bash
+cp src/javascript/shared/supabase-client.example.js src/javascript/shared/supabase-client.js
+```
+
+Edite `SUPABASE_URL` e `SUPABASE_ANON_KEY` em `src/javascript/shared/supabase-client.js`. A `anon key` é uma chave pública (protegida pela RLS do banco, não por sigilo) — pode ficar commitada, ao contrário da `service_role key`, que nunca deve sair do backend/Edge Functions.
+
+### 3. Aplicar o schema do banco
+
+Rode as migrations (`supabase/migrations/001` a `048`) no seu projeto Supabase — pelo dashboard (SQL Editor) ou via CLI:
+
+```bash
+npx supabase link --project-ref SEU_PROJECT_REF
+npx supabase db push
+```
+
+### 4. Configurar as Edge Functions (opcional, para IA e convites)
+
+As functions em `supabase/functions/` (`invite-employee`, `ai-alerts`, `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/) para os recursos de IA:
+
+```bash
+npx supabase functions deploy
+npx supabase secrets set GROQ_API_KEY=sua_chave_aqui
+```
+
+### 5. Rodar o app localmente
+
+Sem build step — qualquer servidor estático funciona:
+
+```bash
+node test-support/static-server.js
+# abre em http://127.0.0.1:4173/src/screens/login.html
+```
+
+### 6. Rodar os testes
+
+O projeto tem 3 camadas de teste automatizado:
+
+```bash
+npm test               # unidade — cálculos de folha/CLT/rescisão, ~100 casos, sem dependências externas
+npm run lint            # ESLint
+npm run format:check    # Prettier
+```
+
+Os testes de **integração** (RLS real contra Postgres) e de **sistema/E2E** (Playwright, navegador real) precisam de uma instância local do Supabase via Docker:
+
+```bash
+npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,edge-runtime,functions
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
+
+npm run test:integration   # RLS: policies de employees, time_records, hr_tickets etc.
+
+npx playwright install --with-deps chromium
+npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
+```
+
+Esses 2 comandos rodam automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`, jobs `rls-integration` e `e2e`).
 
 ---
 

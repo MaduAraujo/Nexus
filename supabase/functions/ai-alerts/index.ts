@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://nexus-nine-zeta.vercel.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -159,7 +159,6 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
 
     const groqMessages = [{ role: "system", content: system }, ...messages];
 
-    // Chat: streaming SSE
     if (action === "chat") {
       const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -172,7 +171,6 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
       });
     }
 
-    // Analyze / Report: non-streaming JSON
     const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")!}` },

@@ -1,21 +1,3 @@
--- syncPunch() (ponto-colaborador.js) fazia UPSERT direto em time_records passando
--- new Date().toISOString() do dispositivo como o horário do registro — bastava mudar a
--- hora do celular para forjar entrada/saída mais cedo ou mais tarde, sem nenhuma
--- verificação server-side. As migrations 036 (janela de data) e a selfie de prova (042) já
--- reduziam a superfície de fraude, mas o timestamp em si continuava 100% confiável no
--- cliente.
---
--- punch_time_record() move a gravação do horário para o servidor: o valor persistido em
--- time_records.{step} é sempre now() do Postgres, nunca um parâmetro vindo do app. O
--- cliente só informa QUAL etapa está sendo batida (entrada/saida_almoco/retorno_almoco/
--- saida), não QUANDO.
---
--- SECURITY INVOKER (padrão, não DEFINER) de propósito: a função roda com o privilégio de
--- quem chama, então o INSERT/UPDATE internos continuam passando pelas RLS policies de
--- colabo_time_insert_own / colabo_time_update_own (migration 036) normalmente — a janela
--- de tolerância de 1 dia para sincronização offline continua valendo, só o timestamp deixou
--- de ser confiável no cliente.
-
 CREATE OR REPLACE FUNCTION punch_time_record(
   p_date         DATE,
   p_step         TEXT,

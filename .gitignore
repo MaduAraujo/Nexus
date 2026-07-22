@@ -1,21 +1,9 @@
-# Dependências instaladas (não devem ir para o repositório)
 node_modules/
-
-# Supabase CLI temp files (contém IDs internos do projeto)
 supabase/.temp/
-
-
-# Variáveis de ambiente locais
+.vscode/
 .env
 .env.local
 .env*.local
-
-# Sistema operacional
-.DS_Store
-Thumbs.db
-
-# Editores
-.vscode/settings.json
-*.suo
-*.user
-.gstack/
+playwright-report/
+test-results/
+supabase/.branches/

@@ -1,72 +1,68 @@
 document.addEventListener('DOMContentLoaded', async () => {
-
-    // ── Auth (Administrador) ──────────────────────────────────────────────────
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
 
-    // Info do analista logado
-    let analystName  = 'Analista RH';
-    let analystEmpId = auth.profile.employee_id;
-    if (analystEmpId) {
-        const { data: e } = await sb.from('employees').select('name').eq('id', analystEmpId).single();
-        if (e?.name) analystName = e.name;
-    }
+    const analystEmpId = auth.profile.employee_id;
 
-    // ── Estado ────────────────────────────────────────────────────────────────
-    let allTickets       = [];
-    let currentFilter    = 'all';
-    let currentTicketId  = null;
-    let currentTicket    = null;
-    let activeTicketSub  = null;
-    let newTicketsSub    = null;
-    const seenTickets    = new Set(); // IDs já vistos (para notificar novos)
+    let allTickets = [];
+    let currentFilter = 'all';
+    let currentTicketId = null;
+    let currentTicket = null;
+    let activeTicketSub = null;
+    const seenTickets = new Set();
 
-    // ── Utilidades ────────────────────────────────────────────────────────────
-    const esc = s => String(s || '')
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const esc = (s) =>
+        String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 
-    const initials = name =>
-        (name || '?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
+    const initials = (name) =>
+        (name || '?')
+            .split(' ')
+            .slice(0, 2)
+            .map((w) => w[0]?.toUpperCase() || '')
+            .join('');
 
-    const fmtTime = ts => new Date(ts).toLocaleTimeString('pt-BR',{ hour:'2-digit', minute:'2-digit' });
+    const fmtTime = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    const fmtAgo = ts => {
+    const fmtAgo = (ts) => {
         const d = Math.floor((Date.now() - new Date(ts)) / 60000);
         if (d < 1) return 'agora';
         if (d < 60) return `${d}min`;
         const h = Math.floor(d / 60);
         if (h < 24) return `${h}h`;
-        return new Date(ts).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+        return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
     };
 
-    const scrollBottom = id => {
+    const scrollBottom = (id) => {
         const el = document.getElementById(id);
-        if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        if (el)
+            requestAnimationFrame(() => {
+                el.scrollTop = el.scrollHeight;
+            });
     };
 
-    const $ = id => document.getElementById(id);
+    const $ = (id) => document.getElementById(id);
 
     const statusLabel = {
         bot: 'Bot',
         aguardando_rh: 'Aguardando RH',
         em_atendimento: 'Em atendimento',
-        resolvido: 'Resolvido'
+        resolvido: 'Resolvido',
     };
 
     const statusDotClass = {
         bot: 'tsd-bot',
         aguardando_rh: 'tsd-waiting',
         em_atendimento: 'tsd-human',
-        resolvido: 'tsd-solved'
+        resolvido: 'tsd-solved',
     };
 
-    // ── SLA (tempo aguardando analista) e CSAT (avaliação do colaborador) ──────
-    // SLA calculado a partir de updated_at: o trigger hr_tickets_updated_at marca o
-    // exato momento em que o status virou 'aguardando_rh' (escalateToHuman), e nada
-    // mais mexe no ticket enquanto ele segue nesse status — não precisa de coluna nova.
-    const SLA_WARN_MIN   = 4 * 60;  // 4h: começa a chamar atenção
-    const SLA_BREACH_MIN = 24 * 60; // 24h (1 dia útil — mesmo prazo prometido ao colaborador)
+    const SLA_WARN_MIN = 4 * 60;
+    const SLA_BREACH_MIN = 24 * 60;
 
     function slaInfo(ticket) {
         if (ticket.status !== 'aguardando_rh') return null;
@@ -97,68 +93,84 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `<span class="csat-badge" title="Avaliação do colaborador">${starsHtml(ticket.csat_rating)}</span>`;
     }
 
-    // ── Painel esquerdo mobile (chat-left drawer) ─────────────────────────────
-    const chatLeft    = document.getElementById('chat-left');
+    const chatLeft = document.getElementById('chat-left');
     const chatOverlay = document.getElementById('chat-overlay');
-    const panelBtn    = document.getElementById('topbar-panels-btn');
+    const panelBtn = document.getElementById('topbar-panels-btn');
 
-    const openChatLeft  = () => { chatLeft?.classList.add('open'); chatOverlay?.classList.add('active'); };
-    const closeChatLeft = () => { chatLeft?.classList.remove('open'); chatOverlay?.classList.remove('active'); };
+    const openChatLeft = () => {
+        chatLeft?.classList.add('open');
+        chatOverlay?.classList.add('active');
+    };
+    const closeChatLeft = () => {
+        chatLeft?.classList.remove('open');
+        chatOverlay?.classList.remove('active');
+    };
 
-    panelBtn?.addEventListener('click',   openChatLeft);
+    panelBtn?.addEventListener('click', openChatLeft);
     chatOverlay?.addEventListener('click', closeChatLeft);
 
-    // ── Filtros ───────────────────────────────────────────────────────────────
-    document.querySelectorAll('.tf-chip').forEach(btn => {
+    document.querySelectorAll('.tf-chip').forEach((btn) => {
         btn.addEventListener('click', () => {
             currentFilter = btn.dataset.filter;
-            document.querySelectorAll('.tf-chip').forEach(b => b.classList.toggle('active', b === btn));
+            document.querySelectorAll('.tf-chip').forEach((b) => b.classList.toggle('active', b === btn));
             renderTicketList();
         });
     });
 
-    // ── Carregar tickets ──────────────────────────────────────────────────────
     async function loadTickets() {
-        const { data: tickets } = await sb.from('hr_tickets')
-            .select('*, employees!hr_tickets_employee_id_fkey(name, avatar_url, avatar_color, role, dept), about:employees!hr_tickets_about_employee_id_fkey(name)')
+        const { data: tickets } = await sb
+            .from('hr_tickets')
+            .select(
+                '*, employees!hr_tickets_employee_id_fkey(name, avatar_url, avatar_color, role, dept), about:employees!hr_tickets_about_employee_id_fkey(name)'
+            )
             .order('updated_at', { ascending: false });
 
         allTickets = tickets || [];
-        allTickets.forEach(t => seenTickets.add(t.id));
+        allTickets.forEach((t) => seenTickets.add(t.id));
         updateStats();
         renderTicketList();
         updatePendingBadge();
     }
 
     function updateStats() {
-        const waiting = allTickets.filter(t => t.status === 'aguardando_rh').length;
-        const active  = allTickets.filter(t => t.status === 'em_atendimento').length;
-        const solved  = allTickets.filter(t => t.status === 'resolvido').length;
+        const waiting = allTickets.filter((t) => t.status === 'aguardando_rh').length;
+        const active = allTickets.filter((t) => t.status === 'em_atendimento').length;
+        const solved = allTickets.filter((t) => t.status === 'resolvido').length;
 
-        const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-        set('stat-total',   allTickets.length);
+        const set = (id, val) => {
+            const el = $(id);
+            if (el) el.textContent = val;
+        };
+        set('stat-total', allTickets.length);
         set('stat-waiting', waiting);
-        set('stat-active',  active);
-        set('stat-solved',  solved);
+        set('stat-active', active);
+        set('stat-solved', solved);
 
-        const rated = allTickets.filter(t => t.csat_rating);
-        const avgCsat = rated.length ? (rated.reduce((s, t) => s + t.csat_rating, 0) / rated.length) : null;
+        const rated = allTickets.filter((t) => t.csat_rating);
+        const avgCsat = rated.length ? rated.reduce((s, t) => s + t.csat_rating, 0) / rated.length : null;
         set('stat-csat', avgCsat ? `${avgCsat.toFixed(1)}★` : '—');
         $('tstat-csat-wrap')?.classList.toggle('tstat-csat-set', !!avgCsat);
 
-        const breached = allTickets.some(t => slaInfo(t)?.level === 'breach');
+        const breached = allTickets.some((t) => slaInfo(t)?.level === 'breach');
         document.getElementById('stat-waiting')?.closest('.tstat')?.classList.toggle('tstat-danger', breached);
     }
 
     function updatePendingBadge() {
-        const waiting = allTickets.filter(t => t.status === 'aguardando_rh').length;
+        const waiting = allTickets.filter((t) => t.status === 'aguardando_rh').length;
         const badge = $('sidebar-pending-badge');
-        const pill  = $('pending-pill');
-        const cnt   = $('pending-count');
+        const pill = $('pending-pill');
+        const cnt = $('pending-count');
 
-        if (badge) { badge.textContent = waiting; badge.style.display = waiting > 0 ? 'inline-flex' : 'none'; }
-        if (pill)  { pill.style.display = waiting > 0 ? 'flex' : 'none'; }
-        if (cnt)   { cnt.textContent = waiting; }
+        if (badge) {
+            badge.textContent = waiting;
+            badge.style.display = waiting > 0 ? 'inline-flex' : 'none';
+        }
+        if (pill) {
+            pill.style.display = waiting > 0 ? 'flex' : 'none';
+        }
+        if (cnt) {
+            cnt.textContent = waiting;
+        }
     }
 
     function renderTicketList() {
@@ -167,12 +179,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let filtered = allTickets;
         if (currentFilter === 'escalacao') {
-            filtered = allTickets.filter(t => !!t.about);
+            filtered = allTickets.filter((t) => !!t.about);
         } else if (currentFilter !== 'all') {
-            filtered = allTickets.filter(t => t.status === currentFilter);
+            filtered = allTickets.filter((t) => t.status === currentFilter);
         }
 
-        // Ordena: aguardando_rh → em_atendimento → bot → resolvido
         const order = { aguardando_rh: 0, em_atendimento: 1, bot: 2, resolvido: 3 };
         filtered = [...filtered].sort((a, b) => {
             const oa = order[a.status] ?? 99;
@@ -188,12 +199,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        filtered.forEach(ticket => list.appendChild(buildTicketItem(ticket)));
+        filtered.forEach((ticket) => list.appendChild(buildTicketItem(ticket)));
     }
 
     function buildTicketItem(ticket) {
-        const e   = ticket.employees || {};
-        const li  = document.createElement('li');
+        const e = ticket.employees || {};
+        const li = document.createElement('li');
         li.className = `ticket-item status-${ticket.status}`;
         li.dataset.ticketId = ticket.id;
 
@@ -224,18 +235,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         return li;
     }
 
-    // ── Selecionar ticket ──────────────────────────────────────────────────────
     async function selectTicket(ticket) {
         currentTicketId = ticket.id;
-        currentTicket   = ticket;
-        const emp       = ticket.employees || {};
+        currentTicket = ticket;
+        const emp = ticket.employees || {};
 
-        // Atualiza lista
-        document.querySelectorAll('.ticket-item').forEach(li => {
+        document.querySelectorAll('.ticket-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.ticketId === ticket.id);
         });
 
-        // Header: info do colaborador
         const avatar = $('colab-avatar');
         if (avatar) {
             if (emp.avatar_url) {
@@ -257,22 +265,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateActionButtons(ticket.status);
         updateHeaderBadges(ticket);
 
-        // Mostra área e fecha painel mobile
         showChatArea();
         closeChatLeft();
 
-        // Carrega mensagens e assina realtime
         await loadTicketMessages(ticket.id);
         subscribeToTicket(ticket.id);
 
-        // Se estava aguardando, atualiza para "em atendimento" automaticamente
         if (ticket.status === 'aguardando_rh') {
             await markStatus('em_atendimento');
         }
     }
 
     function updateStatusChip(status) {
-        const dot   = $('status-chip-dot');
+        const dot = $('status-chip-dot');
         const label = $('status-chip-label');
         if (!dot || !label) return;
 
@@ -283,7 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateHeaderBadges(ticket) {
-        const slaEl  = $('header-sla-badge');
+        const slaEl = $('header-sla-badge');
         const csatEl = $('header-csat-badge');
         if (slaEl) {
             const html = slaBadgeHtml(ticket);
@@ -298,31 +303,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateActionButtons(status) {
-        const btnAtend   = $('btn-em-atend');
+        const btnAtend = $('btn-em-atend');
         const btnResolve = $('btn-resolver');
-        const input      = $('hr-reply-input');
-        const sendBtn    = $('hr-reply-send');
+        const input = $('hr-reply-input');
+        const sendBtn = $('hr-reply-send');
 
-        if (btnAtend)   btnAtend.style.display   = status === 'aguardando_rh' ? 'flex' : 'none';
-        if (btnResolve) btnResolve.style.display  = status === 'em_atendimento' ? 'flex' : 'none';
+        if (btnAtend) btnAtend.style.display = status === 'aguardando_rh' ? 'flex' : 'none';
+        if (btnResolve) btnResolve.style.display = status === 'em_atendimento' ? 'flex' : 'none';
 
         const disabled = status === 'resolvido' || status === 'bot';
-        if (input)   input.disabled   = disabled;
+        if (input) input.disabled = disabled;
         if (sendBtn) sendBtn.disabled = disabled;
     }
 
-    // ── Ações de status ────────────────────────────────────────────────────────
-    $('btn-em-atend')?.addEventListener('click',  () => markStatus('em_atendimento'));
-    $('btn-resolver')?.addEventListener('click',  () => markStatus('resolvido'));
+    $('btn-em-atend')?.addEventListener('click', () => markStatus('em_atendimento'));
+    $('btn-resolver')?.addEventListener('click', () => markStatus('resolvido'));
 
     async function markStatus(newStatus) {
         if (!currentTicketId) return;
 
         await sb.from('hr_tickets').update({ status: newStatus }).eq('id', currentTicketId);
 
-        // Atualiza localmente
         currentTicket = { ...currentTicket, status: newStatus };
-        const idx = allTickets.findIndex(t => t.id === currentTicketId);
+        const idx = allTickets.findIndex((t) => t.id === currentTicketId);
         if (idx !== -1) allTickets[idx] = { ...allTickets[idx], status: newStatus, updated_at: new Date().toISOString() };
 
         updateStats();
@@ -332,8 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateActionButtons(newStatus);
         updateHeaderBadges(currentTicket);
 
-        // Restaura item ativo na lista
-        document.querySelectorAll('.ticket-item').forEach(li => {
+        document.querySelectorAll('.ticket-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.ticketId === currentTicketId);
         });
 
@@ -343,19 +345,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // ── Carregar mensagens do ticket ──────────────────────────────────────────
     async function loadTicketMessages(ticketId) {
         const list = $('messages-list');
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-        const { data: msgs } = await sb.from('hr_ticket_messages')
+        const { data: msgs } = await sb
+            .from('hr_ticket_messages')
             .select('*, employees(name, avatar_url, avatar_color)')
             .eq('ticket_id', ticketId)
             .order('created_at', { ascending: true });
 
         list.innerHTML = '';
-        (msgs || []).forEach(m => appendMessage(m, false));
+        (msgs || []).forEach((m) => appendMessage(m, false));
         scrollBottom('messages-scroll');
     }
 
@@ -378,7 +380,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const list = $('messages-list');
         if (!list) return;
 
-        // Mensagens de sistema do bot (transferência, etc.)
         if (msg.content.startsWith('—')) {
             appendSystemMessage(msg.content);
             return;
@@ -440,7 +441,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const group = document.createElement('div');
         group.className = `msg-group ${isMine ? 'is-mine' : 'is-other'}`;
 
-        const avatarHtml = isMine ? '' : `
+        const avatarHtml = isMine
+            ? ''
+            : `
             <div class="msg-avatar rh-avatar" title="Analista RH">
                 <i class="fas fa-user-tie" style="font-size:.72rem"></i>
             </div>`;
@@ -466,8 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         list.appendChild(group);
     }
 
-    // ── Enviar resposta ────────────────────────────────────────────────────────
-    const replyInput   = $('hr-reply-input');
+    const replyInput = $('hr-reply-input');
     const replySendBtn = $('hr-reply-send');
 
     replyInput?.addEventListener('input', () => {
@@ -475,8 +477,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         replySendBtn.disabled = !replyInput.value.trim() || currentTicket?.status === 'resolvido';
     });
 
-    replyInput?.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+    replyInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendReply();
+        }
     });
 
     replySendBtn?.addEventListener('click', sendReply);
@@ -489,118 +494,138 @@ document.addEventListener('DOMContentLoaded', async () => {
         replySendBtn.disabled = true;
         autoResize(replyInput);
 
-        const { data: msg, error } = await sb.from('hr_ticket_messages').insert({
-            ticket_id:   currentTicketId,
-            employee_id: analystEmpId || null,
-            role:        'rh',
-            content:     text
-        }).select().single();
+        const { data: msg, error } = await sb
+            .from('hr_ticket_messages')
+            .insert({
+                ticket_id: currentTicketId,
+                employee_id: analystEmpId || null,
+                role: 'rh',
+                content: text,
+            })
+            .select()
+            .single();
 
-        if (error) { showToast('Erro ao enviar resposta', 'error'); return; }
+        if (error) {
+            showToast('Erro ao enviar resposta', 'error');
+            return;
+        }
 
-        // Renderiza imediatamente (otimista)
         appendRhMessage(msg);
         scrollBottom('messages-scroll');
 
-        // Atualiza updated_at do ticket
         await sb.from('hr_tickets').update({ updated_at: new Date().toISOString() }).eq('id', currentTicketId);
     }
 
-    // ── Realtime: ticket ativo ─────────────────────────────────────────────────
     function subscribeToTicket(ticketId) {
         if (activeTicketSub) sb.removeChannel(activeTicketSub);
 
-        activeTicketSub = sb.channel(`rh-ticket:${ticketId}`)
-            .on('postgres_changes', {
-                event: 'INSERT', schema: 'public', table: 'hr_ticket_messages',
-                filter: `ticket_id=eq.${ticketId}`
-            }, async payload => {
-                const msg = payload.new;
-                // Evita duplicar mensagens do analista (já renderizado otimisticamente)
-                if (msg.role === 'rh' && msg.employee_id === analystEmpId) return;
+        activeTicketSub = sb
+            .channel(`rh-ticket:${ticketId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'hr_ticket_messages',
+                    filter: `ticket_id=eq.${ticketId}`,
+                },
+                async (payload) => {
+                    const msg = payload.new;
+                    if (msg.role === 'rh' && msg.employee_id === analystEmpId) return;
 
-                // Busca dados do employee se for mensagem do colaborador
-                if (msg.role === 'user' && msg.employee_id) {
-                    const { data: e } = await sb.from('employees')
-                        .select('name, avatar_url, avatar_color').eq('id', msg.employee_id).single();
-                    appendMessage({ ...msg, employees: e || {} });
-                } else {
-                    appendMessage(msg);
+                    if (msg.role === 'user' && msg.employee_id) {
+                        const { data: e } = await sb.from('employees').select('name, avatar_url, avatar_color').eq('id', msg.employee_id).single();
+                        appendMessage({ ...msg, employees: e || {} });
+                    } else {
+                        appendMessage(msg);
+                    }
                 }
-            })
+            )
             .subscribe();
     }
 
-    // ── Realtime: novos tickets (qualquer colaborador) ─────────────────────────
     function subscribeToNewTickets() {
-        newTicketsSub = sb.channel('rh-all-tickets')
-            .on('postgres_changes', {
-                event: 'INSERT', schema: 'public', table: 'hr_tickets'
-            }, async payload => {
-                const t = payload.new;
-                if (seenTickets.has(t.id)) return;
-                seenTickets.add(t.id);
+        sb.channel('rh-all-tickets')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'hr_tickets',
+                },
+                async (payload) => {
+                    const t = payload.new;
+                    if (seenTickets.has(t.id)) return;
+                    seenTickets.add(t.id);
 
-                // Busca dados do colaborador (e de quem o ticket é sobre, se for uma escalação)
-                const [{ data: emp }, aboutRes] = await Promise.all([
-                    sb.from('employees').select('name, avatar_url, avatar_color, role, dept').eq('id', t.employee_id).single(),
-                    t.about_employee_id ? sb.from('employees').select('name').eq('id', t.about_employee_id).single() : Promise.resolve({ data: null }),
-                ]);
+                    const [{ data: emp }, aboutRes] = await Promise.all([
+                        sb.from('employees').select('name, avatar_url, avatar_color, role, dept').eq('id', t.employee_id).single(),
+                        t.about_employee_id ? sb.from('employees').select('name').eq('id', t.about_employee_id).single() : Promise.resolve({ data: null }),
+                    ]);
 
-                const enriched = { ...t, employees: emp || {}, about: aboutRes?.data || null };
-                allTickets.unshift(enriched);
-                updateStats();
-                updatePendingBadge();
-                renderTicketList();
+                    const enriched = { ...t, employees: emp || {}, about: aboutRes?.data || null };
+                    allTickets.unshift(enriched);
+                    updateStats();
+                    updatePendingBadge();
+                    renderTicketList();
 
-                const toastMsg = t.about_employee_id
-                    ? `${emp?.name || 'Gestor'} escalou algo sobre ${aboutRes?.data?.name || 'um colaborador'}`
-                    : (emp?.name ? `Colaborador: ${emp.name}` : '');
-                showToast('Novo ticket de atendimento', 'info', toastMsg);
-            })
-            .on('postgres_changes', {
-                event: 'UPDATE', schema: 'public', table: 'hr_tickets'
-            }, payload => {
-                const updated = payload.new;
-                const idx = allTickets.findIndex(t => t.id === updated.id);
-                if (idx !== -1) {
-                    allTickets[idx] = { ...allTickets[idx], ...updated };
+                    const toastMsg = t.about_employee_id
+                        ? `${emp?.name || 'Gestor'} escalou algo sobre ${aboutRes?.data?.name || 'um colaborador'}`
+                        : emp?.name
+                          ? `Colaborador: ${emp.name}`
+                          : '';
+                    showToast('Novo ticket de atendimento', 'info', toastMsg);
                 }
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'hr_tickets',
+                },
+                (payload) => {
+                    const updated = payload.new;
+                    const idx = allTickets.findIndex((t) => t.id === updated.id);
+                    if (idx !== -1) {
+                        allTickets[idx] = { ...allTickets[idx], ...updated };
+                    }
 
-                // Atualiza chip e botões se for o ticket aberto
-                if (currentTicketId === updated.id) {
-                    currentTicket = { ...currentTicket, ...updated };
-                    updateStatusChip(updated.status);
-                    updateActionButtons(updated.status);
-                    updateHeaderBadges(currentTicket);
+                    if (currentTicketId === updated.id) {
+                        currentTicket = { ...currentTicket, ...updated };
+                        updateStatusChip(updated.status);
+                        updateActionButtons(updated.status);
+                        updateHeaderBadges(currentTicket);
+                    }
+
+                    updateStats();
+                    updatePendingBadge();
+                    renderTicketList();
+
+                    if (currentTicketId) {
+                        document.querySelectorAll('.ticket-item').forEach((li) => {
+                            li.classList.toggle('active', li.dataset.ticketId === currentTicketId);
+                        });
+                    }
                 }
-
-                updateStats();
-                updatePendingBadge();
-                renderTicketList();
-
-                // Restaura item ativo
-                if (currentTicketId) {
-                    document.querySelectorAll('.ticket-item').forEach(li => {
-                        li.classList.toggle('active', li.dataset.ticketId === currentTicketId);
-                    });
-                }
-            })
+            )
             .subscribe();
     }
 
-    // ── Visibilidade das áreas ────────────────────────────────────────────────
     function showChatArea() {
         $('chat-welcome')?.classList.add('hidden');
         $('chat-area')?.classList.remove('hidden');
     }
 
-    // ── Feedback anônimo ─────────────────────────────────────────────────────
-    // Tabela anonymous_feedback não guarda employee_id — não há "quem enviou"
-    // para mostrar aqui, só a mensagem, categoria e status de triagem.
-    const AF_CAT_LABEL = { clima: 'Clima organizacional', gestao: 'Gestão / liderança', processos: 'Processos internos', infraestrutura: 'Infraestrutura', outro: 'Outro' };
+    const AF_CAT_LABEL = {
+        clima: 'Clima organizacional',
+        gestao: 'Gestão / liderança',
+        processos: 'Processos internos',
+        infraestrutura: 'Infraestrutura',
+        outro: 'Outro',
+    };
     let allAnonFeedback = [];
-    let anonFilter      = 'all';
+    let anonFilter = 'all';
 
     async function loadAnonFeedback() {
         const { data } = await sb.from('anonymous_feedback').select('*').order('created_at', { ascending: false });
@@ -612,7 +637,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateAnonBadge() {
         const badge = $('anon-feedback-badge');
         if (!badge) return;
-        const novos = allAnonFeedback.filter(f => f.status === 'novo').length;
+        const novos = allAnonFeedback.filter((f) => f.status === 'novo').length;
         badge.textContent = novos;
         badge.classList.toggle('hidden', novos === 0);
     }
@@ -620,9 +645,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderAnonFeedback() {
         const list = $('anon-feedback-list');
         if (!list) return;
-        const filtered = anonFilter === 'all' ? allAnonFeedback : allAnonFeedback.filter(f => f.status === anonFilter);
-        if (!filtered.length) { list.innerHTML = `<p class="af-empty">Nenhum feedback ${anonFilter === 'all' ? '' : `com status "${anonFilter}"`} encontrado.</p>`; return; }
-        list.innerHTML = filtered.map(f => `
+        const filtered = anonFilter === 'all' ? allAnonFeedback : allAnonFeedback.filter((f) => f.status === anonFilter);
+        if (!filtered.length) {
+            list.innerHTML = `<p class="af-empty">Nenhum feedback ${anonFilter === 'all' ? '' : `com status "${anonFilter}"`} encontrado.</p>`;
+            return;
+        }
+        list.innerHTML = filtered
+            .map(
+                (f) => `
             <div class="af-item status-${f.status}">
                 <div class="af-item-head">
                     <span class="af-item-cat">${esc(AF_CAT_LABEL[f.categoria] || f.categoria)}</span>
@@ -630,16 +660,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 <p class="af-item-msg">${esc(f.message)}</p>
                 <div class="af-item-actions">
-                    ${f.status !== 'lido'      ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
+                    ${f.status !== 'lido' ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
                     ${f.status !== 'arquivado' ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','arquivado')"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
                 </div>
-            </div>`).join('');
+            </div>`
+            )
+            .join('');
     }
 
-    document.querySelectorAll('.af-chip').forEach(btn => {
+    document.querySelectorAll('.af-chip').forEach((btn) => {
         btn.addEventListener('click', () => {
             anonFilter = btn.dataset.filter;
-            document.querySelectorAll('.af-chip').forEach(b => b.classList.toggle('active', b === btn));
+            document.querySelectorAll('.af-chip').forEach((b) => b.classList.toggle('active', b === btn));
             renderAnonFeedback();
         });
     });
@@ -647,7 +679,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.markAnonFeedback = async function (id, status) {
         const { error } = await sb.from('anonymous_feedback').update({ status }).eq('id', id);
         if (error) return;
-        const item = allAnonFeedback.find(f => f.id === id);
+        const item = allAnonFeedback.find((f) => f.id === id);
         if (item) item.status = status;
         updateAnonBadge();
         renderAnonFeedback();
@@ -670,9 +702,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             .subscribe();
     }
 
-    // ── Toast ─────────────────────────────────────────────────────────────────
     window.showToast = function (title, type = 'success', msg = '') {
-        const icons = { success:'fa-check', error:'fa-times', warning:'fa-exclamation-triangle', info:'fa-info' };
+        const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = $('toast-container');
         if (!container) return;
         const toast = document.createElement('div');
@@ -688,29 +719,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             </button>`;
         container.appendChild(toast);
         requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
-        setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 5000);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        }, 5000);
     };
 
-    // ── Logout ────────────────────────────────────────────────────────────────
     window.logout = async function () {
         await sb.auth.signOut();
         window.location.href = '../screens/login.html';
     };
 
-    // ── Helper ────────────────────────────────────────────────────────────────
     function autoResize(el) {
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 120) + 'px';
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────────
     await loadTickets();
     subscribeToNewTickets();
     await loadAnonFeedback();
     subscribeToAnonFeedback();
 
-    // O SLA é calculado a partir do relógio local — sem isso, o badge "aguardando
-    // há Xh" só mudaria quando chegasse um evento novo no realtime.
     setInterval(() => {
         renderTicketList();
         updateStats();

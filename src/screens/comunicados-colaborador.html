@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="../javascript/theme.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
     <title>Comunicados</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
@@ -27,7 +27,6 @@
 
         <main class="content">
             <div class="page-body">
-
                 <div class="stats-row">
                     <div class="stat-card stat-card--blue">
                         <div class="stat-icon"><i class="fas fa-bullhorn"></i></div>
@@ -69,13 +68,10 @@
                         <span>Marcar todos como lido</span>
                     </button>
                 </div>
-
                 <div id="comunicados-list"></div>
-
             </div>
         </main>
 
-<!-- Modal de leitura -->
 <div id="msg-modal" class="msg-modal-overlay hidden" role="dialog" aria-modal="true">
     <div class="msg-modal-card">
         <div class="msg-modal-header">
@@ -93,9 +89,10 @@
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../javascript/supabase-client.js"></script>
-<script src="../javascript/auth.js"></script>
+<script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/comunicado-format.js"></script>
 <script src="../javascript/comunicados-colaborador.js"></script>
 </body>

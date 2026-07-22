@@ -1,15 +1,6 @@
--- Fluxo de solicitação de banco de horas pelo colaborador (com anexo de atestado) e
--- aprovação em duas etapas para ajustes lançados pelo RH (gestor da área confirma antes
--- de virar um lançamento efetivo em bank_adjustments).
-
--- Gestor responsável por colaborador (auto-referência). Usado tanto para exibir
--- "gestor" na tela de colaboradores quanto para decidir quem aprova a 2ª etapa.
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS manager_id UUID REFERENCES employees(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS employees_manager_idx ON employees(manager_id);
 
--- Sem isso, um colaborador-gestor não conseguiria ver nome/departamento dos seus
--- liderados (nem direto, nem via join a partir de bank_requests) — a policy
--- "colabo_employees_own" só libera a própria linha.
 CREATE POLICY "colabo_employees_managed" ON employees FOR SELECT
   USING (manager_id = my_employee_id());
 
@@ -50,10 +41,6 @@ CREATE POLICY "colabo_bankreq_select" ON bank_requests FOR SELECT
 CREATE POLICY "colabo_bankreq_insert" ON bank_requests FOR INSERT
   WITH CHECK (employee_id = my_employee_id() AND origem = 'colaborador');
 
--- Aprova ou rejeita uma solicitação. Roda com privilégios do dono (SECURITY DEFINER) para poder
--- inserir em bank_adjustments/activity_logs sem dar ao colaborador-gestor acesso direto a essas
--- tabelas; a autorização real é verificada aqui dentro (é o gestor certo, ou é RH e não é a mesma
--- pessoa que criou uma solicitação que dependia de segunda aprovação do próprio RH).
 CREATE OR REPLACE FUNCTION approve_bank_request(
   p_request_id      UUID,
   p_decision        TEXT,
@@ -91,7 +78,7 @@ BEGIN
     v_allowed := TRUE;
   ELSIF is_rh() THEN
     IF v_req.requires_approval_from = 'rh' AND v_req.created_by_user_id IS NOT NULL AND auth.uid() = v_req.created_by_user_id THEN
-      v_allowed := FALSE; -- exige um segundo Administrador diferente de quem lançou
+      v_allowed := FALSE; 
     ELSE
       v_allowed := TRUE;
     END IF;
