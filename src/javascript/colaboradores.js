@@ -294,11 +294,7 @@ function getAvisoPrevioStatus(emp) {
     if (diffDays < 0) cls = 'badge--aviso-previo-expired';
     else if (diffDays <= 15) cls = 'badge--aviso-previo-warning';
     const label =
-        diffDays < 0
-            ? `Aviso prévio venceu há ${Math.abs(diffDays)}d`
-            : diffDays === 0
-              ? 'Aviso prévio termina hoje'
-              : `Aviso prévio termina em ${diffDays}d`;
+        diffDays < 0 ? `Aviso prévio venceu há ${Math.abs(diffDays)}d` : diffDays === 0 ? 'Aviso prévio termina hoje' : `Aviso prévio termina em ${diffDays}d`;
     return { diffDays, cls, label };
 }
 

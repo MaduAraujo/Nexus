@@ -1769,5 +1769,4 @@ function showToast(msg, type = 'success') {
     }, 4500);
 }
 
-
 if (typeof module !== 'undefined' && module.exports) module.exports = { calcINSS, calcIRRF, calcRow, parseCurrency };

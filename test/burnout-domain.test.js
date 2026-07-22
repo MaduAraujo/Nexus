@@ -38,27 +38,27 @@ describe('detectTrend', () => {
 
     test('pontuação semanal subindo por 3 semanas seguidas detecta piora', () => {
         const rows = [
-            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-08', alertas: [{ nivel: 'critico' }] }, 
-            { date: '2026-06-15', alertas: [{ nivel: 'critico' }, { nivel: 'atencao' }] }, 
+            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-08', alertas: [{ nivel: 'critico' }] },
+            { date: '2026-06-15', alertas: [{ nivel: 'critico' }, { nivel: 'atencao' }] },
         ];
         assert.deepEqual(BurnoutDomain.detectTrend(rows), { piorando: true, semanas: 3 });
     });
 
     test('pontuação estável (empatada) ao longo das semanas também conta como sequência de piora', () => {
         const rows = [
-            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-08', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-15', alertas: [{ nivel: 'critico' }] }, 
+            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-08', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-15', alertas: [{ nivel: 'critico' }] },
         ];
         assert.deepEqual(BurnoutDomain.detectTrend(rows), { piorando: true, semanas: 3 });
     });
 
     test('pontuação caindo na semana mais recente interrompe a sequência', () => {
         const rows = [
-            { date: '2026-06-01', alertas: [{ nivel: 'critico' }] }, 
-            { date: '2026-06-08', alertas: [{ nivel: 'critico' }, { nivel: 'critico' }] }, 
-            { date: '2026-06-15', alertas: [{ nivel: 'atencao' }] }, 
+            { date: '2026-06-01', alertas: [{ nivel: 'critico' }] },
+            { date: '2026-06-08', alertas: [{ nivel: 'critico' }, { nivel: 'critico' }] },
+            { date: '2026-06-15', alertas: [{ nivel: 'atencao' }] },
         ];
         assert.deepEqual(BurnoutDomain.detectTrend(rows), { piorando: false });
     });
@@ -74,10 +74,10 @@ describe('detectTrend', () => {
 
     test('múltiplos registros na mesma semana são agrupados antes de comparar', () => {
         const rows = [
-            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-08', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-10', alertas: [{ nivel: 'atencao' }] }, 
-            { date: '2026-06-15', alertas: [{ nivel: 'critico' }] }, 
+            { date: '2026-06-01', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-08', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-10', alertas: [{ nivel: 'atencao' }] },
+            { date: '2026-06-15', alertas: [{ nivel: 'critico' }] },
         ];
         assert.deepEqual(BurnoutDomain.detectTrend(rows), { piorando: true, semanas: 3 });
     });

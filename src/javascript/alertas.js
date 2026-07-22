@@ -848,15 +848,16 @@ async function loadRiscoComposto() {
         const trendWindowStart = new Date(now.getTime() - BURNOUT_TREND_JANELA_SEMANAS * 7 * 86400000);
         const trendWindowStartKey = `${trendWindowStart.getFullYear()}-${String(trendWindowStart.getMonth() + 1).padStart(2, '0')}-${String(trendWindowStart.getDate()).padStart(2, '0')}`;
 
-        const [{ data: empData }, { data: timeData }, { data: bankData }, { data: burnoutData }, { data: ticketData }, { data: burnoutTrendData }] = await Promise.all([
-            sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
-            sb.from('time_records').select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida').gte('date', monthStart).lt('date', monthEnd),
-            sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null).gte('date', monthStart).lt('date', monthEnd),
-            sb.from('burnout_alerts').select('employee_id,alertas,lido,created_at').eq('lido', false).gte('created_at', trintaDiasAtras),
-            sb.from('hr_tickets').select('employee_id,subject,status').in('status', ['aguardando_rh', 'em_atendimento']),
-            // Sem filtro de `lido`: a tendência precisa do histórico completo das últimas N semanas, não só dos alertas ainda não lidos
-            sb.from('burnout_alerts').select('employee_id,date,alertas').gte('date', trendWindowStartKey),
-        ]);
+        const [{ data: empData }, { data: timeData }, { data: bankData }, { data: burnoutData }, { data: ticketData }, { data: burnoutTrendData }] =
+            await Promise.all([
+                sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
+                sb.from('time_records').select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida').gte('date', monthStart).lt('date', monthEnd),
+                sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null).gte('date', monthStart).lt('date', monthEnd),
+                sb.from('burnout_alerts').select('employee_id,alertas,lido,created_at').eq('lido', false).gte('created_at', trintaDiasAtras),
+                sb.from('hr_tickets').select('employee_id,subject,status').in('status', ['aguardando_rh', 'em_atendimento']),
+                // Sem filtro de `lido`: a tendência precisa do histórico completo das últimas N semanas, não só dos alertas ainda não lidos
+                sb.from('burnout_alerts').select('employee_id,date,alertas').gte('date', trendWindowStartKey),
+            ]);
 
         const employees = (empData || []).map((e) => ({
             id: e.id,
