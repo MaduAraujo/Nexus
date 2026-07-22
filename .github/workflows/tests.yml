@@ -106,7 +106,7 @@ jobs:
           version: latest
 
       - name: Start local Supabase (db + auth + rest only, storage/realtime/etc. not needed for login/dashboard flow)
-        run: supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,edge-runtime,functions
+        run: supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime
 
       - name: Load schema (storage.* errors are expected - that service isn't provisioned here)
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
