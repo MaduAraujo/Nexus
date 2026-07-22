@@ -105,6 +105,9 @@ jobs:
         with:
           version: latest
 
+      - name: Hide migrations (they assume employees/etc. already exist, as on the hosted project; schema.sql is the fresh-DB bootstrap loaded below)
+        run: mv supabase/migrations "$RUNNER_TEMP/supabase-migrations"
+
       - name: Start local Supabase (db + auth + rest only, storage/realtime/etc. not needed for login/dashboard flow)
         run: supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime
 
@@ -113,6 +116,9 @@ jobs:
 
       - name: Grant table access to anon/authenticated (mirrors hosted project's API auto-expose)
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
+
+      - name: Restore migrations directory
+        run: mv "$RUNNER_TEMP/supabase-migrations" supabase/migrations
 
       - name: Run E2E tests
         run: npm run test:e2e

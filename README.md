@@ -82,12 +82,14 @@ Edite `SUPABASE_URL` e `SUPABASE_ANON_KEY` em `src/javascript/shared/supabase-cl
 
 ### 3. Aplicar o schema do banco
 
-Rode as migrations (`supabase/migrations/001` a `048`) no seu projeto Supabase — pelo dashboard (SQL Editor) ou via CLI:
+Em um projeto Supabase **novo** (recém-criado), carregue o schema consolidado primeiro — as migrations em `supabase/migrations/` são incrementais e assumem que as tabelas base (`employees` etc.) já existem, então `db push` sozinho falha em um banco vazio:
 
 ```bash
 npx supabase link --project-ref SEU_PROJECT_REF
-npx supabase db push
+psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 ```
+
+(a connection string fica em Project Settings → Database → Connection string no dashboard; alternativamente, cole o conteúdo de `supabase/schema.sql` direto no SQL Editor). Só depois disso, para futuras alterações incrementais, use `npx supabase db push` normalmente — a partir daí o banco já está na baseline que as migrations esperam.
 
 ### 4. Configurar as Edge Functions (opcional, para IA e convites)
 
