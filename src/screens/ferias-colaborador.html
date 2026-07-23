@@ -67,7 +67,13 @@
                 <div class="timeline-card">
                     <div class="timeline-head">
                         <span class="timeline-title"><i class="fas fa-stream"></i> Linha do Tempo</span>
-                        <span class="timeline-year" id="timeline-year"></span>
+                        <div class="timeline-year-picker">
+                            <button type="button" class="timeline-year" id="timeline-year-trigger" aria-haspopup="true" aria-expanded="false">
+                                <span id="timeline-year">—</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="timeline-year-popover" id="timeline-year-popover"></div>
+                        </div>
                     </div>
                     <div class="timeline-months" id="timeline-months"></div>
                     <div class="timeline-track">
@@ -96,24 +102,23 @@
 </body>
 
 <div class="modal-overlay" id="request-modal">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="modal-head">
-            <div class="modal-head-info">
-                <div class="modal-head-icon"><i class="fas fa-umbrella-beach"></i></div>
-                <div>
-                    <h3 class="modal-title" id="modal-title">Solicitar Férias</h3>
-                    <p class="modal-sub">Preencha o período desejado</p>
-                </div>
-            </div>
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+            <h3 id="modal-title"><i class="fas fa-umbrella-beach"></i> Solicitar Férias</h3>
             <button class="modal-close" onclick="closeRequestModal()" aria-label="Fechar">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
         <div class="modal-body">
+            <div class="info-banner">
+                <i class="fas fa-info-circle"></i>
+                <span>Solicitações ficam pendentes até aprovação do RH. Antecedência mínima de 30 dias.</span>
+            </div>
+
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label" for="req-start-trigger">Data de Início</label>
+                    <label for="req-start-trigger">Data de Início <span class="req">*</span></label>
                     <div class="date-field">
                         <button type="button" class="date-trigger" id="req-start-trigger" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-calendar-day"></i>
@@ -134,7 +139,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="req-end-trigger">Data de Fim</label>
+                    <label for="req-end-trigger">Data de Fim <span class="req">*</span></label>
                     <div class="date-field">
                         <button type="button" class="date-trigger" id="req-end-trigger" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-calendar-day"></i>
@@ -158,7 +163,7 @@
 
             <div class="days-preview" id="days-preview">
                 <i class="fas fa-calendar-day"></i>
-                <span id="days-count">Selecione as datas para ver o total de dias</span>
+                <span id="days-count">Define as datas para ver o total de dias</span>
             </div>
 
             <div class="valor-ferias-preview hidden" id="valor-ferias-preview">
@@ -174,7 +179,7 @@
             <p class="form-hint-block hidden" id="fraction-info"></p>
 
             <div class="form-group">
-                <label class="form-label checkbox-label">
+                <label class="checkbox-label">
                     <input type="checkbox" id="req-abono" onchange="calcDays()" disabled>
                     <span class="checkbox-box"></span>
                     <span class="checkbox-text">
@@ -186,26 +191,26 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="req-substituto">
-                    Substituto / Cobertura <span class="label-optional">(opcional)</span>
+                <label for="req-substituto">
+                    Substituto <span class="label-optional">(opcional)</span>
                 </label>
-                <select id="req-substituto" class="form-input">
+                <select id="req-substituto">
                     <option value="">Nenhum</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="req-obs">
+                <label for="req-obs">
                     Observação <span class="label-optional">(opcional)</span>
                 </label>
-                <textarea id="req-obs" class="form-textarea" rows="3"
-                    placeholder="Ex: prefiro iniciar após o dia 15, ou tenho compromisso específico..."></textarea>
+                <textarea id="req-obs" rows="3"
+                    placeholder="Ex: prefiro iniciar após o dia 15..."></textarea>
             </div>
             <div class="modal-alert" id="modal-alert"></div>
         </div>
 
         <div class="modal-footer">
-            <button class="btn-confirm" id="btn-confirm" onclick="submitRequest()" disabled>
+            <button class="btn-primary" id="btn-confirm" onclick="submitRequest()" disabled>
                 Enviar Solicitação
             </button>
         </div>
@@ -213,22 +218,16 @@
 </div>
 
 <div class="modal-overlay" id="detail-modal" onclick="handleOverlayClick(event,'detail-modal')">
-    <div class="modal-card modal-card--sm" role="dialog" aria-modal="true">
-        <div class="modal-head">
-            <div class="modal-head-info">
-                <div class="modal-head-icon modal-head-icon--danger"><i class="fas fa-times-circle"></i></div>
-                <div>
-                    <h3 class="modal-title">Solicitação Recusada</h3>
-                    <p class="modal-sub">Veja o motivo informado pelo RH</p>
-                </div>
-            </div>
+    <div class="modal-content modal-sm" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <h3><i class="fas fa-times-circle"></i> Solicitação Recusada</h3>
             <button class="modal-close" onclick="closeDetailModal()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <p id="detail-reason" class="detail-reason-text">—</p>
         </div>
         <div class="modal-footer">
-            <button class="btn-confirm" onclick="closeDetailModal()">Entendido</button>
+            <button class="btn-primary" onclick="closeDetailModal()">Entendido</button>
         </div>
     </div>
 </div>

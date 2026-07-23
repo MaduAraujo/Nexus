@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadSidebarInfo();
     applyContractTypeUI();
     setupDatePickers();
+    setupTimelineYearPicker();
     await loadMyVacations();
     await loadColleagues();
     await autoExpireVacations();
@@ -56,7 +57,7 @@ function applyContractTypeUI() {
     const hint = document.createElement('p');
     hint.className = 'form-hint-block';
     hint.innerHTML =
-        '<i class="fas fa-circle-info"></i> Como estagiário/aprendiz, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
+        '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
     document.getElementById('req-obs')?.closest('.form-group')?.before(hint);
 }
 
@@ -316,8 +317,75 @@ function calcAcquisitivePeriod(admDate, today) {
     return { start, end };
 }
 
+let timelineYear = new Date().getFullYear();
+
+function closeTimelineYearPopover() {
+    const popover = document.getElementById('timeline-year-popover');
+    const trigger = document.getElementById('timeline-year-trigger');
+    popover?.classList.remove('open');
+    trigger?.classList.remove('active');
+    trigger?.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', onTimelineYearOutsideClick);
+    document.removeEventListener('keydown', onTimelineYearEscape);
+}
+
+function onTimelineYearOutsideClick(e) {
+    const popover = document.getElementById('timeline-year-popover');
+    const trigger = document.getElementById('timeline-year-trigger');
+    if (!popover || !trigger) return;
+    if (!popover.contains(e.target) && !trigger.contains(e.target)) closeTimelineYearPopover();
+}
+function onTimelineYearEscape(e) {
+    if (e.key === 'Escape') closeTimelineYearPopover();
+}
+
+function openTimelineYearPopover() {
+    const popover = document.getElementById('timeline-year-popover');
+    const trigger = document.getElementById('timeline-year-trigger');
+    if (!popover || !trigger) return;
+
+    const currentYear = new Date().getFullYear();
+    const years = new Set();
+    for (let y = currentYear - 6; y <= currentYear; y++) years.add(y);
+    myVacations.forEach((v) => {
+        years.add(new Date(v.start_date + 'T00:00:00').getFullYear());
+        years.add(new Date(v.end_date + 'T00:00:00').getFullYear());
+    });
+    if (myEmployee?.admission_date) years.add(new Date(myEmployee.admission_date + 'T00:00:00').getFullYear());
+    const sorted = [...years].sort((a, b) => b - a);
+
+    popover.innerHTML = sorted
+        .map((y) => `<button type="button" class="timeline-year-option${y === timelineYear ? ' timeline-year-option--selected' : ''}" data-year="${y}">${y}</button>`)
+        .join('');
+
+    popover.classList.add('open');
+    trigger.classList.add('active');
+    trigger.setAttribute('aria-expanded', 'true');
+    document.addEventListener('click', onTimelineYearOutsideClick);
+    document.addEventListener('keydown', onTimelineYearEscape);
+}
+
+function setupTimelineYearPicker() {
+    const trigger = document.getElementById('timeline-year-trigger');
+    const popover = document.getElementById('timeline-year-popover');
+    if (!trigger || !popover) return;
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? closeTimelineYearPopover() : openTimelineYearPopover();
+    });
+
+    popover.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-year]');
+        if (!btn) return;
+        timelineYear = Number(btn.dataset.year);
+        closeTimelineYearPopover();
+        renderTimeline();
+    });
+}
+
 function renderTimeline() {
-    const year = new Date().getFullYear();
+    const year = timelineYear;
     setEl('timeline-year', String(year));
     const monthsEl = document.getElementById('timeline-months');
     if (monthsEl)
@@ -350,12 +418,14 @@ function renderTimeline() {
         bar.title = `${fmtBR(new Date(v.start_date + 'T00:00:00'))} → ${fmtBR(new Date(v.end_date + 'T00:00:00'))} · ${v.days} dias`;
         barsEl.appendChild(bar);
     });
-    const todayPct = ((new Date() - yearStart) / totalMs) * 100;
-    const marker = document.createElement('div');
-    marker.className = 'tl-today';
-    marker.style.left = `${todayPct}%`;
-    marker.title = 'Hoje';
-    barsEl.appendChild(marker);
+    if (year === new Date().getFullYear()) {
+        const todayPct = ((new Date() - yearStart) / totalMs) * 100;
+        const marker = document.createElement('div');
+        marker.className = 'tl-today';
+        marker.style.left = `${todayPct}%`;
+        marker.title = 'Hoje';
+        barsEl.appendChild(marker);
+    }
 }
 
 function icsDate(dateStr) {
@@ -691,17 +761,17 @@ window.openRequestModal = function () {
     const obs = document.getElementById('req-obs');
     if (obs) obs.value = '';
     populateSubstitutoSelect();
-    setEl('days-count', 'Selecione as datas para ver o total de dias');
+    setEl('days-count', 'Define as datas para ver o total de dias');
     document.getElementById('days-preview')?.setAttribute('class', 'days-preview');
     renderFractionInfo(new Date());
     hideAlert();
     setConfirmDisabled(true);
-    document.getElementById('request-modal')?.classList.add('active');
+    document.getElementById('request-modal')?.classList.add('open');
     lockBodyScroll();
 };
 
 window.closeRequestModal = function () {
-    document.getElementById('request-modal')?.classList.remove('active');
+    document.getElementById('request-modal')?.classList.remove('open');
     unlockBodyScroll();
 };
 
@@ -748,7 +818,7 @@ window.calcDays = function () {
     const hint = document.getElementById('abono-hint');
     hideAlert();
     if (!startVal || !endVal) {
-        if (countEl) countEl.textContent = 'Selecione as datas para ver o total de dias';
+        if (countEl) countEl.textContent = 'Define as datas para ver o total de dias';
         if (preview) preview.className = 'days-preview';
         setConfirmDisabled(true);
         document.getElementById('valor-ferias-preview')?.classList.add('hidden');
@@ -895,12 +965,12 @@ window.submitRequest = async function () {
 
 window.showReason = function (reason) {
     setEl('detail-reason', reason || 'Motivo não informado.');
-    document.getElementById('detail-modal')?.classList.add('active');
+    document.getElementById('detail-modal')?.classList.add('open');
     lockBodyScroll();
 };
 
 window.closeDetailModal = function () {
-    document.getElementById('detail-modal')?.classList.remove('active');
+    document.getElementById('detail-modal')?.classList.remove('open');
     unlockBodyScroll();
 };
 
@@ -914,7 +984,7 @@ window.handleOverlayClick = function (e, modalId) {
         closeDetailModal();
         return;
     }
-    document.getElementById(modalId)?.classList.remove('active');
+    document.getElementById(modalId)?.classList.remove('open');
 };
 
 function setupRealtimeSync() {
