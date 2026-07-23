@@ -2667,13 +2667,6 @@ body {
     .topbar {
         padding: 0 18px;
     }
-    .header-actions {
-        display: none;
-    }
-    .btn-fab {
-        display: inline-flex;
-    }
-
     .page-body {
         padding: 18px 14px 88px;
         gap: 18px;
@@ -2709,8 +2702,12 @@ body {
         gap: 16px;
     }
     .dest-cat-row {
-        flex-direction: column;
-        gap: 16px;
+        flex-direction: row;
+        gap: 14px;
+    }
+    .dest-cat-row .dest-inline-section,
+    .dest-cat-row .cat-inline-section {
+        flex: 1 1 0;
     }
     .dest-inline-grid,
     .cat-inline-grid {
@@ -2748,15 +2745,18 @@ body {
         max-width: 100%;
     }
     .compose-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .templates-dropdown {
-        align-self: stretch;
+        align-items: flex-start;
     }
     .templates-toggle-btn {
-        width: 100%;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        gap: 0;
         justify-content: center;
+        border-radius: 8px;
+    }
+    .templates-toggle-label {
+        display: none;
     }
     .templates-menu {
         left: 0;
@@ -2824,11 +2824,5 @@ body {
     }
     .page-title {
         font-size: 0.95rem;
-    }
-    .btn-fab {
-        width: 50px;
-        height: 50px;
-        bottom: 18px;
-        right: 18px;
     }
 }
