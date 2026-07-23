@@ -166,10 +166,11 @@
                         <span class="chat-area-icon" id="kudos-area-icon"><i class="fas fa-award"></i></span>
                         <div>
                             <h3 class="chat-area-name">Mural de Reconhecimento</h3>
-                            <p class="chat-area-desc">Elogios entre colegas, visíveis para toda a empresa</p>
+                            <p class="chat-area-desc">Elogios entre colegas</p>
                         </div>
                     </div>
-                    <button class="new-ticket-btn new-ticket-btn--inline" onclick="openKudosModal()">
+                    <button class="new-ticket-btn new-ticket-btn--inline" id="btn-dar-reconhecimento" onclick="openKudosModal()" aria-label="Dar reconhecimento" title="Dar reconhecimento">
+                        <i class="fas fa-award"></i>
                         <span>Dar reconhecimento</span>
                     </button>
                 </div>
@@ -182,18 +183,18 @@
     </div>
 
     <div class="modal-overlay" id="kudos-modal">
-        <div class="modal-card">
-            <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon"><i class="fas fa-award"></i></div>
-                    <div>
-                        <h3 class="modal-title">Dar Reconhecimento</h3>
-                        <p class="modal-sub">Visível publicamente no mural</p>
-                    </div>
-                </div>
-                <button class="modal-close" onclick="closeKudosModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="kudos-modal-title">
+            <div class="modal-header">
+                <h3 id="kudos-modal-title"><i class="fas fa-award"></i> Dar Reconhecimento</h3>
+                <button class="modal-close" onclick="closeKudosModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Visível publicamente no mural, para toda a empresa.</span>
+                </div>
                 <div class="form-group">
                     <label class="form-label" for="kudos-colleague">Colega</label>
                     <select id="kudos-colleague" class="form-input"></select>
@@ -221,18 +222,18 @@
     </div>
 
     <div class="modal-overlay" id="anon-feedback-modal">
-        <div class="modal-card">
-            <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon"><i class="fas fa-user-secret"></i></div>
-                    <div>
-                        <h3 class="modal-title">Feedback Anônimo</h3>
-                        <p class="modal-sub">Ninguém no RH consegue saber quem enviou.</p>
-                    </div>
-                </div>
-                <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="anon-feedback-modal-title">
+            <div class="modal-header">
+                <h3 id="anon-feedback-modal-title"><i class="fas fa-user-secret"></i> Feedback Anônimo</h3>
+                <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Ninguém no RH consegue saber quem enviou. Fique à vontade para compartilhar.</span>
+                </div>
                 <div class="form-group">
                     <label class="form-label" for="anon-categoria">Categoria</label>
                     <select id="anon-categoria" class="form-input">

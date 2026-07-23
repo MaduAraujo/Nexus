@@ -154,19 +154,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const destInfo = DEST_ICON_MAP[m.destino] || { icon: 'fa-users', cls: 'dest--outros' };
                 const plainTexto = comunicadoPlainText(m.texto);
                 const preview = plainTexto.length > PREVIEW_LEN ? plainTexto.slice(0, PREVIEW_LEN) + '…' : plainTexto;
+                const metaHtml = `${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}`;
                 return `
                 <article class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}" role="button" tabindex="0">
-                    <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i></div>
-                    <div class="comunicado-body">
-                        <div class="comunicado-top">
-                            <div class="comunicado-meta">
-                                ${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}
-                                ${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}
-                            </div>
-                            <span class="comunicado-data"><i class="fas fa-clock"></i> ${timeAgo(m.created_at)}</span>
-                        </div>
+                    ${metaHtml ? `<div class="comunicado-top"><div class="comunicado-meta">${metaHtml}</div></div>` : ''}
+                    <div class="comunicado-main">
+                        <div class="comunicado-icon-wrap ${destInfo.cls}"><i class="fas ${destInfo.icon}"></i></div>
                         <p class="comunicado-preview">${escHTML(preview)}</p>
-                        <span class="card-read-more"><i class="fas fa-arrow-right"></i> ${lido ? 'Ver comunicado' : 'Ler comunicado'}</span>
+                        <span class="comunicado-data"><i class="fas fa-clock"></i> ${timeAgo(m.created_at)}</span>
                     </div>
                 </article>`;
             })

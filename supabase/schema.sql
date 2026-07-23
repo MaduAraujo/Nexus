@@ -461,6 +461,13 @@ CREATE TABLE IF NOT EXISTS hr_ticket_messages (
 
 CREATE INDEX IF NOT EXISTS hr_ticket_msgs_idx ON hr_ticket_messages(ticket_id, created_at ASC);
 
+CREATE TABLE IF NOT EXISTS hr_ticket_hidden (
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  ticket_id   UUID NOT NULL REFERENCES hr_tickets(id) ON DELETE CASCADE,
+  hidden_at   TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (employee_id, ticket_id)
+);
+
 CREATE TABLE IF NOT EXISTS kudos (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -537,6 +544,7 @@ ALTER TABLE chat_channel_members  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_tickets            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_ticket_messages    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hr_ticket_hidden       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kudos                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE anonymous_feedback    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_tasks      ENABLE ROW LEVEL SECURITY;
@@ -757,6 +765,13 @@ CREATE POLICY "tickets_colab_insert_own" ON hr_tickets FOR INSERT
 CREATE POLICY "tickets_colab_update_own" ON hr_tickets FOR UPDATE
   USING (employee_id = my_employee_id())
   WITH CHECK (employee_id = my_employee_id() AND status <> 'em_atendimento');
+
+CREATE POLICY "tickets_colab_delete_own" ON hr_tickets FOR DELETE
+  USING (employee_id = my_employee_id());
+
+CREATE POLICY "ticket_hidden_colab_all" ON hr_ticket_hidden FOR ALL
+  USING (employee_id = my_employee_id())
+  WITH CHECK (employee_id = my_employee_id());
 
 CREATE POLICY "tmsg_rh_all" ON hr_ticket_messages FOR ALL USING (is_rh());
 

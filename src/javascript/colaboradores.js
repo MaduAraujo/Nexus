@@ -232,23 +232,18 @@ function isValidCPF(cpf) {
 }
 
 function showToast(title, msg, type = 'success') {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'toast-container';
-        document.body.appendChild(container);
-    }
-    const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle' };
+    const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
+    const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${title}</p>
-            <p class="toast-msg">${msg}</p>
+            ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide'); setTimeout(() => this.closest('.toast').remove(), 400);">
+        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

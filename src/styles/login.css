@@ -623,35 +623,75 @@ body {
     opacity: 0.7;
 }
 
-.toast {
+.toast-container {
     position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--text);
-    color: var(--bg);
-    padding: 0.6rem 1.25rem;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 500;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent-gold);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 260px;
+    max-width: 340px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     opacity: 0;
+    transform: translateX(20px);
     transition:
         opacity 0.3s,
         transform 0.3s;
-    pointer-events: none;
-    z-index: 1000;
-    max-width: calc(100vw - 2rem);
-    text-align: center;
-    word-break: break-word;
 }
-
 .toast.show {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateX(0);
 }
-.toast--error {
-    background: #e24b4a;
-    color: #fff;
+.toast.hide {
+    opacity: 0;
+    transform: translateX(20px);
+}
+.toast-error {
+    border-left-color: #e24b4a;
+}
+.toast-warning {
+    border-left-color: var(--accent-gold);
+}
+.toast-info {
+    border-left-color: var(--accent-blue);
+}
+.toast-icon {
+    font-size: 1rem;
+    color: var(--accent-gold);
+    padding-top: 1px;
+}
+.toast-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.toast-msg {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.toast-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px;
+    align-self: flex-start;
 }
 
 .strength-wrap {
@@ -1250,10 +1290,14 @@ body {
         padding: 0.8rem;
         font-size: 14px;
     }
+    .toast-container {
+        top: 14px;
+        right: 10px;
+        left: 10px;
+        max-width: unset;
+    }
     .toast {
-        bottom: 1.5rem;
-        font-size: 12px;
-        padding: 0.5rem 1rem;
+        width: 100%;
     }
     .fam-card {
         padding: 28px 20px 24px;

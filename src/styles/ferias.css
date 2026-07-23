@@ -2493,46 +2493,72 @@ select.form-input {
     right: 24px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    z-index: 3000;
+    gap: 10px;
+    z-index: 9999;
 }
 .toast {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
-    background: #1e293b;
-    color: #f1f5f9;
-    padding: 13px 16px;
-    border-radius: 11px;
-    font-size: 0.875rem;
-    min-width: 270px;
-    max-width: 380px;
-    box-shadow: var(--shadow-lg);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 260px;
+    max-width: 340px;
+    box-shadow: var(--shadow-md);
     opacity: 0;
-    transform: translateY(-10px) scale(0.97);
+    transform: translateX(20px);
     transition:
-        opacity 0.25s,
-        transform 0.25s;
+        opacity 0.3s,
+        transform 0.3s;
 }
 .toast.show {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
 }
 .toast.hide {
     opacity: 0;
-    transform: translateY(-10px) scale(0.97);
+    transform: translateX(20px);
 }
 .toast-icon {
-    flex-shrink: 0;
+    font-size: 1rem;
+    color: var(--accent);
+    padding-top: 1px;
 }
-.toast.success .toast-icon {
-    color: #4ade80;
+.toast-content {
+    flex: 1;
+    min-width: 0;
 }
-.toast.error .toast-icon {
-    color: #f87171;
+.toast-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
-.toast.info .toast-icon {
-    color: #60a5fa;
+.toast-msg {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.toast-error {
+    border-left-color: var(--danger);
+}
+.toast-warning {
+    border-left-color: var(--amber);
+}
+.toast-info {
+    border-left-color: var(--blue);
+}
+.toast-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px;
+    align-self: flex-start;
 }
 
 @media (max-width: 1200px) {

@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             toast.classList.remove('show');
             toast.classList.add('hide');
             setTimeout(() => toast.remove(), 400);
-        }, 5000);
+        }, 4000);
     };
 
     window.logout = async function () {

@@ -80,7 +80,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (tab === 'rh' && !currentTicketId) showWelcome();
             if (tab === 'social' && !currentChannelId) showWelcome();
             if (tab === 'kudos') showKudosArea();
-            closeChatLeft();
         });
     });
 
@@ -279,7 +278,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (input) input.placeholder = `Mensagem para #${channel.name}...`;
 
         showChatArea();
-        closeChatLeft();
 
         const pill = $('presence-pill');
         if (pill) pill.style.display = 'flex';
@@ -466,9 +464,13 @@ Com o que posso te ajudar hoje?`;
         const list = $('ticket-list');
         if (!list) return;
 
-        const { data: tickets } = await sb.from('hr_tickets').select('*').eq('employee_id', myEmployeeId).order('updated_at', { ascending: false });
+        const [{ data: tickets }, { data: hidden }] = await Promise.all([
+            sb.from('hr_tickets').select('*').eq('employee_id', myEmployeeId).order('updated_at', { ascending: false }),
+            sb.from('hr_ticket_hidden').select('ticket_id').eq('employee_id', myEmployeeId),
+        ]);
 
-        allTickets = tickets || [];
+        const hiddenIds = new Set((hidden || []).map((h) => h.ticket_id));
+        allTickets = (tickets || []).filter((t) => !hiddenIds.has(t.id));
         renderTicketList();
     }
 
@@ -489,20 +491,99 @@ Com o que posso te ajudar hoje?`;
     const statusLabel = { bot: 'Bot', aguardando_rh: 'Aguardando RH', em_atendimento: 'Em atendimento', resolvido: 'Resolvido' };
     const statusDot = { bot: 'tsd-bot', aguardando_rh: 'tsd-waiting', em_atendimento: 'tsd-human', resolvido: 'tsd-solved' };
 
+    function closeAllTicketMenus() {
+        document.querySelectorAll('.ticket-menu-dropdown.open').forEach((el) => el.classList.remove('open'));
+    }
+    document.addEventListener('click', closeAllTicketMenus);
+
     function buildTicketItem(ticket) {
         const li = document.createElement('li');
         li.className = 'ticket-item';
         li.dataset.ticketId = ticket.id;
         li.innerHTML = `
-            <span class="ticket-subject">${esc(ticket.subject)}</span>
+            <div class="ticket-item-head">
+                <span class="ticket-subject">${esc(ticket.subject)}</span>
+                <div class="ticket-menu-wrap">
+                    <button class="ticket-menu-btn" aria-label="Opções da conversa" title="Opções">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                    <div class="ticket-menu-dropdown">
+                        <button type="button" class="ticket-menu-option" data-action="me">
+                            <i class="fas fa-eye-slash"></i> Apagar somente para mim
+                        </button>
+                        <button type="button" class="ticket-menu-option ticket-menu-option--danger" data-action="all">
+                            <i class="fas fa-trash"></i> Apagar para todos
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="ticket-meta">
                 <span class="ticket-status-dot ${statusDot[ticket.status] || 'tsd-bot'}"></span>
                 <span>${statusLabel[ticket.status] || ticket.status}</span>
                 <span>·</span>
                 <span>${fmtAgo(ticket.updated_at || ticket.created_at)}</span>
             </div>`;
+
         li.addEventListener('click', () => selectTicket(ticket));
+
+        const menuBtn = li.querySelector('.ticket-menu-btn');
+        const menuDropdown = li.querySelector('.ticket-menu-dropdown');
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willOpen = !menuDropdown.classList.contains('open');
+            closeAllTicketMenus();
+            menuDropdown.classList.toggle('open', willOpen);
+        });
+        li.querySelector('[data-action="me"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteTicketForMe(ticket);
+        });
+        li.querySelector('[data-action="all"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteTicketForAll(ticket);
+        });
+
         return li;
+    }
+
+    function removeTicketFromList(ticketId) {
+        allTickets = allTickets.filter((t) => t.id !== ticketId);
+        renderTicketList();
+        if (currentTicketId === ticketId) {
+            currentTicketId = null;
+            isEscalated = false;
+            if (activeTicketSub) {
+                sb.removeChannel(activeTicketSub);
+                activeTicketSub = null;
+            }
+            showWelcome();
+        }
+    }
+
+    async function deleteTicketForMe(ticket) {
+        if (!confirm('Apagar esta conversa apenas para você? Ela continua disponível para o RH.')) return;
+
+        const { error } = await sb.from('hr_ticket_hidden').upsert({ employee_id: myEmployeeId, ticket_id: ticket.id });
+        if (error) {
+            showToast('Erro ao apagar conversa', 'error');
+            return;
+        }
+
+        removeTicketFromList(ticket.id);
+        showToast('Conversa apagada para você', 'success');
+    }
+
+    async function deleteTicketForAll(ticket) {
+        if (!confirm('Apagar esta conversa para todos? Ela será removida definitivamente, inclusive do RH.')) return;
+
+        const { error } = await sb.from('hr_tickets').delete().eq('id', ticket.id);
+        if (error) {
+            showToast('Erro ao apagar conversa', 'error');
+            return;
+        }
+
+        removeTicketFromList(ticket.id);
+        showToast('Conversa apagada para todos', 'success');
     }
 
     $('new-ticket-btn')?.addEventListener('click', createTicket);
@@ -551,7 +632,6 @@ Com o que posso te ajudar hoje?`;
         if (hrSendBtn) hrSendBtn.disabled = ticket.status === 'resolvido';
 
         showHrArea();
-        closeChatLeft();
 
         await loadTicketMessages(ticket.id);
         subscribeToTicket(ticket.id);
