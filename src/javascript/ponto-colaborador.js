@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initLocation();
 
     document.querySelectorAll('.modal-overlay').forEach((el) => {
-        if (el.id === 'modal-ajuste' || el.id === 'modal-bank-request') return;
+        if (el.id === 'modal-ajuste' || el.id === 'modal-bank-request' || el.id === 'modal-confirmar') return;
         el.addEventListener('click', (e) => {
             if (e.target === el) closeModal(el.id);
         });
