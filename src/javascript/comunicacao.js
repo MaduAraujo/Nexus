@@ -1107,7 +1107,8 @@
 
         engagementModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
-        if (engagementModalTitleText) engagementModalTitleText.textContent = readersOnly ? 'Quem já leu' : isGlobal ? 'Engajamento Geral' : 'Engajamento do Comunicado';
+        if (engagementModalTitleText)
+            engagementModalTitleText.textContent = readersOnly ? 'Quem já leu' : isGlobal ? 'Engajamento Geral' : 'Engajamento do Comunicado';
         engagementSummary?.classList.toggle('hidden', readersOnly);
         engagementDeptSection?.classList.toggle('hidden', readersOnly);
         engagementReadersTitle?.classList.toggle('hidden', readersOnly);

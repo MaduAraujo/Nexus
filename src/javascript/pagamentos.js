@@ -334,7 +334,8 @@ function renderFolha() {
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="10"><div class="table-empty"><i class="fas fa-circle-check"></i><p>Todos os colaboradores já foram pagos nesta competência.</p></div></td></tr>`;
-        if (cardsEl) cardsEl.innerHTML = `<div class="table-empty"><i class="fas fa-circle-check"></i><p>Todos os colaboradores já foram pagos nesta competência.</p></div>`;
+        if (cardsEl)
+            cardsEl.innerHTML = `<div class="table-empty"><i class="fas fa-circle-check"></i><p>Todos os colaboradores já foram pagos nesta competência.</p></div>`;
         setText('folha-count', '');
         updateSummary([]);
         updateSelectionUI(filtered);
@@ -354,9 +355,7 @@ function buildFolhaRow(r) {
     const color = nameToColor(emp.name);
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
-    const statusBadge = pago
-        ? `<span class="badge badge--pago">Pago</span>`
-        : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ
         ? `<span class="badge badge--pj">PJ</span>`
@@ -383,9 +382,7 @@ function buildFolhaCard(r) {
     const color = nameToColor(emp.name);
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
-    const statusBadge = pago
-        ? `<span class="badge badge--pago">Pago</span>`
-        : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ
         ? `<span class="badge badge--pj">PJ</span>`
@@ -598,9 +595,7 @@ function buildHolRow(r, competLabel) {
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
 
-    const statusBadge = pago
-        ? `<span class="badge badge--pago">Pago</span>`
-        : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
     return `<tr>
         <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
@@ -620,9 +615,7 @@ function buildHolCard(r, competLabel) {
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
 
-    const statusBadge = pago
-        ? `<span class="badge badge--pago">Pago</span>`
-        : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
     return `<div class="folha-card-item">
         <div class="folha-card-top">
@@ -947,9 +940,7 @@ window.openRescisaoModal = function () {
     window.setRescisaoDate?.('');
     const tipoHidden = document.getElementById('rescisao-tipo');
     if (tipoHidden) tipoHidden.value = 'sem_justa_causa';
-    document
-        .querySelectorAll('#rescisao-tipo-toggle .type-toggle-card')
-        .forEach((c) => c.classList.toggle('active', c.dataset.tipo === 'sem_justa_causa'));
+    document.querySelectorAll('#rescisao-tipo-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.tipo === 'sem_justa_causa'));
     const errEl = document.getElementById('rescisao-error');
     if (errEl) errEl.textContent = '';
     document.getElementById('rescisao-result')?.classList.add('hidden');
