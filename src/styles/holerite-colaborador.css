@@ -1169,6 +1169,9 @@ body {
     .col-val {
         white-space: nowrap !important;
     }
+    .total-label {
+        text-align: left !important;
+    }
     .doc-header {
         padding: 18px 20px;
     }
@@ -1214,9 +1217,17 @@ body {
         align-items: flex-start;
     }
     .payslip-actions-btns {
-        width: 100%;
-        flex-direction: column;
-        flex-wrap: wrap;
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+    .payslip-actions-btns .btn-print {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        justify-content: center;
+    }
+    .payslip-actions-btns .btn-print span {
+        display: none;
     }
     .btn-print {
         width: 100%;

@@ -412,6 +412,9 @@ window.printInforme = function () {
     document.getElementById('informe-print-doc')?.classList.remove('hidden');
     document.body.classList.add('printing-informe');
     document.title = ' ';
+
+    void document.body.offsetHeight;
+
     window.print();
 };
 
