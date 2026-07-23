@@ -123,7 +123,7 @@ async function loadData() {
         queries.push(
             sb
                 .from('bank_requests')
-                .select('*, employees(name,dept)')
+                .select('*, employees!bank_requests_employee_id_fkey(name,dept)')
                 .eq('manager_id_snapshot', myEmployeeId)
                 .eq('status', 'pendente')
                 .order('created_at', { ascending: false })

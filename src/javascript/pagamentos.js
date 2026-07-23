@@ -355,8 +355,8 @@ function buildFolhaRow(r) {
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
     const statusBadge = pago
-        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+        ? `<span class="badge badge--pago">Pago</span>`
+        : `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ
         ? `<span class="badge badge--pj">PJ</span>`
@@ -384,8 +384,8 @@ function buildFolhaCard(r) {
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
     const statusBadge = pago
-        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+        ? `<span class="badge badge--pago">Pago</span>`
+        : `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ
         ? `<span class="badge badge--pj">PJ</span>`
@@ -599,8 +599,8 @@ function buildHolRow(r, competLabel) {
     const color = nameToColor(emp.name);
 
     const statusBadge = pago
-        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+        ? `<span class="badge badge--pago">Pago</span>`
+        : `<span class="badge badge--pendente">Pendente</span>`;
 
     return `<tr>
         <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
@@ -621,8 +621,8 @@ function buildHolCard(r, competLabel) {
     const color = nameToColor(emp.name);
 
     const statusBadge = pago
-        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+        ? `<span class="badge badge--pago">Pago</span>`
+        : `<span class="badge badge--pendente">Pendente</span>`;
 
     return `<div class="folha-card-item">
         <div class="folha-card-top">
@@ -742,16 +742,20 @@ function renderSlipModal(emp, slip) {
     </div>
 
     <p class="slip-section-title">Proventos</p>
+    <div class="slip-table-wrap">
     <table class="slip-table">
         <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
         <tbody>${provRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum provento</td></tr>'}</tbody>
     </table>
+    </div>
 
     <p class="slip-section-title">Descontos</p>
+    <div class="slip-table-wrap">
     <table class="slip-table">
         <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
         <tbody>${descRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum desconto</td></tr>'}</tbody>
     </table>
+    </div>
 
     <div class="slip-totals">
         <div class="slip-total-box blue">
@@ -1220,18 +1224,22 @@ function renderRescisaoResult(r) {
     const encargosSection = r.encargos.length
         ? `
         <p class="slip-section-title">Encargos da Empresa</p>
+        <div class="slip-table-wrap">
         <table class="slip-table">
             <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
             <tbody>${rows(r.encargos)}</tbody>
-        </table>`
+        </table>
+        </div>`
         : '';
 
     el.innerHTML = `
         <p class="slip-section-title">Verbas Rescisórias</p>
+        <div class="slip-table-wrap">
         <table class="slip-table">
             <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
             <tbody>${rows(r.verbas)}</tbody>
         </table>
+        </div>
         ${encargosSection}
         <div class="slip-totals">
             <div class="slip-total-box blue">

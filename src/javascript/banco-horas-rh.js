@@ -1001,7 +1001,7 @@ window.submitAdjust = async function () {
 };
 
 async function loadBankRequests() {
-    const { data } = await sb.from('bank_requests').select('*, employees(name,dept)').order('created_at', { ascending: false });
+    const { data } = await sb.from('bank_requests').select('*, employees!bank_requests_employee_id_fkey(name,dept)').order('created_at', { ascending: false });
     bankRequestsAll = data || [];
 }
 

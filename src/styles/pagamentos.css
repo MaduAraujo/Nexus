@@ -1988,10 +1988,16 @@ select.form-input {
     background: var(--border);
 }
 
+.slip-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+}
 .slip-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 .slip-table th {
     font-size: 0.68rem;
@@ -2419,5 +2425,15 @@ select.form-input {
     }
     .modal-head {
         padding: 16px 18px;
+    }
+    .slip-table th,
+    .slip-table td {
+        padding: 7px 6px;
+    }
+    .slip-table th {
+        font-size: 0.6rem;
+    }
+    .slip-table td {
+        font-size: 0.76rem;
     }
 }
