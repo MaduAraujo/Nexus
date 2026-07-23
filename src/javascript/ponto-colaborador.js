@@ -89,8 +89,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(updateClock, 1000);
 
     setupMonthFilterPicker();
-    ajusteDatePicker = createSimpleDayPicker('ajuste-data');
-    bankreqDatePicker = createSimpleDayPicker('bankreq-data');
+    ajusteDatePicker = createSimpleDayPicker('ajuste-data', updateAjusteBtnState);
+    bankreqDatePicker = createSimpleDayPicker('bankreq-data', updateBankReqBtnState);
     setupHorarioPicker();
     setupTipoToggle();
     setupAnexoPicker();
@@ -646,6 +646,7 @@ function setupTipoToggle() {
         if (!btn) return;
         hidden.value = btn.dataset.tipo;
         toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c === btn));
+        updateBankReqBtnState();
     });
 }
 
@@ -688,8 +689,21 @@ window.openModalBankRequest = function () {
         const el = $(id);
         if (el) el.textContent = '';
     });
+    updateBankReqBtnState();
     openModal('modal-bank-request');
 };
+
+function updateBankReqBtnState() {
+    const btn = $('btn-bankreq-enviar');
+    if (!btn) return;
+    const data = $('bankreq-data')?.value || '';
+    const horas = parseInt($('bankreq-horas')?.value || '0', 10);
+    const mins = parseInt($('bankreq-minutos')?.value || '0', 10);
+    const just = $('bankreq-justificativa')?.value.trim() || '';
+    const total = (horas || 0) * 60 + (mins || 0);
+    btn.disabled = !(data && total > 0 && just);
+}
+window.updateBankReqBtnState = updateBankReqBtnState;
 
 window.enviarBankRequest = async function () {
     const tipo = $('bankreq-tipo')?.value || 'credito';
@@ -1478,7 +1492,7 @@ function renderSyncStatus() {
     el.innerHTML = `<i class="fas fa-cloud-arrow-up"></i> ${pending} registro${pending > 1 ? 's' : ''} salvo${pending > 1 ? 's' : ''} offline — sincronizando quando a conexão voltar`;
 }
 
-function createSimpleDayPicker(prefix) {
+function createSimpleDayPicker(prefix, onChange) {
     const trigger = $(`${prefix}-trigger`);
     const textEl = $(`${prefix}-text`);
     const hidden = $(prefix);
@@ -1561,6 +1575,7 @@ function createSimpleDayPicker(prefix) {
         hidden.value = `${viewYear}-${pad0(viewMonth + 1)}-${pad0(day)}`;
         if (textEl) textEl.textContent = `${pad0(day)}/${pad0(viewMonth + 1)}/${viewYear}`;
         close();
+        onChange?.();
     });
 
     prevBtn?.addEventListener('click', (e) => {
@@ -1589,6 +1604,7 @@ function createSimpleDayPicker(prefix) {
             hidden.value = '';
             if (textEl) textEl.textContent = 'Selecionar data';
             close();
+            onChange?.();
         },
     };
 }
@@ -1612,6 +1628,7 @@ function setupHorarioPicker() {
         if (hour === null || minute === null) return;
         hidden.value = `${pad0(hour)}:${pad0(minute)}`;
         if (textEl) textEl.textContent = hidden.value;
+        updateAjusteBtnState();
     }
 
     function markSelected(col, attr, value) {
@@ -1698,6 +1715,7 @@ window.openModalAjuste = function () {
     if (hg) hg.classList.remove('hidden');
     ajusteDatePicker?.reset();
     window.resetHorarioPicker?.();
+    updateAjusteBtnState();
     openModal('modal-ajuste');
 };
 
@@ -1705,7 +1723,20 @@ window.onAjusteTipoChange = function () {
     const tipo = $('ajuste-tipo')?.value;
     const hg = $('ajuste-horario-group');
     if (hg) hg.classList.toggle('hidden', tipo === 'falta');
+    updateAjusteBtnState();
 };
+
+function updateAjusteBtnState() {
+    const btn = $('btn-ajuste-enviar');
+    if (!btn) return;
+    const data = $('ajuste-data')?.value.trim() || '';
+    const tipo = $('ajuste-tipo')?.value || '';
+    const hor = $('ajuste-horario')?.value || '';
+    const just = $('ajuste-justificativa')?.value.trim() || '';
+    const isFaltaType = tipo === 'falta';
+    btn.disabled = !(data && tipo && (isFaltaType || hor) && just);
+}
+window.updateAjusteBtnState = updateAjusteBtnState;
 
 window.enviarSolicitacao = async function () {
     const data = $('ajuste-data')?.value.trim() || '';

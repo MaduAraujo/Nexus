@@ -383,12 +383,12 @@
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
                 <textarea id="ajuste-justificativa" rows="3"
-                          placeholder="Descreva detalhadamente o motivo do ajuste..."></textarea>
+                          placeholder="Descreva detalhadamente o motivo do ajuste" oninput="updateAjusteBtnState()"></textarea>
                 <span class="field-error" id="err-ajuste-just"></span>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" onclick="enviarSolicitacao()">
+            <button class="btn-primary" id="btn-ajuste-enviar" onclick="enviarSolicitacao()" disabled>
                 Enviar Solicitação
             </button>
         </div>
@@ -449,17 +449,17 @@
             <div class="form-row-2">
                 <div class="form-group">
                     <label>Horas <span class="req">*</span></label>
-                    <input type="number" id="bankreq-horas" min="0" max="99" placeholder="0" />
+                    <input type="number" id="bankreq-horas" min="0" max="99" placeholder="0" oninput="updateBankReqBtnState()" />
                 </div>
                 <div class="form-group">
                     <label>Minutos <span class="req">*</span></label>
-                    <input type="number" id="bankreq-minutos" min="0" max="59" placeholder="0" />
+                    <input type="number" id="bankreq-minutos" min="0" max="59" placeholder="0" oninput="updateBankReqBtnState()" />
                     <span class="field-error" id="err-bankreq-valor"></span>
                 </div>
             </div>
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
-                <textarea id="bankreq-justificativa" rows="3" placeholder="Ex.: Atestado médico, trabalho em feriado, compensação combinada com o gestor..."></textarea>
+                <textarea id="bankreq-justificativa" rows="3" placeholder="Ex: Atestado médico, trabalho em feriado..." oninput="updateBankReqBtnState()"></textarea>
                 <span class="field-error" id="err-bankreq-just"></span>
             </div>
             <div class="form-group">
@@ -474,7 +474,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" onclick="enviarBankRequest()">
+            <button class="btn-primary" id="btn-bankreq-enviar" onclick="enviarBankRequest()" disabled>
                 Enviar Solicitação
             </button>
         </div>

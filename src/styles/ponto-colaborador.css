@@ -1576,7 +1576,8 @@ html {
     border-radius: 16px;
     width: 100%;
     max-width: 480px;
-    max-height: calc(100vh - 32px);
+    max-height: 90vh;
+    max-height: 90svh;
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border-color);
     overflow: hidden;
@@ -1908,6 +1909,12 @@ html {
     resize: none;
     width: 100%;
     -webkit-appearance: none;
+    appearance: none;
+}
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+    border-color: var(--accent);
 }
 .form-group input:focus,
 .form-group select:focus,
@@ -2374,6 +2381,26 @@ html {
     }
     .ts-time {
         font-size: 0.62rem;
+    }
+
+    #modal-confirmar .modal-body {
+        padding: 16px 18px;
+        gap: 12px;
+    }
+    #modal-confirmar .confirmar-info {
+        padding: 10px;
+        gap: 10px;
+    }
+    #modal-confirmar .confirmar-item {
+        padding: 6px 0;
+    }
+    #modal-confirmar .selfie-capture {
+        padding: 10px;
+        gap: 8px;
+    }
+    #modal-confirmar #selfie-video,
+    #modal-confirmar #selfie-preview {
+        max-width: 170px;
     }
 }
 
