@@ -56,8 +56,7 @@ function applyContractTypeUI() {
     if (abonoRow) abonoRow.style.display = 'none';
     const hint = document.createElement('p');
     hint.className = 'form-hint-block';
-    hint.innerHTML =
-        '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
+    hint.innerHTML = '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
     document.getElementById('req-obs')?.closest('.form-group')?.before(hint);
 }
 
@@ -355,7 +354,10 @@ function openTimelineYearPopover() {
     const sorted = [...years].sort((a, b) => b - a);
 
     popover.innerHTML = sorted
-        .map((y) => `<button type="button" class="timeline-year-option${y === timelineYear ? ' timeline-year-option--selected' : ''}" data-year="${y}">${y}</button>`)
+        .map(
+            (y) =>
+                `<button type="button" class="timeline-year-option${y === timelineYear ? ' timeline-year-option--selected' : ''}" data-year="${y}">${y}</button>`
+        )
         .join('');
 
     popover.classList.add('open');

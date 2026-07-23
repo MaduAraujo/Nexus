@@ -67,11 +67,14 @@ function renderMonthList() {
         card.setAttribute('data-id', h.id);
         card.style.animationDelay = `${Math.min(i * 0.04, 0.4)}s`;
         card.onclick = () => selectPayslipById(h.id);
+        const statusLine = h.assinado_em
+            ? `<span class="month-card-liquido">Líquido: ${formatCurrency(h.salario_liquido)}</span>`
+            : `<span class="month-card-liquido month-card-pending"><i class="fas fa-signature"></i> Aguardando assinatura</span>`;
         card.innerHTML = `
             <div class="month-card-icon"><i class="fas fa-file-alt"></i></div>
             <div class="month-card-body">
                 <span class="month-card-competencia">${h.mes_formatado || h.mes}</span>
-                <span class="month-card-liquido">Líquido: ${formatCurrency(h.salario_liquido)}</span>
+                ${statusLine}
             </div>
             <i class="fas fa-chevron-right month-card-arrow"></i>`;
         list.appendChild(card);
@@ -98,6 +101,15 @@ window.selectPayslipById = function (id) {
     const mSel = document.getElementById('month-select-mobile');
     if (mSel && mSel.value !== id) mSel.value = id;
     document.getElementById('payslip-empty')?.classList.add('hidden');
+
+    if (!h.assinado_em) {
+        document.getElementById('payslip-wrap')?.classList.add('hidden');
+        setText('gate-competencia', h.mes_formatado || h.mes);
+        document.getElementById('payslip-gate')?.classList.remove('hidden');
+        return;
+    }
+
+    document.getElementById('payslip-gate')?.classList.add('hidden');
     document.getElementById('payslip-wrap')?.classList.remove('hidden');
     renderPayslip(h);
 };
@@ -146,22 +158,110 @@ function renderPayslip(h) {
     setText('total-proventos', formatCurrency(h.total_proventos));
     setText('total-descontos', formatCurrency(h.total_descontos));
     setText('doc-liquido', formatCurrency(h.salario_liquido));
-    setText('doc-validade', h.competencia);
+
+    const signArea = document.getElementById('doc-footer-assinatura');
+    if (signArea) {
+        signArea.innerHTML = h.assinado_em
+            ? `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${escapeHTML(h.assinado_por || myEmployee.name)} em ${new Date(h.assinado_em).toLocaleString('pt-BR')}</p>`
+            : `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Funcionário</p>`;
+    }
 }
 
 window.printPayslip = function () {
-    if (currentId) window.print();
+    if (!currentId) return;
+    document.getElementById('print-orientation-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closePrintOrientationModal = function () {
+    document.getElementById('print-orientation-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.printPayslipWithOrientation = function (orientation) {
+    if (!currentId) return;
+    closePrintOrientationModal();
+    let styleEl = document.getElementById('print-orientation-style');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'print-orientation-style';
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `@page { size: ${orientation}; }`;
+    window.print();
+};
+
+let signingId = null;
+
+window.openSignPayslipModal = function () {
+    if (!currentId) return;
+    const h = holerites.find((x) => x.id === currentId);
+    if (!h) return;
+    signingId = currentId;
+    setText('sign-payslip-competencia', h.mes_formatado || h.mes);
+    const nameInput = document.getElementById('sign-payslip-name');
+    if (nameInput) nameInput.value = myEmployee?.name || '';
+    const agree = document.getElementById('sign-payslip-agree');
+    if (agree) agree.checked = false;
+    toggleSignConfirmBtn();
+    document.getElementById('sign-payslip-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeSignPayslipModal = function () {
+    document.getElementById('sign-payslip-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.toggleSignConfirmBtn = function () {
+    const agree = document.getElementById('sign-payslip-agree');
+    const btn = document.getElementById('btn-confirm-sign-payslip');
+    if (btn) btn.disabled = !agree?.checked;
+};
+
+window.confirmSignPayslip = async function () {
+    if (!signingId) return;
+    const nameInput = document.getElementById('sign-payslip-name');
+    const name = nameInput?.value.trim();
+    if (!name) {
+        showToast('Digite seu nome completo para assinar.', 'warning');
+        return;
+    }
+    const agree = document.getElementById('sign-payslip-agree');
+    if (!agree?.checked) {
+        showToast('Confirme que leu e concorda com o holerite.', 'warning');
+        return;
+    }
+
+    const { error } = await sb.rpc('sign_payslip', { p_payslip_id: signingId, p_signer_name: name });
+    if (error) {
+        showToast('Não foi possível registrar a assinatura.', 'error');
+        return;
+    }
+
+    const h = holerites.find((x) => x.id === signingId);
+    if (h) {
+        h.assinado_em = new Date().toISOString();
+        h.assinado_por = name;
+    }
+    const justSignedId = signingId;
+    closeSignPayslipModal();
+    renderMonthList();
+    if (currentId === justSignedId) selectPayslipById(justSignedId);
+    showToast('Holerite assinado com sucesso!', 'success');
 };
 
 let comparativoChart = null;
 
 window.openComparativoModal = function () {
-    document.getElementById('comparativo-modal')?.classList.add('active');
+    document.getElementById('comparativo-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
     renderComparativoChart();
 };
 
 window.closeComparativoModal = function () {
-    document.getElementById('comparativo-modal')?.classList.remove('active');
+    document.getElementById('comparativo-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 function renderComparativoChart() {
@@ -222,12 +322,14 @@ window.openInformeModal = function () {
     if (sel) {
         sel.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join('');
     }
-    document.getElementById('informe-modal')?.classList.add('active');
+    document.getElementById('informe-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
     renderInforme(years[0] || String(new Date().getFullYear()));
 };
 
 window.closeInformeModal = function () {
-    document.getElementById('informe-modal')?.classList.remove('active');
+    document.getElementById('informe-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 function summarizeInforme(year) {
@@ -279,46 +381,45 @@ window.printInforme = function () {
     const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
     if (!doAno.length) return;
 
-    const rows = doAno
-        .map(
-            (h) =>
-                `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td style="text-align:right">${formatCurrency(h.total_proventos)}</td><td style="text-align:right">${formatCurrency(h.total_descontos)}</td><td style="text-align:right">${formatCurrency(h.salario_liquido)}</td></tr>`
-        )
-        .join('');
+    setText('informe-print-title-year', `Ano-calendário ${year}`);
+    setText('informe-print-name', myEmployee.name);
+    setText('informe-print-matricula', String(myEmployee.id).slice(0, 8).toUpperCase());
+    setText('informe-print-cargo', myEmployee.role || '—');
+    setText('informe-print-dept', myEmployee.dept || '—');
+    setText('informe-print-year', year);
+    setText('informe-print-emitido', new Date().toLocaleDateString('pt-BR'));
 
-    const win = window.open('', '_blank', 'width=760,height=700');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-        <title>Informe de Rendimentos ${year} — ${escapeHTML(myEmployee.name)}</title>
-        <style>
-            body{font-family:Arial,sans-serif;padding:32px;color:#111;}
-            h1{font-size:18px;margin-bottom:2px;} .sub{color:#555;font-size:12.5px;margin-bottom:18px;}
-            table{width:100%;border-collapse:collapse;font-size:12px;margin-top:16px;}
-            th,td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:left;}
-            th{background:#f3f4f6;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#555;}
-            .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;}
-            .stat{background:#f8f9fb;border-radius:8px;padding:10px 12px;}
-            .stat b{display:block;font-size:14px;margin-top:2px;}
-            .stat span{font-size:10.5px;text-transform:uppercase;color:#777;letter-spacing:.03em;}
-            @media print { body{padding:0;} }
-        </style></head><body>
-        <h1>Informe de Rendimentos — ${year}</h1>
-        <p class="sub">${escapeHTML(myEmployee.name)} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
-        <div class="stats">
-            <div class="stat"><span>Rendimentos Brutos</span><b>${formatCurrency(totalProventos)}</b></div>
-            <div class="stat"><span>Total Líquido</span><b>${formatCurrency(totalLiquido)}</b></div>
-            <div class="stat"><span>INSS Retido</span><b>${formatCurrency(totalInss)}</b></div>
-            <div class="stat"><span>IRRF Retido</span><b>${formatCurrency(totalIrrf)}</b></div>
-        </div>
-        <table>
-            <thead><tr><th>Competência</th><th>Proventos</th><th>Descontos</th><th>Líquido</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
-    </body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+    const summary = document.getElementById('informe-print-summary');
+    if (summary) {
+        summary.innerHTML = `
+            <div class="informe-stat"><span class="informe-stat-label">Rendimentos Brutos</span><span class="informe-stat-value">${formatCurrency(totalProventos)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">Total Líquido</span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">INSS Retido</span><span class="informe-stat-value danger">${formatCurrency(totalInss)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label">IRRF Retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>`;
+    }
+
+    const tbody = document.getElementById('informe-print-tbody');
+    if (tbody) {
+        tbody.innerHTML = doAno
+            .map(
+                (h) =>
+                    `<tr><td>${escapeHTML(h.mes_formatado || h.mes)}</td><td class="col-val">${formatCurrencyRaw(h.total_proventos)}</td><td class="col-val">${formatCurrencyRaw(h.total_descontos)}</td><td class="col-val">${formatCurrencyRaw(h.salario_liquido)}</td></tr>`
+            )
+            .join('');
+    }
+    setText('informe-print-total-liquido', formatCurrency(totalLiquido));
+
+    document.getElementById('informe-print-doc')?.classList.remove('hidden');
+    document.body.classList.add('printing-informe');
+    document.title = ' ';
+    window.print();
 };
+
+window.addEventListener('afterprint', () => {
+    document.body.classList.remove('printing-informe');
+    document.getElementById('informe-print-doc')?.classList.add('hidden');
+    document.title = 'Holerites';
+});
 
 function setupRealtimeSync() {
     sb.channel('payslips-colab')
@@ -326,7 +427,7 @@ function setupRealtimeSync() {
             await loadPayslips();
             if (currentId) {
                 const h = holerites.find((x) => x.id === currentId);
-                if (h) renderPayslip(h);
+                if (h) selectPayslipById(h.id);
                 else if (holerites.length) selectPayslipById(holerites[0].id);
             }
             showToast('Holerite atualizado pelo RH.', 'success');

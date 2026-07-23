@@ -51,6 +51,17 @@
                     <p class="payslip-empty-sub">Escolha uma competência na lista ao lado para visualizar seu holerite.</p>
                 </div>
 
+                <div class="payslip-gate hidden" id="payslip-gate">
+                    <div class="payslip-gate-icon">
+                        <i class="fas fa-signature"></i>
+                    </div>
+                    <p class="payslip-gate-title">Assinatura necessária</p>
+                    <p class="payslip-gate-sub">Para visualizar o holerite de <strong id="gate-competencia">—</strong>, confirme a ciência assinando eletronicamente.</p>
+                    <button class="btn-print" onclick="openSignPayslipModal()">
+                        <span>Assinar e Visualizar</span>
+                    </button>
+                </div>
+
                 <div class="payslip-wrap hidden" id="payslip-wrap">
                     <div class="payslip-actions no-print" id="payslip-actions">
                         <div class="payslip-actions-info">
@@ -68,7 +79,7 @@
                                 <i class="fas fa-file-invoice"></i>
                                 <span>Informe de Rendimentos</span>
                             </button>
-                            <button class="btn-print" onclick="printPayslip()">
+                            <button class="btn-print btn-ghost" onclick="printPayslip()">
                                 <i class="fas fa-print"></i>
                                 <span>Imprimir</span>
                             </button>
@@ -86,7 +97,7 @@
                                 </div>
                             </div>
                             <div class="doc-title-block">
-                                <p class="doc-title">RECIBO DE PAGAMENTO DE SALÁRIO</p>
+                                <p class="doc-title">RECIBO DE PAGAMENTO</p>
                                 <p class="doc-competencia" id="doc-competencia">—</p>
                             </div>
                         </div>
@@ -172,14 +183,14 @@
                         </div>
 
                         <div class="doc-footer">
-                            <div class="doc-footer-assinatura">
+                            <div class="doc-footer-assinatura" id="doc-footer-assinatura">
                                 <div class="assinatura-line"></div>
                                 <p class="assinatura-label">Assinatura do Funcionário</p>
                             </div>
                             <div class="doc-footer-info">
                                 <p class="doc-footer-note">
                                     <i class="fas fa-lock"></i>
-                                    Documento confidencial. Competência: <span id="doc-validade">—</span>.
+                                    Documento Confidencial
                                 </p>
                             </div>
                         </div>
@@ -189,19 +200,19 @@
         </div>
     </main>
 
-    <div class="modal-overlay no-print" id="comparativo-modal" onclick="if(event.target===this) closeComparativoModal()">
-        <div class="modal-card">
-            <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon"><i class="fas fa-chart-line"></i></div>
-                    <div>
-                        <h3 class="modal-title">Comparativo Histórico</h3>
-                        <p class="modal-sub">Evolução do seu salário líquido por competência</p>
-                    </div>
-                </div>
-                <button class="modal-close" onclick="closeComparativoModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+    <div class="modal-overlay no-print" id="comparativo-modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="comparativo-modal-title">
+            <div class="modal-header">
+                <h3 id="comparativo-modal-title"><i class="fas fa-chart-line"></i> Comparativo Histórico</h3>
+                <button class="modal-close" onclick="closeComparativoModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Evolução do seu salário líquido por competência, com base nos holerites já pagos.</span>
+                </div>
                 <div class="comparativo-chart-wrap">
                     <canvas id="comparativo-chart"></canvas>
                 </div>
@@ -210,19 +221,19 @@
         </div>
     </div>
 
-    <div class="modal-overlay no-print" id="informe-modal" onclick="if(event.target===this) closeInformeModal()">
-        <div class="modal-card">
-            <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon"><i class="fas fa-file-invoice"></i></div>
-                    <div>
-                        <h3 class="modal-title">Informe de Rendimentos</h3>
-                        <p class="modal-sub">Consolidado anual para declaração de Imposto de Renda</p>
-                    </div>
-                </div>
-                <button class="modal-close" onclick="closeInformeModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+    <div class="modal-overlay no-print" id="informe-modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="informe-modal-title">
+            <div class="modal-header">
+                <h3 id="informe-modal-title"><i class="fas fa-file-invoice"></i> Informe de Rendimentos</h3>
+                <button class="modal-close" onclick="closeInformeModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Consolidado anual para declaração de Imposto de Renda.</span>
+                </div>
                 <div class="informe-year-row">
                     <label class="informe-year-label" for="informe-year-select">Ano-calendário</label>
                     <select id="informe-year-select" class="informe-year-select" onchange="renderInforme(this.value)"></select>
@@ -231,7 +242,140 @@
                 <p class="informe-empty hidden" id="informe-empty">Nenhum holerite pago encontrado para este ano.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-print" onclick="printInforme()"><i class="fas fa-print"></i><span>Imprimir</span></button>
+                <button class="btn-print" onclick="printInforme()"><span>Imprimir</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay no-print" id="sign-payslip-modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="sign-payslip-title">
+            <div class="modal-header">
+                <h3 id="sign-payslip-title"><i class="fas fa-signature"></i> Assinar Holerite</h3>
+                <button class="modal-close" onclick="closeSignPayslipModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="info-banner">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Sua assinatura eletrônica confirma o recebimento e a ciência do holerite de <strong id="sign-payslip-competencia">—</strong>.</span>
+                </div>
+                <div class="sign-form-group">
+                    <label for="sign-payslip-name">Nome completo</label>
+                    <input type="text" id="sign-payslip-name" class="sign-input" placeholder="Digite seu nome completo">
+                </div>
+                <label class="sign-consent">
+                    <input type="checkbox" id="sign-payslip-agree" onchange="toggleSignConfirmBtn()">
+                    <span>Estou de acordo.</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-print" id="btn-confirm-sign-payslip" onclick="confirmSignPayslip()" disabled>
+                    <span>Confirmar Assinatura</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay no-print" id="print-orientation-modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="print-orientation-title">
+            <div class="modal-header">
+                <h3 id="print-orientation-title"><i class="fas fa-print"></i> Imprimir Holerite</h3>
+                <button class="modal-close" onclick="closePrintOrientationModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="print-orientation-hint">Escolha a orientação da página</p>
+                <div class="print-orientation-options">
+                    <button type="button" class="print-orientation-option" onclick="printPayslipWithOrientation('portrait')">
+                        <span class="print-orientation-icon print-orientation-icon--portrait"></span>
+                        <span class="print-orientation-label">Vertical</span>
+                    </button>
+                    <button type="button" class="print-orientation-option" onclick="printPayslipWithOrientation('landscape')">
+                        <span class="print-orientation-icon print-orientation-icon--landscape"></span>
+                        <span class="print-orientation-label">Horizontal</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="payslip-doc informe-print-doc hidden" id="informe-print-doc">
+        <div class="doc-header">
+            <div class="doc-company">
+                <div class="doc-logo">Ne<span>x</span>us</div>
+                <div class="doc-company-info">
+                    <p class="doc-company-name">Nexus Recursos Humanos Ltda.</p>
+                    <p class="doc-company-detail">CNPJ: 00.000.000/0001-00</p>
+                    <p class="doc-company-detail">São Paulo, SP — Brasil</p>
+                </div>
+            </div>
+            <div class="doc-title-block">
+                <p class="doc-title">INFORME DE RENDIMENTOS</p>
+                <p class="doc-competencia" id="informe-print-title-year">Ano-calendário —</p>
+            </div>
+        </div>
+
+        <div class="doc-employee-grid">
+            <div class="doc-field">
+                <span class="doc-field-label">Funcionário</span>
+                <span class="doc-field-value" id="informe-print-name">—</span>
+            </div>
+            <div class="doc-field">
+                <span class="doc-field-label">Matrícula</span>
+                <span class="doc-field-value" id="informe-print-matricula">—</span>
+            </div>
+            <div class="doc-field">
+                <span class="doc-field-label">Cargo / Função</span>
+                <span class="doc-field-value" id="informe-print-cargo">—</span>
+            </div>
+            <div class="doc-field">
+                <span class="doc-field-label">Departamento</span>
+                <span class="doc-field-value" id="informe-print-dept">—</span>
+            </div>
+            <div class="doc-field">
+                <span class="doc-field-label">Ano-Calendário</span>
+                <span class="doc-field-value" id="informe-print-year">—</span>
+            </div>
+            <div class="doc-field">
+                <span class="doc-field-label">Emitido em</span>
+                <span class="doc-field-value" id="informe-print-emitido">—</span>
+            </div>
+        </div>
+
+        <div class="informe-summary" id="informe-print-summary"></div>
+
+        <div class="doc-tables" style="grid-template-columns: 1fr;">
+            <div class="doc-table-section">
+                <div class="doc-table-header proventos-header">
+                    <i class="fas fa-calendar-alt"></i> Detalhamento Mensal
+                </div>
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th>Competência</th>
+                            <th class="col-val">Proventos</th>
+                            <th class="col-val">Descontos</th>
+                            <th class="col-val">Líquido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="informe-print-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-liquido">
+            <div class="doc-liquido-label">Total Líquido no Ano</div>
+            <div class="doc-liquido-value" id="informe-print-total-liquido">R$ 0,00</div>
+        </div>
+
+        <div class="doc-footer">
+            <div class="doc-footer-info">
+                <p class="doc-footer-note">
+                    <i class="fas fa-lock"></i>
+                    Documento Confidencial
+                </p>
             </div>
         </div>
     </div>
