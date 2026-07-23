@@ -1454,8 +1454,11 @@ body {
         padding: 0 18px;
     }
     .topbar-date {
-        padding: 7px 9px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
         gap: 0;
+        justify-content: center;
     }
     .topbar-date span {
         display: none;
