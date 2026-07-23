@@ -44,7 +44,7 @@
                                     <span class="stat-value" id="stat-total">—</span>
                                 </div>
                             </div>
-                            <div class="stat-card stat-card--leituras">
+                            <div class="stat-card stat-card--leituras stat-card--clickable" id="stat-card-leituras" role="button" tabindex="0" aria-label="Ver engajamento geral">
                                 <div class="stat-icon-wrap">
                                     <i class="fas fa-eye"></i>
                                 </div>
@@ -240,9 +240,6 @@
                     <div id="sent-messages-section" style="display: none;">
                         <div class="content-card">
                             <div class="content-card-toolbar">
-                                <button type="button" class="dest-toggle-btn" id="hist-toggle-btn" aria-label="Mostrar setores" aria-expanded="false">
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
                                 <div class="search-wrapper">
                                     <i class="fas fa-magnifying-glass search-icon"></i>
                                     <input type="text" id="search-input" placeholder="Buscar comunicado...">
@@ -250,28 +247,41 @@
                                         <i class="fas fa-xmark"></i>
                                     </button>
                                 </div>
-                                <div class="history-filters hidden" id="history-filters">
-                                    <button class="hist-chip hist-chip--active" data-dest="todos"
-                                        onclick="setHistFilter(this)">Todos</button>
-                                    <button class="hist-chip" data-dest="TI" onclick="setHistFilter(this)">TI</button>
-                                    <button class="hist-chip" data-dest="RH" onclick="setHistFilter(this)">RH</button>
-                                    <button class="hist-chip" data-dest="Financeiro"
-                                        onclick="setHistFilter(this)">Financeiro</button>
-                                    <button class="hist-chip" data-dest="Marketing"
-                                        onclick="setHistFilter(this)">Marketing</button>
-                                    <button class="hist-chip" data-dest="Jurídico"
-                                        onclick="setHistFilter(this)">Jurídico</button>
-                                    <button class="hist-chip" data-dest="Administrativo"
-                                        onclick="setHistFilter(this)">Administrativo</button>
-                                </div>
-                                <div class="category-filters hidden" id="category-filters">
-                                    <button class="hist-chip hist-chip--active" data-cat="todas"
-                                        onclick="setCatFilter(this)">Todas categorias</button>
-                                    <button class="hist-chip" data-cat="Urgente" onclick="setCatFilter(this)">Urgente</button>
-                                    <button class="hist-chip" data-cat="Institucional" onclick="setCatFilter(this)">Institucional</button>
-                                    <button class="hist-chip" data-cat="Benefícios" onclick="setCatFilter(this)">Benefícios</button>
-                                    <button class="hist-chip" data-cat="Evento" onclick="setCatFilter(this)">Evento</button>
-                                    <button class="hist-chip" data-cat="Política" onclick="setCatFilter(this)">Política</button>
+                                <div class="filter-dropdown" id="hist-filter-dropdown">
+                                    <button type="button" class="btn-filter-trigger" id="hist-toggle-btn" aria-label="Filtrar comunicados" aria-expanded="false">
+                                        <span>Filtro</span>
+                                        <i class="fas fa-chevron-down filter-chevron"></i>
+                                    </button>
+                                    <div class="filter-menu filter-menu--right" id="hist-filter-menu">
+                                        <p class="filter-menu-label">Categoria</p>
+                                        <div class="category-filters" id="category-filters">
+                                            <button class="hist-chip hist-chip--active" data-cat="todas"
+                                                onclick="setCatFilter(this)">Todas categorias</button>
+                                            <button class="hist-chip" data-cat="Urgente" onclick="setCatFilter(this)">Urgente</button>
+                                            <button class="hist-chip" data-cat="Institucional" onclick="setCatFilter(this)">Institucional</button>
+                                            <button class="hist-chip" data-cat="Benefícios" onclick="setCatFilter(this)">Benefícios</button>
+                                            <button class="hist-chip" data-cat="Evento" onclick="setCatFilter(this)">Evento</button>
+                                            <button class="hist-chip" data-cat="Política" onclick="setCatFilter(this)">Política</button>
+                                        </div>
+
+                                        <div class="dropdown-divider"></div>
+
+                                        <p class="filter-menu-label">Destino</p>
+                                        <div class="history-filters" id="history-filters">
+                                            <button class="hist-chip hist-chip--active" data-dest="todos"
+                                                onclick="setHistFilter(this)">Todos</button>
+                                            <button class="hist-chip" data-dest="TI" onclick="setHistFilter(this)">TI</button>
+                                            <button class="hist-chip" data-dest="RH" onclick="setHistFilter(this)">RH</button>
+                                            <button class="hist-chip" data-dest="Financeiro"
+                                                onclick="setHistFilter(this)">Financeiro</button>
+                                            <button class="hist-chip" data-dest="Marketing"
+                                                onclick="setHistFilter(this)">Marketing</button>
+                                            <button class="hist-chip" data-dest="Jurídico"
+                                                onclick="setHistFilter(this)">Jurídico</button>
+                                            <button class="hist-chip" data-dest="Administrativo"
+                                                onclick="setHistFilter(this)">Administrativo</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -405,19 +415,19 @@
     <div id="engagement-modal" class="edit-modal-overlay hidden">
         <div class="edit-modal-card engagement-modal-card">
             <div class="edit-modal-header">
-                <h3 class="edit-modal-title"><i class="fas fa-chart-pie"></i> Engajamento do Comunicado</h3>
+                <h3 class="edit-modal-title"><i class="fas fa-chart-pie"></i> <span id="engagement-modal-title-text">Engajamento do Comunicado</span></h3>
                 <button type="button" class="edit-modal-close" id="engagement-modal-close" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="edit-modal-body">
                 <div class="engagement-summary" id="engagement-summary"></div>
-                <div class="engagement-section">
+                <div class="engagement-section" id="engagement-dept-section">
                     <h4 class="engagement-section-title">Leitura por departamento</h4>
                     <div class="engagement-dept-list" id="engagement-dept-list"></div>
                 </div>
                 <div class="engagement-section">
-                    <h4 class="engagement-section-title">Quem já leu</h4>
+                    <h4 class="engagement-section-title" id="engagement-readers-title">Quem já leu</h4>
                     <div class="engagement-readers-list" id="engagement-readers-list"></div>
                 </div>
             </div>

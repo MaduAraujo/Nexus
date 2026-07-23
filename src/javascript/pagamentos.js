@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupDeptFilterDropdown('dept-filter-dropdown', 'btn-dept-filter', 'dept-filter-menu', 'dept-filter-chevron');
         setupDeptFilterDropdown('dept-hol-filter-dropdown', 'btn-dept-hol-filter', 'dept-hol-filter-menu', 'dept-hol-filter-chevron');
         setupRescisaoDatePicker();
+        setupRescisaoTipoToggle();
 
         const now = new Date();
         currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
@@ -52,7 +53,7 @@ async function loadData() {
         sb
             .from('employees')
             .select(
-                'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao'
+                'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao,avatar_url'
             )
             .in('status', ['Ativo', 'ativo'])
             .order('name'),
@@ -78,6 +79,7 @@ async function loadData() {
         conducoesdia: e.conducoes_dia,
         benValeRefeicao: e.vale_refeicao ? String(e.vale_refeicao) : null,
         benValeAlimentacao: e.vale_alimentacao ? String(e.vale_alimentacao) : null,
+        avatarUrl: e.avatar_url,
     }));
     payslips = slipData || [];
 }
@@ -320,6 +322,7 @@ window.clearSearch = function () {
 
 function renderFolha() {
     const tbody = document.getElementById('folha-tbody');
+    const cardsEl = document.getElementById('folha-cards');
     if (!tbody) return;
 
     const filtered = allRows.filter((r) => {
@@ -331,6 +334,7 @@ function renderFolha() {
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="10"><div class="table-empty"><i class="fas fa-circle-check"></i><p>Todos os colaboradores já foram pagos nesta competência.</p></div></td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<div class="table-empty"><i class="fas fa-circle-check"></i><p>Todos os colaboradores já foram pagos nesta competência.</p></div>`;
         setText('folha-count', '');
         updateSummary([]);
         updateSelectionUI(filtered);
@@ -338,6 +342,7 @@ function renderFolha() {
     }
 
     tbody.innerHTML = filtered.map((r) => buildFolhaRow(r)).join('');
+    if (cardsEl) cardsEl.innerHTML = filtered.map((r) => buildFolhaCard(r)).join('');
     setText('folha-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''} na folha`);
     updateSummary(filtered);
     updateSelectionUI(filtered);
@@ -361,7 +366,7 @@ function buildFolhaRow(r) {
 
     return `<tr class="${isSelected ? 'row-selected' : ''}">
         <td class="td-check"><input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} onchange="toggleRowSelect('${emp.id}', this)"></td>
-        <td data-label="Colaborador"><div class="emp-cell"><div class="emp-avatar" style="background:${color}">${ini}</div><div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
+        <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
         <td data-label="Contrato">${ctBadge}</td>
         <td data-label="Bruto"><span class="val-blue">${fmtCurrency(calc.bruto)}</span></td>
         <td data-label="INSS"><span class="val-red">${calc.isPJ ? '—' : fmtCurrency(calc.inss)}</span></td>
@@ -372,16 +377,66 @@ function buildFolhaRow(r) {
     </tr>`;
 }
 
+function buildFolhaCard(r) {
+    const { emp, calc, pago } = r;
+    const ini = initials(emp.name);
+    const color = nameToColor(emp.name);
+    const ct = (emp.contractType || 'CLT').toUpperCase();
+
+    const statusBadge = pago
+        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
+        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+
+    const ctBadge = calc.isPJ
+        ? `<span class="badge badge--pj">PJ</span>`
+        : `<span style="font-size:.68rem;color:var(--text-secondary);font-weight:600">${ct}</span>`;
+
+    const isSelected = selectedIds.has(emp.id);
+
+    return `<div class="folha-card-item${isSelected ? ' row-selected' : ''}">
+        <div class="folha-card-top">
+            <label class="folha-card-check">
+                <input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} onchange="toggleRowSelect('${emp.id}', this)">
+            </label>
+            <div class="emp-cell">
+                ${empAvatarHtml(emp, ini, color)}
+                <div>
+                    <p class="emp-name">${escHtml(emp.name)}</p>
+                    <p class="emp-dept">${escHtml(emp.dept || '—')}</p>
+                </div>
+            </div>
+            ${statusBadge}
+        </div>
+        <div class="folha-card-badges">${ctBadge}</div>
+        <div class="folha-card-grid">
+            <div class="folha-card-stat">
+                <span class="folha-card-stat-label">Bruto</span>
+                <span class="val-blue">${fmtCurrency(calc.bruto)}</span>
+            </div>
+            <div class="folha-card-stat">
+                <span class="folha-card-stat-label">INSS</span>
+                <span class="val-red">${calc.isPJ ? '—' : fmtCurrency(calc.inss)}</span>
+            </div>
+            <div class="folha-card-stat">
+                <span class="folha-card-stat-label">IRRF</span>
+                <span class="val-red">${calc.isPJ ? '—' : fmtCurrency(calc.irrf)}</span>
+            </div>
+            <div class="folha-card-stat">
+                <span class="folha-card-stat-label">Benefícios</span>
+                ${calc.benef > 0 ? `<span class="val-blue">${fmtCurrency(calc.benef)}</span>` : '<span>—</span>'}
+            </div>
+        </div>
+        <div class="folha-card-total">
+            <span>Líquido</span>
+            <span class="val-green">${fmtCurrency(calc.liquido)}</span>
+        </div>
+    </div>`;
+}
+
 window.toggleRowSelect = function (empId, cb) {
     if (cb.checked) selectedIds.add(empId);
     else selectedIds.delete(empId);
-
-    const tr = cb.closest('tr');
-    tr?.classList.toggle('row-selected', cb.checked);
-
-    const visibleIds = getVisibleIds();
-    syncHeaderCheckbox(visibleIds);
-    showBulkBar();
+    renderFolha();
 };
 
 window.toggleSelectAll = function (headerCb) {
@@ -511,6 +566,7 @@ window.clearHolSearch = function () {
 
 function renderHolerites(q = '', dept = '') {
     const tbody = document.getElementById('hol-tbody');
+    const cardsEl = document.getElementById('hol-cards');
     if (!tbody) return;
 
     const filtered = allRows.filter((r) => {
@@ -522,6 +578,7 @@ function renderHolerites(q = '', dept = '') {
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="5"><div class="table-empty"><i class="fas fa-file-invoice"></i><p>Nenhum holerite pago nesta competência.</p></div></td></tr>`;
+        if (cardsEl) cardsEl.innerHTML = `<div class="table-empty"><i class="fas fa-file-invoice"></i><p>Nenhum holerite pago nesta competência.</p></div>`;
         setText('hol-count', '');
         return;
     }
@@ -530,31 +587,68 @@ function renderHolerites(q = '', dept = '') {
     const monthLabel = new Date(+year, parseInt(monthNum) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const competLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-    tbody.innerHTML = filtered
-        .map((r) => {
-            const { emp, calc, slip, pago } = r;
-            const ini = initials(emp.name);
-            const color = nameToColor(emp.name);
-
-            const statusBadge = pago
-                ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
-                : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
-
-            return `<tr>
-            <td data-label="Colaborador"><div class="emp-cell"><div class="emp-avatar" style="background:${color}">${ini}</div><div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
-            <td data-label="Competência">${competLabel}</td>
-            <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
-            <td data-label="Status">${statusBadge}</td>
-            <td data-label="Ações"><div class="actions-cell">
-                <button class="btn-action btn-action--view" onclick="verHolerite('${emp.id}')" title="Ver holerite" ${!pago ? 'disabled' : ''}>
-                    <i class="fas fa-eye"></i>
-                </button>
-            </div></td>
-        </tr>`;
-        })
-        .join('');
+    tbody.innerHTML = filtered.map((r) => buildHolRow(r, competLabel)).join('');
+    if (cardsEl) cardsEl.innerHTML = filtered.map((r) => buildHolCard(r, competLabel)).join('');
 
     setText('hol-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''}`);
+}
+
+function buildHolRow(r, competLabel) {
+    const { emp, calc, slip, pago } = r;
+    const ini = initials(emp.name);
+    const color = nameToColor(emp.name);
+
+    const statusBadge = pago
+        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
+        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+
+    return `<tr>
+        <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
+        <td data-label="Competência">${competLabel}</td>
+        <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
+        <td data-label="Status">${statusBadge}</td>
+        <td data-label="Ações"><div class="actions-cell">
+            <button class="btn-action btn-action--view" onclick="verHolerite('${emp.id}')" title="Ver holerite" ${!pago ? 'disabled' : ''}>
+                <i class="fas fa-eye"></i>
+            </button>
+        </div></td>
+    </tr>`;
+}
+
+function buildHolCard(r, competLabel) {
+    const { emp, calc, slip, pago } = r;
+    const ini = initials(emp.name);
+    const color = nameToColor(emp.name);
+
+    const statusBadge = pago
+        ? `<span class="badge badge--pago"><i class="fas fa-check"></i> Pago</span>`
+        : `<span class="badge badge--pendente"><i class="fas fa-clock"></i> Pendente</span>`;
+
+    return `<div class="folha-card-item">
+        <div class="folha-card-top">
+            <div class="emp-cell">
+                ${empAvatarHtml(emp, ini, color)}
+                <div>
+                    <p class="emp-name">${escHtml(emp.name)}</p>
+                    <p class="emp-dept">${escHtml(emp.dept || '—')}</p>
+                </div>
+            </div>
+            ${statusBadge}
+        </div>
+        <div class="folha-card-grid folha-card-grid--1col">
+            <div class="folha-card-stat">
+                <span class="folha-card-stat-label">Competência</span>
+                <span>${competLabel}</span>
+            </div>
+        </div>
+        <div class="folha-card-total">
+            <span>Líquido</span>
+            <span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span>
+        </div>
+        <button type="button" class="btn-secondary folha-card-btn" onclick="verHolerite('${emp.id}')" ${!pago ? 'disabled' : ''}>
+            <i class="fas fa-eye"></i> Ver Holerite
+        </button>
+    </div>`;
 }
 
 window.verHolerite = function (empId) {
@@ -644,7 +738,7 @@ function renderSlipModal(emp, slip) {
             <div class="slip-field"><span class="slip-field-label">Contrato</span><span class="slip-field-value">${escHtml(emp.contractType || 'CLT')}</span></div>
             ${emp.admissionDate ? `<div class="slip-field"><span class="slip-field-label">Admissão</span><span class="slip-field-value">${fmtDate(emp.admissionDate)}</span></div>` : ''}
         </div>
-        ${isPago ? `<div class="slip-status-stamp"><i class="fas fa-circle-check"></i> PAGAMENTO EFETUADO</div>` : ''}
+        ${isPago ? `<div class="slip-status-stamp"><i class="fas fa-circle-check"></i> <span class="slip-status-stamp-label">PAGAMENTO EFETUADO</span></div>` : ''}
     </div>
 
     <p class="slip-section-title">Proventos</p>
@@ -847,6 +941,11 @@ window.openRescisaoModal = function () {
     document.getElementById('rescisao-admissao').value = '';
     document.getElementById('rescisao-salario').value = '';
     window.setRescisaoDate?.('');
+    const tipoHidden = document.getElementById('rescisao-tipo');
+    if (tipoHidden) tipoHidden.value = 'sem_justa_causa';
+    document
+        .querySelectorAll('#rescisao-tipo-toggle .type-toggle-card')
+        .forEach((c) => c.classList.toggle('active', c.dataset.tipo === 'sem_justa_causa'));
     const errEl = document.getElementById('rescisao-error');
     if (errEl) errEl.textContent = '';
     document.getElementById('rescisao-result')?.classList.add('hidden');
@@ -854,12 +953,13 @@ window.openRescisaoModal = function () {
     document.getElementById('btn-calcular-rescisao')?.classList.remove('hidden');
     setRescisaoInputsDisabled(false);
     lastRescisaoCalc = null;
+    updateRescisaoBtnState();
     openModal('rescisao-modal');
 };
 
 function setRescisaoInputsDisabled(disabled) {
     document.getElementById('rescisao-emp').disabled = disabled;
-    document.getElementById('rescisao-tipo').disabled = disabled;
+    document.getElementById('rescisao-tipo-toggle')?.classList.toggle('disabled', disabled);
     document.getElementById('rescisao-data-trigger').disabled = disabled;
 }
 
@@ -868,7 +968,17 @@ window.onRescisaoEmpChange = function () {
     const emp = employees.find((e) => e.id === empId);
     document.getElementById('rescisao-admissao').value = emp ? fmtDate(emp.admissionDate) : '';
     document.getElementById('rescisao-salario').value = emp ? fmtCurrency(emp.salary) : '';
+    updateRescisaoBtnState();
 };
+
+function updateRescisaoBtnState() {
+    const btn = document.getElementById('btn-calcular-rescisao');
+    if (!btn) return;
+    const empId = document.getElementById('rescisao-emp')?.value || '';
+    const tipo = document.getElementById('rescisao-tipo')?.value || '';
+    const data = document.getElementById('rescisao-data')?.value || '';
+    btn.disabled = !(empId && tipo && data);
+}
 
 window.calcularRescisaoModal = async function () {
     const errEl = document.getElementById('rescisao-error');
@@ -1159,6 +1269,7 @@ function setupRescisaoDatePicker() {
     function setValue(y, m, d) {
         hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
         label.textContent = `${pad0(d)}/${pad0(m + 1)}/${y}`;
+        updateRescisaoBtnState();
     }
 
     function render() {
@@ -1247,6 +1358,7 @@ function setupRescisaoDatePicker() {
         if (!dateStr) {
             hidden.value = '';
             label.textContent = 'Selecione a data';
+            updateRescisaoBtnState();
             return;
         }
         const [y, m, d] = dateStr.split('-').map(Number);
@@ -1254,6 +1366,19 @@ function setupRescisaoDatePicker() {
         viewYear = y;
         viewMonth = m - 1;
     };
+}
+
+function setupRescisaoTipoToggle() {
+    const toggle = document.getElementById('rescisao-tipo-toggle');
+    const hidden = document.getElementById('rescisao-tipo');
+    if (!toggle || !hidden) return;
+    toggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('.type-toggle-card');
+        if (!btn) return;
+        hidden.value = btn.dataset.tipo;
+        toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c === btn));
+        updateRescisaoBtnState();
+    });
 }
 
 window.printCurrentSlip = function () {
@@ -1665,6 +1790,7 @@ function closeModal(id) {
 }
 window.closeModal = closeModal;
 window.handleOverlayClick = function (e, id) {
+    if (id === 'slip-modal') return;
     if (e.target === document.getElementById(id)) closeModal(id);
 };
 
@@ -1746,6 +1872,11 @@ function nameToColor(name) {
     let h = 0;
     for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
     return p[Math.abs(h) % p.length];
+}
+
+function empAvatarHtml(emp, ini, color) {
+    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
 }
 
 function escHtml(str) {

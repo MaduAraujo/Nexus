@@ -159,7 +159,7 @@
 
                     <div class="summary-row" id="summary-row">
                         <div class="summary-item">
-                            <span class="summary-label">Salários Brutos</span>
+                            <span class="summary-label">Total Brutos</span>
                             <span class="summary-value blue" id="sum-bruto">R$ 0,00</span>
                         </div>
                         <div class="summary-item">
@@ -198,6 +198,7 @@
                             <tbody id="folha-tbody"></tbody>
                         </table>
                     </div>
+                    <div class="folha-cards" id="folha-cards"></div>
                     <p class="table-count" id="folha-count"></p>
                 </div>
 
@@ -237,6 +238,7 @@
                             <tbody id="hol-tbody"></tbody>
                         </table>
                     </div>
+                    <div class="folha-cards" id="hol-cards"></div>
                     <p class="table-count" id="hol-count"></p>
                 </div>
             </main>
@@ -249,7 +251,7 @@
                 <div class="modal-head-info">
                     <div class="modal-head-icon"><i class="fas fa-file-invoice-dollar"></i></div>
                     <div>
-                        <h3 class="modal-title">Holerite de Pagamento</h3>
+                        <h3 class="modal-title">Holerite</h3>
                         <p class="modal-sub" id="slip-modal-sub">—</p>
                     </div>
                 </div>
@@ -257,7 +259,7 @@
             </div>
             <div class="modal-body" id="slip-modal-body"></div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('slip-modal')">Fechar</button>
+                <button class="btn-secondary" id="btn-close-slip" onclick="closeModal('slip-modal')">Fechar</button>
                 <button class="btn-secondary" id="btn-print-slip" onclick="printCurrentSlip()">
                     <i class="fas fa-print"></i> Imprimir
                 </button>
@@ -292,23 +294,17 @@
     <div class="modal-overlay" id="rescisao-modal">
         <div class="modal-card modal-card--lg">
             <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon"><i class="fas fa-right-from-bracket"></i></div>
-                    <div>
-                        <h3 class="modal-title">Simulador de Rescisão</h3>
-                        <p class="modal-sub">Estimativa de custo de desligamento antes de decidir</p>
-                    </div>
-                </div>
-                <button class="modal-close" onclick="closeModal('rescisao-modal')"><i class="fas fa-times"></i></button>
+                <h3 class="modal-title"><i class="fas fa-right-from-bracket"></i> Simulador de Rescisão</h3>
+                <button class="modal-close" onclick="closeModal('rescisao-modal')"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="modal-alert warning">
-                    <i class="fas fa-triangle-exclamation"></i>
+                <div class="modal-alert info">
+                    <i class="fas fa-circle-info"></i>
                     Estimativa simplificada para planejamento interno — não substitui o cálculo trabalhista oficial.
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="rescisao-emp">Colaborador</label>
+                    <label class="form-label" for="rescisao-emp">Colaborador <span class="req">*</span></label>
                     <select id="rescisao-emp" class="form-input" onchange="onRescisaoEmpChange()">
                         <option value="">Selecione</option>
                     </select>
@@ -325,35 +321,55 @@
                     </div>
                 </div>
 
-                <div class="form-row-2">
-                    <div class="form-group">
-                        <label class="form-label" for="rescisao-tipo">Tipo de Rescisão</label>
-                        <select id="rescisao-tipo" class="form-input">
-                            <option value="sem_justa_causa">Sem Justa Causa (dispensa pelo empregador)</option>
-                            <option value="pedido_demissao">Pedido de Demissão</option>
-                            <option value="acordo_mutuo">Acordo Mútuo (Distrato)</option>
-                            <option value="justa_causa">Justa Causa (falta grave do empregado)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="rescisao-data-trigger">Data de Desligamento</label>
-                        <div class="date-field-wrap" id="rescisao-data-wrap">
-                            <button type="button" class="form-input date-field-trigger" id="rescisao-data-trigger">
-                                <i class="fas fa-calendar-day"></i>
-                                <span id="rescisao-data-label">Selecione a data</span>
-                            </button>
-                            <input type="hidden" id="rescisao-data">
-                            <div class="calendar-popover" id="rescisao-data-popover">
-                                <div class="calendar-header">
-                                    <button type="button" class="calendar-nav-btn" id="rescisao-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                    <span class="calendar-title" id="rescisao-data-title">—</span>
-                                    <button type="button" class="calendar-nav-btn" id="rescisao-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
-                                </div>
-                                <div class="calendar-weekdays">
-                                    <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
-                                </div>
-                                <div class="calendar-grid" id="rescisao-data-grid"></div>
+                <div class="form-group">
+                    <label class="form-label">Tipo de Rescisão <span class="req">*</span></label>
+                    <div class="type-toggle" id="rescisao-tipo-toggle">
+                        <button type="button" class="type-toggle-card active" data-tipo="sem_justa_causa">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Sem Justa Causa</span>
+                                <span class="type-toggle-sub">Dispensa pelo empregador</span>
                             </div>
+                        </button>
+                        <button type="button" class="type-toggle-card" data-tipo="pedido_demissao">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Pedido de Demissão</span>
+                                <span class="type-toggle-sub">Pedido do colaborador</span>
+                            </div>
+                        </button>
+                        <button type="button" class="type-toggle-card" data-tipo="acordo_mutuo">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Acordo Mútuo</span>
+                                <span class="type-toggle-sub">Distrato consensual</span>
+                            </div>
+                        </button>
+                        <button type="button" class="type-toggle-card" data-tipo="justa_causa">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Justa Causa</span>
+                                <span class="type-toggle-sub">Falta grave do colaborador</span>
+                            </div>
+                        </button>
+                    </div>
+                    <input type="hidden" id="rescisao-tipo" value="sem_justa_causa">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="rescisao-data-trigger">Data de Desligamento <span class="req">*</span></label>
+                    <div class="date-field-wrap" id="rescisao-data-wrap">
+                        <button type="button" class="form-input date-field-trigger" id="rescisao-data-trigger">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="rescisao-data-label">Selecione a data</span>
+                        </button>
+                        <input type="hidden" id="rescisao-data">
+                        <div class="calendar-popover" id="rescisao-data-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="rescisao-data-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="rescisao-data-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="rescisao-data-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="rescisao-data-grid"></div>
                         </div>
                     </div>
                 </div>
@@ -362,7 +378,7 @@
                 <div id="rescisao-result" class="hidden"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" id="btn-calcular-rescisao" onclick="calcularRescisaoModal()">
+                <button class="btn-primary" id="btn-calcular-rescisao" onclick="calcularRescisaoModal()" disabled>
                     Calcular
                 </button>
                 <button class="btn-danger hidden" id="btn-confirmar-desligamento" onclick="confirmarDesligamento()">

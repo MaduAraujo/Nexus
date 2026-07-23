@@ -1211,6 +1211,8 @@ ul {
     font-weight: 700;
     color: #fff;
     flex-shrink: 0;
+    background-size: cover;
+    background-position: center;
     box-shadow:
         0 2px 6px rgba(0, 0, 0, 0.14),
         inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -1420,6 +1422,137 @@ ul {
     font-weight: 500;
 }
 
+.folha-cards {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.folha-card-item {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 16px;
+    transition:
+        border-color 0.18s var(--ease),
+        box-shadow 0.18s var(--ease);
+}
+.folha-card-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent-gradient);
+}
+.folha-card-item.row-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.folha-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.folha-card-check {
+    flex-shrink: 0;
+    display: flex;
+}
+.folha-card-top .emp-cell {
+    flex: 1;
+    min-width: 0;
+}
+.folha-card-top .emp-name,
+.folha-card-top .emp-dept {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.folha-card-top .emp-name {
+    font-size: 0.82rem;
+}
+.folha-card-top .emp-dept {
+    font-size: 0.68rem;
+}
+.folha-card-top .badge {
+    flex-shrink: 0;
+    font-size: 0.64rem;
+    padding: 3px 8px;
+}
+
+.folha-card-badges {
+    margin-bottom: 12px;
+}
+
+.folha-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    padding: 12px;
+    background: var(--bg-page);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+.folha-card-grid--1col {
+    grid-template-columns: 1fr;
+}
+.folha-card-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.folha-card-stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+.folha-card-stat span:last-child {
+    font-size: 0.76rem;
+}
+
+.folha-card-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+.folha-card-total span:first-child {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.folha-card-total .val-green {
+    font-size: 0.92rem;
+}
+
+.folha-card-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 12px;
+}
+.folha-card-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.folha-card-btn:disabled:hover {
+    background: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text-primary);
+    transform: none;
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1515,6 +1648,13 @@ ul {
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.modal-title i {
+    color: var(--accent);
+    font-size: 0.95rem;
 }
 .modal-sub {
     font-size: 0.8rem;
@@ -1676,11 +1816,71 @@ select.form-input {
     color: #92400e;
     border: 1px solid #fde68a;
 }
+.modal-alert.info {
+    display: flex;
+    background: var(--info-bg);
+    color: var(--info);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
 .modal-alert.error:empty {
     display: none;
 }
 .modal-alert i {
     flex-shrink: 0;
+}
+
+.req {
+    color: var(--danger);
+}
+
+.type-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.type-toggle.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+}
+.type-toggle-card {
+    flex: 1 1 180px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-page);
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    transition:
+        border-color 0.18s var(--ease),
+        background 0.18s var(--ease),
+        box-shadow 0.18s var(--ease);
+}
+.type-toggle-card:hover {
+    border-color: var(--accent);
+}
+.type-toggle-card.active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.type-toggle-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+.type-toggle-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.type-toggle-sub {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
 }
 
 .slip-header {
@@ -1720,12 +1920,16 @@ select.form-input {
     margin-top: 1px;
 }
 .slip-period {
-    font-size: 0.78rem;
-    opacity: 0.75;
-    background: rgba(255, 255, 255, 0.12);
-    padding: 5px 12px;
-    border-radius: 20px;
-    white-space: nowrap;
+    display: none;
+}
+
+#btn-close-slip,
+#btn-print-slip {
+    display: none;
+}
+
+#slip-modal .modal-footer {
+    display: none;
 }
 .slip-employee-row {
     display: grid;
@@ -1751,7 +1955,7 @@ select.form-input {
 }
 
 .slip-status-stamp {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 6px;
     background: rgba(34, 197, 94, 0.2);
@@ -1762,6 +1966,8 @@ select.form-input {
     font-size: 0.75rem;
     font-weight: 700;
     margin-top: 12px;
+    width: fit-content;
+    margin-left: auto;
 }
 
 .slip-section-title {
@@ -1826,6 +2032,7 @@ select.form-input {
     border-radius: 10px;
     padding: 14px 16px;
     border: 1px solid var(--border);
+    text-align: center;
 }
 .slip-total-box.green {
     background: var(--success-bg);
@@ -2069,6 +2276,17 @@ select.form-input {
 }
 
 @media (max-width: 768px) {
+    .topbar-date {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        gap: 0;
+        justify-content: center;
+    }
+    .topbar-date span {
+        display: none;
+    }
+
     .content {
         padding: 16px;
         gap: 16px;
@@ -2076,14 +2294,6 @@ select.form-input {
     .stats-row {
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-    }
-    .filters-bar {
-        flex-direction: column;
-        align-items: stretch;
-        justify-content: flex-start;
-    }
-    .search-wrapper {
-        max-width: 100%;
     }
     .folha-toolbar {
         flex-direction: column;
@@ -2115,6 +2325,14 @@ select.form-input {
         flex: 1;
         justify-content: center;
     }
+    .table-wrap:has(#folha-tbody),
+    .table-wrap:has(#hol-tbody) {
+        display: none;
+    }
+    .folha-cards {
+        display: flex;
+    }
+
     .req-table thead {
         display: none;
     }
@@ -2152,6 +2370,17 @@ select.form-input {
     }
     .actions-cell {
         justify-content: flex-end;
+    }
+
+    .slip-status-stamp {
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 50%;
+        justify-content: center;
+    }
+    .slip-status-stamp-label {
+        display: none;
     }
 }
 

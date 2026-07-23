@@ -30,7 +30,6 @@
     const scheduleSummaryText = document.getElementById('schedule-summary-text');
     const scheduleSummaryEdit = document.getElementById('schedule-summary-edit');
     const catInlineGrid = document.getElementById('cat-inline-grid');
-    const categoryFilters = document.getElementById('category-filters');
     const templatesToggleBtn = document.getElementById('templates-toggle-btn');
     const templatesMenu = document.getElementById('templates-menu');
     const templatesMenuList = document.getElementById('templates-menu-list');
@@ -81,7 +80,7 @@
     };
     const categoriaBadge = (cat) => {
         const info = CATEGORIA_INFO[cat] || CATEGORIA_INFO['Institucional'];
-        return `<span class="badge-cat ${info.cls}"><i class="fas ${info.icon}"></i> ${escHTML(cat)}</span>`;
+        return `<span class="badge-cat ${info.cls}">${escHTML(cat)}</span>`;
     };
 
     const DEPT_LABELS = {
@@ -842,13 +841,22 @@
     };
 
     const histToggleBtn = document.getElementById('hist-toggle-btn');
-    const historyFilters = document.getElementById('history-filters');
+    const histFilterMenu = document.getElementById('hist-filter-menu');
 
-    histToggleBtn?.addEventListener('click', () => {
-        const open = historyFilters?.classList.toggle('hidden') === false;
-        categoryFilters?.classList.toggle('hidden', !open);
+    histToggleBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = !histFilterMenu?.classList.contains('open');
+        histFilterMenu?.classList.toggle('open', open);
         histToggleBtn.classList.toggle('open', open);
         histToggleBtn.setAttribute('aria-expanded', String(open));
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#hist-filter-dropdown')) {
+            histFilterMenu?.classList.remove('open');
+            histToggleBtn?.classList.remove('open');
+            histToggleBtn?.setAttribute('aria-expanded', 'false');
+        }
     });
 
     searchInput?.addEventListener('input', (e) => {
@@ -931,17 +939,23 @@
                 <div class="msg-card-body">
                     <div class="msg-card-top">
                         <span class="msg-card-date">${escHTML(fmtDate(m.created_at))}</span>
-                        ${categoriaBadge(m.categoria)}
-                        <span class="msg-card-dest">${escHTML(m.destino)}</span>
-                        ${readsBadge(m)}
                         ${anexos.length ? `<button type="button" class="attach-badge" data-id="${m.id}"><i class="fas fa-paperclip"></i> ${anexos.length}</button>` : ''}
                     </div>
                     <div class="msg-card-text" title="${t}">${t}</div>
+                    <div class="msg-card-details hidden">
+                        ${categoriaBadge(m.categoria)}
+                        <span class="badge-dest">${escHTML(m.destino)}</span>
+                    </div>
                     ${scheduledBadge(m)}
                 </div>
-                <div class="msg-card-actions">
-                    <button class="edit-btn" data-id="${m.id}" aria-label="Editar"><i class="fas fa-pen"></i></button>
-                    <button class="delete-btn" data-id="${m.id}" aria-label="Excluir"><i class="fas fa-trash"></i></button>
+                <div class="msg-card-corner">
+                    ${readsBadge(m)}
+                    <button type="button" class="msg-card-menu-btn" data-id="${m.id}" aria-label="Mais opções" aria-expanded="false">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                    <button type="button" class="msg-card-expand-btn" aria-label="Ver categoria e destino" aria-expanded="false">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
                 </div>
             </div>`;
             })
@@ -995,6 +1009,71 @@
         if (attachPopover && !e.target.closest('.attach-popover') && !e.target.closest('.attach-badge')) closeAttachPopover();
     });
 
+    let cardMenuPopover = null;
+    let cardMenuBtnEl = null;
+
+    function closeCardMenuPopover() {
+        cardMenuPopover?.remove();
+        cardMenuPopover = null;
+        cardMenuBtnEl?.classList.remove('open');
+        cardMenuBtnEl?.setAttribute('aria-expanded', 'false');
+        cardMenuBtnEl = null;
+    }
+
+    function toggleCardMenuPopover(btn, msgId) {
+        const reopening = cardMenuBtnEl === btn;
+        closeCardMenuPopover();
+        if (reopening) return;
+
+        const rect = btn.getBoundingClientRect();
+        const pop = document.createElement('div');
+        pop.className = 'msg-card-menu-popover';
+        pop.innerHTML = `
+            <button type="button" class="msg-card-menu-item" data-action="edit"><i class="fas fa-pen"></i> Editar</button>
+            <button type="button" class="msg-card-menu-item msg-card-menu-item--danger" data-action="delete"><i class="fas fa-trash"></i> Excluir</button>
+        `;
+        pop.style.top = `${rect.bottom + window.scrollY + 6}px`;
+        pop.style.right = `${window.innerWidth - rect.right}px`;
+        pop.addEventListener('click', (e) => {
+            const item = e.target.closest('.msg-card-menu-item');
+            if (!item) return;
+            closeCardMenuPopover();
+            if (item.dataset.action === 'edit') {
+                const msg = dbMensagens.find((m) => m.id === msgId);
+                if (msg) openEditModal(msg);
+            } else if (item.dataset.action === 'delete') {
+                openConfirmDeleteModal(msgId);
+            }
+        });
+        document.body.appendChild(pop);
+        cardMenuPopover = pop;
+        cardMenuBtnEl = btn;
+        btn.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+    }
+
+    document.addEventListener('click', (e) => {
+        if (cardMenuPopover && !e.target.closest('.msg-card-menu-popover') && !e.target.closest('.msg-card-menu-btn')) closeCardMenuPopover();
+    });
+
+    messagesCards?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.msg-card-menu-btn');
+        if (btn) {
+            e.stopPropagation();
+            toggleCardMenuPopover(btn, btn.dataset.id);
+        }
+    });
+
+    messagesCards?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.msg-card-expand-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        const details = btn.closest('.msg-card-item')?.querySelector('.msg-card-details');
+        const open = details?.classList.toggle('hidden') === false;
+        btn.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', String(open));
+    });
+
     messagesList?.addEventListener('click', (e) => {
         const btn = e.target.closest('.attach-badge');
         if (btn) toggleAttachPopover(btn, btn.dataset.id);
@@ -1006,9 +1085,13 @@
 
     const engagementModal = document.getElementById('engagement-modal');
     const engagementModalClose = document.getElementById('engagement-modal-close');
+    const engagementModalTitleText = document.getElementById('engagement-modal-title-text');
     const engagementSummary = document.getElementById('engagement-summary');
+    const engagementDeptSection = document.getElementById('engagement-dept-section');
     const engagementDeptList = document.getElementById('engagement-dept-list');
+    const engagementReadersTitle = document.getElementById('engagement-readers-title');
     const engagementReadersList = document.getElementById('engagement-readers-list');
+    const statCardLeituras = document.getElementById('stat-card-leituras');
     let engagementRequestId = 0;
 
     function closeEngagementModal() {
@@ -1016,12 +1099,18 @@
         document.body.style.overflow = '';
     }
 
-    async function openEngagementModal(msgId) {
-        const msg = dbMensagens.find((m) => m.id === msgId);
-        if (!msg) return;
+    async function openEngagementModal(msgId, { readersOnly = false } = {}) {
+        const isGlobal = !msgId;
+        const relevantMsgs = isGlobal ? dbMensagens.filter(isLive) : dbMensagens.filter((m) => m.id === msgId);
+        if (!relevantMsgs.length) return;
+        const liveIds = relevantMsgs.map((m) => m.id);
 
         engagementModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        if (engagementModalTitleText) engagementModalTitleText.textContent = readersOnly ? 'Quem já leu' : isGlobal ? 'Engajamento Geral' : 'Engajamento do Comunicado';
+        engagementSummary?.classList.toggle('hidden', readersOnly);
+        engagementDeptSection?.classList.toggle('hidden', readersOnly);
+        engagementReadersTitle?.classList.toggle('hidden', readersOnly);
         if (engagementSummary) engagementSummary.innerHTML = '';
         if (engagementDeptList) engagementDeptList.innerHTML = `<div class="reads-popover-loading"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>`;
         if (engagementReadersList) engagementReadersList.innerHTML = '';
@@ -1030,17 +1119,20 @@
         const { data } = await sb
             .from('message_reads')
             .select('read_at, employees(name, dept, avatar_color, avatar_url)')
-            .eq('message_id', msgId)
+            .in('message_id', liveIds)
             .order('read_at', { ascending: false });
         if (requestId !== engagementRequestId) return;
 
         const rows = data || [];
-        const recipients = dbEmployees.filter((e) => e.status === 'Ativo' && (msg.destino === 'Todos' || e.dept === msg.destino));
 
         const deptTotals = {};
-        recipients.forEach((e) => {
-            const dept = e.dept || 'Sem departamento';
-            deptTotals[dept] = (deptTotals[dept] || 0) + 1;
+        relevantMsgs.forEach((m) => {
+            dbEmployees
+                .filter((e) => e.status === 'Ativo' && (m.destino === 'Todos' || e.dept === m.destino))
+                .forEach((e) => {
+                    const dept = e.dept || 'Sem departamento';
+                    deptTotals[dept] = (deptTotals[dept] || 0) + 1;
+                });
         });
         const deptReads = {};
         rows.forEach((r) => {
@@ -1048,7 +1140,7 @@
             if (dept in deptTotals) deptReads[dept] = (deptReads[dept] || 0) + 1;
         });
 
-        const totalRecipients = recipients.length;
+        const totalRecipients = Object.values(deptTotals).reduce((sum, n) => sum + n, 0);
         const totalReads = rows.length;
         const overallRate = totalRecipients ? Math.round((totalReads / totalRecipients) * 100) : 0;
 
@@ -1070,7 +1162,7 @@
                           return `<div class="engagement-dept-row">
                 <div class="engagement-dept-info">
                     <span class="engagement-dept-name">${escHTML(deptLabel(dept))}</span>
-                    <span class="engagement-dept-count">${read}/${total} · ${pct}%</span>
+                    <span class="engagement-dept-count">${read}/${total}<span class="engagement-dept-pct"> · ${pct}%</span></span>
                 </div>
                 <div class="engagement-dept-bar"><div class="engagement-dept-bar-fill" style="width:${pct}%"></div></div>
             </div>`;
@@ -1104,21 +1196,26 @@
                 : `<div class="reads-popover-empty">Nenhuma leitura ainda.</div>`;
     }
 
-    engagementModalClose?.addEventListener('click', closeEngagementModal);
-    engagementModal?.addEventListener('click', (e) => {
-        if (e.target === engagementModal) closeEngagementModal();
+    statCardLeituras?.addEventListener('click', () => openEngagementModal(null));
+    statCardLeituras?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openEngagementModal(null);
+        }
     });
+
+    engagementModalClose?.addEventListener('click', closeEngagementModal);
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !engagementModal?.classList.contains('hidden')) closeEngagementModal();
     });
 
     messagesList?.addEventListener('click', (e) => {
         const btn = e.target.closest('.reads-badge');
-        if (btn) openEngagementModal(btn.dataset.id);
+        if (btn) openEngagementModal(btn.dataset.id, { readersOnly: true });
     });
     messagesCards?.addEventListener('click', (e) => {
         const btn = e.target.closest('.reads-badge');
-        if (btn) openEngagementModal(btn.dataset.id);
+        if (btn) openEngagementModal(btn.dataset.id, { readersOnly: true });
     });
 
     const editModal = document.getElementById('edit-modal');
@@ -1354,7 +1451,6 @@
     }
 
     messagesList?.addEventListener('click', handleEdit);
-    messagesCards?.addEventListener('click', handleEdit);
 
     const confirmDeleteModal = document.getElementById('confirm-delete-modal');
     const confirmDeleteCancel = document.getElementById('confirm-delete-cancel');
@@ -1403,7 +1499,6 @@
     }
 
     messagesList?.addEventListener('click', handleDelete);
-    messagesCards?.addEventListener('click', handleDelete);
 
     sb.channel('messages-rh')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
