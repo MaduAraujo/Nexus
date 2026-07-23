@@ -1057,8 +1057,8 @@ html {
 }
 
 .calendar-popover {
-    position: absolute;
-    top: calc(100% + 12px);
+    position: fixed;
+    top: 0;
     left: 0;
     width: 296px;
     max-width: calc(100vw - 32px);
@@ -1182,8 +1182,8 @@ html {
 }
 
 .time-popover {
-    position: absolute;
-    top: calc(100% + 12px);
+    position: fixed;
+    top: 0;
     left: 0;
     width: 180px;
     max-width: calc(100vw - 32px);

@@ -36,6 +36,26 @@ const EMPRESA = {
 const pad0 = (n) => String(n).padStart(2, '0');
 const $ = (id) => document.getElementById(id);
 
+function positionFixedPopover(trigger, popover) {
+    const margin = 8;
+    const rect = trigger.getBoundingClientRect();
+    const popW = popover.offsetWidth;
+    const popH = popover.offsetHeight;
+
+    let left = rect.left;
+    left = Math.min(left, window.innerWidth - popW - margin);
+    left = Math.max(margin, left);
+
+    let top = rect.bottom + 12;
+    if (top + popH > window.innerHeight - margin) {
+        const above = rect.top - popH - 12;
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - popH - margin);
+    }
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+}
+
 function esc(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -416,6 +436,10 @@ function setupMonthFilterPicker() {
             .join('');
     }
 
+    function reposition() {
+        positionFixedPopover(trigger, popover);
+    }
+
     function open() {
         const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
         viewYear = selYear || today.getFullYear();
@@ -424,8 +448,11 @@ function setupMonthFilterPicker() {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
+        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
+        document.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -434,6 +461,8 @@ function setupMonthFilterPicker() {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
+        document.removeEventListener('scroll', reposition, true);
+        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -464,6 +493,7 @@ function setupMonthFilterPicker() {
             viewYear--;
         }
         render();
+        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -473,6 +503,7 @@ function setupMonthFilterPicker() {
             viewYear++;
         }
         render();
+        reposition();
     });
 
     selectMonth(today.getFullYear(), today.getMonth());
@@ -1485,13 +1516,20 @@ function createSimpleDayPicker(prefix) {
             .join('');
     }
 
+    function reposition() {
+        positionFixedPopover(trigger, popover);
+    }
+
     function open() {
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
+        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
+        document.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -1500,6 +1538,8 @@ function createSimpleDayPicker(prefix) {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
+        document.removeEventListener('scroll', reposition, true);
+        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -1531,6 +1571,7 @@ function createSimpleDayPicker(prefix) {
             viewYear--;
         }
         render();
+        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1540,6 +1581,7 @@ function createSimpleDayPicker(prefix) {
             viewYear++;
         }
         render();
+        reposition();
     });
 
     return {
@@ -1576,14 +1618,21 @@ function setupHorarioPicker() {
         col.querySelectorAll('.time-item').forEach((btn) => btn.classList.toggle('time-item--selected', Number(btn.dataset[attr]) === value));
     }
 
+    function reposition() {
+        positionFixedPopover(trigger, popover);
+    }
+
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
+        reposition();
         (hoursCol.querySelector('.time-item--selected') || hoursCol.firstElementChild)?.scrollIntoView({ block: 'center' });
         (minsCol.querySelector('.time-item--selected') || minsCol.firstElementChild)?.scrollIntoView({ block: 'center' });
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
+        document.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -1592,6 +1641,8 @@ function setupHorarioPicker() {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
+        document.removeEventListener('scroll', reposition, true);
+        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {

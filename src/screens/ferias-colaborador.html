@@ -16,6 +16,11 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
         </div>
+        <div class="topbar-right">
+            <button class="btn-icon-topbar" id="btn-solicitar" onclick="openRequestModal()" aria-label="Solicitar Férias" title="Solicitar Férias">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
     </header>
 
     <main class="content">
@@ -56,10 +61,6 @@
 
             <div class="section-header-row">
                 <h2 class="section-title">Histórico de Férias</h2>
-                <button class="btn-solicitar" id="btn-solicitar" onclick="openRequestModal()">
-                    <i class="fas fa-plus"></i>
-                    Solicitar Férias
-                </button>
             </div>
 
             <div class="timeline-section">
@@ -86,7 +87,7 @@
                     <div class="empty-state" id="history-empty">
                         <div class="empty-icon"><i class="fas fa-umbrella-beach"></i></div>
                         <p class="empty-title">Nenhuma solicitação ainda</p>
-                        <p class="empty-sub">Clique em "Solicitar Férias" para enviar seu pedido.</p>
+                        <p class="empty-sub">Clique em + para enviar seu pedido.</p>
                     </div>
                 </div>
             </div>

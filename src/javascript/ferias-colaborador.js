@@ -5,6 +5,26 @@ let colleagues = [];
 let availableDays = 0;
 let acquisitivePeriod = null;
 
+function positionFixedPopover(trigger, popover) {
+    const margin = 8;
+    const rect = trigger.getBoundingClientRect();
+    const popW = popover.offsetWidth;
+    const popH = popover.offsetHeight;
+
+    let left = rect.left;
+    left = Math.min(left, window.innerWidth - popW - margin);
+    left = Math.max(margin, left);
+
+    let top = rect.bottom + 8;
+    if (top + popH > window.innerHeight - margin) {
+        const above = rect.top - popH - 8;
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - popH - margin);
+    }
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
@@ -539,6 +559,10 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             .join('');
     }
 
+    function reposition() {
+        positionFixedPopover(trigger, popover);
+    }
+
     function open() {
         allDatePickers.forEach((p) => p !== api && p.close());
         const base = selected || getMin?.() || new Date();
@@ -548,8 +572,11 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
+        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
+        document.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -558,6 +585,8 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
+        document.removeEventListener('scroll', reposition, true);
+        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -592,6 +621,7 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             viewYear--;
         }
         render();
+        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -601,6 +631,7 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             viewYear++;
         }
         render();
+        reposition();
     });
 
     const api = {

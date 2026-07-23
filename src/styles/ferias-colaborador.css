@@ -175,6 +175,41 @@ button {
     stroke: currentColor;
 }
 
+.btn-icon-topbar {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-on-dark);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    cursor: pointer;
+    transition:
+        background 0.18s var(--ease),
+        border-color 0.18s var(--ease),
+        color 0.18s var(--ease),
+        transform 0.15s var(--ease);
+    font-family: 'DM Sans', sans-serif;
+}
+.btn-icon-topbar:hover {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.btn-icon-topbar:active {
+    transform: translateY(0);
+}
+.btn-icon-topbar:disabled {
+    cursor: not-allowed;
+    transform: none;
+}
+.btn-icon-topbar i {
+    font-size: 0.85rem;
+}
+
 .btn-logout {
     display: inline-flex;
     align-items: center;
@@ -334,31 +369,6 @@ button {
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-main);
-}
-
-.btn-solicitar {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: var(--accent);
-    color: #fff;
-    border-radius: 9px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    transition:
-        background 0.2s,
-        transform 0.15s,
-        box-shadow 0.2s;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-}
-.btn-solicitar:hover {
-    background: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-}
-.btn-solicitar:active {
-    transform: translateY(0);
 }
 
 .timeline-card {
@@ -776,7 +786,7 @@ button {
     pointer-events: all;
 }
 .modal-overlay.active .modal-card {
-    transform: translateY(0) scale(1);
+    transform: none;
 }
 
 .modal-card {
@@ -959,10 +969,11 @@ button {
 }
 
 .calendar-popover {
-    position: absolute;
-    top: calc(100% + 8px);
+    position: fixed;
+    top: 0;
     left: 0;
     width: 264px;
+    max-width: calc(100vw - 16px);
     background: var(--bg-white);
     border: 1px solid var(--border-color);
     border-radius: 14px;
@@ -984,12 +995,6 @@ button {
     visibility: visible;
     pointer-events: auto;
     transform: translateY(0) scale(1);
-}
-
-#req-end-popover {
-    left: auto;
-    right: 0;
-    transform-origin: top right;
 }
 
 .calendar-header {
