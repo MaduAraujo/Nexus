@@ -46,14 +46,14 @@ test.describe('Login → dashboard (sistema, ponta a ponta contra Supabase local
     test('colaborador não consegue entrar com credenciais erradas', async ({ page }) => {
         await login(page, { email: E2E_USERS.colaborador.email, password: 'senha-errada' }, 'colaborador');
 
-        await expect(page.locator('#toast')).toContainText('incorretos');
+        await expect(page.locator('#toast-container .toast')).toContainText('incorretos');
         await expect(page).toHaveURL(/login\.html/);
     });
 
     test('colaborador não consegue entrar pelo card de Administrador', async ({ page }) => {
         await login(page, E2E_USERS.colaborador, 'Administrador');
 
-        await expect(page.locator('#toast')).toContainText('Administrativo');
+        await expect(page.locator('#toast-container .toast')).toContainText('Administrativo');
         await expect(page).toHaveURL(/login\.html/);
     });
 });
