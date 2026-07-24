@@ -2471,6 +2471,49 @@ body {
     color: var(--accent);
 }
 
+#edit-modal {
+    background: rgba(15, 23, 42, 0.55);
+    padding: 16px;
+}
+
+#edit-modal .edit-modal-card {
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border-light);
+}
+
+#edit-modal .edit-modal-header {
+    padding: 18px 22px;
+    background: var(--bg-page);
+    border-radius: 16px 16px 0 0;
+}
+
+#edit-modal .edit-modal-title {
+    font-size: 0.97rem;
+    gap: 9px;
+}
+#edit-modal .edit-modal-title i {
+    font-size: 0.9rem;
+}
+
+#edit-modal .edit-modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+#edit-modal .edit-modal-body {
+    padding: 20px 22px;
+}
+
+#edit-modal .edit-modal-footer {
+    padding: 16px 22px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border-light);
+    border-radius: 0 0 16px 16px;
+}
+
 .confirm-modal-card {
     background: var(--bg-card);
     border-radius: 20px;

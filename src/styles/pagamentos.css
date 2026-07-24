@@ -1700,6 +1700,9 @@ ul {
 #rescisao-modal {
     background: rgba(15, 23, 42, 0.55);
     padding: 16px;
+    align-items: center;
+    align-items: safe center;
+    overflow-y: auto;
 }
 
 #rescisao-modal .modal-card {

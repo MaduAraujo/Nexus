@@ -744,7 +744,7 @@ function renderDetailModal(emp, monthKey) {
         html += `<div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>Data</th><th>Entrada</th><th>Saída Alm.</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${monthRecs.map(([key, rec]) => buildDayRow(key, rec, jornadaMin, isPJ, emp.id)).join('')}</tbody></table></div>`;
     }
 
-    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title" style="margin-bottom:0"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" onclick="openAdjustModalFromDetail('${emp.id}')"><i class="fas fa-plus"></i> Novo Ajuste</button></div>`;
+    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title" style="margin-bottom:0"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" onclick="openAdjustModalFromDetail('${emp.id}')" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
     if (!monthAjustes.length) {
         html += `<p class="no-ajustes">Nenhum ajuste manual para este período.</p>`;
     } else {

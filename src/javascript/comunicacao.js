@@ -1221,7 +1221,6 @@
 
     const editModal = document.getElementById('edit-modal');
     const editModalClose = document.getElementById('edit-modal-close');
-    const editModalCancel = document.getElementById('edit-modal-cancel');
     const editModalSave = document.getElementById('edit-modal-save');
     const editAttachBtn = document.getElementById('edit-attach-btn');
     const editAttachInput = document.getElementById('edit-attach-input');
@@ -1393,10 +1392,6 @@
     }
 
     editModalClose?.addEventListener('click', closeEditModal);
-    editModalCancel?.addEventListener('click', closeEditModal);
-    editModal?.addEventListener('click', (e) => {
-        if (e.target === editModal) closeEditModal();
-    });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !editModal?.classList.contains('hidden')) closeEditModal();
     });

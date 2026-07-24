@@ -1118,6 +1118,15 @@ ul {
     gap: 12px;
 }
 
+@media (min-width: 769px) {
+    #audit-month-wrap {
+        width: 200px;
+    }
+    #audit-month-trigger {
+        width: 100%;
+    }
+}
+
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1212,7 +1221,7 @@ ul {
     color: #fff;
     flex-shrink: 0;
     position: relative;
-    left: -12px;
+    left: -4px;
     background-size: cover;
     background-position: center;
     box-shadow:
@@ -1556,6 +1565,9 @@ ul {
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    align-items: safe center;
+    overflow-y: auto;
 }
 
 #holidays-modal .modal-content,
@@ -1871,12 +1883,13 @@ select.form-input {
 
 .detail-month-select {
     height: 36px;
-    padding: 0 10px;
+    width: 122px;
+    padding: 0 8px;
     border: 1.5px solid var(--border-light);
     border-radius: 8px;
     background: var(--bg-card);
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     outline: none;
@@ -2122,14 +2135,15 @@ select.form-input {
 .btn-add-ajuste {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 50px;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
     font-size: 12.5px;
-    font-weight: 600;
     background: var(--accent-light);
     color: var(--accent);
     border: 1.5px solid #c7d2fe;
+    flex-shrink: 0;
     transition:
         background var(--transition),
         transform var(--transition);

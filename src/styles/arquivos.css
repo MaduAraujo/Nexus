@@ -1759,6 +1759,9 @@ body {
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    align-items: safe center;
+    overflow-y: auto;
 }
 
 #upload-modal .modal-content {
