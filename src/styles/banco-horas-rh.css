@@ -1120,10 +1120,16 @@ ul {
 
 @media (min-width: 769px) {
     #audit-month-wrap {
-        width: 200px;
+        width: 240px;
     }
     #audit-month-trigger {
         width: 100%;
+        white-space: nowrap;
+    }
+    #audit-month-trigger span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 
@@ -1221,7 +1227,7 @@ ul {
     color: #fff;
     flex-shrink: 0;
     position: relative;
-    left: -4px;
+    left: 0;
     background-size: cover;
     background-position: center;
     box-shadow:
