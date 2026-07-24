@@ -59,87 +59,49 @@
 
         <main class="content">
             <div class="page-body">
-                <div class="stats-row-header">
-                    <button class="stats-row-toggle" id="stats-row-toggle" onclick="toggleStatsRow()" aria-label="Ver indicadores" title="Ver indicadores">
-                        <i class="fas fa-chevron-right" id="stats-row-chevron"></i>
-                    </button>
-                </div>
-                <div class="stats-row hidden" id="stats-row">
+                <div class="stats-sticky">
+                <div class="stats-row" id="stats-row">
                     <div class="stat-card stat-card--extras" title="Total H. Extras">
                         <div class="stat-icon-wrap"><i class="fas fa-arrow-up-right-dots"></i></div>
                         <div class="stat-body">
-                            <span class="stat-value" id="kpi-total-extras">—</span>
                             <span class="stat-label">Total H. Extras</span>
+                            <span class="stat-value" id="kpi-total-extras">—</span>
                         </div>
                     </div>
                     <div class="stat-card stat-card--faltas" title="Total H. em Falta">
-                        <div class="stat-icon-wrap"><i class="fas fa-arrow-down-right-dots"></i></div>
+                        <div class="stat-icon-wrap"><i class="fas fa-arrow-trend-down"></i></div>
                         <div class="stat-body">
-                            <span class="stat-value" id="kpi-total-faltas">—</span>
                             <span class="stat-label">Total H. em Falta</span>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-card--count-pos" title="Saldo Positivo">
-                        <div class="stat-icon-wrap"><i class="fas fa-circle-check"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-pos">0</span>
-                            <span class="stat-label">Saldo Positivo</span>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-card--count-neg" title="Saldo Negativo">
-                        <div class="stat-icon-wrap"><i class="fas fa-circle-exclamation"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-neg">0</span>
-                            <span class="stat-label">Saldo Negativo</span>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-card--critico" title="Saldo Crítico (>20h)">
-                        <div class="stat-icon-wrap"><i class="fas fa-triangle-exclamation"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-critico">0</span>
-                            <span class="stat-label">Saldo Crítico</span>
+                            <span class="stat-value" id="kpi-total-faltas">—</span>
                         </div>
                     </div>
                     <div class="stat-card stat-card--vencendo" title="Banco Vencendo (30d) — colaboradores">
                         <div class="stat-icon-wrap"><i class="fas fa-hourglass-half"></i></div>
                         <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-vencendo">0</span>
                             <span class="stat-label">Banco Vencendo</span>
+                            <span class="stat-value" id="kpi-count-vencendo">0</span>
                         </div>
                     </div>
                     <div class="stat-card stat-card--vencido" title="Banco Vencido — passivo trabalhista">
                         <div class="stat-icon-wrap"><i class="fas fa-hourglass-end"></i></div>
                         <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-vencido">0</span>
                             <span class="stat-label">Banco Vencido</span>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-card--excesso" title="Excesso Diário (2h+) — colaboradores no mês">
-                        <div class="stat-icon-wrap"><i class="fas fa-stopwatch"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-excesso">0</span>
-                            <span class="stat-label">Excesso Diário</span>
-                        </div>
-                    </div>
-                    <div class="stat-card stat-card--intervalo" title="Intervalo intrajornada não cumprido (art. 71 CLT) — colaboradores no mês">
-                        <div class="stat-icon-wrap"><i class="fas fa-mug-saucer"></i></div>
-                        <div class="stat-body">
-                            <span class="stat-value" id="kpi-count-intervalo">0</span>
-                            <span class="stat-label">Intervalo Irregular</span>
+                            <span class="stat-value" id="kpi-count-vencido">0</span>
                         </div>
                     </div>
                 </div>
+                </div>
 
                 <div class="tabs-bar">
-                    <button class="tab-btn active" data-tab="banco" onclick="switchTab(this,'banco')">
-                        <i class="fas fa-clock-rotate-left"></i> Banco de Horas
+                    <button class="tab-btn active" data-tab="banco" onclick="switchTab(this,'banco')" title="Banco de Horas">
+                        <i class="fas fa-clock-rotate-left"></i> <span class="tab-label">Banco de Horas</span>
                     </button>
-                    <button class="tab-btn" data-tab="solicitacoes" onclick="switchTab(this,'solicitacoes')">
-                        <i class="fas fa-inbox"></i> Solicitações
+                    <button class="tab-btn" data-tab="solicitacoes" onclick="switchTab(this,'solicitacoes')" title="Solicitações">
+                        <i class="fas fa-inbox"></i> <span class="tab-label">Solicitações</span>
                         <span class="tab-badge hidden" id="tab-badge-solicitacoes">0</span>
                     </button>
-                    <button class="tab-btn" data-tab="auditoria" onclick="switchTab(this,'auditoria')">
-                        <i class="fas fa-scroll"></i> Auditoria
+                    <button class="tab-btn" data-tab="auditoria" onclick="switchTab(this,'auditoria')" title="Auditoria">
+                        <i class="fas fa-scroll"></i> <span class="tab-label">Auditoria</span>
                     </button>
                 </div>
 
@@ -186,7 +148,7 @@
                                     </button>
                                     <button class="export-option" id="export-csv-btn">
                                         <div class="export-option-icon export-option-icon--csv"><i class="fas fa-file-csv"></i></div>
-                                        <div class="export-option-body"><span class="export-option-title">CSV / Excel</span><span class="export-option-sub">Planilha para fechamento de folha</span></div>
+                                        <div class="export-option-body"><span class="export-option-title">CSV / Excel</span><span class="export-option-sub">Planilha para fechamento</span></div>
                                     </button>
                                 </div>
                             </div>
@@ -269,21 +231,58 @@
                 <div class="content-card">
                     <div class="content-card-toolbar audit-filters-bar">
                         <div class="audit-emp-row">
-                            <div class="form-group" style="min-width:200px">
+                            <div class="audit-emp-scroll">
+                            <div class="form-group">
                                 <label class="form-label">Colaborador</label>
-                                <select id="audit-emp-select" class="form-input" onchange="renderAuditTable()">
-                                    <option value="all">Todos os colaboradores</option>
-                                </select>
+                                <div class="filter-dropdown" id="audit-emp-dropdown">
+                                    <button class="btn-filter" id="audit-emp-btn">
+                                        <span id="audit-emp-label">Selecione</span>
+                                        <i class="fas fa-chevron-down filter-chevron" id="audit-emp-chevron"></i>
+                                    </button>
+                                    <div class="filter-dropdown-menu" id="audit-emp-dropdown-menu">
+                                        <p class="filter-dropdown-title">Colaborador</p>
+                                        <div class="filter-dropdown-chips" id="audit-emp-chips">
+                                            <button class="chip chip--active" data-emp-id="all" onclick="setAuditEmp(this)">Todos</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Mês</label>
-                                <input type="month" id="audit-month" class="form-input" onchange="renderAuditTable()">
+                                <label class="form-label" for="audit-month-trigger">Mês</label>
+                                <div class="date-field-wrap" id="audit-month-wrap">
+                                    <button type="button" class="form-input date-field-trigger" id="audit-month-trigger">
+                                        <i class="fas fa-calendar-day"></i>
+                                        <span id="audit-month-label">—</span>
+                                    </button>
+                                    <input type="hidden" id="audit-month">
+                                    <div class="calendar-popover" id="audit-month-popover">
+                                        <div class="calendar-header">
+                                            <button type="button" class="calendar-nav-btn" id="audit-month-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                            <span class="calendar-title" id="audit-month-title">—</span>
+                                            <button type="button" class="calendar-nav-btn" id="audit-month-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                        </div>
+                                        <div class="calendar-weekdays">
+                                            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                                        </div>
+                                        <div class="calendar-grid" id="audit-month-grid"></div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="filter-chips">
-                            <button class="chip chip--active" data-audit-tipo="todos"       onclick="setAuditTipo(this)">Todos</button>
-                            <button class="chip"              data-audit-tipo="ponto"        onclick="setAuditTipo(this)">Registros de Ponto</button>
-                            <button class="chip"              data-audit-tipo="ajuste_banco" onclick="setAuditTipo(this)">Ajustes Banco</button>
+                            <div class="filter-dropdown" id="audit-filter-dropdown">
+                                <button class="btn-filter" id="audit-btn-filter">
+                                    <span id="audit-filter-label">Filtro</span>
+                                    <i class="fas fa-chevron-down filter-chevron" id="audit-filter-chevron"></i>
+                                </button>
+                                <div class="filter-dropdown-menu" id="audit-filter-dropdown-menu">
+                                    <p class="filter-dropdown-title">Filtrar por tipo</p>
+                                    <div class="filter-dropdown-chips">
+                                        <button class="chip chip--active" data-audit-tipo="todos"       onclick="setAuditTipo(this)">Todos</button>
+                                        <button class="chip"              data-audit-tipo="ponto"        onclick="setAuditTipo(this)">Registros de Ponto</button>
+                                        <button class="chip"              data-audit-tipo="ajuste_banco" onclick="setAuditTipo(this)">Ajustes de Banco</button>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
                     </div>
 
@@ -355,11 +354,11 @@
             <div class="form-row-2">
                 <div class="form-group">
                     <label class="form-label" for="adjust-horas">Horas</label>
-                    <input type="number" id="adjust-horas" class="form-input" min="0" max="99" placeholder="0">
+                    <input type="number" id="adjust-horas" class="form-input" min="0" max="99" placeholder="0" oninput="updateAdjustSubmitState()">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="adjust-min">Minutos</label>
-                    <input type="number" id="adjust-min" class="form-input" min="0" max="59" placeholder="0">
+                    <input type="number" id="adjust-min" class="form-input" min="0" max="59" placeholder="0" oninput="updateAdjustSubmitState()">
                 </div>
             </div>
             <div class="form-group">
@@ -385,12 +384,12 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
-                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..."></textarea>
+                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..." oninput="updateAdjustSubmitState()"></textarea>
             </div>
             <div class="modal-alert" id="adjust-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" onclick="submitAdjust()">
+            <button class="btn-submit" id="adjust-submit-btn" onclick="submitAdjust()" disabled>
                 Lançar Ajuste
             </button>
         </div>

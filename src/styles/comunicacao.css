@@ -2540,8 +2540,50 @@ body {
     transform: translateY(0) scale(0.98);
 }
 
+#engagement-modal {
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 16px;
+}
+
 .engagement-modal-card {
     max-width: 480px;
+    max-height: 90vh;
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+}
+
+.engagement-modal-card .edit-modal-header {
+    padding: 18px 22px;
+    background: var(--bg-page);
+    border-radius: 16px 16px 0 0;
+    position: static;
+}
+
+.engagement-modal-card .edit-modal-title {
+    font-size: 0.97rem;
+    gap: 9px;
+}
+.engagement-modal-card .edit-modal-title i {
+    font-size: 0.9rem;
+}
+
+.engagement-modal-card .edit-modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.engagement-modal-card .edit-modal-body {
+    padding: 20px 22px;
+    gap: 15px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .engagement-summary {

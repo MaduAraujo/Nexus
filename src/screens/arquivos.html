@@ -43,10 +43,6 @@
                 </div>
             </header>
 
-            <button class="btn-fab" id="btn-fab" onclick="openUploadModal()" aria-label="Enviar Arquivo">
-                <i class="fas fa-arrow-up-from-bracket"></i>
-            </button>
-
             <main class="content">
                 <div class="page-body">
                     <div class="stats-row">
@@ -55,8 +51,8 @@
                                 <i class="fas fa-folder-open"></i>
                             </div>
                             <div class="stat-body">
-                                <span class="stat-value" id="total-count">0</span>
                                 <span class="stat-label">Total de Arquivos</span>
+                                <span class="stat-value" id="total-count">0</span>
                             </div>
                         </div>
                         <div class="stat-card stat-card--admissional">
@@ -64,8 +60,8 @@
                                 <i class="fas fa-user-plus"></i>
                             </div>
                             <div class="stat-body">
-                                <span class="stat-value" id="admissional-count">0</span>
                                 <span class="stat-label">Admissionais</span>
+                                <span class="stat-value" id="admissional-count">0</span>
                             </div>
                         </div>
                         <div class="stat-card stat-card--demissional">
@@ -73,8 +69,8 @@
                                 <i class="fas fa-user-minus"></i>
                             </div>
                             <div class="stat-body">
-                                <span class="stat-value" id="demissional-count">0</span>
                                 <span class="stat-label">Demissionais</span>
+                                <span class="stat-value" id="demissional-count">0</span>
                             </div>
                         </div>
                         <div class="stat-card stat-card--vencendo" id="vencendo-card">
@@ -82,8 +78,8 @@
                                 <i class="fas fa-triangle-exclamation"></i>
                             </div>
                             <div class="stat-body">
-                                <span class="stat-value" id="vencendo-count">0</span>
                                 <span class="stat-label">Vencidos / a Vencer</span>
+                                <span class="stat-value" id="vencendo-count">0</span>
                             </div>
                         </div>
                     </div>
@@ -120,11 +116,17 @@
                                     <option value="aprovado">Aprovado</option>
                                     <option value="recusado">Recusado</option>
                                 </select>
-                                <select id="filter-dept" class="filter-select">
-                                    <option value="">Todos os departamentos</option>
+                                <select id="filter-dept" class="filter-select hidden">
+                                    <option value="">Selecione</option>
                                 </select>
+                                <div class="filter-dropdown" id="colab-filter-dropdown">
+                                    <button type="button" class="btn-filter-trigger" id="colab-filter-trigger" aria-haspopup="true" aria-expanded="false">
+                                        <span>Filtro</span>
+                                        <i class="fas fa-chevron-down filter-chevron" id="colab-filter-chevron"></i>
+                                    </button>
+                                </div>
                                 <div class="filter-date-wrapper" id="filter-date-wrapper">
-                                    <button type="button" class="filter-date-trigger" id="filter-date-trigger" aria-haspopup="true" aria-expanded="false">
+                                    <button type="button" class="btn-filter-trigger filter-date-trigger" id="filter-date-trigger" aria-haspopup="true" aria-expanded="false">
                                         <i class="fas fa-calendar-day"></i>
                                         <span id="filter-date-trigger-text">Período</span>
                                     </button>
@@ -154,8 +156,7 @@
                             <table class="files-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-check"><input type="checkbox" id="select-all-checkbox"></th>
-                                        <th>Arquivo</th>
+                                        <th class="col-check-file"><input type="checkbox" id="select-all-checkbox"> Arquivo</th>
                                         <th>Colaborador</th>
                                         <th>Tipo</th>
                                         <th>Data</th>
@@ -181,7 +182,7 @@
                 </div>
                 <div>
                     <h3 class="modal-title">Enviar Arquivo</h3>
-                    <p class="modal-subtitle">Adicione documentos ao acervo do RH</p>
+                    <p class="modal-subtitle">Adicione documentos no acervo</p>
                 </div>
                 <button class="close-modal" onclick="closeUploadModal()" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
@@ -248,7 +249,6 @@
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="btn-cancel" onclick="closeUploadModal()">Cancelar</button>
                 <button class="btn-submit" onclick="submitUpload()">
                     Enviar
                 </button>
@@ -285,7 +285,7 @@
                 </div>
                 <div>
                     <h3 class="modal-title">Histórico de auditoria</h3>
-                    <p class="modal-subtitle">Quem criou, aprovou, recusou, substituiu, assinou ou excluiu cada documento</p>
+                    <p class="modal-subtitle">Ações realizadas em cada documento</p>
                 </div>
                 <button class="close-modal" onclick="closeAuditModal()" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
@@ -359,6 +359,19 @@
             <button type="button" class="calendar-footer-clear" id="filter-calendar-clear">Limpar</button>
             <button type="button" class="calendar-footer-apply" id="filter-calendar-apply">Aplicar</button>
         </div>
+    </div>
+
+    <div class="filter-menu" id="colab-filter-menu">
+        <div id="colab-filter-status-section">
+            <p class="filter-menu-label">Status</p>
+            <button type="button" class="btn-filter active" data-status="">Todos os status</button>
+            <button type="button" class="btn-filter" data-status="pendente">Pendente</button>
+            <button type="button" class="btn-filter" data-status="aprovado">Aprovado</button>
+            <button type="button" class="btn-filter" data-status="recusado">Recusado</button>
+            <div class="dropdown-divider"></div>
+        </div>
+        <p class="filter-menu-label">Departamento</p>
+        <div class="dept-filter-list" id="colab-dept-filter-list"></div>
     </div>
 
     <div id="toast-container" class="toast-container"></div>

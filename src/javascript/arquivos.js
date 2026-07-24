@@ -22,6 +22,11 @@
     const filterDateStart = document.getElementById('filter-date-start');
     const filterDateEnd = document.getElementById('filter-date-end');
     const filterClearBtn = document.getElementById('filter-clear-btn');
+    const colabFilterDropdown = document.getElementById('colab-filter-dropdown');
+    const colabFilterTrigger = document.getElementById('colab-filter-trigger');
+    const colabFilterMenu = document.getElementById('colab-filter-menu');
+    const colabDeptFilterList = document.getElementById('colab-dept-filter-list');
+    const colabFilterStatusSection = document.getElementById('colab-filter-status-section');
     const filterDateTrigger = document.getElementById('filter-date-trigger');
     const filterDateTriggerText = document.getElementById('filter-date-trigger-text');
     const filterCalendarPopover = document.getElementById('filter-calendar-popover');
@@ -162,8 +167,51 @@
                     .filter(Boolean)
             ),
         ].sort();
-        filterDept.innerHTML = '<option value="">Todos os departamentos</option>' + depts.map((d) => `<option value="${d}">${d}</option>`).join('');
+        filterDept.innerHTML = '<option value="">Selecione</option>' + depts.map((d) => `<option value="${d}">${d}</option>`).join('');
         if (depts.includes(current)) filterDept.value = current;
+
+        if (colabDeptFilterList) {
+            const btnHtml = (value, label) =>
+                `<button type="button" class="btn-filter${filterDept.value === value ? ' active' : ''}" data-dept="${esc(value)}">${esc(label)}</button>`;
+            colabDeptFilterList.innerHTML = btnHtml('', 'Todos') + depts.map((d) => btnHtml(d, d)).join('');
+            colabDeptFilterList.querySelectorAll('.btn-filter').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    filterDept.value = btn.getAttribute('data-dept') || '';
+                    colabDeptFilterList.querySelectorAll('.btn-filter').forEach((b) => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateFilterClearVisibility();
+                    renderTable();
+                    closeColabFilterMenu();
+                });
+            });
+        }
+    }
+
+    function positionColabFilterMenu() {
+        if (!colabFilterTrigger || !colabFilterMenu) return;
+        const rect = colabFilterTrigger.getBoundingClientRect();
+        const width = colabFilterMenu.offsetWidth || 220;
+        let left = rect.left;
+        if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+        if (left < 12) left = 12;
+        colabFilterMenu.style.top = `${rect.bottom + 8}px`;
+        colabFilterMenu.style.left = `${left}px`;
+    }
+
+    function openColabFilterMenu() {
+        closeFilterCalendar();
+        positionColabFilterMenu();
+        colabFilterMenu?.classList.add('open');
+        colabFilterTrigger?.classList.add('open');
+        colabFilterTrigger?.setAttribute('aria-expanded', 'true');
+        window.addEventListener('resize', positionColabFilterMenu);
+    }
+
+    function closeColabFilterMenu() {
+        colabFilterMenu?.classList.remove('open');
+        colabFilterTrigger?.classList.remove('open');
+        colabFilterTrigger?.setAttribute('aria-expanded', 'false');
+        window.removeEventListener('resize', positionColabFilterMenu);
     }
 
     function fmtDate(iso) {
@@ -223,8 +271,8 @@
         return true;
     }
 
-    function checkboxCell(id) {
-        return `<td class="col-check"><input type="checkbox" class="row-check" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}></td>`;
+    function rowCheckbox(id) {
+        return `<input type="checkbox" class="row-check" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}>`;
     }
 
     function renderTable() {
@@ -234,7 +282,7 @@
         renderNotifPanel();
 
         if (activeTab === 'colaborador') {
-            filterStatus?.classList.remove('hidden');
+            colabFilterStatusSection?.classList.remove('hidden');
             const current = colabDocs.filter((d) => d.is_current !== false);
             const filtered = current.filter((d) => {
                 if (filterStatus?.value && d.status !== filterStatus.value) return false;
@@ -244,7 +292,7 @@
             });
             updateBulkBar(filtered.map((d) => d.id));
             if (!filtered.length) {
-                filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-users"></i></div><p class="empty-state-title">Nenhum documento de colaborador</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</p></div></td></tr>`;
+                filesTbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-users"></i></div><p class="empty-state-title">Nenhum documento de colaborador</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Colaboradores ainda não enviaram documentos'}</p></div></td></tr>`;
                 return;
             }
             filesTbody.innerHTML = filtered
@@ -252,8 +300,7 @@
                     const { cls, icon } = getFileIcon(d.name);
                     const st = statusMap[d.status] || statusMap.pendente;
                     return `<tr>
-                    ${checkboxCell(d.id)}
-                    <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo) || ''} ${versionBadge(d)}</div></div></div></td>
+                    <td><div class="file-name-cell">${rowCheckbox(d.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo) || ''} ${versionBadge(d)}</div></div></div></td>
                     <td>${empName(d.employee_id)}</td>
                     <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${st.label}</span></td>
                     <td class="file-date">${fmtDate(d.created_at)}</td>
@@ -271,7 +318,7 @@
             return;
         }
 
-        filterStatus?.classList.add('hidden');
+        colabFilterStatusSection?.classList.add('hidden');
         const filtered = rhDocs.filter((f) => {
             if (f.category !== activeTab) return false;
             if (f.is_current === false) return false;
@@ -282,7 +329,7 @@
         updateBulkBar(filtered.map((f) => f.id));
 
         if (!filtered.length) {
-            filesTbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><p class="empty-state-title">Nenhum arquivo encontrado</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Clique em "Enviar Arquivo" para adicionar'}</p></div></td></tr>`;
+            filesTbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="fas fa-folder-open"></i></div><p class="empty-state-title">Nenhum arquivo encontrado</p><p class="empty-state-desc">${q ? `Nenhum resultado para "${q}"` : 'Clique em <span class="empty-state-icon-ref"><i class="fas fa-arrow-up-from-bracket"></i></span> para adicionar'}</p></div></td></tr>`;
             return;
         }
 
@@ -292,8 +339,7 @@
                 const badgeCls = f.category === 'admissional' ? 'badge--admissional' : 'badge--demissional';
                 const badgeLabel = f.category === 'admissional' ? 'Admissional' : 'Demissional';
                 return `<tr>
-                ${checkboxCell(f.id)}
-                <td><div class="file-name-cell"><div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo) || ''} ${versionBadge(f)} ${signBadge(f)}</div></div></div></td>
+                <td><div class="file-name-cell">${rowCheckbox(f.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo) || ''} ${versionBadge(f)} ${signBadge(f)}</div></div></div></td>
                 <td>${empName(f.employee_id)}</td>
                 <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
                 <td class="file-date">${fmtDate(f.created_at)}</td>
@@ -459,7 +505,29 @@
             if (searchInput) searchInput.value = '';
             searchClear?.classList.add('hidden');
             selectedIds.clear();
+            closeColabFilterMenu();
             renderTable();
+        });
+    });
+
+    colabFilterTrigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        colabFilterMenu?.classList.contains('open') ? closeColabFilterMenu() : openColabFilterMenu();
+    });
+    colabFilterMenu?.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', (e) => {
+        if (!colabFilterMenu?.classList.contains('open')) return;
+        if (!colabFilterMenu.contains(e.target) && !colabFilterTrigger?.contains(e.target)) closeColabFilterMenu();
+    });
+
+    colabFilterMenu?.querySelectorAll('.btn-filter[data-status]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (filterStatus) filterStatus.value = btn.getAttribute('data-status') || '';
+            colabFilterMenu.querySelectorAll('.btn-filter[data-status]').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateFilterClearVisibility();
+            renderTable();
+            closeColabFilterMenu();
         });
     });
 
@@ -480,18 +548,14 @@
         filterClearBtn?.classList.toggle('hidden', !active);
     }
 
-    [filterStatus, filterDept].forEach((el) => {
-        el?.addEventListener('change', () => {
-            updateFilterClearVisibility();
-            renderTable();
-        });
-    });
-
     filterClearBtn?.addEventListener('click', () => {
         if (filterStatus) filterStatus.value = '';
         if (filterDept) filterDept.value = '';
         if (filterDateStart) filterDateStart.value = '';
         if (filterDateEnd) filterDateEnd.value = '';
+        colabFilterMenu?.querySelectorAll('.btn-filter').forEach((b) => b.classList.remove('active'));
+        colabFilterMenu?.querySelector('.btn-filter[data-status=""]')?.classList.add('active');
+        colabDeptFilterList?.querySelector('.btn-filter[data-dept=""]')?.classList.add('active');
         calRangeStart = null;
         calRangeEnd = null;
         updateFilterDateTriggerText();
@@ -582,6 +646,7 @@
     }
 
     function openFilterCalendar() {
+        closeColabFilterMenu();
         calRangeStart = filterDateStart?.value ? parseISODate(filterDateStart.value) : null;
         calRangeEnd = filterDateEnd?.value ? parseISODate(filterDateEnd.value) : null;
         const base = calRangeStart || today;

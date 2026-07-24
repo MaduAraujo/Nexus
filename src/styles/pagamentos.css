@@ -1697,6 +1697,108 @@ ul {
     background: #fafbfc;
 }
 
+#rescisao-modal {
+    background: rgba(15, 23, 42, 0.55);
+    padding: 16px;
+}
+
+#rescisao-modal .modal-card {
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+#rescisao-modal .modal-head {
+    padding: 18px 22px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-light);
+}
+
+#rescisao-modal .modal-title {
+    font-size: 0.97rem;
+    gap: 9px;
+}
+#rescisao-modal .modal-title i {
+    font-size: 0.9rem;
+}
+
+#rescisao-modal .modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+}
+#rescisao-modal .modal-close:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+#rescisao-modal .modal-body {
+    padding: 20px 22px;
+}
+
+#rescisao-modal .modal-footer {
+    padding: 16px 22px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border-light);
+}
+
+#slip-modal {
+    background: rgba(15, 23, 42, 0.55);
+    padding: 16px;
+}
+
+#slip-modal .modal-card {
+    border-radius: 16px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+#slip-modal .modal-head {
+    padding: 18px 22px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-light);
+}
+
+#slip-modal .modal-head-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 0.9rem;
+}
+
+#slip-modal .modal-title {
+    font-size: 0.97rem;
+    gap: 9px;
+}
+
+#slip-modal .modal-sub {
+    font-size: 0.78rem;
+}
+
+#slip-modal .modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+}
+#slip-modal .modal-close:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+#slip-modal .modal-body {
+    padding: 20px 22px;
+}
+
+#slip-modal .modal-footer {
+    padding: 16px 22px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border-light);
+}
+
 .modal-confirm-icon {
     width: 56px;
     height: 56px;

@@ -16,6 +16,7 @@ let detailEmpId = null;
 let detailMonth = '';
 let allData = [];
 let auditTipoFilter = 'todos';
+let auditEmpFilter = 'all';
 
 let allEmps = [];
 let timeRecordsMap = {};
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
     setupCustomMonthPicker();
     setupAdjustDatePicker();
+    setupAuditMonthPicker();
 
     await loadStaticComplianceData();
     await refresh();
@@ -54,6 +56,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRequestsTab();
     updatePendingBadge();
     setupFilterDropdown();
+    setupAuditFilterDropdown();
+    updateAuditFilterBtn();
+    setupAuditEmpDropdown();
+    updateAuditEmpBtn();
     setupNotifPanel();
     setupExportButton();
     setupRealtimeSync();
@@ -178,6 +184,7 @@ async function loadAllData() {
         admissionDate: e.admission_date,
         workLoad: e.work_load,
         managerId: e.manager_id,
+        avatarUrl: e.avatar_url,
     }));
 
     timeRecordsMap = {};
@@ -312,34 +319,19 @@ function computeBalance(emp, monthKey) {
 function loadKPIs() {
     let totalExtras = 0,
         totalFaltas = 0,
-        cntPos = 0,
-        cntNeg = 0,
-        cntCritico = 0,
         cntVencendo = 0,
-        cntVencido = 0,
-        cntExcesso = 0,
-        cntIntervalo = 0;
+        cntVencido = 0;
     allData.forEach((d) => {
         if (d.isPJ) return;
         totalExtras += d.extrasMin;
         totalFaltas += d.faltaMin;
-        if (d.saldoLiquido > 0) cntPos++;
-        if (d.saldoLiquido < 0) cntNeg++;
-        if (d.saldoLiquido !== null && d.saldoLiquido <= -1200) cntCritico++;
         if (d.ledger?.status === 'vencido') cntVencido++;
         else if (d.ledger?.status === 'atencao') cntVencendo++;
-        if (d.diasExcesso > 0) cntExcesso++;
-        if (d.diasIntervaloIrregular > 0) cntIntervalo++;
     });
     setText('kpi-total-extras', totalExtras ? minToStr(totalExtras) : '0h 00min');
     setText('kpi-total-faltas', totalFaltas ? minToStr(totalFaltas) : '0h 00min');
-    setText('kpi-count-pos', cntPos);
-    setText('kpi-count-neg', cntNeg);
-    setText('kpi-count-critico', cntCritico);
     setText('kpi-count-vencendo', cntVencendo);
     setText('kpi-count-vencido', cntVencido);
-    setText('kpi-count-excesso', cntExcesso);
-    setText('kpi-count-intervalo', cntIntervalo);
 }
 
 function getFilteredData() {
@@ -370,29 +362,35 @@ function renderTable() {
     setText('table-count', `${cnt} colaborador${cnt !== 1 ? 'es' : ''} exibido${cnt !== 1 ? 's' : ''}`);
 }
 
+function closeExportMenu() {
+    $('export-menu')?.classList.remove('open');
+    $('export-chevron')?.classList.remove('open');
+}
+
 function setupExportButton() {
     const btn = $('btn-export'),
         menu = $('export-menu'),
         chevron = $('export-chevron');
     if (!btn || !menu) return;
-    const close = () => {
-        menu.classList.remove('open');
-        chevron?.classList.remove('open');
-    };
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const opening = !menu.classList.contains('open');
-        menu.classList.toggle('open', opening);
-        chevron?.classList.toggle('open', opening);
+        if (opening) {
+            closeFilterDropdown();
+            menu.classList.add('open');
+            chevron?.classList.add('open');
+        } else {
+            closeExportMenu();
+        }
     });
-    document.addEventListener('click', close);
+    document.addEventListener('click', closeExportMenu);
     menu.addEventListener('click', (e) => e.stopPropagation());
     $('export-pdf-btn')?.addEventListener('click', () => {
-        close();
+        closeExportMenu();
         exportToPDF();
     });
     $('export-csv-btn')?.addEventListener('click', () => {
-        close();
+        closeExportMenu();
         exportToCSV();
     });
 }
@@ -545,10 +543,33 @@ function buildComplianceBadges(d) {
     return badges.length ? badges.join('') : `<span class="compliance-ok" title="Sem pendências de compliance"><i class="fas fa-check"></i></span>`;
 }
 
+function initials(name) {
+    return (name || '?')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() || '')
+        .join('');
+}
+
+function nameToColor(name) {
+    const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
+    let h = 0;
+    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+    return p[Math.abs(h) % p.length];
+}
+
+function empAvatarHtml(emp, ini, color) {
+    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
+}
+
 function buildRow(d) {
     const { emp, jornadaMin, isPJ, extrasMin, faltaMin, saldoLiquido, diasCompletos } = d;
     const jStr = jornadaLabel(emp, jornadaMin),
         ctStr = emp.contractType || 'CLT';
+    const ini = initials(emp.name),
+        color = nameToColor(emp.name);
     let saldoHTML;
     if (isPJ) {
         saldoHTML = `<span class="saldo-cell zero">—</span>`;
@@ -558,7 +579,7 @@ function buildRow(d) {
     }
     const extrasCls = extrasMin > 0 ? 'extras' : 'zero',
         faltasCls = faltaMin > 0 ? 'faltas' : 'zero';
-    return `<tr><td><div class="emp-cell"><div><p class="emp-name">${emp.name}</p><p class="emp-dept">${emp.dept || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" onclick="openDetailModal('${emp.id}')" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" onclick="openAdjustModal('${emp.id}')" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
+    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${emp.name}</p><p class="emp-dept">${emp.dept || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" onclick="openDetailModal('${emp.id}')" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" onclick="openAdjustModal('${emp.id}')" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
 }
 
 const FILTER_LABELS_BH = {
@@ -579,6 +600,7 @@ function updateFilterBtn() {
 }
 
 function openFilterDropdown() {
+    closeExportMenu();
     $('btn-filter')?.classList.add('open');
     $('filter-dropdown-menu')?.classList.add('open');
     $('filter-chevron')?.classList.add('open');
@@ -923,7 +945,19 @@ window.openAdjustModal = function (empId) {
         al.className = 'modal-alert';
         al.textContent = '';
     }
+    updateAdjustSubmitState();
     openModal('adjust-modal');
+};
+
+window.updateAdjustSubmitState = function () {
+    const btn = $('adjust-submit-btn');
+    if (!btn) return;
+    const horas = parseInt($('adjust-horas')?.value || '0', 10);
+    const mins = parseInt($('adjust-min')?.value || '0', 10);
+    const data = $('adjust-data')?.value || '';
+    const just = $('adjust-just')?.value?.trim() || '';
+    const total = horas * 60 + mins;
+    btn.disabled = !(total > 0 && data && just);
 };
 
 window.openAdjustModalFromDetail = function (empId) {
@@ -1348,30 +1382,20 @@ window.submitSettings = async function () {
 };
 
 async function initAuditTab() {
-    const sel = $('audit-emp-select');
-    if (sel) {
+    const chips = $('audit-emp-chips');
+    if (chips) {
         allEmps.forEach((emp) => {
-            const opt = document.createElement('option');
-            opt.value = emp.id;
-            opt.textContent = emp.name;
-            sel.appendChild(opt);
+            const btn = document.createElement('button');
+            btn.className = 'chip';
+            btn.dataset.empId = emp.id;
+            btn.textContent = emp.name;
+            btn.onclick = () => window.setAuditEmp(btn);
+            chips.appendChild(btn);
         });
     }
-    const am = $('audit-month');
-    if (am) am.value = currentMonth;
+    window.setAuditMonth?.(currentMonth);
     await renderAuditTable();
 }
-
-window.toggleStatsRow = function () {
-    const row = $('stats-row'),
-        chevron = $('stats-row-chevron'),
-        btn = $('stats-row-toggle');
-    const nowHidden = row.classList.toggle('hidden');
-    chevron?.classList.toggle('rotated', !nowHidden);
-    const label = nowHidden ? 'Ver indicadores' : 'Ocultar indicadores';
-    btn?.setAttribute('aria-label', label);
-    btn?.setAttribute('title', label);
-};
 
 window.switchTab = function (btn, name) {
     document.querySelectorAll('.tabs-bar .tab-btn').forEach((b) => b.classList.remove('active'));
@@ -1382,17 +1406,137 @@ window.switchTab = function (btn, name) {
     if (name === 'solicitacoes') renderRequestsTab();
 };
 
+const AUDIT_TIPO_LABELS = {
+    todos: 'Filtro',
+    ponto: 'Registros de Ponto',
+    ajuste_banco: 'Ajustes de Banco',
+};
+
+function updateAuditFilterBtn() {
+    const label = $('audit-filter-label');
+    const btn = $('audit-btn-filter');
+    if (label) label.textContent = AUDIT_TIPO_LABELS[auditTipoFilter] ?? 'Filtro';
+    btn?.classList.toggle('filtered', auditTipoFilter !== 'todos');
+}
+
+function openAuditFilterDropdown() {
+    window.closeAuditMonthPicker?.();
+    closeAuditEmpDropdown();
+    const btn = $('audit-btn-filter');
+    const menu = $('audit-filter-dropdown-menu');
+    btn?.classList.add('open');
+    menu?.classList.add('open');
+    $('audit-filter-chevron')?.classList.add('open');
+    if (menu) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + 8}px`;
+        menu.style.left = 'auto';
+        const computedRight = window.innerWidth - rect.right;
+        menu.style.right = `${Math.max(8, Math.min(computedRight, window.innerWidth - menu.offsetWidth - 8))}px`;
+    }
+}
+
+function closeAuditFilterDropdown() {
+    $('audit-btn-filter')?.classList.remove('open');
+    $('audit-filter-dropdown-menu')?.classList.remove('open');
+    $('audit-filter-chevron')?.classList.remove('open');
+}
+
+function setupAuditFilterDropdown() {
+    const btn = $('audit-btn-filter');
+    const menu = $('audit-filter-dropdown-menu');
+    if (!btn || !menu) return;
+    document.body.appendChild(menu);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.contains('open') ? closeAuditFilterDropdown() : openAuditFilterDropdown();
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', closeAuditFilterDropdown);
+    window.addEventListener(
+        'scroll',
+        (e) => {
+            if (!menu.contains(e.target)) closeAuditFilterDropdown();
+        },
+        true
+    );
+}
+
 window.setAuditTipo = function (btn) {
     document.querySelectorAll('[data-audit-tipo]').forEach((b) => b.classList.remove('chip--active'));
     btn.classList.add('chip--active');
     auditTipoFilter = btn.dataset.auditTipo;
+    updateAuditFilterBtn();
+    closeAuditFilterDropdown();
+    renderAuditTable();
+};
+
+function updateAuditEmpBtn() {
+    const label = $('audit-emp-label');
+    const btn = $('audit-emp-btn');
+    if (label) {
+        const emp = allEmps.find((e) => e.id === auditEmpFilter);
+        label.textContent = auditEmpFilter === 'all' ? 'Selecione' : emp ? emp.name : 'Selecione';
+    }
+    btn?.classList.toggle('filtered', auditEmpFilter !== 'all');
+}
+
+function openAuditEmpDropdown() {
+    window.closeAuditMonthPicker?.();
+    closeAuditFilterDropdown();
+    const btn = $('audit-emp-btn');
+    const menu = $('audit-emp-dropdown-menu');
+    btn?.classList.add('open');
+    menu?.classList.add('open');
+    $('audit-emp-chevron')?.classList.add('open');
+    if (menu) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + 8}px`;
+        menu.style.right = 'auto';
+        const maxLeft = window.innerWidth - menu.offsetWidth - 8;
+        menu.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
+    }
+}
+
+function closeAuditEmpDropdown() {
+    $('audit-emp-btn')?.classList.remove('open');
+    $('audit-emp-dropdown-menu')?.classList.remove('open');
+    $('audit-emp-chevron')?.classList.remove('open');
+}
+
+function setupAuditEmpDropdown() {
+    const btn = $('audit-emp-btn');
+    const menu = $('audit-emp-dropdown-menu');
+    if (!btn || !menu) return;
+    document.body.appendChild(menu);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.contains('open') ? closeAuditEmpDropdown() : openAuditEmpDropdown();
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', closeAuditEmpDropdown);
+    window.addEventListener(
+        'scroll',
+        (e) => {
+            if (!menu.contains(e.target)) closeAuditEmpDropdown();
+        },
+        true
+    );
+}
+
+window.setAuditEmp = function (btn) {
+    document.querySelectorAll('#audit-emp-chips .chip').forEach((b) => b.classList.remove('chip--active'));
+    btn.classList.add('chip--active');
+    auditEmpFilter = btn.dataset.empId;
+    updateAuditEmpBtn();
+    closeAuditEmpDropdown();
     renderAuditTable();
 };
 
 window.renderAuditTable = async function () {
     const tbody = $('audit-tbody');
     if (!tbody) return;
-    const empFilter = $('audit-emp-select')?.value || 'all';
+    const empFilter = auditEmpFilter || 'all';
     const month = $('audit-month')?.value || '';
 
     let query = sb.from('activity_logs').select('*, employees(name, dept)').order('created_at', { ascending: false });
@@ -1591,6 +1735,131 @@ function setupCustomMonthPicker() {
     updateLabel();
 }
 
+function setupAuditMonthPicker() {
+    const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    const trigger = $('audit-month-trigger');
+    const popover = $('audit-month-popover');
+    const titleEl = $('audit-month-title');
+    const gridEl = $('audit-month-grid');
+    const prevBtn = $('audit-month-prev');
+    const nextBtn = $('audit-month-next');
+    const hidden = $('audit-month');
+    const label = $('audit-month-label');
+    if (!trigger || !popover) return;
+
+    const today = new Date();
+    let viewYear = today.getFullYear(),
+        viewMonth = today.getMonth();
+
+    function setValue(y, m) {
+        hidden.value = `${y}-${pad0(m + 1)}`;
+        label.textContent = `${MESES_LONG[m]} de ${y}`;
+        renderAuditTable();
+    }
+
+    function render() {
+        titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
+
+        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells
+            .map(
+                (c) =>
+                    `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
+            )
+            .join('');
+
+        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach((el) => {
+            el.addEventListener('click', () => {
+                setValue(viewYear, viewMonth);
+                close();
+            });
+        });
+    }
+
+    function open() {
+        closeAuditFilterDropdown();
+        closeAuditEmpDropdown();
+        if (hidden.value) {
+            const [y, m] = hidden.value.split('-').map(Number);
+            viewYear = y;
+            viewMonth = m - 1;
+        }
+        render();
+        if (window.innerWidth <= 768) {
+            const rect = trigger.getBoundingClientRect();
+            popover.style.top = `${rect.bottom + 12}px`;
+            popover.style.right = 'auto';
+            const maxLeft = window.innerWidth - popover.offsetWidth - 8;
+            popover.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
+        }
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    window.closeAuditMonthPicker = close;
+
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth--;
+        if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+        }
+        render();
+    });
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewMonth++;
+        if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+        }
+        render();
+    });
+    popover.addEventListener('click', (e) => e.stopPropagation());
+
+    window.setAuditMonth = function (dateStr) {
+        if (!dateStr) return;
+        const [y, m] = dateStr.split('-').map(Number);
+        hidden.value = dateStr;
+        label.textContent = `${MESES_LONG[m - 1]} de ${y}`;
+        viewYear = y;
+        viewMonth = m - 1;
+    };
+}
+
 function setupAdjustDatePicker() {
     const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -1611,6 +1880,7 @@ function setupAdjustDatePicker() {
     function setValue(y, m, d) {
         hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
         label.textContent = `${pad0(d)}/${pad0(m + 1)}/${y}`;
+        window.updateAdjustSubmitState?.();
     }
 
     function render() {
@@ -1699,6 +1969,7 @@ function setupAdjustDatePicker() {
         if (!dateStr) {
             hidden.value = '';
             label.textContent = 'Selecione a data';
+            window.updateAdjustSubmitState?.();
             return;
         }
         const [y, m, d] = dateStr.split('-').map(Number);
