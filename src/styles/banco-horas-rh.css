@@ -1118,9 +1118,12 @@ ul {
     gap: 12px;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 641px) {
+    .audit-emp-scroll .form-group:has(#audit-month-wrap) {
+        width: auto;
+    }
     #audit-month-wrap {
-        width: 240px;
+        width: 260px;
     }
     #audit-month-trigger {
         width: 100%;
