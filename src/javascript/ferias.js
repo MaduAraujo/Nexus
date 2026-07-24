@@ -35,6 +35,8 @@ function dbToEmp(row) {
         birthDate: row.birth_date,
         contractType: (row.contract_type || 'clt').toLowerCase(),
         status: row.status,
+        avatarUrl: row.avatar_url,
+        avatarColor: row.avatar_color,
     };
 }
 
@@ -46,7 +48,7 @@ function isEstagioOuAprendiz(emp) {
 async function fetchData() {
     const [{ data: vData }, { data: eData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
-        sb.from('employees').select('id,name,dept,role,admission_date,birth_date,contract_type,status'),
+        sb.from('employees').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color'),
     ]);
     vacations = (vData || []).map(dbToVacation);
     employees = (eData || []).map(dbToEmp);
@@ -54,6 +56,27 @@ async function fetchData() {
 
 function getEmployee(empId) {
     return employees.find((e) => e.id === empId) || null;
+}
+
+function initials(name) {
+    return (name || '?')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() || '')
+        .join('');
+}
+
+function nameToColor(name) {
+    const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
+    let h = 0;
+    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+    return p[Math.abs(h) % p.length];
+}
+
+function empAvatarHtml(emp) {
+    if (emp?.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    return `<div class="emp-avatar" style="background:${emp?.avatarColor || nameToColor(emp?.name)}">${initials(emp?.name)}</div>`;
 }
 
 async function loadRhSidebar() {
@@ -84,13 +107,10 @@ function loadKPIs() {
     today.setHours(0, 0, 0, 0);
     const in15 = new Date(today);
     in15.setDate(in15.getDate() + 15);
-    const in60 = new Date(today);
-    in60.setDate(in60.getDate() + 60);
 
     let pending = 0,
         upcoming = 0,
         active = 0,
-        risk = 0,
         expired = 0;
 
     vacations.forEach((v) => {
@@ -102,43 +122,14 @@ function loadKPIs() {
     });
 
     employees.forEach((emp) => {
-        if (!emp.admissionDate) return;
-        const adm = new Date(emp.admissionDate + 'T00:00:00');
-        const expiry = nextAnniversary(adm, today);
-        if (expiry > today && expiry <= in60) {
-            const taken = vacationsTakenInCycle(emp.id, adm, today);
-            if (taken < 30) risk++;
-        }
         if (computeFeriasVencidas(emp, today)) expired++;
     });
 
     document.getElementById('kpi-pending').textContent = pending;
     document.getElementById('kpi-upcoming').textContent = upcoming;
     document.getElementById('kpi-active').textContent = active;
-    document.getElementById('kpi-risk').textContent = risk;
     const expiredEl = document.getElementById('kpi-expired');
     if (expiredEl) expiredEl.textContent = expired;
-}
-
-function nextAnniversary(admDate, today) {
-    const ann = new Date(admDate);
-    ann.setFullYear(today.getFullYear());
-    if (ann <= today) ann.setFullYear(ann.getFullYear() + 1);
-    return ann;
-}
-
-function vacationsTakenInCycle(empId, admDate, today) {
-    const cycleStart = new Date(admDate);
-    while (true) {
-        const cycleEnd = new Date(cycleStart);
-        cycleEnd.setFullYear(cycleEnd.getFullYear() + 1);
-        if (cycleEnd > today) break;
-        cycleStart.setFullYear(cycleStart.getFullYear() + 1);
-    }
-    return vacations
-        .filter((v) => v.employeeId === empId && (v.status === 'aprovado' || v.status === 'concluido'))
-        .filter((v) => new Date(v.startDate + 'T00:00:00') >= cycleStart)
-        .reduce((sum, v) => sum + (v.days || 0), 0);
 }
 
 const TABELA_FALTAS = [
@@ -282,7 +273,7 @@ function renderTable() {
         tr.dataset.id = v.id;
         tr.innerHTML = `
             <td class="select-cell">${v.status === 'pendente' ? `<label class="checkbox-label row-check"><input type="checkbox" data-id="${v.id}" ${selectedIds.has(v.id) ? 'checked' : ''} onchange="toggleRowSelect('${v.id}', this.checked)"><span class="checkbox-box"></span></label>` : ''}</td>
-            <td class="col-employee"><div class="emp-cell"><div><div class="emp-name">${escHtml(name)}</div><div class="emp-dept">${escHtml(dept)}</div></div></div></td>
+            <td class="col-employee"><div class="emp-cell">${empAvatarHtml(emp)}<div><div class="emp-name">${escHtml(name)}</div><div class="emp-dept">${escHtml(dept)}</div></div></div></td>
             <td><div class="period-dates">${formatDate(v.startDate)} → ${formatDate(v.endDate)}</div></td>
             <td><strong>${v.days || '—'}</strong></td>
             <td>${v.abono ? '<span class="badge-abono"><i class="fas fa-coins"></i> Abono</span>' : '<span class="badge-no-abono">—</span>'}</td>
@@ -424,7 +415,6 @@ const KPI_MODAL_CONFIG = {
     pendente: { title: 'Aguardando Aprovação', sub: 'Solicitações pendentes de análise', icon: 'fa-clock' },
     upcoming: { title: 'Saem nos Próximos 15 Dias', sub: 'Colaboradores com férias aprovadas', icon: 'fa-calendar-check' },
     ativas: { title: 'Atualmente de Férias', sub: 'Colaboradores de férias hoje', icon: 'fa-plane-departure' },
-    risco: { title: 'Risco de Vencimento', sub: 'Direito a férias vencendo em até 60 dias', icon: 'fa-triangle-exclamation' },
 };
 
 window.openKpiModal = function (type) {
@@ -434,8 +424,6 @@ window.openKpiModal = function (type) {
     today.setHours(0, 0, 0, 0);
     const in15 = new Date(today);
     in15.setDate(in15.getDate() + 15);
-    const in60 = new Date(today);
-    in60.setDate(in60.getDate() + 60);
 
     let items = [];
     if (type === 'pendente') {
@@ -463,18 +451,6 @@ window.openKpiModal = function (type) {
                 const emp = getEmployee(v.employeeId);
                 const daysLeft = Math.ceil((new Date(v.endDate + 'T00:00:00') - today) / 86400000);
                 return { name: emp?.name || '—', dept: `${emp?.dept || '—'} · volta em ${formatDate(v.endDate)}`, badge: `${daysLeft}d` };
-            });
-    } else if (type === 'risco') {
-        items = employees
-            .filter((emp) => {
-                if (!emp.admissionDate) return false;
-                const expiry = nextAnniversary(new Date(emp.admissionDate + 'T00:00:00'), today);
-                return expiry > today && expiry <= in60;
-            })
-            .map((emp) => {
-                const expiry = nextAnniversary(new Date(emp.admissionDate + 'T00:00:00'), today);
-                const daysLeft = Math.ceil((expiry - today) / 86400000);
-                return { name: emp.name, dept: `${emp.dept || '—'} · vence em ${expiry.toLocaleDateString('pt-BR')}`, badge: `${daysLeft}d` };
             });
     }
 
@@ -512,6 +488,7 @@ function updateFilterBtn() {
 }
 
 function openFilterDropdown() {
+    closeExportDropdown();
     document.getElementById('btn-filter')?.classList.add('open');
     document.getElementById('filter-dropdown-menu')?.classList.add('open');
     document.getElementById('filter-chevron')?.classList.add('open');
@@ -548,6 +525,7 @@ function setupExportDropdown() {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const opening = !menu.classList.contains('open');
+        if (opening) closeFilterDropdown();
         menu.classList.toggle('open', opening);
         chevron?.classList.toggle('open', opening);
     });
@@ -1049,10 +1027,17 @@ function setupDatePicker(fieldId) {
     function positionPopover() {
         const rect = trigger.getBoundingClientRect();
         const popW = popover.offsetWidth || 280;
+        const modal = trigger.closest('.modal-content');
+        const bounds = modal ? modal.getBoundingClientRect() : null;
+        const minLeft = Math.max(12, bounds ? bounds.left : 12);
+        const maxLeft = Math.min(window.innerWidth - popW - 12, bounds ? bounds.right - popW : window.innerWidth - popW - 12);
         let left = rect.right - popW;
-        if (left < 12) left = Math.min(rect.left, window.innerWidth - popW - 12);
-        popover.style.left = `${Math.max(12, left)}px`;
-        popover.style.top = `${rect.bottom + 8}px`;
+        if (left < minLeft) left = Math.min(rect.left, maxLeft);
+        left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
+        const top = rect.bottom + 8;
+        const cb = popover.offsetParent ? popover.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+        popover.style.left = `${left - cb.left}px`;
+        popover.style.top = `${top - cb.top}px`;
     }
     function onReposition() {
         if (popover.classList.contains('open')) positionPopover();
@@ -1487,14 +1472,25 @@ window.closeExpiredModal = function () {
     closeModal('expired-modal');
 };
 
+let calendarYear = new Date().getFullYear();
+
+function deptColor(dept) {
+    return nameToColor(dept || '—');
+}
+
 function renderGantt() {
-    const year = new Date().getFullYear();
+    const year = calendarYear;
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
     const totalDays = (yearEnd - yearStart) / 86400000 + 1;
 
+    const yearLabel = document.getElementById('calendar-year-label');
+    if (yearLabel) yearLabel.textContent = String(year);
+
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const currentMonthIdx = new Date().getMonth();
+    const today0 = new Date();
+    today0.setHours(0, 0, 0, 0);
+    const currentMonthIdx = today0.getFullYear() === year ? today0.getMonth() : -1;
     document.getElementById('gantt-months').innerHTML = months
         .map((m, i) => `<div class="gantt-month-cell${i === currentMonthIdx ? ' current' : ''}">${m}</div>`)
         .join('');
@@ -1508,7 +1504,7 @@ function renderGantt() {
 
     const rowsEl = document.getElementById('gantt-rows');
     if (toShow.length === 0) {
-        rowsEl.innerHTML = `<div class="gantt-empty"><i class="fas fa-calendar-alt"></i><p>Nenhuma férias aprovada este ano.</p></div>`;
+        rowsEl.innerHTML = `<div class="gantt-empty"><i class="fas fa-calendar-alt"></i><p>Nenhuma férias aprovada em ${year}.</p></div>`;
         return;
     }
 
@@ -1544,28 +1540,78 @@ function renderGantt() {
             const clampedEnd = vEnd > yearEnd ? yearEnd : vEnd;
             const leftPct = ((clampedStart - yearStart) / 86400000 / totalDays) * 100;
             const widthPct = (((clampedEnd - clampedStart) / 86400000 + 1) / totalDays) * 100;
+            const isActive = v.status === 'aprovado' && vStart <= today && vEnd >= today;
+            const statusClass = isActive ? 'gantt-bar--active' : v.status === 'aprovado' ? 'gantt-bar--approved' : 'gantt-bar--concluded';
             const bar = document.createElement('div');
-            bar.className = `gantt-bar ${v.status === 'aprovado' ? 'gantt-bar--approved' : 'gantt-bar--concluded'}`;
+            bar.className = `gantt-bar ${statusClass}`;
             bar.style.left = leftPct + '%';
             bar.style.width = Math.max(widthPct, 0.3) + '%';
-            bar.title = `${name}: ${formatDate(v.startDate)} → ${formatDate(v.endDate)} (${v.days}d)`;
+            bar.dataset.name = name;
+            bar.dataset.dept = dept;
+            bar.dataset.start = v.startDate;
+            bar.dataset.end = v.endDate;
+            bar.dataset.days = v.days || '—';
+            bar.dataset.status = isActive ? 'Em gozo agora' : v.status === 'aprovado' ? 'Aprovado' : 'Concluído';
+            bar.addEventListener('mouseenter', showGanttTooltip);
+            bar.addEventListener('mousemove', positionGanttTooltip);
+            bar.addEventListener('mouseleave', hideGanttTooltip);
             barsDiv.appendChild(bar);
         });
-        row.innerHTML = `<div class="gantt-row-label"><div class="g-avatar">${name
-            .split(' ')
-            .map((w) => w[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()}</div><div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept">${escHtml(dept)}</div>` : ''}</div></div>`;
+        const gAvatar = emp?.avatarUrl
+            ? `<div class="g-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`
+            : `<div class="g-avatar" style="background:${emp?.avatarColor || nameToColor(name)}">${initials(name)}</div>`;
+        row.innerHTML = `<div class="gantt-row-label">${gAvatar}<div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept"><span class="g-dept-dot" style="background:${deptColor(dept)}"></span><span class="g-dept-name">${escHtml(dept)}</span></div>` : ''}</div></div>`;
         row.appendChild(barsDiv);
         rowsEl.appendChild(row);
+    });
+}
+
+function showGanttTooltip(e) {
+    const tip = document.getElementById('gantt-tooltip');
+    if (!tip) return;
+    const bar = e.currentTarget;
+    const { name, dept, start, end, days, status } = bar.dataset;
+    tip.innerHTML = `
+        <div class="gantt-tooltip-name">${escHtml(name)}</div>
+        ${dept ? `<div class="gantt-tooltip-dept">${escHtml(dept)}</div>` : ''}
+        <div class="gantt-tooltip-row"><i class="fas fa-calendar-day"></i>${formatDate(start)} → ${formatDate(end)}</div>
+        <div class="gantt-tooltip-row"><i class="fas fa-umbrella-beach"></i>${escHtml(String(days))} dias · ${escHtml(status)}</div>`;
+    tip.classList.add('show');
+    positionGanttTooltip(e);
+}
+function positionGanttTooltip(e) {
+    const tip = document.getElementById('gantt-tooltip');
+    if (!tip || !tip.classList.contains('show')) return;
+    const pad = 14;
+    let left = e.clientX + pad;
+    let top = e.clientY + pad;
+    const rect = tip.getBoundingClientRect();
+    if (left + rect.width > window.innerWidth - 8) left = e.clientX - rect.width - pad;
+    if (top + rect.height > window.innerHeight - 8) top = e.clientY - rect.height - pad;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+}
+function hideGanttTooltip() {
+    document.getElementById('gantt-tooltip')?.classList.remove('show');
+}
+
+function setupCalendarYearNav() {
+    document.getElementById('year-prev')?.addEventListener('click', () => {
+        calendarYear--;
+        renderGantt();
+        renderCobertura();
+    });
+    document.getElementById('year-next')?.addEventListener('click', () => {
+        calendarYear++;
+        renderGantt();
+        renderCobertura();
     });
 }
 
 function renderCobertura() {
     const wrap = document.getElementById('cobertura-wrap');
     if (!wrap) return;
-    const year = new Date().getFullYear();
+    const year = calendarYear;
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
 
@@ -1614,9 +1660,12 @@ function renderCobertura() {
         .map(
             (r) => `
         <div class="cobertura-item${r.risk ? ' cobertura-item--risk' : ''}">
-            <span class="cobertura-dept">${escHtml(r.dept)}</span>
+            <div class="cobertura-item-top">
+                <span class="cobertura-dept"><span class="cobertura-dept-dot" style="background:${deptColor(r.dept)}"></span>${escHtml(r.dept)}</span>
+                <span class="cobertura-count">${r.max}/${r.headcount}</span>
+            </div>
             <span class="cobertura-bar-wrap"><span class="cobertura-bar" style="width:${Math.min(100, (r.max / r.headcount) * 100)}%"></span></span>
-            <span class="cobertura-count">${r.max}/${r.headcount}${r.risk ? ' <i class="fas fa-triangle-exclamation"></i>' : ''}</span>
+            ${r.risk ? '<span class="cobertura-risk-badge"><i class="fas fa-triangle-exclamation"></i>Risco de cobertura</span>' : ''}
         </div>`
         )
         .join('');
@@ -1758,6 +1807,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupDatePicker('coletiva-end');
     setupDatePicker('add-start');
     setupDatePicker('add-end');
+    setupCalendarYearNav();
     setupRealtimeSync();
 
     const deepLinkReqId = new URLSearchParams(location.search).get('req');
