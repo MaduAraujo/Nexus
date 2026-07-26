@@ -23,9 +23,8 @@
             </button>
         </div>
         <div class="topbar-right">
-            <button class="anon-feedback-topbar-btn" id="btn-open-anon-feedback">
+            <button class="anon-feedback-topbar-btn" id="btn-open-anon-feedback" title="Feedback Anônimo" aria-label="Feedback Anônimo">
                 <i class="fas fa-user-secret"></i>
-                <span>Feedback Anônimo</span>
                 <span class="anon-feedback-badge hidden" id="anon-feedback-badge">0</span>
             </button>
             <div class="pending-pill" id="pending-pill" style="display:none">
@@ -35,14 +34,14 @@
         </div>
     </header>
 
-    <div class="modal-overlay" id="anon-feedback-modal" onclick="if(event.target===this) closeAnonFeedbackModal()">
+    <div class="modal-overlay" id="anon-feedback-modal">
         <div class="modal-card modal-card--lg">
             <div class="modal-head">
                 <div class="modal-head-info">
                     <div class="modal-head-icon"><i class="fas fa-user-secret"></i></div>
                     <div>
                         <h3 class="modal-title">Feedback Anônimo</h3>
-                        <p class="modal-sub">Enviados sem nenhuma identificação — não é possível saber quem escreveu</p>
+                        <p class="modal-sub">Enviados sem nenhuma identificação</p>
                     </div>
                 </div>
                 <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
@@ -90,7 +89,7 @@
                 <button class="tf-chip" data-filter="em_atendimento">Em atend.</button>
                 <button class="tf-chip" data-filter="bot">Bot</button>
                 <button class="tf-chip" data-filter="resolvido">Resolvidos</button>
-                <button class="tf-chip" data-filter="escalacao"><i class="fas fa-flag"></i> Escalações</button>
+                <button class="tf-chip" data-filter="escalacao">Escalações</button>
             </div>
 
             <ul class="ticket-list" id="ticket-list">
@@ -108,7 +107,7 @@
                 <div class="chat-welcome-icon">
                     <i class="fas fa-headset"></i>
                 </div>
-                <h3>Painel de Atendimento RH</h3>
+                <h3>Painel de Atendimento</h3>
                 <p>Selecione um ticket na lista para visualizar a conversa e responder ao colaborador.</p>
                 <div class="chat-welcome-chips">
                     <span><i class="fas fa-bolt"></i> Respostas em tempo real</span>
