@@ -2059,7 +2059,7 @@ ul {
     align-items: center;
     justify-content: left;
     gap: 10px;
-    padding-left: 48px;
+    padding-left: 28px;
     width: 260px;
     box-sizing: border-box;
 }
@@ -2959,16 +2959,21 @@ ul {
 }
 .onb-chip-body {
     min-width: 0;
+    flex: 1;
 }
 .onb-chip-title {
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-primary);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .onb-chip-desc {
     font-size: 0.72rem;
     color: var(--text-tertiary);
     margin-top: 1px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .onb-chip button {
     background: rgba(0, 0, 0, 0.06);
@@ -3089,6 +3094,7 @@ ul {
     display: inline-flex;
     flex-direction: column;
     gap: 2px;
+    max-width: 100%;
     padding: 10px 14px;
     border-radius: 10px;
     background: var(--bg-card);
@@ -3108,10 +3114,14 @@ ul {
 .org-card strong {
     font-size: 0.85rem;
     color: var(--text-primary);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .org-card small {
     font-size: 0.72rem;
     color: var(--text-tertiary);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .org-card-dept {
     align-self: flex-start;
@@ -3385,6 +3395,9 @@ ul {
 #import-overlay .modal-body {
     padding: 20px 22px;
 }
+#orgchart-modal .modal-body {
+    overflow-x: hidden;
+}
 
 #import-overlay .modal-footer {
     padding: 16px 22px;
@@ -3583,6 +3596,7 @@ ul {
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;
+        margin-bottom: 24px;
     }
     .employee-table th:nth-child(5),
     .employee-table td:nth-child(5),
@@ -3601,7 +3615,7 @@ ul {
     }
     .employee-table td.employee-name-cell {
         width: auto;
-        padding-left: 50px;
+        padding-left: 30px;
     }
     .form-row {
         flex-direction: column;
@@ -3626,6 +3640,15 @@ ul {
 }
 
 @media (max-width: 480px) {
+    .onb-add {
+        flex-wrap: wrap;
+    }
+    .onb-add input {
+        flex-basis: 100%;
+    }
+    .onb-add button {
+        margin-left: auto;
+    }
     .page-body {
         padding: 12px 12px 80px;
     }
@@ -3705,6 +3728,18 @@ ul {
     .tab-btn {
         font-size: 0.8rem;
         padding: 9px 10px;
+    }
+    .org-tree ul {
+        padding-left: 14px;
+    }
+    .org-card {
+        padding: 8px 10px;
+    }
+    .org-card strong {
+        font-size: 0.8rem;
+    }
+    .orgchart-filter-bar {
+        padding: 10px 16px;
     }
 }
 
