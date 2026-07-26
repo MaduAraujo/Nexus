@@ -967,9 +967,6 @@
                             <a href="javascript:void(0)" onclick="handleEditFromDrawer()">
                                 <i class="fas fa-edit"></i> Editar Dados
                             </a>
-                            <a href="javascript:void(0)" onclick="handleViewDocuments()">
-                                <i class="fas fa-folder-open"></i> Ver Documentos
-                            </a>
                             <a href="javascript:void(0)" onclick="handleShowHistory()">
                                 <i class="fas fa-clock-rotate-left"></i> Ver Histórico
                             </a>
@@ -986,8 +983,8 @@
                             </a>
                         </div>
                         <div id="status-submenu-options" class="hidden">
-                            <a href="javascript:void(0)" onclick="event.stopPropagation(); backToMainMenu()" class="btn-back">
-                                <i class="fas fa-arrow-left"></i> Voltar
+                            <a href="javascript:void(0)" onclick="event.stopPropagation(); backToMainMenu()" class="btn-back" aria-label="Voltar">
+                                <i class="fas fa-arrow-left"></i>
                             </a>
                             <div class="dropdown-divider"></div>
                             <div id="dynamic-status-options"></div>
@@ -1097,7 +1094,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="audit-history-modal" onclick="if(event.target===this) closeAuditHistoryModal()">
+<div class="modal-overlay" id="audit-history-modal">
     <div class="modal-content">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-clock-rotate-left"></i></div>
@@ -1111,20 +1108,20 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="lgpd-modal" onclick="if(event.target===this) closeLgpdModal()">
+<div class="modal-overlay" id="lgpd-modal">
     <div class="modal-content">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-shield-halved"></i></div>
             <div>
                 <h3 class="modal-title">Privacidade (LGPD)</h3>
-                <p class="modal-subtitle">Acessos a dados sensíveis, exportação e anonimização</p>
+                <p class="modal-subtitle">Acessos a dados sensíveis</p>
             </div>
             <button class="close-modal" onclick="closeLgpdModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="lgpd-actions">
                 <button type="button" class="btn-secondary" onclick="exportEmployeeDataLGPD()">
-                    <i class="fas fa-file-export"></i> Exportar dados (portabilidade)
+                    <i class="fas fa-file-export"></i> Exportar dados
                 </button>
                 <button type="button" class="btn-danger" id="btn-anonymize-lgpd" onclick="confirmAnonymizeEmployee()">
                     <i class="fas fa-user-slash"></i> Anonimizar dados

@@ -2614,9 +2614,7 @@ ul {
 
 .dropdown-content {
     display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
+    position: fixed;
     background: var(--bg-card);
     min-width: 190px;
     box-shadow: var(--shadow-lg);
@@ -2896,7 +2894,7 @@ ul {
     border: 1px solid var(--border-light);
     border-radius: 10px;
     margin-bottom: 10px;
-    background: #fafbff;
+    background: var(--bg-input);
 }
 .audit-timeline-item:last-child {
     margin-bottom: 0;
@@ -3334,7 +3332,9 @@ ul {
 
 #orgchart-modal.modal-overlay,
 #onboarding-tasks-modal.modal-overlay,
-#import-overlay.modal-overlay {
+#import-overlay.modal-overlay,
+#audit-history-modal.modal-overlay,
+#lgpd-modal.modal-overlay {
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -3342,7 +3342,9 @@ ul {
 
 #orgchart-modal .modal-content,
 #onboarding-tasks-modal .modal-content,
-#import-overlay .modal-content {
+#import-overlay .modal-content,
+#audit-history-modal .modal-content,
+#lgpd-modal .modal-content {
     border-radius: 16px;
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
 }
@@ -3352,7 +3354,9 @@ ul {
 
 #orgchart-modal .modal-header,
 #onboarding-tasks-modal .modal-header,
-#import-overlay .modal-header {
+#import-overlay .modal-header,
+#audit-history-modal .modal-header,
+#lgpd-modal .modal-header {
     padding: 18px 22px;
     background: var(--bg-page);
     border-bottom: 1px solid var(--border-light);
@@ -3360,7 +3364,9 @@ ul {
 
 #orgchart-modal .modal-header-icon,
 #onboarding-tasks-modal .modal-header-icon,
-#import-overlay .modal-header-icon {
+#import-overlay .modal-header-icon,
+#audit-history-modal .modal-header-icon,
+#lgpd-modal .modal-header-icon {
     width: 36px;
     height: 36px;
     border-radius: 9px;
@@ -3369,13 +3375,17 @@ ul {
 
 #orgchart-modal .modal-title,
 #onboarding-tasks-modal .modal-title,
-#import-overlay .modal-title {
+#import-overlay .modal-title,
+#audit-history-modal .modal-title,
+#lgpd-modal .modal-title {
     font-size: 0.97rem;
 }
 
 #orgchart-modal .close-modal,
 #onboarding-tasks-modal .close-modal,
-#import-overlay .close-modal {
+#import-overlay .close-modal,
+#audit-history-modal .close-modal,
+#lgpd-modal .close-modal {
     width: 30px;
     height: 30px;
     border-radius: 8px;
@@ -3384,7 +3394,9 @@ ul {
 }
 #orgchart-modal .close-modal:hover,
 #onboarding-tasks-modal .close-modal:hover,
-#import-overlay .close-modal:hover {
+#import-overlay .close-modal:hover,
+#audit-history-modal .close-modal:hover,
+#lgpd-modal .close-modal:hover {
     background: var(--danger-bg);
     color: var(--danger);
     border-color: var(--danger);
@@ -3392,7 +3404,9 @@ ul {
 
 #orgchart-modal .modal-body,
 #onboarding-tasks-modal .modal-body,
-#import-overlay .modal-body {
+#import-overlay .modal-body,
+#audit-history-modal .modal-body,
+#lgpd-modal .modal-body {
     padding: 20px 22px;
 }
 #orgchart-modal .modal-body {

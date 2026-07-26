@@ -263,7 +263,7 @@ const formatDateBR = (dateStr) => {
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const getBadgeClass = (status) => ({ Ativo: 'badge--ativo', Inativo: 'badge--inativo', Férias: 'badge--ferias' })[status] || '';
+const getBadgeClass = (status) => ({ Ativo: 'badge--ativo', Inativo: 'badge--inativo', Férias: 'badge--ferias', Afastado: 'badge--afastado' })[status] || '';
 
 function getProbationStatus(emp) {
     if (emp.isProbation !== 'sim' || !emp.probationEndDate) return null;
@@ -1250,7 +1250,14 @@ window.closeDrawer = function () {
 window.toggleDropdown = function (event) {
     event.stopPropagation();
     const dd = document.getElementById('drawer-dropdown');
-    if (dd) dd.classList.toggle('show');
+    const btn = document.getElementById('btn-drawer-options');
+    if (!dd || !btn) return;
+    if (!dd.classList.contains('show')) {
+        const rect = btn.getBoundingClientRect();
+        dd.style.top = `${rect.bottom + 6}px`;
+        dd.style.right = `${window.innerWidth - rect.right}px`;
+    }
+    dd.classList.toggle('show');
 };
 
 function closeDropdownMenu() {
@@ -1272,9 +1279,12 @@ window.showStatusSubmenu = function () {
     if (emp.status === 'Ativo') {
         dynamicOptions.innerHTML =
             `<a href="javascript:void(0)" onclick="updateStatus('Inativo')"><i class="fas fa-user-slash"></i> Inativo</a>` +
-            `<a href="javascript:void(0)" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>`;
+            `<a href="javascript:void(0)" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>` +
+            `<a href="javascript:void(0)" onclick="updateStatus('Afastado')"><i class="fas fa-user-clock"></i> Afastado</a>`;
     } else if (emp.status === 'Férias') {
         dynamicOptions.innerHTML = `<a href="javascript:void(0)" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar das Férias</a>`;
+    } else if (emp.status === 'Afastado') {
+        dynamicOptions.innerHTML = `<a href="javascript:void(0)" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar do Afastamento</a>`;
     } else if (emp.status === 'Inativo') {
         dynamicOptions.innerHTML = `<p style="padding:10px 16px;font-size:12px;color:#999;margin:0;">Status Inativo é permanente.</p>`;
     }
@@ -1318,7 +1328,12 @@ window.updateStatus = async function (newStatus) {
     applyStatusFilter(activeFilter);
     renderStatsRow();
     renderAlertsBanner();
-    const msgs = { Ativo: 'Colaborador marcado como Ativo.', Inativo: 'Colaborador marcado como Inativo.', Férias: 'Colaborador marcado como em Férias.' };
+    const msgs = {
+        Ativo: 'Colaborador marcado como Ativo.',
+        Inativo: 'Colaborador marcado como Inativo.',
+        Férias: 'Colaborador marcado como em Férias.',
+        Afastado: 'Colaborador marcado como Afastado.',
+    };
     showToast('Status Atualizado!', msgs[newStatus] || `Status: ${newStatus}`, 'success');
 };
 
@@ -1370,6 +1385,7 @@ window.handleShowHistory = async function () {
     document.getElementById('drawer-dropdown')?.classList.remove('show');
     backToMainMenu();
     document.getElementById('audit-history-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
     const body = document.getElementById('audit-history-body');
     if (body) body.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando histórico…</p></div>`;
     const entries = await fetchEmployeeAudit(id);
@@ -1378,6 +1394,7 @@ window.handleShowHistory = async function () {
 
 window.closeAuditHistoryModal = function () {
     document.getElementById('audit-history-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 const LGPD_TIPO_META = {
@@ -1426,6 +1443,7 @@ window.handleShowLgpd = async function () {
     document.getElementById('drawer-dropdown')?.classList.remove('show');
     backToMainMenu();
     document.getElementById('lgpd-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
 
     const anonBtn = document.getElementById('btn-anonymize-lgpd');
     const hint = document.getElementById('lgpd-anonymize-hint');
@@ -1448,6 +1466,7 @@ window.handleShowLgpd = async function () {
 
 window.closeLgpdModal = function () {
     document.getElementById('lgpd-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 window.exportEmployeeDataLGPD = function () {
@@ -2251,12 +2270,6 @@ function setupFormListener() {
         }
     });
 }
-
-window.handleViewDocuments = function () {
-    const emp = employees.find((e) => e.id === currentEmployeeId);
-    if (!emp) return;
-    window.location.href = '../screens/arquivos.html?colaborador=' + encodeURIComponent(emp.id);
-};
 
 window.handleEditFromDrawer = function () {
     const id = currentEmployeeId;
