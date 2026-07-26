@@ -276,13 +276,19 @@ body {
     scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
     background-color: var(--bg-chat-l);
     background-image:
-        linear-gradient(to right, var(--bg-chat-l), transparent),
-        linear-gradient(to left, var(--bg-chat-l), transparent),
-        linear-gradient(to right, rgba(0, 0, 0, 0.35), transparent),
-        linear-gradient(to left, rgba(0, 0, 0, 0.35), transparent);
+        linear-gradient(to right, var(--bg-chat-l), transparent), linear-gradient(to left, var(--bg-chat-l), transparent),
+        linear-gradient(to right, rgba(0, 0, 0, 0.35), transparent), linear-gradient(to left, rgba(0, 0, 0, 0.35), transparent);
     background-repeat: no-repeat;
-    background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
-    background-position: left center, right center, left center, right center;
+    background-size:
+        24px 100%,
+        24px 100%,
+        10px 100%,
+        10px 100%;
+    background-position:
+        left center,
+        right center,
+        left center,
+        right center;
     background-attachment: local, local, scroll, scroll;
 }
 .ticket-filters::-webkit-scrollbar {
@@ -1159,7 +1165,9 @@ body {
     font-size: 0.9rem;
     color: #fff;
     flex-shrink: 0;
-    box-shadow: 0 1px 2px rgba(219, 39, 119, 0.3), 0 10px 24px -8px rgba(236, 72, 153, 0.55);
+    box-shadow:
+        0 1px 2px rgba(219, 39, 119, 0.3),
+        0 10px 24px -8px rgba(236, 72, 153, 0.55);
 }
 .modal-title {
     font-family: 'Plus Jakarta Sans', sans-serif;
