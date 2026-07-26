@@ -2059,7 +2059,7 @@ ul {
     align-items: center;
     justify-content: left;
     gap: 10px;
-    padding-left: 28px;
+    padding-left: 48px;
     width: 260px;
     box-sizing: border-box;
 }
@@ -2903,20 +2903,27 @@ ul {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     margin-bottom: 8px;
     font-size: 0.78rem;
 }
 .audit-timeline-operator {
     font-weight: 700;
     color: var(--text-primary);
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .audit-timeline-date {
     color: var(--text-tertiary);
+    flex-shrink: 0;
 }
 .audit-timeline-field {
     font-size: 0.82rem;
     color: var(--text-secondary);
     padding: 3px 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .audit-timeline-field strong {
     color: var(--text-primary);
