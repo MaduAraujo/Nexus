@@ -1123,11 +1123,13 @@ function resetImportModal() {
 
 window.openImportModal = function () {
     resetImportModal();
-    document.getElementById('import-overlay')?.classList.add('active');
+    document.getElementById('import-overlay')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
 };
 
 window.closeImportModal = function () {
-    document.getElementById('import-overlay')?.classList.remove('active');
+    document.getElementById('import-overlay')?.classList.remove('open');
+    document.body.style.overflow = '';
     resetImportModal();
 };
 
@@ -1552,6 +1554,7 @@ window.openOrgChart = function () {
     populateOrgChartDeptFilter();
     renderOrgChart();
     document.getElementById('orgchart-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
 };
 
 window.openOrgEmployee = function (id) {
@@ -1561,6 +1564,7 @@ window.openOrgEmployee = function (id) {
 
 window.closeOrgChart = function () {
     document.getElementById('orgchart-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 let onboardingTasksCache = [];
@@ -1603,12 +1607,14 @@ function renderOnboardingTasksModal() {
 
 window.openOnboardingTasksModal = async function () {
     document.getElementById('onboarding-tasks-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
     await fetchOnboardingTasks();
     renderOnboardingTasksModal();
 };
 
 window.closeOnboardingTasksModal = function () {
     document.getElementById('onboarding-tasks-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
 };
 
 window.addOnboardingTask = async function (dias) {
@@ -1970,17 +1976,26 @@ function setFormHeader(icon, title) {
     if (titleEl) titleEl.textContent = title;
 }
 
+window.handleBackClick = function () {
+    const formContainer = document.getElementById('form-container');
+    if (formContainer && !formContainer.classList.contains('hidden')) {
+        toggleForm();
+        return false;
+    }
+    return true;
+};
+
 window.toggleForm = function () {
     const formContainer = document.getElementById('form-container');
     const listSection = document.getElementById('list-section');
     const form = document.getElementById('employee-form');
     const kpiGrid = document.querySelector('.kpi-grid');
-    const topbar = document.getElementById('page-topbar');
+    const headerActions = document.querySelector('.header-actions');
     if (formContainer && formContainer.classList.contains('hidden')) {
         formContainer.classList.remove('hidden');
         listSection?.classList.add('hidden');
         kpiGrid?.classList.add('hidden');
-        topbar?.classList.add('hidden');
+        headerActions?.classList.add('hidden');
         document.getElementById('alerts-banner')?.classList.add('hidden');
         resetStepper();
         resetConditionalFields();
@@ -1990,7 +2005,7 @@ window.toggleForm = function () {
         formContainer?.classList.add('hidden');
         listSection?.classList.remove('hidden');
         kpiGrid?.classList.remove('hidden');
-        topbar?.classList.remove('hidden');
+        headerActions?.classList.remove('hidden');
         renderAlertsBanner();
         form?.reset();
         resetDateFields();

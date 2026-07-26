@@ -16,7 +16,7 @@
     <div class="main-wrapper" style="margin-left:0;width:100%">
         <header class="topbar" id="page-topbar">
             <div class="topbar-left">
-                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar" onclick="return handleBackClick()">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 </a>
             </div>
@@ -1137,13 +1137,13 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="onboarding-tasks-modal" onclick="if(event.target===this) closeOnboardingTasksModal()">
+<div class="modal-overlay" id="onboarding-tasks-modal">
     <div class="modal-content">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-route"></i></div>
             <div>
                 <h3 class="modal-title">Checklist de Integração</h3>
-                <p class="modal-subtitle">Tarefas da jornada de onboarding (30/60/90 dias)</p>
+                <p class="modal-subtitle">Jornada de onboarding (30/60/90 dias)</p>
             </div>
             <button class="close-modal" onclick="closeOnboardingTasksModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
@@ -1179,7 +1179,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="orgchart-modal" onclick="if(event.target===this) closeOrgChart()">
+<div class="modal-overlay" id="orgchart-modal">
     <div class="modal-content modal-content--lg">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-sitemap"></i></div>
@@ -1199,18 +1199,18 @@
     </div>
 </div>
 
-<div id="import-overlay" class="import-overlay">
-    <div class="import-modal">
-        <div class="import-modal-header">
-            <div class="import-modal-icon"><i class="fas fa-file-arrow-up"></i></div>
-            <div class="import-modal-heading">
-                <h3 id="import-modal-title">Importar via planilha</h3>
-                <p id="import-modal-subtitle">Envie um arquivo com os dados dos colaboradores.</p>
+<div class="modal-overlay" id="import-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-header-icon"><i class="fas fa-file-arrow-up"></i></div>
+            <div>
+                <h3 class="modal-title" id="import-modal-title">Importar via planilha</h3>
+                <p class="modal-subtitle" id="import-modal-subtitle">Cadastro em lote</p>
             </div>
-            <button class="btn-close-drawer" onclick="closeImportModal()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            <button class="close-modal" onclick="closeImportModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
 
-        <div class="import-modal-body">
+        <div class="modal-body">
             <div id="import-step-upload">
                 <button type="button" class="btn-secondary" id="btn-download-template" onclick="downloadImportTemplate()">
                     <i class="fas fa-download"></i> Baixar modelo
@@ -1242,7 +1242,7 @@
             </div>
         </div>
 
-        <div class="import-modal-footer">
+        <div class="modal-footer">
             <button type="button" class="btn-primary hidden" id="btn-import-confirm" onclick="confirmImport()">
                 <i class="fas fa-check"></i> <span id="btn-import-confirm-text">Importar</span>
             </button>
