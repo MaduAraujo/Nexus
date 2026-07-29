@@ -137,7 +137,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     refreshAll();
     setupRealtimeSync();
     setupExportButton();
+    setupSectionToggle('demo-section-toggle', 'demo-section-grid');
+    setupSectionToggle('equity-section-toggle', 'equity-section-grid');
+    setupSectionToggle('dev-section-toggle', 'dev-section-grid');
+    setupSectionToggle('engagement-section-toggle', 'engagement-section-grid');
+    setupSectionToggle('cost-section-toggle', 'cost-section-grid');
 });
+
+function setupSectionToggle(btnId, gridId) {
+    const btn = document.getElementById(btnId);
+    const grid = document.getElementById(gridId);
+    if (!btn || !grid) return;
+    btn.addEventListener('click', () => {
+        const collapsed = grid.classList.toggle('collapsed');
+        btn.classList.toggle('collapsed', collapsed);
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.setAttribute('aria-label', collapsed ? 'Expandir seção' : 'Recolher seção');
+    });
+}
 
 async function loadRhSidebar() {
     const auth = await NexusAuth.requireProfile('Administrador');
