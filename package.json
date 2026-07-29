@@ -3,6 +3,7 @@
         "test": "node --test",
         "test:integration": "node --test test-integration/rls-policies.js",
         "test:e2e": "playwright test",
+        "test:pwa": "node test-support/pwa-audit.js",
         "lint": "eslint src/javascript test test-support test-integration e2e",
         "lint:fix": "eslint src/javascript test test-support test-integration e2e --fix",
         "format": "prettier --write \"src/**/*.{js,css,json}\" \"test/**/*.js\" \"test-support/**/*.js\" \"test-integration/**/*.js\" \"e2e/**/*.js\" \"*.{js,json}\"",
@@ -14,6 +15,7 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.61.1",
+        "@types/node": "^26.1.2",
         "eslint": "^10.7.0",
         "globals": "^17.7.0",
         "pg": "^8.22.0",

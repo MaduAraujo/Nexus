@@ -877,6 +877,26 @@ header {
     font-weight: 600;
 }
 
+.app-section {
+    padding: 8rem 2rem;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.app-inner {
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.app-inner .section-desc {
+    margin-bottom: 2.5rem;
+}
+
 .footer {
     padding: 50px;
     background: var(--bg);
@@ -1044,6 +1064,10 @@ header {
     .about-card {
         width: 100%;
         max-width: 320px;
+    }
+
+    .app-section {
+        padding: 4rem 1.5rem;
     }
 }
 

@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
       - name: Check JS syntax
         run: |
           for f in $(find src/javascript -name '*.js'); do
@@ -36,6 +39,9 @@ jobs:
 
       - name: Run unit tests
         run: npm test
+
+      - name: Run PWA audit (manifest, icons, service worker)
+        run: npm run test:pwa
 
   rls-integration:
     runs-on: ubuntu-latest

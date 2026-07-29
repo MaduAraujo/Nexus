@@ -665,6 +665,12 @@
             return;
         }
 
+        if (!scheduledAt) {
+            sb.functions.invoke('send-push', { body: { message_id: data.id } }).catch((err) => {
+                console.error('[Nexus] send-push:', err);
+            });
+        }
+
         let anexos = [];
         if (stagedFiles.length) {
             const uploads = await Promise.all(

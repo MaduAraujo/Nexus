@@ -1,0 +1,78 @@
+{
+    "name": "Nexus",
+    "short_name": "Nexus",
+    "description": "Plataforma de gestão de RH",
+    "start_url": "/index.html",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#0a0a0d",
+    "theme_color": "#0a0a0d",
+    "lang": "pt-BR",
+    "dir": "ltr",
+    "icons": [
+        {
+            "src": "src/assets/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "src/assets/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "src/assets/icons/icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "src/assets/icons/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Bater Ponto",
+            "short_name": "Ponto",
+            "description": "Registrar entrada ou saída",
+            "url": "/src/screens/ponto-colaborador.html",
+            "icons": [{ "src": "src/assets/icons/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Holerite",
+            "short_name": "Holerite",
+            "description": "Consultar holerites",
+            "url": "/src/screens/holerite-colaborador.html",
+            "icons": [{ "src": "src/assets/icons/icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Painel",
+            "short_name": "Painel",
+            "description": "Ir para o painel principal",
+            "url": "/src/screens/inicio-colaborador.html",
+            "icons": [{ "src": "src/assets/icons/icon-192.png", "sizes": "192x192" }]
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "src/assets/screenshots/home-wide.png",
+            "sizes": "1280x800",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Página inicial do Nexus em desktop"
+        },
+        {
+            "src": "src/assets/screenshots/home-narrow.png",
+            "sizes": "414x896",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Página inicial do Nexus em mobile"
+        }
+    ]
+}

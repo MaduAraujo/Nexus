@@ -33,4 +33,17 @@ module.exports = [
             'no-undef': 'error',
         },
     },
+    {
+        // page.evaluate() callbacks run in the browser, not Node.
+        files: ['test-support/pwa-audit.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'commonjs',
+            globals: { ...globals.node, ...globals.browser },
+        },
+        rules: {
+            'no-unused-vars': ['warn', { args: 'none' }],
+            'no-undef': 'error',
+        },
+    },
 ];

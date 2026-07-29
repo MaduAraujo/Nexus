@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a0a0d" />
+    <link rel="icon" href="/src/assets/icons/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/src/assets/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/src/assets/icons/splash/splash-640x1136.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/src/assets/icons/splash/splash-750x1334.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/src/assets/icons/splash/splash-1242x2208.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/src/assets/icons/splash/splash-1125x2436.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/src/assets/icons/splash/splash-828x1792.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/src/assets/icons/splash/splash-1170x2532.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/src/assets/icons/splash/splash-1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/src/assets/icons/splash/splash-1668x2388.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/src/assets/icons/splash/splash-2048x2732.png" />
+    <script src="/src/javascript/shared/pwa-register.js"></script>
     <title>Home</title>
     <link rel="stylesheet" href="src/styles/index.css" />
 </head>
@@ -10,10 +24,10 @@
     <header class="navbar" id="navbar">
         <a href="#" class="logo">Ne<span class="x">x</span>us</a>
         <nav class="nav-links" aria-label="Menu principal">
-            <a class="nav-link" href="#tech">Tecnologia</a>
             <a class="nav-link" href="#features">Funcionalidades</a>
             <a class="nav-link" href="#lgpd">Segurança</a>
             <a class="nav-link" href="#about">Sobre</a>
+            <a class="nav-link" href="#app">App</a>
         </nav>
         <div class="nav-right">
             <a href="./src/screens/login.html" class="btn-outline" id="btn-login">Entrar</a>
@@ -26,10 +40,10 @@
     </header>
 
     <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
-        <a class="mobile-link" href="#tech">Tecnologia</a>
         <a class="mobile-link" href="#features">Funcionalidades</a>
         <a class="mobile-link" href="#lgpd">Segurança</a>
         <a class="mobile-link" href="#about">Sobre</a>
+        <a class="mobile-link" href="#app">App</a>
         <div class="mobile-actions">
             <a href="./src/screens/login.html" class="btn-outline w-full">Entrar</a>
         </div>
@@ -81,45 +95,6 @@
                     <span class="stat-label">Menos erros operacionais</span>
                 </div>
                 <div class="stat-div" aria-hidden="true"></div>
-            </div>
-        </section>
-
-        <section class="tech-section" id="tech">
-            <div class="tech-inner">
-                <div class="section-header reveal">
-                    <div class="section-label">
-                        <span class="sl-line" aria-hidden="true"></span>
-                        Stack Tecnológica
-                    </div>
-                    <h2 class="section-title">Base de <span class="hl">Desenvolvimento</span></h2>
-                    <p class="section-desc">Arquitetura construída sobre os pilares fundamentais da web moderna.</p>
-                </div>
-
-                <div class="tech-container">
-                    <article class="tech-card reveal">
-                        <div class="tech-icon-wrapper">
-                            <img src="./src/assets/html.png" alt="HTML5 Logo" class="tech-png">
-                        </div>
-                        <h3>HTML5</h3>
-                        <span>Estruturação e Semântica</span>
-                    </article>
-
-                    <article class="tech-card reveal reveal-delay-1">
-                        <div class="tech-icon-wrapper">
-                            <img src="./src/assets/css.png" alt="CSS3 Logo" class="tech-png">
-                        </div>
-                        <h3>CSS3</h3>
-                        <span>Estilização Dinâmica</span>
-                    </article>
-
-                    <article class="tech-card reveal reveal-delay-2">
-                        <div class="tech-icon-wrapper">
-                            <img src="./src/assets/js.png" alt="JavaScript Logo" class="tech-png">
-                        </div>
-                        <h3>JavaScript</h3>
-                        <span>Lógica e Interação</span>
-                    </article>
-                </div>
             </div>
         </section>
 
@@ -263,6 +238,24 @@
                         realmente precisa.
                     </p>
                 </div>
+            </div>
+        </section>
+
+        <section class="app-section" id="app">
+            <div class="app-inner">
+                <div class="section-label">
+                    <span class="sl-line" aria-hidden="true"></span>
+                    Aplicativo
+                </div>
+                <h2 class="section-title">
+                    Leve o Nexus para o <span class="hl">bolso</span>
+                </h2>
+                <p class="section-desc">
+                    Instale o Nexus como aplicativo no computador ou celular e acesse seus
+                    dados mesmo offline, com atualizações automáticas e a experiência
+                    de um app nativo.
+                </p>
+                <button class="btn-outline" id="btn-install-app" hidden>Instalar App</button>
             </div>
         </section>
     </main>

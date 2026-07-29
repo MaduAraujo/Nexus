@@ -25,13 +25,19 @@ let ajusteDatePicker = null,
 const EMPRESA = {
     nome: 'Nexus',
     unidades: [
-        { endereco: 'R. Augusta, 1508 - Consolação, São Paulo - SP', lat: -23.5591, lng: -46.6606, raioM: 200 },
-        { endereco: 'R. Borges de Figueiredo, 510 - Mooca, São Paulo - SP', lat: -23.5552, lng: -46.6035, raioM: 200 },
+        { endereco: 'Rua Augusta, 1508 - Consolação, São Paulo - SP, 01304-001', lat: -23.5591, lng: -46.6606, raioM: 200 },
+        { endereco: 'Rua Borges de Figueiredo, 510 - Mooca, São Paulo - SP, 03110-010', lat: -23.5552, lng: -46.6035, raioM: 200 },
     ],
-    lat: -23.5591,
-    lng: -46.6606,
-    raioM: 200,
 };
+
+function nearestUnidade(lat, lng) {
+    let best = null;
+    for (const u of EMPRESA.unidades) {
+        const dist = haversineM(lat, lng, u.lat, u.lng);
+        if (!best || dist < best.dist) best = { ...u, dist };
+    }
+    return best;
+}
 
 const pad0 = (n) => String(n).padStart(2, '0');
 const $ = (id) => document.getElementById(id);
@@ -1057,9 +1063,11 @@ window.abrirConfirmar = function () {
     const locEl = $('confirmar-loc');
     if (locEl) {
         if (userCoords) {
-            const d = haversineM(userCoords.lat, userCoords.lng, EMPRESA.lat, EMPRESA.lng);
-            const dentro = d <= EMPRESA.raioM;
-            locEl.textContent = dentro ? `Dentro da empresa (~${Math.round(d)} m)` : `Fora da empresa (~${Math.round(d)} m)`;
+            const nearest = nearestUnidade(userCoords.lat, userCoords.lng);
+            const dentro = nearest.dist <= nearest.raioM;
+            locEl.textContent = dentro
+                ? `Dentro da empresa (${nearest.endereco}, ~${Math.round(nearest.dist)} m)`
+                : `Fora da empresa (mais próxima: ${nearest.endereco}, ~${Math.round(nearest.dist)} m)`;
             locEl.style.color = dentro ? '#10b981' : '#ef4444';
         } else {
             locEl.textContent = 'Localização não obtida';
@@ -1319,9 +1327,12 @@ window.confirmarRegistro = async function () {
         return;
     }
 
-    const dist = haversineM(userCoords.lat, userCoords.lng, EMPRESA.lat, EMPRESA.lng);
-    if (dist > EMPRESA.raioM) {
-        showToast(`Você está a ~${Math.round(dist)}m da empresa — fora do raio permitido de ${EMPRESA.raioM}m para registrar o ponto.`, 'error');
+    const nearest = nearestUnidade(userCoords.lat, userCoords.lng);
+    if (nearest.dist > nearest.raioM) {
+        showToast(
+            `Você está a ~${Math.round(nearest.dist)}m da unidade mais próxima (${nearest.endereco}) — fora do raio permitido de ${nearest.raioM}m para registrar o ponto.`,
+            'error'
+        );
         return;
     }
 
@@ -1808,12 +1819,12 @@ window.initLocation = function () {
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            const distM = haversineM(userCoords.lat, userCoords.lng, EMPRESA.lat, EMPRESA.lng);
-            const dentro = distM <= EMPRESA.raioM;
+            const nearest = nearestUnidade(userCoords.lat, userCoords.lng);
+            const dentro = nearest.dist <= nearest.raioM;
             if (dot) dot.className = `loc-dot ${dentro ? 'dentro' : 'fora'}`;
-            if (stxt) stxt.textContent = dentro ? 'Dentro da empresa' : 'Fora da empresa';
+            if (stxt) stxt.textContent = dentro ? 'Dentro da empresa' : `Fora — mais próxima: ${nearest.endereco}`;
             if (locVal) locVal.textContent = `${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}`;
-            if (distVal) distVal.textContent = distM < 1000 ? `${Math.round(distM)} m` : `${(distM / 1000).toFixed(1)} km`;
+            if (distVal) distVal.textContent = nearest.dist < 1000 ? `${Math.round(nearest.dist)} m` : `${(nearest.dist / 1000).toFixed(1)} km`;
             renderMapStatic(userCoords);
             if (refreshBtn) refreshBtn.classList.remove('spin');
         },
@@ -1835,7 +1846,11 @@ function ensureLeafletMap() {
     const el = $('map-leaflet');
     if (!el || typeof L === 'undefined') return null;
 
-    leafletMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([EMPRESA.lat, EMPRESA.lng], 16);
+    leafletMap = L.map(el, { zoomControl: true, attributionControl: true });
+    leafletMap.fitBounds(
+        L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])),
+        { padding: [40, 40], maxZoom: 16 }
+    );
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -1847,15 +1862,19 @@ function ensureLeafletMap() {
         iconSize: [30, 30],
         iconAnchor: [15, 15],
     });
-    L.marker([EMPRESA.lat, EMPRESA.lng], { icon: empresaIcon }).addTo(leafletMap).bindPopup(EMPRESA.nome);
-    L.circle([EMPRESA.lat, EMPRESA.lng], {
-        radius: EMPRESA.raioM,
-        color: '#6366f1',
-        weight: 1.5,
-        dashArray: '6 3',
-        fillColor: '#6366f1',
-        fillOpacity: 0.08,
-    }).addTo(leafletMap);
+    EMPRESA.unidades.forEach((u) => {
+        L.marker([u.lat, u.lng], { icon: empresaIcon })
+            .addTo(leafletMap)
+            .bindPopup(`${EMPRESA.nome} — ${u.endereco}`);
+        L.circle([u.lat, u.lng], {
+            radius: u.raioM,
+            color: '#6366f1',
+            weight: 1.5,
+            dashArray: '6 3',
+            fillColor: '#6366f1',
+            fillOpacity: 0.08,
+        }).addTo(leafletMap);
+    });
 
     return leafletMap;
 }
@@ -1879,11 +1898,15 @@ function renderMapStatic(user) {
     }
 
     if (!user) {
-        map.setView([EMPRESA.lat, EMPRESA.lng], 16);
+        map.fitBounds(
+            L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])),
+            { padding: [40, 40], maxZoom: 16 }
+        );
         return;
     }
 
-    const dentro = haversineM(user.lat, user.lng, EMPRESA.lat, EMPRESA.lng) <= EMPRESA.raioM;
+    const nearest = nearestUnidade(user.lat, user.lng);
+    const dentro = nearest.dist <= nearest.raioM;
     const userIcon = L.divIcon({
         className: '',
         html: `<div class="map-marker-user ${dentro ? 'dentro' : ''}"></div>`,
@@ -1892,10 +1915,10 @@ function renderMapStatic(user) {
     });
     userMarker = L.marker([user.lat, user.lng], { icon: userIcon })
         .addTo(map)
-        .bindPopup(dentro ? 'Você (dentro da empresa)' : 'Você (fora da empresa)');
+        .bindPopup(dentro ? `Você (dentro de ${nearest.endereco})` : `Você (fora — mais próxima: ${nearest.endereco})`);
     routeLine = L.polyline(
         [
-            [EMPRESA.lat, EMPRESA.lng],
+            [nearest.lat, nearest.lng],
             [user.lat, user.lng],
         ],
         {
@@ -1908,7 +1931,7 @@ function renderMapStatic(user) {
 
     map.fitBounds(
         L.latLngBounds([
-            [EMPRESA.lat, EMPRESA.lng],
+            [nearest.lat, nearest.lng],
             [user.lat, user.lng],
         ]),
         { padding: [40, 40], maxZoom: 17 }

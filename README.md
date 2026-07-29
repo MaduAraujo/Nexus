@@ -91,7 +91,7 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 (a connection string fica em Project Settings → Database → Connection string no dashboard; alternativamente, cole o conteúdo de `supabase/schema.sql` direto no SQL Editor). Só depois disso, para futuras alterações incrementais, use `npx supabase db push` normalmente — a partir daí o banco já está na baseline que as migrations esperam.
 
-### 4. Configurar as Edge Functions (opcional, para IA e convites)
+### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
 
 As functions em `supabase/functions/` (`invite-employee`, `ai-alerts`, `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/) para os recursos de IA:
 
@@ -99,6 +99,14 @@ As functions em `supabase/functions/` (`invite-employee`, `ai-alerts`, `ai-emplo
 npx supabase functions deploy
 npx supabase secrets set GROQ_API_KEY=sua_chave_aqui
 ```
+
+A function `send-push` envia notificações push (Web Push) quando o RH publica um comunicado imediato (não agendado). Ela precisa de um par de chaves VAPID como secret — gere o seu com `npx web-push generate-vapid-keys` e configure:
+
+```bash
+npx supabase secrets set VAPID_PUBLIC_KEY=sua_chave_publica VAPID_PRIVATE_KEY=sua_chave_privada
+```
+
+A chave pública também precisa ser colada em `VAPID_PUBLIC_KEY` no topo de `src/javascript/perfil-colaborador.js` (client-side, por isso não é secret) — mantenha as duas em sincronia. Sem isso configurado, o botão "Notificações push do navegador" em Meu Perfil aparece normalmente, mas o envio real falha silenciosamente (log no `send-push`).
 
 ### 5. Rodar o app localmente
 

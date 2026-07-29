@@ -194,6 +194,132 @@
         showToast(value ? 'Notificação ativada.' : 'Notificação desativada.', value ? 'success' : 'error');
     };
 
+    const VAPID_PUBLIC_KEY = 'BKEh0-IRJSvTztskLtGWT6syeAf1dyrRJwslbUs9v9ISuu9nMdr4fthxtkT6P8UdEDR4GJMKXJIXRNb-9EJhgAY';
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+    }
+
+    function pushSupported() {
+        return 'serviceWorker' in navigator && 'PushManager' in window;
+    }
+
+    function isIos() {
+        return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    function isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function iosNeedsInstallFirst() {
+        return isIos() && !isStandalone();
+    }
+
+    async function getPushSubscription() {
+        if (!pushSupported()) return null;
+        const registration = await navigator.serviceWorker.ready;
+        return registration.pushManager.getSubscription();
+    }
+
+    async function syncSubscriptionToServer(json) {
+        const { error } = await sb
+            .from('push_subscriptions')
+            .upsert({ employee_id: myEmployeeId, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }, { onConflict: 'endpoint' });
+        if (error) console.error('[Nexus] push sync:', error);
+        return !error;
+    }
+
+    if (pushSupported()) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data?.type === 'PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
+                syncSubscriptionToServer(event.data.subscription);
+            }
+        });
+    }
+
+    async function syncPushToggleUI() {
+        const toggle = document.getElementById('notif-push-browser');
+        if (!toggle) return;
+
+        const desc = document.getElementById('notif-push-desc');
+
+        if (!pushSupported()) {
+            toggle.disabled = true;
+            if (desc) desc.textContent = 'Não suportado neste navegador.';
+            return;
+        }
+
+        if (iosNeedsInstallFirst()) {
+            toggle.disabled = true;
+            if (desc) desc.textContent = 'Instale o app na Tela de Início para ativar (toque em Compartilhar → Adicionar à Tela de Início).';
+            return;
+        }
+
+        const sub = await getPushSubscription();
+        toggle.checked = !!sub;
+        if (sub) syncSubscriptionToServer(sub.toJSON());
+    }
+
+    window.togglePushNotifications = async function (checked) {
+        const toggle = document.getElementById('notif-push-browser');
+
+        if (!checked) {
+            try {
+                const sub = await getPushSubscription();
+                if (sub) {
+                    await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+                    await sub.unsubscribe();
+                }
+                showToast('Notificações push desativadas.', 'error');
+            } catch (err) {
+                console.error('[Nexus] push unsubscribe:', err);
+            }
+            return;
+        }
+
+        if (!pushSupported()) {
+            showToast('Não suportado', 'error', 'Notificações push não são suportadas neste navegador.');
+            if (toggle) toggle.checked = false;
+            return;
+        }
+
+        if (iosNeedsInstallFirst()) {
+            showToast(
+                'Instale o app primeiro',
+                'warning',
+                'No iPhone/iPad, ative as notificações depois de instalar o app na Tela de Início (toque em Compartilhar → Adicionar à Tela de Início).'
+            );
+            if (toggle) toggle.checked = false;
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Permissão negada', 'error', 'Ative as notificações do site nas configurações do navegador.');
+            if (toggle) toggle.checked = false;
+            return;
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+            });
+            const ok = await syncSubscriptionToServer(subscription.toJSON());
+            if (!ok) throw new Error('sync failed');
+            showToast('Notificações push ativadas.', 'success');
+        } catch (err) {
+            console.error('[Nexus] push subscribe:', err);
+            showToast('Erro ao ativar notificações push.', 'error');
+            if (toggle) toggle.checked = false;
+        }
+    };
+
     window.checkNewPass = function () {
         const curr = document.getElementById('curr-pass')?.value || '';
         const np = document.getElementById('new-pass-profile')?.value || '';
@@ -549,6 +675,7 @@
     await calcBancoHoras();
     buildColorSwatches();
     loadNotifPrefs();
+    syncPushToggleUI();
 
     sb.channel('perfil-colab')
         .on(

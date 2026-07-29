@@ -226,6 +226,17 @@ CREATE TABLE IF NOT EXISTS message_templates (
 
 CREATE INDEX IF NOT EXISTS message_templates_created_idx ON message_templates(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  endpoint    TEXT NOT NULL UNIQUE,
+  p256dh      TEXT NOT NULL,
+  auth        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS push_subscriptions_employee_idx ON push_subscriptions(employee_id);
+
 CREATE TABLE IF NOT EXISTS documents (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                  TEXT NOT NULL,
@@ -549,6 +560,7 @@ ALTER TABLE kudos                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE anonymous_feedback    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_tasks      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_progress   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions    ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION is_rh()
 RETURNS BOOLEAN AS $$
@@ -658,6 +670,10 @@ CREATE POLICY "colabo_reads_insert_own" ON message_reads FOR INSERT
   WITH CHECK (employee_id = my_employee_id());
 
 CREATE POLICY "colabo_reads_update_own" ON message_reads FOR UPDATE
+  USING (employee_id = my_employee_id())
+  WITH CHECK (employee_id = my_employee_id());
+
+CREATE POLICY "push_subscriptions_colab_all" ON push_subscriptions FOR ALL
   USING (employee_id = my_employee_id())
   WITH CHECK (employee_id = my_employee_id());
 
