@@ -1847,10 +1847,7 @@ function ensureLeafletMap() {
     if (!el || typeof L === 'undefined') return null;
 
     leafletMap = L.map(el, { zoomControl: true, attributionControl: true });
-    leafletMap.fitBounds(
-        L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])),
-        { padding: [40, 40], maxZoom: 16 }
-    );
+    leafletMap.fitBounds(L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])), { padding: [40, 40], maxZoom: 16 });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -1863,9 +1860,7 @@ function ensureLeafletMap() {
         iconAnchor: [15, 15],
     });
     EMPRESA.unidades.forEach((u) => {
-        L.marker([u.lat, u.lng], { icon: empresaIcon })
-            .addTo(leafletMap)
-            .bindPopup(`${EMPRESA.nome} — ${u.endereco}`);
+        L.marker([u.lat, u.lng], { icon: empresaIcon }).addTo(leafletMap).bindPopup(`${EMPRESA.nome} — ${u.endereco}`);
         L.circle([u.lat, u.lng], {
             radius: u.raioM,
             color: '#6366f1',
@@ -1898,10 +1893,7 @@ function renderMapStatic(user) {
     }
 
     if (!user) {
-        map.fitBounds(
-            L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])),
-            { padding: [40, 40], maxZoom: 16 }
-        );
+        map.fitBounds(L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])), { padding: [40, 40], maxZoom: 16 });
         return;
     }
 
