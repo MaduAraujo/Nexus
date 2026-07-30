@@ -2493,6 +2493,15 @@ select.form-input {
     .slip-status-stamp-label {
         display: none;
     }
+    .toast-container {
+        top: 14px;
+        right: 10px;
+        left: 10px;
+        max-width: unset;
+    }
+    .toast {
+        width: 100%;
+    }
 }
 
 @media (max-width: 480px) {

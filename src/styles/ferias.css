@@ -2877,6 +2877,15 @@ select.form-input {
     .gantt-row:nth-child(even) .gantt-row-label {
         background: var(--bg-page);
     }
+    .toast-container {
+        top: 14px;
+        right: 10px;
+        left: 10px;
+        max-width: unset;
+    }
+    .toast {
+        width: 100%;
+    }
 }
 
 @media (max-width: 640px) {

@@ -413,9 +413,11 @@ window.printInforme = function () {
     document.body.classList.add('printing-informe');
     document.title = ' ';
 
-    void document.body.offsetHeight;
-
-    window.print();
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            window.print();
+        });
+    });
 };
 
 window.addEventListener('afterprint', () => {

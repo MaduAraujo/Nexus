@@ -1438,6 +1438,14 @@ body {
     border-color: var(--accent);
 }
 
+.informe-print-doc {
+    /* .payslip-doc aplica um fade-in de 0.3s; como este documento fica "hidden" até o instante
+       de imprimir, remover o "hidden" reinicia a animação e a impressão captura o documento
+       ainda com opacidade baixa (parecendo em branco). Ele nunca é visto na tela, então não
+       precisa da animação. */
+    animation: none;
+}
+
 .informe-summary {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

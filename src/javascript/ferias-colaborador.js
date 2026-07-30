@@ -95,7 +95,7 @@ async function loadMyVacations() {
 }
 
 async function loadColleagues() {
-    const { data } = await sb.from('colleague_directory').select('id,name,dept').neq('id', myEmployeeId);
+    const { data } = await sb.rpc('colleague_directory').select('id,name,dept').neq('id', myEmployeeId);
     colleagues = (data || []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 

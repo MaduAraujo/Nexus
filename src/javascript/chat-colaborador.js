@@ -1060,7 +1060,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     let allKudos = [];
 
     async function loadColleagues() {
-        const { data } = await sb.from('colleague_directory').select('id,name,dept').neq('id', myEmployeeId).order('name');
+        const { data } = await sb.rpc('colleague_directory').select('id,name,dept').neq('id', myEmployeeId).order('name');
         colleagues = data || [];
     }
 

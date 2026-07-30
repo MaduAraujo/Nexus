@@ -87,15 +87,15 @@ describe('RLS: employees', () => {
     });
 });
 
-describe('RLS: colleague_directory (migration 040)', () => {
-    test('colaborador consegue ver dados básicos de outro colaborador via a view, mesmo sem acesso à linha completa', async () => {
+describe('RLS: colleague_directory (migration 040, 055)', () => {
+    test('colaborador consegue ver dados básicos de outro colaborador via a function, mesmo sem acesso à linha completa', async () => {
         await withUser({ sub: U_A }, async (db) => {
             const direct = await db.query('SELECT * FROM employees WHERE id = $1', [E_B]);
             assert.equal(direct.rows.length, 0, 'sanity check: acesso direto continua bloqueado');
 
-            const viaView = await db.query('SELECT * FROM colleague_directory WHERE id = $1', [E_B]);
-            assert.equal(viaView.rows.length, 1);
-            assert.deepEqual(Object.keys(viaView.rows[0]).sort(), ['avatar_color', 'avatar_url', 'dept', 'id', 'name', 'role'].sort());
+            const viaFn = await db.query('SELECT * FROM colleague_directory() WHERE id = $1', [E_B]);
+            assert.equal(viaFn.rows.length, 1);
+            assert.deepEqual(Object.keys(viaFn.rows[0]).sort(), ['avatar_color', 'avatar_url', 'dept', 'id', 'name', 'role'].sort());
         });
     });
 });

@@ -242,9 +242,6 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_employee_idx ON push_subscriptions(employee_id);
 
--- Alertas de compliance/burnout são vistos só na Central de Alertas (Administrador).
--- Como o perfil Administrador não passa por my_employee_id() (reservado a
--- 'colaborador'), ele precisa da própria tabela de push subscription.
 CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -881,12 +878,21 @@ FROM employees;
 
 GRANT SELECT ON team_roster TO authenticated;
 
-CREATE OR REPLACE VIEW colleague_directory AS
-SELECT id, name, dept, role, avatar_color, avatar_url
-FROM employees
-WHERE status = 'Ativo';
+CREATE OR REPLACE FUNCTION colleague_directory()
+RETURNS TABLE (
+  id UUID,
+  name TEXT,
+  dept TEXT,
+  role TEXT,
+  avatar_color TEXT,
+  avatar_url TEXT
+) AS $$
+  SELECT id, name, dept, role, avatar_color, avatar_url
+  FROM employees
+  WHERE status = 'Ativo';
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
-GRANT SELECT ON colleague_directory TO authenticated;
+GRANT EXECUTE ON FUNCTION colleague_directory() TO authenticated;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
