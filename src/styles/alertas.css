@@ -2254,6 +2254,13 @@ ul {
     .panel-tabs::-webkit-scrollbar-thumb {
         background: #cbd5e1;
     }
+    .alert-card-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .alert-goto-link {
+        justify-content: center;
+    }
 }
 
 @media (max-width: 480px) {
