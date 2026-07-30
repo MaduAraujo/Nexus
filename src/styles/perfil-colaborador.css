@@ -1560,7 +1560,7 @@ body {
     border-left-color: #3b82f6;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .toast-container {
         top: 14px;
         right: 10px;
