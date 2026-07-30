@@ -1011,8 +1011,8 @@ function renderRiscoComposto(linhas) {
         list.innerHTML = `
             <div class="empty-state empty-state--success">
                 <div class="empty-icon"><i class="fas fa-shield-heart"></i></div>
-                <p class="empty-title">Nenhum risco composto agora</p>
-                <p class="empty-desc">Nenhum colaborador acumula 2 ou mais sinais (burnout, banco de horas negativo, ticket de RH aberto) ao mesmo tempo.</p>
+                <p class="empty-title">Nenhum risco composto</p>
+                <p class="empty-desc">Nenhum colaborador acumula 2 ou mais sinais ao mesmo tempo.</p>
             </div>`;
         return;
     }
@@ -1407,7 +1407,7 @@ async function loadGestores() {
 
         if (!gestores.length) {
             if (list)
-                list.innerHTML = `<div class="empty-state empty-state--success"><div class="empty-icon"><i class="fas fa-user-tie"></i></div><p class="empty-title">Nenhum gestor definido</p><p class="empty-desc">Nenhum colaborador ativo tem liderados apontados via campo "Gestor" no cadastro.</p></div>`;
+                list.innerHTML = `<div class="empty-state empty-state--success"><div class="empty-icon"><i class="fas fa-user-tie"></i></div><p class="empty-title">Nenhum gestor definido</p><p class="empty-desc">Nenhum colaborador ativo tem líder apontado no cadastro.</p></div>`;
             return;
         }
 
