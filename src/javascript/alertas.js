@@ -3,6 +3,7 @@ let rhUser = null;
 let isLoading = false;
 let historyLoaded = false;
 let riscoLoaded = false;
+let juridicoLoaded = false;
 let complianceLoaded = false;
 let comunidadeLoaded = false;
 let gestoresLoaded = false;
@@ -19,7 +20,7 @@ const CATEGORY_ICON = {
 const CATEGORY_PAGE = {
     aprovacao: { href: '../screens/ferias.html', label: 'Ver Férias', icon: 'fa-umbrella-beach' },
     burnout: { href: '../screens/colaboradores.html', label: 'Ver Colaboradores', icon: 'fa-users' },
-    ausencia: { href: '../screens/banco-horas-rh.html', label: 'Ver Horas', icon: 'fa-clock-rotate-left' },
+    ausencia: { href: '../screens/banco-horas-rh.html', label: 'Ver Horas' },
     documentos: { href: '../screens/arquivos.html', label: 'Ver Arquivos', icon: 'fa-folder-open' },
     admissao: { href: '../screens/colaboradores.html', label: 'Ver Colaboradores', icon: 'fa-users' },
     geral: { href: '../screens/dashboard.html', label: 'Ver Dashboard', icon: 'fa-chart-pie' },
@@ -282,10 +283,41 @@ function showActionConfirmation(actionData, originalMessage) {
     div.querySelector('.btn-cancel-action').addEventListener('click', () => div.remove());
 }
 
+const AI_DECISION_TARGET_TABLE = {
+    approve_vacation: 'vacations',
+    reject_vacation: 'vacations',
+    approve_adjustment: 'adjustment_requests',
+    reject_adjustment: 'adjustment_requests',
+    mark_burnout_read: 'burnout_alerts',
+};
+
+function buildAiDecisionLogRows({ type, evidenceRows, message, decidedByName, decidedByEmail }) {
+    const targetTable = AI_DECISION_TARGET_TABLE[type];
+    if (!targetTable || !evidenceRows?.length) return [];
+    return evidenceRows.map((row) => ({
+        employee_id: row.employee_id ?? null,
+        target_table: targetTable,
+        target_id: row.id,
+        action_type: type,
+        ai_message: message,
+        evidence: row,
+        decided_by_name: decidedByName,
+        decided_by_email: decidedByEmail,
+    }));
+}
+
 async function executeAction(actionData) {
     try {
         const { type, ids = [] } = actionData;
         const now = new Date().toISOString();
+
+        const targetTable = AI_DECISION_TARGET_TABLE[type];
+        let evidenceRows = [];
+        if (targetTable && ids.length) {
+            const { data } = await sb.from(targetTable).select('*').in('id', ids);
+            evidenceRows = data || [];
+        }
+
         switch (type) {
             case 'approve_vacation':
                 await sb.from('vacations').update({ status: 'aprovado', approved_at: now }).in('id', ids);
@@ -317,6 +349,16 @@ async function executeAction(actionData) {
                 throw new Error(`Ação desconhecida: ${type}`);
         }
         await sb.from('ai_decision_memory').insert({ action_type: type, description: actionData.message });
+
+        const decisionLogRows = buildAiDecisionLogRows({
+            type,
+            evidenceRows,
+            message: actionData.message,
+            decidedByName: rhUser?.email?.split('@')[0] || 'RH',
+            decidedByEmail: rhUser?.email || null,
+        });
+        if (decisionLogRows.length) await sb.from('ai_decision_log').insert(decisionLogRows);
+
         return true;
     } catch (e) {
         console.error('executeAction:', e);
@@ -468,11 +510,11 @@ function alertCard(a, idx = 0) {
     const chips = (a.employees || []).map((n) => `<span class="emp-chip">${esc(n)}</span>`).join('');
     const page = CATEGORY_PAGE[a.category];
     const gotoLink = page
-        ? `<a class="alert-goto-link" href="${page.href}"><i class="fas ${page.icon}"></i>${page.label}<i class="fas fa-arrow-right"></i></a>`
+        ? `<a class="alert-goto-link" href="${page.href}">${page.icon ? `<i class="fas ${page.icon}"></i>` : ''}${page.label}<i class="fas fa-arrow-right"></i></a>`
         : '';
     const resolveBtn = a.resolved
         ? `<span class="resolved-badge"><i class="fas fa-check-circle"></i> Resolvido</span>`
-        : `<button class="btn-resolve" title="Marcar como resolvido"><i class="fas fa-check"></i> Resolvido</button>`;
+        : `<button class="btn-resolve" title="Marcar como resolvido" aria-label="Marcar como resolvido"><i class="fas fa-check"></i></button>`;
     return `
     <div class="alert-card sev-${sev}${a.resolved ? ' resolved' : ''}" data-idx="${idx}">
         <div class="alert-card-header">
@@ -621,10 +663,15 @@ function setupTabs() {
 }
 
 function switchTab(tabName) {
-    document.querySelectorAll('.panel-tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tabName));
+    document.querySelectorAll('.panel-tab').forEach((t) => {
+        const active = t.dataset.tab === tabName;
+        t.classList.toggle('active', active);
+        if (active) t.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    });
     document.getElementById('alerts-body').style.display = tabName === 'alerts' ? '' : 'none';
     document.getElementById('history-body').style.display = tabName === 'history' ? '' : 'none';
     document.getElementById('risco-body').style.display = tabName === 'risco' ? '' : 'none';
+    document.getElementById('juridico-body').style.display = tabName === 'juridico' ? '' : 'none';
     document.getElementById('compliance-body').style.display = tabName === 'compliance' ? '' : 'none';
     document.getElementById('comunidade-body').style.display = tabName === 'comunidade' ? '' : 'none';
     document.getElementById('gestores-body').style.display = tabName === 'gestores' ? '' : 'none';
@@ -636,6 +683,10 @@ function switchTab(tabName) {
     if (tabName === 'risco' && !riscoLoaded) {
         riscoLoaded = true;
         loadRiscoComposto();
+    }
+    if (tabName === 'juridico' && !juridicoLoaded) {
+        juridicoLoaded = true;
+        loadRiscoJuridico();
     }
     if (tabName === 'compliance' && !complianceLoaded) {
         complianceLoaded = true;
@@ -788,7 +839,6 @@ const PESO_SINAL = {
     ticket_em_atendimento: 15,
 };
 
-// Janela de análise de tendência (nº de semanas consecutivas piorando fica em BurnoutDomain.TREND_MIN_SEMANAS_PIORA)
 const BURNOUT_TREND_JANELA_SEMANAS = 6;
 
 function getJornadaMinRisco(emp) {
@@ -988,6 +1038,133 @@ function renderRiscoComposto(linhas) {
         .join('');
 }
 
+const RISCO_JURIDICO_JANELA_INTERVALO_DIAS = 30;
+const RISCO_JURIDICO_JANELA_EXCESSO_DIAS = 90;
+const RISCO_JURIDICO_JANELA_REJEICAO_DIAS = 180;
+
+async function loadRiscoJuridico() {
+    const list = document.getElementById('juridico-list');
+    const summaryEl = document.getElementById('juridico-summary');
+    if (list)
+        list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Calculando exposição jurídica...</p></div>`;
+
+    try {
+        const now = new Date();
+        const janelaIntervaloInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_INTERVALO_DIAS * 86400000).toISOString().split('T')[0];
+        const janelaExcessoInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_EXCESSO_DIAS * 86400000).toISOString();
+        const janelaRejeicaoInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_REJEICAO_DIAS * 86400000).toISOString();
+
+        const [{ data: empData }, { data: complianceData }, { data: burnoutData }, { data: adjData }, { data: timeData }] = await Promise.all([
+            sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
+            sb.from('compliance_alerts').select('employee_id,alertas').eq('lido', false),
+            sb.from('burnout_alerts').select('employee_id,alertas').gte('created_at', janelaExcessoInicio),
+            sb.from('adjustment_requests').select('employee_id').eq('status', 'rejeitado').gte('created_at', janelaRejeicaoInicio),
+            sb.from('time_records').select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida').gte('date', janelaIntervaloInicio),
+        ]);
+
+        const employees = (empData || []).map((e) => ({
+            id: e.id,
+            name: e.name,
+            dept: e.dept,
+            contractType: e.contract_type,
+            workLoad: e.work_load,
+        }));
+        const empById = {};
+        employees.forEach((e) => (empById[e.id] = e));
+
+        const prazosPorEmp = {};
+        (complianceData || []).forEach((row) => {
+            (prazosPorEmp[row.employee_id] ??= []).push(...(row.alertas || []).map((a) => ({ nivel: a.nivel, titulo: a.titulo })));
+        });
+
+        const excessoPorEmp = {};
+        (burnoutData || []).forEach((row) => {
+            const ocorrencias = (row.alertas || []).filter((a) => a.tipo === 'excesso_legal_diario').length;
+            if (ocorrencias) excessoPorEmp[row.employee_id] = (excessoPorEmp[row.employee_id] || 0) + ocorrencias;
+        });
+
+        const rejeicaoPorEmp = {};
+        (adjData || []).forEach((row) => {
+            rejeicaoPorEmp[row.employee_id] = (rejeicaoPorEmp[row.employee_id] || 0) + 1;
+        });
+
+        const intervaloPorEmp = {};
+        (timeData || []).forEach((rec) => {
+            const emp = empById[rec.employee_id];
+            if (!emp) return;
+            const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: emp.contractType, workLoad: emp.workLoad });
+            if (CLTDomain.calcIntervaloDeficitMin(rec, jornadaMin) > 0) {
+                intervaloPorEmp[rec.employee_id] = (intervaloPorEmp[rec.employee_id] || 0) + 1;
+            }
+        });
+
+        const linhas = employees
+            .map((emp) => {
+                const resultado = RiscoJuridicoDomain.scoreColaborador({
+                    prazosLegais: prazosPorEmp[emp.id] || [],
+                    excessoHorasOcorrencias: excessoPorEmp[emp.id] || 0,
+                    diasIntervaloNaoCumprido: intervaloPorEmp[emp.id] || 0,
+                    ajustesRejeitados: rejeicaoPorEmp[emp.id] || 0,
+                });
+                return { emp, ...resultado };
+            })
+            .filter((l) => l.fatores.length > 0)
+            .sort((a, b) => b.score - a.score);
+
+        const empresa = RiscoJuridicoDomain.scoreEmpresa(linhas.map((l) => ({ score: l.score, nivel: l.nivel })));
+        renderRiscoJuridico(linhas, empresa);
+    } catch (err) {
+        console.error('Erro ao calcular risco jurídico:', err);
+        if (summaryEl) summaryEl.innerHTML = '';
+        if (list) list.innerHTML = `<p class="history-empty">Erro ao calcular o score. Tente novamente.</p>`;
+    }
+}
+
+const RISCO_JURIDICO_NIVEL_LABEL = { critico: 'Crítico', atencao: 'Atenção', ok: 'Baixo' };
+
+function renderRiscoJuridico(linhas, empresa) {
+    const list = document.getElementById('juridico-list');
+    const summaryEl = document.getElementById('juridico-summary');
+    if (!list) return;
+
+    if (summaryEl) {
+        summaryEl.innerHTML = `
+            <span class="emp-chip">Score médio da empresa: <strong>${empresa.mediaScore}/100</strong> (${RISCO_JURIDICO_NIVEL_LABEL[empresa.nivel] || empresa.nivel})</span>
+            <span class="emp-chip">${empresa.criticos} colaborador(es) em risco crítico</span>
+            <span class="emp-chip">${empresa.atencao} colaborador(es) em atenção</span>`;
+    }
+
+    if (!linhas.length) {
+        list.innerHTML = `
+            <div class="empty-state empty-state--success">
+                <div class="empty-icon"><i class="fas fa-scale-balanced"></i></div>
+                <p class="empty-title">Nenhuma exposição jurídica identificada</p>
+                <p class="empty-desc">Nenhum colaborador acumula prazo legal vencido, excesso de jornada, intervalo intrajornada não cumprido ou rejeição de ajuste no período analisado.</p>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = linhas
+        .map(({ emp, score, nivel, fatores }) => {
+            const sev = nivel === 'critico' ? 'critical' : nivel === 'atencao' ? 'warning' : 'info';
+            const chips = fatores.map((f) => `<span class="emp-chip">${esc(f.label)}</span>`).join('');
+            return `
+        <div class="alert-card sev-${sev}">
+            <div class="alert-card-header">
+                <div class="alert-card-meta">
+                    <span class="alert-cat-icon"><i class="fas fa-scale-balanced"></i></span>
+                    <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                </div>
+            </div>
+            <h4 class="alert-card-title">Score de risco jurídico: ${score}/100</h4>
+            <p class="alert-card-desc">${fatores.length} fator${fatores.length > 1 ? 'es' : ''} de exposição identificado${fatores.length > 1 ? 's' : ''}.</p>
+            <div class="emp-chips">${chips}</div>
+        </div>`;
+        })
+        .join('');
+}
+
 function getDocAlertInfoCompliance(dataValidade, today) {
     if (!dataValidade) return null;
     const end = new Date(dataValidade + 'T00:00:00');
@@ -1007,8 +1184,6 @@ async function loadCompliance() {
         const [{ data: empData }, { data: docData }, { data: complianceData }] = await Promise.all([
             sb.from('employees').select('id,name,dept').in('status', ['Ativo', 'ativo']),
             sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null),
-            // Gerado 1x/dia pelo pg_cron (generate_compliance_alerts, migration 048): férias vencidas,
-            // fim de experiência e aviso prévio — não é mais recalculado sob demanda aqui.
             sb.from('compliance_alerts').select('employee_id,alertas').eq('lido', false),
         ]);
 
@@ -1404,3 +1579,5 @@ function mdToHtml(text) {
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>');
 }
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { buildAiDecisionLogRows, AI_DECISION_TARGET_TABLE };

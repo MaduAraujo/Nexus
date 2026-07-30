@@ -413,6 +413,21 @@ CREATE TABLE IF NOT EXISTS ai_decision_memory (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ai_decision_log (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id      UUID REFERENCES employees(id) ON DELETE SET NULL,
+  target_table     TEXT NOT NULL CHECK (target_table IN ('vacations', 'adjustment_requests', 'burnout_alerts')),
+  target_id        UUID NOT NULL,
+  action_type      TEXT NOT NULL,
+  ai_message       TEXT NOT NULL,
+  evidence         JSONB NOT NULL,
+  decided_by_name  TEXT,
+  decided_by_email TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ai_decision_log_emp_idx ON ai_decision_log(employee_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS chat_channels (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
@@ -550,6 +565,7 @@ ALTER TABLE ai_analysis_cache     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_analysis_history   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_history       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_decision_memory    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_decision_log       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_channels         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_channel_members  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages         ENABLE ROW LEVEL SECURITY;
@@ -734,6 +750,9 @@ CREATE POLICY "rh_cache_all"   ON ai_analysis_cache   FOR ALL USING (is_rh());
 CREATE POLICY "rh_history_all" ON ai_analysis_history FOR ALL USING (is_rh());
 CREATE POLICY "rh_chat_all"    ON ai_chat_history     FOR ALL USING (is_rh());
 CREATE POLICY "rh_memory_all"  ON ai_decision_memory  FOR ALL USING (is_rh());
+
+CREATE POLICY "rh_ai_decision_log_all"        ON ai_decision_log FOR ALL    USING (is_rh());
+CREATE POLICY "colabo_ai_decision_log_select" ON ai_decision_log FOR SELECT USING (employee_id = my_employee_id());
 
 CREATE POLICY "channels_read_all" ON chat_channels FOR SELECT USING (true);
 CREATE POLICY "channels_rh_all"   ON chat_channels FOR ALL    USING (is_rh());

@@ -1,55 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0a0a0d" />
-    <link rel="icon" href="/src/assets/icons/favicon.png" type="image/png" />
-    <link rel="apple-touch-icon" href="/src/assets/icons/apple-touch-icon.png" />
-    <script src="/src/javascript/shared/pwa-register.js"></script>
-    <script src="../javascript/shared/theme.js"></script>
-    <title>Central de Alertas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <link rel="stylesheet" href="../styles/btn-back.css">
-    <link rel="stylesheet" href="../styles/alertas.css" />
-    <link rel="stylesheet" href="../styles/search-widget.css" />
-</head>
-<body>
-    <header class="topbar">
-        <div class="topbar-left">
-            <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            </a>
-        </div>
-        <div class="topbar-right">
-            <span class="last-analysis-label" id="last-analysis-label">Nenhuma análise realizada</span>
-            <button class="btn-report" id="btn-report">
-                <i class="fas fa-file-lines"></i>
-                <span>Relatório</span>
-            </button>
-            <button class="btn-analyze" id="btn-analyze">
-                <i class="fas fa-wand-magic-sparkles"></i>
-                <span>Analisar Agora</span>
-            </button>
-        </div>
-    </header>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0a0a0d" />
+        <link rel="icon" href="/src/assets/icons/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/src/assets/icons/apple-touch-icon.png" />
+        <script src="/src/javascript/shared/pwa-register.js"></script>
+        <script src="../javascript/shared/theme.js"></script>
+        <title>Central de Alertas</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+        <link rel="stylesheet" href="../styles/btn-back.css" />
+        <link rel="stylesheet" href="../styles/alertas.css" />
+        <link rel="stylesheet" href="../styles/search-widget.css" />
+    </head>
+    <body>
+        <header class="topbar">
+            <div class="topbar-left">
+                <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6" /></svg>
+                </a>
+            </div>
+            <div class="topbar-right">
+                <span class="last-analysis-label" id="last-analysis-label">Nenhuma análise realizada</span>
+                <button class="btn-report" id="btn-report">
+                    <span>Relatório</span>
+                </button>
+                <button class="btn-analyze" id="btn-analyze">
+                    <span>Analisar Agora</span>
+                </button>
+            </div>
+        </header>
 
         <main class="content">
             <div class="content-grid">
                 <div class="panel panel-alerts">
                     <div class="panel-header">
                         <div class="panel-tabs">
-                            <button class="panel-tab active" data-tab="alerts">
-                                <i class="fas fa-bell"></i> Alertas
-                            </button>
-                            <button class="panel-tab" data-tab="history">
-                                <i class="fas fa-chart-line"></i> Histórico
-                            </button>
-                            <button class="panel-tab" data-tab="risco">
-                                <i class="fas fa-diagram-project"></i> Risco Composto
-                            </button>
+                            <button class="panel-tab active" data-tab="alerts"><i class="fas fa-bell"></i> Alertas</button>
+                            <button class="panel-tab" data-tab="history"><i class="fas fa-chart-line"></i> Histórico</button>
+                            <button class="panel-tab" data-tab="risco"><i class="fas fa-diagram-project"></i> Risco Composto</button>
+                            <button class="panel-tab" data-tab="juridico"><i class="fas fa-scale-balanced"></i> Risco Jurídico</button>
                             <button class="panel-tab" data-tab="compliance">
                                 <i class="fas fa-clipboard-check"></i> Compliance
                                 <span class="compliance-summary-count hidden" id="compliance-summary-count"></span>
@@ -58,19 +54,15 @@
                                 <i class="fas fa-comments"></i> Comunidade
                                 <span class="compliance-summary-count hidden" id="comunidade-summary-count"></span>
                             </button>
-                            <button class="panel-tab" data-tab="gestores">
-                                <i class="fas fa-user-tie"></i> Gestores
-                            </button>
+                            <button class="panel-tab" data-tab="gestores"><i class="fas fa-user-tie"></i> Gestores</button>
                         </div>
                         <div class="panel-header-right" id="alerts-header-right">
-                            <div class="health-score-wrap" id="health-score-wrap" style="display:none">
+                            <div class="health-score-wrap" id="health-score-wrap" style="display: none">
                                 <span class="health-score-label">Saúde RH</span>
                                 <span class="health-score-value" id="health-score-value">—</span>
                             </div>
                             <div class="severity-counts" id="severity-counts"></div>
-                            <button class="btn-dismiss-all" id="btn-dismiss-all" style="display:none">
-                                <i class="fas fa-broom"></i> Limpar
-                            </button>
+                            <button class="btn-dismiss-all" id="btn-dismiss-all" style="display: none">Limpar</button>
                         </div>
                     </div>
                     <div class="panel-body" id="alerts-body">
@@ -80,7 +72,7 @@
                             <p class="empty-desc">Clique em "Analisar Agora" para gerar alertas inteligentes.</p>
                         </div>
                     </div>
-                    <div class="panel-body" id="history-body" style="display:none">
+                    <div class="panel-body" id="history-body" style="display: none">
                         <div class="trend-chart-wrap">
                             <p class="trend-chart-title"><i class="fas fa-chart-line"></i> Tendência — Score de Saúde</p>
                             <div class="trend-chart-container">
@@ -91,24 +83,45 @@
                             <p class="history-empty">Nenhuma análise registrada ainda.</p>
                         </div>
                     </div>
-                    <div class="panel-body" id="risco-body" style="display:none">
+                    <div class="panel-body" id="risco-body" style="display: none">
                         <div class="summary-banner">
                             <i class="fas fa-diagram-project"></i>
-                            <span>Cruza burnout, banco de horas negativo e tickets de RH abertos do mesmo colaborador — sinais que hoje aparecem separados em telas diferentes. Só entra na lista quem tem 2 ou mais sinais ao mesmo tempo.</span>
+                            <span
+                                >Cruza burnout, banco de horas negativo e tickets de RH abertos do mesmo colaborador — sinais que hoje aparecem separados em
+                                telas diferentes. Só entra na lista quem tem 2 ou mais sinais ao mesmo tempo.</span
+                            >
                         </div>
                         <div id="risco-list"></div>
                     </div>
-                    <div class="panel-body" id="compliance-body" style="display:none">
+                    <div class="panel-body" id="juridico-body" style="display: none">
+                        <div class="summary-banner">
+                            <i class="fas fa-scale-balanced"></i>
+                            <span
+                                >Score agregado de exposição jurídico-trabalhista: combina prazos legais vencidos, excesso de jornada além do limite diário (CLT
+                                art. 59 §1º), intervalo intrajornada não cumprido (CLT art. 71) e padrão de rejeição de justificativas de ponto — sinais que
+                                hoje só existem isolados em telas diferentes.</span
+                            >
+                        </div>
+                        <div class="emp-chips" id="juridico-summary" style="margin-bottom: 12px"></div>
+                        <div id="juridico-list"></div>
+                    </div>
+                    <div class="panel-body" id="compliance-body" style="display: none">
                         <div class="summary-banner">
                             <i class="fas fa-clipboard-check"></i>
-                            <span>Agrega 3 prazos legais que hoje só aparecem cada um na sua própria tela: documentos vencendo, férias fora do período concessivo (art. 137 CLT) e fim de período de experiência.</span>
+                            <span
+                                >Agrega 3 prazos legais que hoje só aparecem cada um na sua própria tela: documentos vencendo, férias fora do período concessivo
+                                (art. 137 CLT) e fim de período de experiência.</span
+                            >
                         </div>
                         <div id="compliance-list"></div>
                     </div>
-                    <div class="panel-body" id="comunidade-body" style="display:none">
+                    <div class="panel-body" id="comunidade-body" style="display: none">
                         <div class="summary-banner">
                             <i class="fas fa-comments"></i>
-                            <span>Moderação do mural de reconhecimento (kudos) e triagem do feedback anônimo — antes só davam pra ver dentro do chat do colaborador ou do RH, cada um isolado na própria tela.</span>
+                            <span
+                                >Moderação do mural de reconhecimento (kudos) e triagem do feedback anônimo — antes só davam pra ver dentro do chat do
+                                colaborador ou do RH, cada um isolado na própria tela.</span
+                            >
                         </div>
                         <div class="comunidade-subtabs">
                             <button class="comunidade-subtab active" data-subtab="kudos"><i class="fas fa-award"></i> Kudos</button>
@@ -125,10 +138,13 @@
                             <div id="comunidade-feedback-list"></div>
                         </div>
                     </div>
-                    <div class="panel-body" id="gestores-body" style="display:none">
+                    <div class="panel-body" id="gestores-body" style="display: none">
                         <div class="summary-banner">
                             <i class="fas fa-user-tie"></i>
-                            <span>Quantos colaboradores hoje têm poder de gestor (via manager_id) e o que estão de fato decidindo — férias e banco de horas do time, escalações abertas ao RH.</span>
+                            <span
+                                >Quantos colaboradores hoje têm poder de gestor (via manager_id) e o que estão de fato decidindo — férias e banco de horas do
+                                time, escalações abertas ao RH.</span
+                            >
                         </div>
                         <div id="gestores-list"></div>
                     </div>
@@ -148,7 +164,7 @@
                         <div class="chat-message ai">
                             <div class="ai-avatar-sm"><i class="fas fa-robot"></i></div>
                             <div class="bubble">
-                                Olá! Sou o <strong>Nexus AI</strong>. Analiso os dados em tempo real.<br><br>
+                                Olá! Sou o <strong>Nexus AI</strong>. Analiso os dados em tempo real.<br /><br />
                                 Realize uma análise ou pergunte diretamente!
                             </div>
                         </div>
@@ -170,27 +186,28 @@
             </div>
         </main>
 
-<div class="report-modal-overlay" id="report-modal">
-    <div class="report-modal-card">
-        <div class="report-modal-header">
-            <div class="report-modal-title"><i class="fas fa-file-lines"></i> Relatório Executivo RH</div>
-            <div class="report-modal-actions">
-                <button class="btn-report-copy" id="btn-copy-report"><i class="fas fa-copy"></i> Copiar</button>
-                <button class="btn-report-close" onclick="closeReportModal()"><i class="fas fa-times"></i></button>
+        <div class="report-modal-overlay" id="report-modal">
+            <div class="report-modal-card">
+                <div class="report-modal-header">
+                    <div class="report-modal-title"><i class="fas fa-file-lines"></i> Relatório Executivo RH</div>
+                    <div class="report-modal-actions">
+                        <button class="btn-report-copy" id="btn-copy-report"><i class="fas fa-copy"></i> Copiar</button>
+                        <button class="btn-report-close" onclick="closeReportModal()"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <div class="report-modal-body" id="report-content"></div>
             </div>
         </div>
-        <div class="report-modal-body" id="report-content"></div>
-    </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="../javascript/shared/supabase-client.js"></script>
-<script src="../javascript/shared/auth.js"></script>
-<script src="../javascript/shared/search.js"></script>
-<script src="../javascript/domain/clt-domain.js"></script>
-<script src="../javascript/domain/burnout-domain.js"></script>
-<script src="../javascript/alertas.js"></script>
-</body>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <script src="../javascript/shared/supabase-client.js"></script>
+        <script src="../javascript/shared/auth.js"></script>
+        <script src="../javascript/shared/search.js"></script>
+        <script src="../javascript/domain/clt-domain.js"></script>
+        <script src="../javascript/domain/burnout-domain.js"></script>
+        <script src="../javascript/domain/risco-juridico-domain.js"></script>
+        <script src="../javascript/alertas.js"></script>
+    </body>
 </html>

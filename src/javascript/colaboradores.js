@@ -1436,6 +1436,44 @@ function renderAccessLogTimeline(entries) {
         .join('');
 }
 
+const AI_DECISION_TABLE_LABEL = {
+    vacations: 'Férias',
+    adjustment_requests: 'Ajuste de ponto',
+    burnout_alerts: 'Alerta de burnout',
+};
+
+async function fetchAiDecisionLog(employeeId) {
+    const { data, error } = await sb.from('ai_decision_log').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(50);
+    if (error) {
+        console.error('[Nexus] fetchAiDecisionLog:', error);
+        return [];
+    }
+    return data || [];
+}
+
+function renderAiDecisionLogTimeline(entries) {
+    const body = document.getElementById('lgpd-ai-decisions-body');
+    if (!body) return;
+    if (!entries.length) {
+        body.innerHTML = `<div class="empty-state"><i class="fas fa-robot"></i><p>Nenhuma decisão da IA registrada ainda</p></div>`;
+        return;
+    }
+    body.innerHTML = entries
+        .map((entry) => {
+            const label = AI_DECISION_TABLE_LABEL[entry.target_table] || entry.target_table;
+            const when = new Date(entry.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+            return `
+            <div class="audit-timeline-item">
+                <div class="audit-timeline-header">
+                    <span class="audit-timeline-operator"><i class="fas fa-robot"></i> Confirmado por ${escHtml(entry.decided_by_name || 'RH')}</span>
+                    <span class="audit-timeline-date">${when}</span>
+                </div>
+                <div class="audit-timeline-field">${label}: ${escHtml(entry.ai_message)}</div>
+            </div>`;
+        })
+        .join('');
+}
+
 window.handleShowLgpd = async function () {
     const id = currentEmployeeId;
     if (!id) return;
@@ -1460,8 +1498,12 @@ window.handleShowLgpd = async function () {
 
     const body = document.getElementById('lgpd-access-log-body');
     if (body) body.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando log de acessos…</p></div>`;
-    const entries = await fetchDataAccessLog(id);
+    const aiBody = document.getElementById('lgpd-ai-decisions-body');
+    if (aiBody) aiBody.innerHTML = `<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando decisões da IA…</p></div>`;
+
+    const [entries, aiEntries] = await Promise.all([fetchDataAccessLog(id), fetchAiDecisionLog(id)]);
     renderAccessLogTimeline(entries);
+    renderAiDecisionLogTimeline(aiEntries);
 };
 
 window.closeLgpdModal = function () {
