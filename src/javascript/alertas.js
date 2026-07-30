@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
     setupListeners();
     setupTabs();
+    syncAdminNotifButtonUI();
     await Promise.all([loadAnalysisCache(), loadChatHistory()]);
 });
 
@@ -50,8 +51,115 @@ async function checkAuth() {
     rhUser = auth.user;
 }
 
+const ADMIN_PUSH_VAPID_PUBLIC_KEY = 'BKEh0-IRJSvTztskLtGWT6syeAf1dyrRJwslbUs9v9ISuu9nMdr4fthxtkT6P8UdEDR4GJMKXJIXRNb-9EJhgAY';
+
+function adminPushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window;
+}
+
+function isIosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+
+function isStandaloneApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function urlBase64ToUint8ArrayAlertas(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function getAdminPushSubscription() {
+    if (!adminPushSupported()) return null;
+    const registration = await navigator.serviceWorker.ready;
+    return registration.pushManager.getSubscription();
+}
+
+async function syncAdminSubscriptionToServer(json) {
+    const { error } = await sb
+        .from('admin_push_subscriptions')
+        .upsert({ profile_id: rhUser.id, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }, { onConflict: 'endpoint' });
+    if (error) console.error('[Nexus] admin push sync:', error);
+    return !error;
+}
+
+function updateAdminNotifButtonState(active) {
+    const btn = document.getElementById('btn-notif-toggle');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    const label = document.getElementById('btn-notif-label');
+    if (icon) icon.className = active ? 'fas fa-bell' : 'fas fa-bell-slash';
+    if (label) label.textContent = active ? 'Notificações ativas' : 'Ativar notificações';
+    btn.classList.toggle('active', active);
+}
+
+async function syncAdminNotifButtonUI() {
+    const btn = document.getElementById('btn-notif-toggle');
+    if (!btn || !rhUser) return;
+
+    if (!adminPushSupported()) {
+        btn.disabled = true;
+        btn.title = 'Notificações push não suportadas neste navegador.';
+        return;
+    }
+
+    if (isIosDevice() && !isStandaloneApp()) {
+        btn.title = 'Instale o app na Tela de Início (Compartilhar → Adicionar à Tela de Início) para ativar.';
+    }
+
+    const sub = await getAdminPushSubscription();
+    if (sub) await syncAdminSubscriptionToServer(sub.toJSON());
+    updateAdminNotifButtonState(!!sub);
+}
+
+async function toggleAdminPushNotifications() {
+    if (!adminPushSupported()) return;
+
+    if (isIosDevice() && !isStandaloneApp()) {
+        appendChatMessage('ai', 'Instale o app na Tela de Início (Compartilhar → Adicionar à Tela de Início) para ativar notificações push.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-notif-toggle');
+    if (btn) btn.disabled = true;
+
+    try {
+        const existing = await getAdminPushSubscription();
+        if (existing) {
+            await sb.from('admin_push_subscriptions').delete().eq('endpoint', existing.endpoint);
+            await existing.unsubscribe();
+            updateAdminNotifButtonState(false);
+            return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8ArrayAlertas(ADMIN_PUSH_VAPID_PUBLIC_KEY),
+        });
+        await syncAdminSubscriptionToServer(subscription.toJSON());
+        updateAdminNotifButtonState(true);
+    } catch (err) {
+        console.error('[Nexus] admin push toggle:', err);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
+            syncAdminSubscriptionToServer(event.data.subscription);
+        }
+    });
+}
+
 function setupListeners() {
     document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
+    document.getElementById('btn-notif-toggle')?.addEventListener('click', toggleAdminPushNotifications);
 
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('btn-send');

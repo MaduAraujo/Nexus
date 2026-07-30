@@ -527,6 +527,12 @@ ul {
     cursor: not-allowed;
 }
 
+.btn-report.active {
+    background: var(--accent-light);
+    border-color: rgba(99, 102, 241, 0.35);
+    color: var(--accent);
+}
+
 .btn-analyze {
     display: inline-flex;
     align-items: center;

@@ -153,21 +153,25 @@ CREATE INDEX IF NOT EXISTS adj_req_emp_idx    ON adjustment_requests(employee_id
 CREATE INDEX IF NOT EXISTS adj_req_status_idx ON adjustment_requests(status);
 
 CREATE TABLE IF NOT EXISTS burnout_alerts (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  date        DATE NOT NULL,
-  alertas     JSONB NOT NULL,
-  lido        BOOLEAN DEFAULT false,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id       UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  date              DATE NOT NULL,
+  alertas           JSONB NOT NULL,
+  lido              BOOLEAN DEFAULT false,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  push_scheduled_at TIMESTAMPTZ,
+  push_sent_at      TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS compliance_alerts (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  date        DATE NOT NULL,
-  alertas     JSONB NOT NULL,
-  lido        BOOLEAN DEFAULT false,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id       UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  date              DATE NOT NULL,
+  alertas           JSONB NOT NULL,
+  lido              BOOLEAN DEFAULT false,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  push_scheduled_at TIMESTAMPTZ,
+  push_sent_at      TIMESTAMPTZ,
   UNIQUE (employee_id, date)
 );
 
@@ -198,6 +202,7 @@ CREATE TABLE IF NOT EXISTS messages (
   categoria    TEXT NOT NULL DEFAULT 'Institucional',
   anexos       JSONB DEFAULT '[]',
   scheduled_at TIMESTAMPTZ,
+  push_sent_at TIMESTAMPTZ,
   created_by   UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
@@ -236,6 +241,20 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_employee_idx ON push_subscriptions(employee_id);
+
+-- Alertas de compliance/burnout são vistos só na Central de Alertas (Administrador).
+-- Como o perfil Administrador não passa por my_employee_id() (reservado a
+-- 'colaborador'), ele precisa da própria tabela de push subscription.
+CREATE TABLE IF NOT EXISTS admin_push_subscriptions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS admin_push_subscriptions_profile_idx ON admin_push_subscriptions(profile_id);
 
 CREATE TABLE IF NOT EXISTS documents (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -577,6 +596,7 @@ ALTER TABLE anonymous_feedback    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_tasks      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE onboarding_progress   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_subscriptions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION is_rh()
 RETURNS BOOLEAN AS $$
@@ -692,6 +712,10 @@ CREATE POLICY "colabo_reads_update_own" ON message_reads FOR UPDATE
 CREATE POLICY "push_subscriptions_colab_all" ON push_subscriptions FOR ALL
   USING (employee_id = my_employee_id())
   WITH CHECK (employee_id = my_employee_id());
+
+CREATE POLICY "admin_push_subscriptions_rh_own" ON admin_push_subscriptions FOR ALL
+  USING (profile_id = auth.uid() AND is_rh())
+  WITH CHECK (profile_id = auth.uid() AND is_rh());
 
 CREATE POLICY "rh_message_templates_all" ON message_templates FOR ALL USING (is_rh());
 
@@ -1226,6 +1250,34 @@ $$;
 
 GRANT EXECUTE ON FUNCTION approve_adjustment_request(UUID, TEXT, TEXT, TEXT) TO authenticated;
 
+CREATE OR REPLACE FUNCTION notify_alert_push(p_table TEXT, p_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_url         TEXT;
+  v_service_key TEXT;
+BEGIN
+  SELECT decrypted_secret INTO v_url         FROM vault.decrypted_secrets WHERE name = 'project_url';
+  SELECT decrypted_secret INTO v_service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+
+  IF v_url IS NULL OR v_service_key IS NULL THEN
+    RETURN;
+  END IF;
+
+  PERFORM net.http_post(
+    url     := v_url || '/functions/v1/send-alert-push',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_service_key
+    ),
+    body := jsonb_build_object('table', p_table, 'id', p_id)
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION report_daily_overtime_alert(
   p_titulo   TEXT,
   p_mensagem TEXT
@@ -1240,6 +1292,7 @@ DECLARE
   v_hoje     DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
   v_existing burnout_alerts;
   v_alerta   JSONB;
+  v_alert_id UUID;
 BEGIN
   IF v_emp_id IS NULL THEN
     RAISE EXCEPTION 'Sem colaborador associado ao usuário autenticado';
@@ -1254,11 +1307,15 @@ BEGIN
 
   IF FOUND THEN
     UPDATE burnout_alerts SET alertas = alertas || jsonb_build_array(v_alerta), lido = false
-    WHERE id = v_existing.id;
+    WHERE id = v_existing.id
+    RETURNING id INTO v_alert_id;
   ELSE
     INSERT INTO burnout_alerts (employee_id, date, alertas, lido)
-    VALUES (v_emp_id, v_hoje, jsonb_build_array(v_alerta), false);
+    VALUES (v_emp_id, v_hoje, jsonb_build_array(v_alerta), false)
+    RETURNING id INTO v_alert_id;
   END IF;
+
+  PERFORM notify_alert_push('burnout_alerts', v_alert_id);
 END;
 $$;
 
@@ -1282,6 +1339,10 @@ DECLARE
   v_expired_days   INTEGER;
   v_pending        INTEGER;
   v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
 BEGIN
   FOR v_emp IN
     SELECT id, admission_date, contract_type, is_probation, probation_end_date,
@@ -1354,11 +1415,19 @@ BEGIN
     END IF;
 
     IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
       INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
       VALUES (v_emp.id, v_hoje, v_alertas, false)
       ON CONFLICT (employee_id, date) DO UPDATE
         SET alertas = EXCLUDED.alertas,
-            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END;
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
     END IF;
   END LOOP;
 END;
@@ -1370,6 +1439,92 @@ SELECT cron.schedule(
   'generate-compliance-alerts-daily',
   '0 9 * * *',
   $$SELECT generate_compliance_alerts();$$
+);
+
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION dispatch_deferred_pushes()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_msg         RECORD;
+  v_alert       RECORD;
+  v_url         TEXT;
+  v_service_key TEXT;
+  v_hour        INT := extract(hour FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+  v_dow         INT := extract(dow  FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+BEGIN
+  IF v_dow IN (0, 6) OR v_hour < 8 OR v_hour >= 18 THEN
+    RETURN;
+  END IF;
+
+  SELECT decrypted_secret INTO v_url         FROM vault.decrypted_secrets WHERE name = 'project_url';
+  SELECT decrypted_secret INTO v_service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+
+  IF v_url IS NULL OR v_service_key IS NULL THEN
+    RETURN;
+  END IF;
+
+  FOR v_msg IN
+    SELECT id FROM messages
+    WHERE scheduled_at IS NOT NULL
+      AND scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('message_id', v_msg.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM compliance_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'compliance_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM burnout_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'burnout_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+END;
+$$;
+
+SELECT cron.schedule(
+  'dispatch-deferred-pushes',
+  '*/15 10-21 * * 1-5',
+  $$SELECT dispatch_deferred_pushes();$$
 );
 
 CREATE OR REPLACE FUNCTION anonymize_employee(

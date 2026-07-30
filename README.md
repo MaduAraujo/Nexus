@@ -108,6 +108,15 @@ npx supabase secrets set VAPID_PUBLIC_KEY=sua_chave_publica VAPID_PRIVATE_KEY=su
 
 A chave pública também precisa ser colada em `VAPID_PUBLIC_KEY` no topo de `src/javascript/perfil-colaborador.js` (client-side, por isso não é secret) — mantenha as duas em sincronia. Sem isso configurado, o botão "Notificações push do navegador" em Meu Perfil aparece normalmente, mas o envio real falha silenciosamente (log no `send-push`).
 
+**Este passo é diferente do anterior** — é o Vault do Postgres (não `supabase secrets`), e sem ele **nenhum push server-side sai**: nem o reenvio de comunicado adiado por horário comercial (direito à desconexão), nem os alertas de compliance/burnout. As funções `dispatch_deferred_pushes()` e `notify_alert_push()` (rodam via `pg_cron`/triggers, não recebem `Authorization` de usuário) leem a URL do projeto e a service role key do Vault — sem eles, elas dão `RETURN` silencioso (mas emitem `RAISE WARNING`, visível nos Postgres Logs do dashboard ou via `get_logs`). Rode uma vez no SQL Editor do projeto (Project Settings → API para pegar a URL e a `service_role` key):
+
+```sql
+select vault.create_secret('https://SEU_PROJECT_REF.supabase.co', 'project_url');
+select vault.create_secret('SUA_SERVICE_ROLE_KEY', 'service_role_key');
+```
+
+Se os secrets já existirem (confira com `select name from vault.secrets where name in ('project_url','service_role_key');`), **não rode `create_secret` de novo** — isso cria um registro duplicado com o mesmo nome, e as funções acima (que fazem `SELECT ... INTO` sem `LIMIT`) podem silenciosamente pegar o valor errado. Para atualizar um valor existente, use `vault.update_secret(id, novo_valor)` pelo `id` do secret.
+
 ### 5. Rodar o app localmente
 
 Sem build step — qualquer servidor estático funciona:

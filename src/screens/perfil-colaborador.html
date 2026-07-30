@@ -300,6 +300,30 @@
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--orange"><i class="fas fa-clipboard-check"></i></div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Prazos de compliance</p>
+                                        <p class="notif-item-desc">Férias vencendo, fim de experiência ou aviso prévio</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-compliance" checked
+                                               onchange="saveNotifPref('compliance', this.checked)" />
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--purple"><i class="fas fa-fire"></i></div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Sinais de sobrecarga</p>
+                                        <p class="notif-item-desc">Quando um excesso de jornada é identificado no seu ponto</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-burnout" checked
+                                               onchange="saveNotifPref('burnout', this.checked)" />
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>

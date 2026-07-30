@@ -14,7 +14,7 @@
     let myEmployee = auth.employee;
 
     const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#14b8a6', '#f97316', '#84cc16'];
-    const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true };
+    const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true, compliance: true, burnout: true };
 
     const initials = (n) =>
         (n || '?')
