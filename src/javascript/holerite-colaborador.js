@@ -85,7 +85,10 @@ function buildMobileSelect() {
     const textEl = document.getElementById('month-select-mobile-text');
     if (!popover) return;
     popover.innerHTML = holerites
-        .map((h) => `<button type="button" class="select-option${h.id === currentId ? ' selected' : ''}" data-value="${h.id}">${h.mes_formatado || h.mes}</button>`)
+        .map(
+            (h) =>
+                `<button type="button" class="select-option${h.id === currentId ? ' selected' : ''}" data-value="${h.id}">${h.mes_formatado || h.mes}</button>`
+        )
         .join('');
     const current = holerites.find((h) => h.id === currentId);
     if (textEl) {
@@ -291,7 +294,9 @@ window.openInformeModal = function () {
     const years = [...new Set(holerites.map((h) => h.mes.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
     const firstYear = years[0] || String(new Date().getFullYear());
     if (popover) {
-        popover.innerHTML = years.map((y) => `<button type="button" class="select-option${y === firstYear ? ' selected' : ''}" data-value="${y}">${y}</button>`).join('');
+        popover.innerHTML = years
+            .map((y) => `<button type="button" class="select-option${y === firstYear ? ' selected' : ''}" data-value="${y}">${y}</button>`)
+            .join('');
     }
     if (hidden) hidden.value = firstYear;
     if (textEl) textEl.textContent = firstYear;

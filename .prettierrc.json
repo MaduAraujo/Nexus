@@ -4,5 +4,5 @@
     "semi": true,
     "printWidth": 160,
     "trailingComma": "es5",
-    "endOfLine": "lf"
+    "endOfLine": "auto"
 }
