@@ -127,7 +127,7 @@
                     <div class="date-field">
                         <button type="button" class="date-trigger" id="req-start-trigger" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-calendar-day"></i>
-                            <span id="req-start-text">Selecionar data</span>
+                            <span id="req-start-text" class="date-trigger-placeholder">Selecione</span>
                         </button>
                         <input type="hidden" id="req-start">
                         <div class="calendar-popover" id="req-start-popover">
@@ -148,7 +148,7 @@
                     <div class="date-field">
                         <button type="button" class="date-trigger" id="req-end-trigger" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-calendar-day"></i>
-                            <span id="req-end-text">Selecionar data</span>
+                            <span id="req-end-text" class="date-trigger-placeholder">Selecione</span>
                         </button>
                         <input type="hidden" id="req-end">
                         <div class="calendar-popover" id="req-end-popover">
@@ -168,7 +168,7 @@
 
             <div class="days-preview" id="days-preview">
                 <i class="fas fa-calendar-day"></i>
-                <span id="days-count">Define as datas para ver o total de dias</span>
+                <span id="days-count">Total de dias</span>
             </div>
 
             <div class="valor-ferias-preview hidden" id="valor-ferias-preview">
@@ -196,20 +196,22 @@
             </div>
 
             <div class="form-group">
-                <label for="req-substituto">
-                    Substituto <span class="label-optional">(opcional)</span>
-                </label>
-                <select id="req-substituto">
-                    <option value="">Nenhum</option>
-                </select>
+                <label for="req-substituto-trigger">Substituto</label>
+                <div class="select-field">
+                    <button type="button" class="date-trigger" id="req-substituto-trigger" aria-haspopup="true" aria-expanded="false">
+                        <span id="req-substituto-text" class="date-trigger-placeholder">Selecione</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="req-substituto">
+                    <div class="select-popover" id="req-substituto-popover">
+                        <button type="button" class="select-option" data-value="">Nenhum</button>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="req-obs">
-                    Observação <span class="label-optional">(opcional)</span>
-                </label>
-                <textarea id="req-obs" rows="3"
-                    placeholder="Ex: prefiro iniciar após o dia 15..."></textarea>
+                <label for="req-obs">Observação</label>
+                <textarea id="req-obs" rows="3"></textarea>
             </div>
             <div class="modal-alert" id="modal-alert"></div>
         </div>

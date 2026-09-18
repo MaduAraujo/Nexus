@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!auth) return;
     const myEmployeeId = auth.profile.employee_id;
     const emp = auth.employee;
+    const user = auth.user;
 
     const RETENTION_YEARS = {
         'Contrato de Trabalho': 30,
@@ -34,7 +35,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fileInput = document.getElementById('file-input');
     const fileSelected = document.getElementById('file-selected');
     const fileSelectedName = document.getElementById('file-selected-name');
-    const mobileSelect = document.getElementById('doc-select-mobile');
+    const mobileSelectTrigger = document.getElementById('doc-select-mobile-trigger');
+    const mobileSelectText = document.getElementById('doc-select-mobile-text');
+    const mobileSelectPopover = document.getElementById('doc-select-mobile-popover');
 
     let myDocs = [];
     let allMyDocs = [];
@@ -80,8 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.quickUploadTipo = (tipo) => {
         openUploadModal();
-        const sel = document.getElementById('upload-tipo');
-        if (sel) sel.value = tipo;
+        window.setUploadTipo?.(tipo);
     };
 
     async function logAudit(action, doc) {
@@ -90,8 +92,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document_name: doc.name,
             employee_id: myEmployeeId,
             action,
-            operator_name: emp?.name || 'Colaborador',
-            operator_email: user.email,
+            actor_id: user.id,
+            actor_name: emp?.name || 'Colaborador',
+            actor_profile: 'colaborador',
+            details: { email: user.email },
         });
     }
 
@@ -113,10 +117,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderPendingDocsBanner();
         if (docCountBadge) docCountBadge.textContent = myDocs.length;
 
-        if (mobileSelect) {
-            mobileSelect.innerHTML =
-                '<option value="">Selecione um documento...</option>' +
-                myDocs.map((d) => `<option value="${d.id}"${d.id === selectedId ? ' selected' : ''}>${d.name}</option>`).join('');
+        if (mobileSelectPopover) {
+            mobileSelectPopover.innerHTML = myDocs
+                .map((d) => `<button type="button" class="select-option${d.id === selectedId ? ' selected' : ''}" data-value="${d.id}">${d.name}</button>`)
+                .join('');
+            const current = myDocs.find((d) => d.id === selectedId);
+            if (mobileSelectText) {
+                mobileSelectText.textContent = current ? current.name : 'Selecione um documento...';
+                mobileSelectText.classList.toggle('date-trigger-placeholder', !current);
+            }
         }
 
         if (!docList) return;
@@ -185,7 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (el) el.textContent = val || '—';
         };
         set('detail-employee', emp?.name || '—');
-        set('detail-tipo', doc.tipo);
         set('detail-tipo2', doc.tipo);
         set('detail-date', date);
         set('detail-size', doc.size_label);
@@ -219,7 +227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             previewIcon.innerHTML = `<i class="fas ${iconFa}"></i>`;
         }
         set('detail-preview-name', doc.name);
-        set('detail-preview-meta', `${doc.tipo} · ${doc.size_label || '—'} · Enviado em ${date}`);
     }
 
     window.viewSelectedDoc = async () => {
@@ -287,8 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.closeUploadModal = () => {
         uploadModal?.classList.remove('open');
         document.body.style.overflow = '';
-        const tipoEl = document.getElementById('upload-tipo');
-        if (tipoEl) tipoEl.value = '';
+        window.setUploadTipo?.('');
         clearFileInput();
     };
 
@@ -335,6 +341,97 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Documento assinado!', 'Sua assinatura eletrônica foi registrada.');
     };
 
+    function setupUploadTipoSelect() {
+        const trigger = document.getElementById('upload-tipo-trigger');
+        const textEl = document.getElementById('upload-tipo-text');
+        const hidden = document.getElementById('upload-tipo');
+        const popover = document.getElementById('upload-tipo-popover');
+        if (!trigger || !popover || !hidden) return;
+
+        function open() {
+            popover.classList.add('open');
+            trigger.classList.add('active');
+            trigger.setAttribute('aria-expanded', 'true');
+            document.addEventListener('click', onOutsideClick);
+            document.addEventListener('keydown', onEscape);
+        }
+        function close() {
+            popover.classList.remove('open');
+            trigger.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('keydown', onEscape);
+        }
+        function onOutsideClick(e) {
+            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+        }
+        function onEscape(e) {
+            if (e.key === 'Escape') close();
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popover.classList.contains('open') ? close() : open();
+        });
+
+        popover.addEventListener('click', (e) => {
+            const btn = e.target.closest('.select-option');
+            if (!btn) return;
+            window.setUploadTipo(btn.dataset.value);
+            close();
+        });
+
+        window.setUploadTipo = function (value) {
+            hidden.value = value || '';
+            if (textEl) {
+                textEl.textContent = value || 'Selecione';
+                textEl.classList.toggle('date-trigger-placeholder', !value);
+            }
+            popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', o.dataset.value === value));
+        };
+    }
+    setupUploadTipoSelect();
+
+    function setupMobileDocSelect() {
+        const trigger = mobileSelectTrigger;
+        const popover = mobileSelectPopover;
+        if (!trigger || !popover) return;
+
+        function open() {
+            popover.classList.add('open');
+            trigger.classList.add('active');
+            trigger.setAttribute('aria-expanded', 'true');
+            document.addEventListener('click', onOutsideClick);
+            document.addEventListener('keydown', onEscape);
+        }
+        function close() {
+            popover.classList.remove('open');
+            trigger.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('keydown', onEscape);
+        }
+        function onOutsideClick(e) {
+            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+        }
+        function onEscape(e) {
+            if (e.key === 'Escape') close();
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popover.classList.contains('open') ? close() : open();
+        });
+
+        popover.addEventListener('click', (e) => {
+            const btn = e.target.closest('.select-option');
+            if (!btn) return;
+            selectDocById(btn.dataset.value);
+            close();
+        });
+    }
+    setupMobileDocSelect();
+
     dropZone?.addEventListener('click', () => fileInput?.click());
     dropZone?.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -361,6 +458,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         dropZone?.classList.add('hidden');
         fileSelected?.classList.remove('hidden');
         if (fileSelectedName) fileSelectedName.textContent = file.name;
+        updateUploadBtnState();
+    }
+
+    function updateUploadBtnState() {
+        const btn = document.getElementById('btn-submit-upload');
+        if (btn) btn.disabled = !selectedFile;
     }
 
     window.clearFileInput = () => {
@@ -368,6 +471,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (fileInput) fileInput.value = '';
         fileSelected?.classList.add('hidden');
         dropZone?.classList.remove('hidden');
+        updateUploadBtnState();
     };
 
     window.submitUpload = async () => {

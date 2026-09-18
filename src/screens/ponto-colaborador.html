@@ -336,7 +336,7 @@
                     <div class="date-field">
                         <button type="button" class="date-trigger" id="ajuste-data-trigger" aria-haspopup="true" aria-expanded="false">
                             <i class="fas fa-calendar-alt"></i>
-                            <span id="ajuste-data-text">Selecionar data</span>
+                            <span id="ajuste-data-text" class="date-trigger-placeholder">Selecione</span>
                         </button>
                         <input type="hidden" id="ajuste-data">
                         <div class="calendar-popover" id="ajuste-data-popover">
@@ -355,39 +355,35 @@
                 </div>
                 <div class="form-group">
                     <label>Tipo de ajuste <span class="req">*</span></label>
-                    <select id="ajuste-tipo" onchange="onAjusteTipoChange()">
-                        <option value="" disabled selected>Selecione</option>
-                        <option value="entrada">Correção de Entrada</option>
-                        <option value="saida-almoco">Correção de Saída p/ Almoço</option>
-                        <option value="retorno-almoco">Correção de Retorno do Almoço</option>
-                        <option value="saida">Correção de Saída</option>
-                        <option value="falta">Justificativa de Falta</option>
-                    </select>
+                    <div class="select-field">
+                        <button type="button" class="date-trigger" id="ajuste-tipo-trigger" aria-haspopup="true" aria-expanded="false">
+                            <span id="ajuste-tipo-text" class="date-trigger-placeholder">Selecione</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="ajuste-tipo">
+                        <div class="select-popover" id="ajuste-tipo-popover">
+                            <button type="button" class="select-option" data-value="entrada">Correção de Entrada</button>
+                            <button type="button" class="select-option" data-value="saida-almoco">Correção de Saída p/ Almoço</button>
+                            <button type="button" class="select-option" data-value="retorno-almoco">Correção de Retorno do Almoço</button>
+                            <button type="button" class="select-option" data-value="saida">Correção de Saída</button>
+                            <button type="button" class="select-option" data-value="falta">Justificativa de Falta</button>
+                        </div>
+                    </div>
                     <span class="field-error" id="err-ajuste-tipo"></span>
                 </div>
             </div>
             <div class="form-group" id="ajuste-horario-group">
                 <label>Horário correto <span class="req">*</span></label>
-                <div class="date-field">
-                    <button type="button" class="date-trigger" id="ajuste-horario-trigger" aria-haspopup="true" aria-expanded="false">
-                        <i class="fas fa-clock"></i>
-                        <span id="ajuste-horario-text">Selecionar horário</span>
-                    </button>
-                    <input type="hidden" id="ajuste-horario">
-                    <div class="time-popover" id="ajuste-horario-popover">
-                        <div class="time-cols">
-                            <div class="time-col" id="ajuste-horario-hours"></div>
-                            <div class="time-col-sep">:</div>
-                            <div class="time-col" id="ajuste-horario-minutes"></div>
-                        </div>
-                    </div>
-                </div>
+                <button type="button" class="date-trigger" id="ajuste-horario-trigger" onclick="openModalRelogio()">
+                    <i class="fas fa-clock"></i>
+                    <span id="ajuste-horario-text" class="date-trigger-placeholder">Selecione</span>
+                </button>
+                <input type="hidden" id="ajuste-horario">
                 <span class="field-error" id="err-ajuste-horario"></span>
             </div>
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
-                <textarea id="ajuste-justificativa" rows="3"
-                          placeholder="Descreva detalhadamente o motivo do ajuste" oninput="updateAjusteBtnState()"></textarea>
+                <textarea id="ajuste-justificativa" rows="3" oninput="updateAjusteBtnState()"></textarea>
                 <span class="field-error" id="err-ajuste-just"></span>
             </div>
         </div>
@@ -395,6 +391,30 @@
             <button class="btn-primary" id="btn-ajuste-enviar" onclick="enviarSolicitacao()" disabled>
                 Enviar Solicitação
             </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-relogio">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fas fa-clock"></i> Horário correto</h3>
+            <button class="modal-close" onclick="closeModal('modal-relogio')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body clock-modal-body">
+            <div class="clock-display">
+                <button type="button" class="clock-digit active" id="clockmodal-hour-btn" data-step="hour">--</button>
+                <span class="clock-digit-sep">:</span>
+                <button type="button" class="clock-digit" id="clockmodal-min-btn" data-step="minute">--</button>
+            </div>
+            <div class="clock-dial" id="clock-dial">
+                <div class="clock-hand" id="clock-hand"></div>
+                <div class="clock-center-dot"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" type="button" onclick="closeModal('modal-relogio')">Cancelar</button>
+            <button class="btn-primary" type="button" id="btn-clock-confirm" onclick="confirmClockModal()">OK</button>
         </div>
     </div>
 </div>
@@ -416,13 +436,11 @@
                     <button type="button" class="type-toggle-card active" data-tipo="credito">
                         <div class="type-toggle-body">
                             <span class="type-toggle-title">Crédito</span>
-                            <span class="type-toggle-sub">Horas trabalhadas a mais</span>
                         </div>
                     </button>
                     <button type="button" class="type-toggle-card" data-tipo="debito">
                         <div class="type-toggle-body">
                             <span class="type-toggle-title">Débito</span>
-                            <span class="type-toggle-sub">Usar horas do banco / justificar falta</span>
                         </div>
                     </button>
                 </div>
@@ -433,7 +451,7 @@
                 <div class="date-field">
                     <button type="button" class="date-trigger" id="bankreq-data-trigger" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-calendar-alt"></i>
-                        <span id="bankreq-data-text">Selecionar data</span>
+                        <span id="bankreq-data-text" class="date-trigger-placeholder">Selecione</span>
                     </button>
                     <input type="hidden" id="bankreq-data">
                     <div class="calendar-popover" id="bankreq-data-popover">
@@ -450,24 +468,23 @@
                 </div>
                 <span class="field-error" id="err-bankreq-data"></span>
             </div>
-            <div class="form-row-2">
-                <div class="form-group">
-                    <label>Horas <span class="req">*</span></label>
-                    <input type="number" id="bankreq-horas" min="0" max="99" placeholder="0" oninput="updateBankReqBtnState()" />
-                </div>
-                <div class="form-group">
-                    <label>Minutos <span class="req">*</span></label>
-                    <input type="number" id="bankreq-minutos" min="0" max="59" placeholder="0" oninput="updateBankReqBtnState()" />
-                    <span class="field-error" id="err-bankreq-valor"></span>
-                </div>
+            <div class="form-group">
+                <label>Duração <span class="req">*</span></label>
+                <button type="button" class="date-trigger" id="bankreq-duracao-trigger" onclick="openModalDuracao()">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span id="bankreq-duracao-text" class="date-trigger-placeholder">Selecione</span>
+                </button>
+                <input type="hidden" id="bankreq-horas">
+                <input type="hidden" id="bankreq-minutos">
+                <span class="field-error" id="err-bankreq-valor"></span>
             </div>
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
-                <textarea id="bankreq-justificativa" rows="3" placeholder="Ex: Atestado médico, trabalho em feriado..." oninput="updateBankReqBtnState()"></textarea>
+                <textarea id="bankreq-justificativa" rows="3" oninput="updateBankReqBtnState()"></textarea>
                 <span class="field-error" id="err-bankreq-just"></span>
             </div>
             <div class="form-group">
-                <label>Anexo <span class="label-optional">opcional</span></label>
+                <label>Anexo</label>
                 <div class="file-picker">
                     <button type="button" class="btn-file-choose" id="bankreq-anexo-btn">
                         <i class="fas fa-paperclip"></i> Escolher arquivo
@@ -481,6 +498,34 @@
             <button class="btn-primary" id="btn-bankreq-enviar" onclick="enviarBankRequest()" disabled>
                 Enviar Solicitação
             </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-bankreq-duracao">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fas fa-hourglass-half"></i> Duração</h3>
+            <button class="modal-close" onclick="closeModal('modal-bankreq-duracao')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body clock-modal-body">
+            <div class="clock-display">
+                <span class="clock-digit" id="duracao-horas-btn">0h</span>
+                <span class="clock-digit-sep">·</span>
+                <span class="clock-digit" id="duracao-min-btn">00min</span>
+            </div>
+            <div class="duration-picker-labels">
+                <span>Horas</span>
+                <span>Minutos</span>
+            </div>
+            <div class="duration-cols">
+                <div class="duration-col-band"></div>
+                <div class="duration-col" id="duracao-horas-col"></div>
+                <div class="duration-col" id="duracao-min-col"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-primary" type="button" id="btn-duracao-confirm" onclick="confirmDuracaoModal()">OK</button>
         </div>
     </div>
 </div>

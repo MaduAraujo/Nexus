@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'nexus-v2';
+const CACHE_VERSION = 'nexus-v5';
 const PRECACHE_URLS = [
     '/index.html',
     '/manifest.json',

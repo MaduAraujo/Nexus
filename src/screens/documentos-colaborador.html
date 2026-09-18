@@ -42,9 +42,13 @@
                 <i class="fas fa-folder-open"></i>
                 Documento
             </label>
-            <select class="doc-select-input" id="doc-select-mobile" onchange="selectDocById(this.value)">
-                <option value="">Selecione um documento...</option>
-            </select>
+            <div class="select-field">
+                <button type="button" class="date-trigger" id="doc-select-mobile-trigger" aria-haspopup="true" aria-expanded="false">
+                    <span id="doc-select-mobile-text" class="date-trigger-placeholder">Selecione um documento...</span>
+                    <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                </button>
+                <div class="select-popover" id="doc-select-mobile-popover"></div>
+            </div>
         </div>
 
 
@@ -67,7 +71,8 @@
                         <i class="fas fa-folder-open"></i>
                     </div>
                     <p class="doc-empty-title">Selecione um documento</p>
-                    <p class="doc-empty-sub">Escolha um documento na lista ao lado para visualizar os detalhes.</p>
+                    <p class="doc-empty-sub doc-empty-sub--desktop">Escolha um documento na lista ao lado para visualizar os detalhes.</p>
+                    <p class="doc-empty-sub doc-empty-sub--mobile">Escolha um documento para visualizar os detalhes.</p>
                 </div>
 
 
@@ -80,17 +85,12 @@
                             </span>
                         </div>
                         <div class="doc-actions-btns">
-                            <button class="btn-view-doc" id="btn-view-doc" onclick="viewSelectedDoc()">
-                                <i class="fas fa-eye"></i>
-                                <span>Visualizar</span>
-                            </button>
                             <button class="btn-sign-doc hidden" id="btn-sign-doc" onclick="openSignModal()">
                                 <i class="fas fa-signature"></i>
                                 <span>Assinar Documento</span>
                             </button>
-                            <button class="btn-delete-doc" id="btn-delete-doc" onclick="deleteSelectedDoc()">
+                            <button class="btn-delete-doc" id="btn-delete-doc" onclick="deleteSelectedDoc()" aria-label="Remover" title="Remover">
                                 <i class="fas fa-trash"></i>
-                                <span>Remover</span>
                             </button>
                         </div>
                     </div>
@@ -103,10 +103,6 @@
                                     <p class="doc-company-name">Nexus Recursos Humanos Ltda.</p>
                                     <p class="doc-company-detail">Gestão de Documentos do Colaborador</p>
                                 </div>
-                            </div>
-                            <div class="doc-title-block">
-                                <p class="doc-title-label">DOCUMENTO DO COLABORADOR</p>
-                                <p class="doc-tipo-value" id="detail-tipo">—</p>
                             </div>
                         </div>
 
@@ -145,7 +141,6 @@
                             </div>
                             <div class="doc-preview-info">
                                 <p class="doc-preview-name" id="detail-preview-name">—</p>
-                                <p class="doc-preview-meta" id="detail-preview-meta">—</p>
                             </div>
                             <i class="fas fa-up-right-from-square doc-preview-open-icon"></i>
                         </div>
@@ -178,17 +173,23 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>Tipo de Documento</label>
-                    <select id="upload-tipo">
-                        <option value="" disabled selected>Selecione o tipo</option>
-                        <option value="RG">RG</option>
-                        <option value="CPF">CPF</option>
-                        <option value="Comprovante de Residência">Comprovante de Residência</option>
-                        <option value="Carteira de Trabalho">Carteira de Trabalho</option>
-                        <option value="Diploma">Diploma</option>
-                        <option value="Certificado">Certificado</option>
-                        <option value="Exame Médico">Exame Médico</option>
-                        <option value="Outros">Outros</option>
-                    </select>
+                    <div class="select-field">
+                        <button type="button" class="date-trigger" id="upload-tipo-trigger" aria-haspopup="true" aria-expanded="false">
+                            <span id="upload-tipo-text" class="date-trigger-placeholder">Selecione</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="upload-tipo">
+                        <div class="select-popover" id="upload-tipo-popover">
+                            <button type="button" class="select-option" data-value="RG">RG</button>
+                            <button type="button" class="select-option" data-value="CPF">CPF</button>
+                            <button type="button" class="select-option" data-value="Comprovante de Residência">Comprovante de Residência</button>
+                            <button type="button" class="select-option" data-value="Carteira de Trabalho">Carteira de Trabalho</button>
+                            <button type="button" class="select-option" data-value="Diploma">Diploma</button>
+                            <button type="button" class="select-option" data-value="Certificado">Certificado</button>
+                            <button type="button" class="select-option" data-value="Exame Médico">Exame Médico</button>
+                            <button type="button" class="select-option" data-value="Outros">Outros</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Arquivo</label>
@@ -205,7 +206,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" onclick="submitUpload()">
+                <button class="btn-primary" id="btn-submit-upload" onclick="submitUpload()" disabled>
                     Enviar
                 </button>
             </div>

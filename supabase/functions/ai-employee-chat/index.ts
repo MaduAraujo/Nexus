@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://nexus-nine-zeta.vercel.app",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 function getJornadaMin(emp: any): number | null {
   const tipo = String(emp?.contract_type || "clt").toLowerCase();
@@ -180,6 +176,7 @@ Responda sempre em português brasileiro.`;
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const json = (body: unknown, status = 200) =>
@@ -212,7 +209,7 @@ serve(async (req) => {
     const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")!}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 1024, messages: groqMessages, stream: true }),
+      body: JSON.stringify({ model: "openai/gpt-oss-120b", max_tokens: 1024, messages: groqMessages, stream: true }),
     });
     if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
 

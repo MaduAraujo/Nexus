@@ -297,8 +297,10 @@ CREATE TABLE IF NOT EXISTS document_audit_log (
   document_name  TEXT NOT NULL,
   employee_id    UUID REFERENCES employees(id) ON DELETE SET NULL,
   action         TEXT NOT NULL CHECK (action IN ('criado','aprovado','recusado','excluido','substituido','assinado')),
-  operator_name  TEXT,
-  operator_email TEXT,
+  actor_id       UUID,
+  actor_name     TEXT,
+  actor_profile  TEXT,
+  details        JSONB,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 

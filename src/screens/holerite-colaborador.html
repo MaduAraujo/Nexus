@@ -29,9 +29,13 @@
                 <i class="fas fa-calendar-alt"></i>
                 Competência
             </label>
-            <select class="month-select-input" id="month-select-mobile" onchange="selectPayslipById(this.value)">
-                <option value="">Selecione o mês...</option>
-            </select>
+            <div class="select-field">
+                <button type="button" class="date-trigger" id="month-select-mobile-trigger" aria-haspopup="true" aria-expanded="false">
+                    <span id="month-select-mobile-text" class="date-trigger-placeholder">Selecione</span>
+                    <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                </button>
+                <div class="select-popover" id="month-select-mobile-popover"></div>
+            </div>
         </div>
 
         <div class="holerite-layout">
@@ -54,17 +58,6 @@
                     </div>
                     <p class="payslip-empty-title">Selecione um mês</p>
                     <p class="payslip-empty-sub">Escolha uma competência na lista ao lado para visualizar seu holerite.</p>
-                </div>
-
-                <div class="payslip-gate hidden" id="payslip-gate">
-                    <div class="payslip-gate-icon">
-                        <i class="fas fa-signature"></i>
-                    </div>
-                    <p class="payslip-gate-title">Assinatura necessária</p>
-                    <p class="payslip-gate-sub">Para visualizar o holerite de <strong id="gate-competencia">—</strong>, confirme a ciência assinando eletronicamente.</p>
-                    <button class="btn-print" onclick="openSignPayslipModal()">
-                        <span>Assinar e Visualizar</span>
-                    </button>
                 </div>
 
                 <div class="payslip-wrap hidden" id="payslip-wrap">
@@ -188,10 +181,6 @@
                         </div>
 
                         <div class="doc-footer">
-                            <div class="doc-footer-assinatura" id="doc-footer-assinatura">
-                                <div class="assinatura-line"></div>
-                                <p class="assinatura-label">Assinatura do Funcionário</p>
-                            </div>
                             <div class="doc-footer-info">
                                 <p class="doc-footer-note">
                                     <i class="fas fa-lock"></i>
@@ -240,44 +229,21 @@
                     <span>Consolidado anual para declaração de Imposto de Renda.</span>
                 </div>
                 <div class="informe-year-row">
-                    <label class="informe-year-label" for="informe-year-select">Ano-calendário</label>
-                    <select id="informe-year-select" class="informe-year-select" onchange="renderInforme(this.value)"></select>
+                    <label class="informe-year-label" for="informe-year-trigger">Ano-calendário</label>
+                    <div class="select-field">
+                        <button type="button" class="date-trigger" id="informe-year-trigger" aria-haspopup="true" aria-expanded="false">
+                            <span id="informe-year-text">—</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="informe-year-select">
+                        <div class="select-popover" id="informe-year-popover"></div>
+                    </div>
                 </div>
                 <div id="informe-content"></div>
                 <p class="informe-empty hidden" id="informe-empty">Nenhum holerite pago encontrado para este ano.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn-print" onclick="printInforme()"><span>Imprimir</span></button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay no-print" id="sign-payslip-modal">
-        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="sign-payslip-title">
-            <div class="modal-header">
-                <h3 id="sign-payslip-title"><i class="fas fa-signature"></i> Assinar Holerite</h3>
-                <button class="modal-close" onclick="closeSignPayslipModal()" aria-label="Fechar">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="info-banner">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Sua assinatura eletrônica confirma o recebimento e a ciência do holerite de <strong id="sign-payslip-competencia">—</strong>.</span>
-                </div>
-                <div class="sign-form-group">
-                    <label for="sign-payslip-name">Nome completo</label>
-                    <input type="text" id="sign-payslip-name" class="sign-input" placeholder="Digite seu nome completo">
-                </div>
-                <label class="sign-consent">
-                    <input type="checkbox" id="sign-payslip-agree" onchange="toggleSignConfirmBtn()">
-                    <span>Estou de acordo.</span>
-                </label>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-print" id="btn-confirm-sign-payslip" onclick="confirmSignPayslip()" disabled>
-                    <span>Confirmar Assinatura</span>
-                </button>
             </div>
         </div>
     </div>

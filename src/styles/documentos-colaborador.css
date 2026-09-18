@@ -17,6 +17,7 @@
 
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14);
 
     --success: #10b981;
     --success-bg: #dcfce7;
@@ -124,9 +125,9 @@ body {
     justify-content: center;
     gap: 0;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid #fff;
     border-radius: 50%;
-    color: #71717a;
+    color: #fff;
     padding: 0;
     font-size: 0;
     transition:
@@ -235,6 +236,7 @@ body {
 .pending-docs-chips {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
 }
 
@@ -570,6 +572,9 @@ body {
     max-width: 280px;
     line-height: 1.5;
 }
+.doc-empty-sub--mobile {
+    display: none;
+}
 
 .doc-wrap {
     display: flex;
@@ -640,52 +645,25 @@ body {
 .btn-delete-doc {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
     background: var(--danger-bg);
     color: var(--danger);
     border: none;
-    padding: 9px 18px;
     border-radius: 9px;
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
     transition:
         background 0.18s,
         transform 0.1s;
-    font-family: 'DM Sans', sans-serif;
-    white-space: nowrap;
 }
 .btn-delete-doc:hover {
     background: var(--danger);
     color: #fff;
 }
 .btn-delete-doc:active {
-    transform: scale(0.97);
-}
-
-.btn-view-doc {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background: var(--accent-light);
-    color: var(--accent);
-    border: none;
-    padding: 9px 18px;
-    border-radius: 9px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-        background 0.18s,
-        transform 0.1s;
-    font-family: 'DM Sans', sans-serif;
-    white-space: nowrap;
-}
-.btn-view-doc:hover {
-    background: var(--accent);
-    color: #fff;
-}
-.btn-view-doc:active {
     transform: scale(0.97);
 }
 
@@ -781,24 +759,6 @@ body {
 .doc-company-detail {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.6);
-}
-
-.doc-title-block {
-    text-align: right;
-}
-.doc-title-label {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.8);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
-.doc-tipo-value {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
 }
 
 .doc-info-grid {
@@ -897,12 +857,6 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.doc-preview-meta {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-
 .doc-card-footer {
     padding: 20px 28px;
     display: flex;
@@ -1041,11 +995,15 @@ body {
     letter-spacing: 0.02em;
 }
 
-.form-group select {
-    padding: 10px 13px;
+.date-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
     border: 1.5px solid var(--border-color);
     border-radius: 9px;
-    font-size: 0.88rem;
+    font-size: max(16px, 0.875rem);
     color: var(--text-main);
     background: var(--bg-page);
     outline: none;
@@ -1053,13 +1011,102 @@ body {
         border-color 0.2s,
         background 0.2s,
         box-shadow 0.2s;
-    width: 100%;
     font-family: 'DM Sans', sans-serif;
 }
-.form-group select:focus {
+.date-trigger-placeholder {
+    color: var(--text-tertiary);
+}
+.date-trigger:hover {
+    border-color: var(--accent);
+}
+.date-trigger.active {
     border-color: var(--accent);
     background: var(--bg-white);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.select-field {
+    position: relative;
+    width: 100%;
+}
+.select-field .date-trigger {
+    justify-content: space-between;
+}
+.select-trigger-arrow {
+    color: var(--text-tertiary);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    transition:
+        transform 0.18s var(--ease),
+        color 0.18s var(--ease);
+}
+.date-trigger.active .select-trigger-arrow {
+    transform: rotate(180deg);
+    color: var(--accent);
+}
+
+.select-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 12px;
+    width: auto;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    padding: 8px;
+    z-index: 950;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+    max-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transform: translateY(-8px) scale(0.96);
+    transform-origin: top left;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        max-height 0.18s var(--ease),
+        visibility 0.18s;
+}
+.select-popover.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    overflow-y: auto;
+    max-height: 400px;
+    transform: translateY(0) scale(1);
+}
+.select-option {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition:
+        background 0.15s,
+        color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.select-option:hover {
+    background: var(--bg-page);
+}
+.select-option.selected {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 700;
 }
 
 .sign-name-input {
@@ -1355,30 +1402,6 @@ body {
     color: var(--accent);
     font-size: 0.7rem;
 }
-.doc-select-input {
-    width: 100%;
-    padding: 10px 36px 10px 13px;
-    border: 1.5px solid var(--border-color);
-    border-radius: 9px;
-    font-size: 0.88rem;
-    color: var(--text-main);
-    background: var(--bg-white);
-    outline: none;
-    font-family: 'DM Sans', sans-serif;
-    transition:
-        border-color 0.2s,
-        box-shadow 0.2s;
-    -webkit-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-}
-.doc-select-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-}
-
 @media (max-width: 1280px) {
     .content {
         padding: 24px 28px;
@@ -1449,6 +1472,12 @@ body {
     .mobile-doc-select {
         display: block;
     }
+    .doc-empty-sub--desktop {
+        display: none;
+    }
+    .doc-empty-sub--mobile {
+        display: block;
+    }
     .doc-list-panel {
         display: none;
     }
@@ -1482,11 +1511,12 @@ body {
         width: 100%;
         flex-direction: column;
     }
-    .btn-delete-doc,
-    .btn-sign-doc,
-    .btn-view-doc {
+    .btn-sign-doc {
         width: 100%;
         justify-content: center;
+    }
+    .btn-delete-doc {
+        align-self: flex-end;
     }
 }
 
@@ -1505,9 +1535,6 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: 12px;
-    }
-    .doc-title-block {
-        text-align: left;
     }
     .assinatura-line {
         width: 140px;

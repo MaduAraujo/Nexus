@@ -51,6 +51,7 @@
 
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
+    const user = auth.user;
 
     let activeTab = 'admissional';
     let selectedFiles = [];
@@ -105,8 +106,10 @@
             document_name: doc.name,
             employee_id: doc.employee_id || null,
             action,
-            operator_name: 'Administrador',
-            operator_email: user.email,
+            actor_id: user.id,
+            actor_name: 'Administrador',
+            actor_profile: 'rh',
+            details: { email: user.email },
         });
     }
 
@@ -123,8 +126,9 @@
                 document_name: doc.name,
                 employee_id: doc.employee_id || null,
                 action: 'excluido',
-                operator_name: 'Sistema (expurgo automático LGPD)',
-                operator_email: 'sistema@nexus',
+                actor_name: 'Sistema (expurgo automático LGPD)',
+                actor_profile: 'sistema',
+                details: { email: 'sistema@nexus' },
             });
         }
         return expired.length;
@@ -1012,7 +1016,7 @@
                 <div class="audit-row-icon audit-row-icon--${l.action}"><i class="fas ${icon}"></i></div>
                 <div class="audit-row-body">
                     <span class="audit-row-title"><b>${label}</b> — ${l.document_name}${emp !== '—' ? ` (${emp})` : ''}</span>
-                    <span class="audit-row-meta">${l.operator_name || '—'} · ${when}</span>
+                    <span class="audit-row-meta">${l.actor_name || '—'} · ${when}</span>
                 </div>
             </div>`;
             })

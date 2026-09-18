@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     myEmployee = auth.employee;
 
     loadSidebarInfo();
+    setupMobileMonthSelect();
+    setupInformeYearSelect();
     await loadPayslips();
     setupRealtimeSync();
 });
@@ -67,14 +69,11 @@ function renderMonthList() {
         card.setAttribute('data-id', h.id);
         card.style.animationDelay = `${Math.min(i * 0.04, 0.4)}s`;
         card.onclick = () => selectPayslipById(h.id);
-        const statusLine = h.assinado_em
-            ? `<span class="month-card-liquido">Líquido: ${formatCurrency(h.salario_liquido)}</span>`
-            : `<span class="month-card-liquido month-card-pending"><i class="fas fa-signature"></i> Aguardando assinatura</span>`;
         card.innerHTML = `
             <div class="month-card-icon"><i class="fas fa-file-alt"></i></div>
             <div class="month-card-body">
                 <span class="month-card-competencia">${h.mes_formatado || h.mes}</span>
-                ${statusLine}
+                <span class="month-card-liquido">Líquido: ${formatCurrency(h.salario_liquido)}</span>
             </div>
             <i class="fas fa-chevron-right month-card-arrow"></i>`;
         list.appendChild(card);
@@ -82,14 +81,55 @@ function renderMonthList() {
 }
 
 function buildMobileSelect() {
-    const sel = document.getElementById('month-select-mobile');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Selecione o mês...</option>';
-    holerites.forEach((h) => {
-        const opt = document.createElement('option');
-        opt.value = h.id;
-        opt.textContent = h.mes_formatado || h.mes;
-        sel.appendChild(opt);
+    const popover = document.getElementById('month-select-mobile-popover');
+    const textEl = document.getElementById('month-select-mobile-text');
+    if (!popover) return;
+    popover.innerHTML = holerites
+        .map((h) => `<button type="button" class="select-option${h.id === currentId ? ' selected' : ''}" data-value="${h.id}">${h.mes_formatado || h.mes}</button>`)
+        .join('');
+    const current = holerites.find((h) => h.id === currentId);
+    if (textEl) {
+        textEl.textContent = current ? current.mes_formatado || current.mes : 'Selecione';
+        textEl.classList.toggle('date-trigger-placeholder', !current);
+    }
+}
+
+function setupMobileMonthSelect() {
+    const trigger = document.getElementById('month-select-mobile-trigger');
+    const popover = document.getElementById('month-select-mobile-popover');
+    if (!trigger || !popover) return;
+
+    function open() {
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    popover.addEventListener('click', (e) => {
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        close();
+        selectPayslipById(btn.dataset.value);
     });
 }
 
@@ -98,18 +138,13 @@ window.selectPayslipById = function (id) {
     if (!h) return;
     currentId = id;
     document.querySelectorAll('.month-card').forEach((c) => c.classList.toggle('active', c.getAttribute('data-id') === id));
-    const mSel = document.getElementById('month-select-mobile');
-    if (mSel && mSel.value !== id) mSel.value = id;
-    document.getElementById('payslip-empty')?.classList.add('hidden');
-
-    if (!h.assinado_em) {
-        document.getElementById('payslip-wrap')?.classList.add('hidden');
-        setText('gate-competencia', h.mes_formatado || h.mes);
-        document.getElementById('payslip-gate')?.classList.remove('hidden');
-        return;
+    const textEl = document.getElementById('month-select-mobile-text');
+    if (textEl) {
+        textEl.textContent = h.mes_formatado || h.mes;
+        textEl.classList.remove('date-trigger-placeholder');
     }
-
-    document.getElementById('payslip-gate')?.classList.add('hidden');
+    document.querySelectorAll('#month-select-mobile-popover .select-option').forEach((o) => o.classList.toggle('selected', o.dataset.value === id));
+    document.getElementById('payslip-empty')?.classList.add('hidden');
     document.getElementById('payslip-wrap')?.classList.remove('hidden');
     renderPayslip(h);
 };
@@ -158,13 +193,6 @@ function renderPayslip(h) {
     setText('total-proventos', formatCurrency(h.total_proventos));
     setText('total-descontos', formatCurrency(h.total_descontos));
     setText('doc-liquido', formatCurrency(h.salario_liquido));
-
-    const signArea = document.getElementById('doc-footer-assinatura');
-    if (signArea) {
-        signArea.innerHTML = h.assinado_em
-            ? `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${escapeHTML(h.assinado_por || myEmployee.name)} em ${new Date(h.assinado_em).toLocaleString('pt-BR')}</p>`
-            : `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Funcionário</p>`;
-    }
 }
 
 window.printPayslip = function () {
@@ -189,66 +217,6 @@ window.printPayslipWithOrientation = function (orientation) {
     }
     styleEl.textContent = `@page { size: ${orientation}; }`;
     window.print();
-};
-
-let signingId = null;
-
-window.openSignPayslipModal = function () {
-    if (!currentId) return;
-    const h = holerites.find((x) => x.id === currentId);
-    if (!h) return;
-    signingId = currentId;
-    setText('sign-payslip-competencia', h.mes_formatado || h.mes);
-    const nameInput = document.getElementById('sign-payslip-name');
-    if (nameInput) nameInput.value = myEmployee?.name || '';
-    const agree = document.getElementById('sign-payslip-agree');
-    if (agree) agree.checked = false;
-    toggleSignConfirmBtn();
-    document.getElementById('sign-payslip-modal')?.classList.add('open');
-    document.body.style.overflow = 'hidden';
-};
-
-window.closeSignPayslipModal = function () {
-    document.getElementById('sign-payslip-modal')?.classList.remove('open');
-    document.body.style.overflow = '';
-};
-
-window.toggleSignConfirmBtn = function () {
-    const agree = document.getElementById('sign-payslip-agree');
-    const btn = document.getElementById('btn-confirm-sign-payslip');
-    if (btn) btn.disabled = !agree?.checked;
-};
-
-window.confirmSignPayslip = async function () {
-    if (!signingId) return;
-    const nameInput = document.getElementById('sign-payslip-name');
-    const name = nameInput?.value.trim();
-    if (!name) {
-        showToast('Digite seu nome completo para assinar.', 'warning');
-        return;
-    }
-    const agree = document.getElementById('sign-payslip-agree');
-    if (!agree?.checked) {
-        showToast('Confirme que leu e concorda com o holerite.', 'warning');
-        return;
-    }
-
-    const { error } = await sb.rpc('sign_payslip', { p_payslip_id: signingId, p_signer_name: name });
-    if (error) {
-        showToast('Não foi possível registrar a assinatura.', 'error');
-        return;
-    }
-
-    const h = holerites.find((x) => x.id === signingId);
-    if (h) {
-        h.assinado_em = new Date().toISOString();
-        h.assinado_por = name;
-    }
-    const justSignedId = signingId;
-    closeSignPayslipModal();
-    renderMonthList();
-    if (currentId === justSignedId) selectPayslipById(justSignedId);
-    showToast('Holerite assinado com sucesso!', 'success');
 };
 
 let comparativoChart = null;
@@ -317,15 +285,64 @@ function renderComparativoChart() {
 }
 
 window.openInformeModal = function () {
-    const sel = document.getElementById('informe-year-select');
+    const hidden = document.getElementById('informe-year-select');
+    const textEl = document.getElementById('informe-year-text');
+    const popover = document.getElementById('informe-year-popover');
     const years = [...new Set(holerites.map((h) => h.mes.slice(0, 4)))].sort((a, b) => b.localeCompare(a));
-    if (sel) {
-        sel.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join('');
+    const firstYear = years[0] || String(new Date().getFullYear());
+    if (popover) {
+        popover.innerHTML = years.map((y) => `<button type="button" class="select-option${y === firstYear ? ' selected' : ''}" data-value="${y}">${y}</button>`).join('');
     }
+    if (hidden) hidden.value = firstYear;
+    if (textEl) textEl.textContent = firstYear;
     document.getElementById('informe-modal')?.classList.add('open');
     document.body.style.overflow = 'hidden';
-    renderInforme(years[0] || String(new Date().getFullYear()));
+    renderInforme(firstYear);
 };
+
+function setupInformeYearSelect() {
+    const trigger = document.getElementById('informe-year-trigger');
+    const textEl = document.getElementById('informe-year-text');
+    const hidden = document.getElementById('informe-year-select');
+    const popover = document.getElementById('informe-year-popover');
+    if (!trigger || !popover || !hidden) return;
+
+    function open() {
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    popover.addEventListener('click', (e) => {
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        hidden.value = btn.dataset.value;
+        if (textEl) textEl.textContent = btn.dataset.value;
+        popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', o === btn));
+        close();
+        renderInforme(btn.dataset.value);
+    });
+}
 
 window.closeInformeModal = function () {
     document.getElementById('informe-modal')?.classList.remove('open');
@@ -365,14 +382,16 @@ window.renderInforme = function (year) {
     content.innerHTML = `
         <div class="informe-summary">
             <div class="informe-stat"><span class="informe-stat-label">Rendimentos brutos</span><span class="informe-stat-value">${formatCurrency(totalProventos)}</span></div>
-            <div class="informe-stat"><span class="informe-stat-label">Total líquido recebido</span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
+            <div class="informe-stat"><span class="informe-stat-label"><span class="informe-stat-label--full">Total líquido recebido</span><span class="informe-stat-label--short">TL Recebido</span></span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">INSS retido</span><span class="informe-stat-value danger">${formatCurrency(totalInss)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">IRRF retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>
         </div>
-        <table class="informe-table">
-            <thead><tr><th>Competência</th><th class="col-val">Proventos</th><th class="col-val">Descontos</th><th class="col-val">Líquido</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table>`;
+        <div class="informe-table-card">
+            <table class="informe-table">
+                <thead><tr><th>Competência</th><th class="col-val">Proventos</th><th class="col-val">Descontos</th><th class="col-val">Líquido</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
 };
 
 window.printInforme = function () {

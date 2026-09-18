@@ -42,26 +42,6 @@ function nearestUnidade(lat, lng) {
 const pad0 = (n) => String(n).padStart(2, '0');
 const $ = (id) => document.getElementById(id);
 
-function positionFixedPopover(trigger, popover) {
-    const margin = 8;
-    const rect = trigger.getBoundingClientRect();
-    const popW = popover.offsetWidth;
-    const popH = popover.offsetHeight;
-
-    let left = rect.left;
-    left = Math.min(left, window.innerWidth - popW - margin);
-    left = Math.max(margin, left);
-
-    let top = rect.bottom + 12;
-    if (top + popH > window.innerHeight - margin) {
-        const above = rect.top - popH - 12;
-        top = above >= margin ? above : Math.max(margin, window.innerHeight - popH - margin);
-    }
-
-    popover.style.left = `${left}px`;
-    popover.style.top = `${top}px`;
-}
-
 function esc(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -97,9 +77,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupMonthFilterPicker();
     ajusteDatePicker = createSimpleDayPicker('ajuste-data', updateAjusteBtnState);
     bankreqDatePicker = createSimpleDayPicker('bankreq-data', updateBankReqBtnState);
-    setupHorarioPicker();
+    setupClockDial();
+    setupAjusteTipoSelect();
     setupTipoToggle();
     setupAnexoPicker();
+    setupDuracaoModal();
 
     renderUI();
     initLocation();
@@ -442,10 +424,6 @@ function setupMonthFilterPicker() {
             .join('');
     }
 
-    function reposition() {
-        positionFixedPopover(trigger, popover);
-    }
-
     function open() {
         const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
         viewYear = selYear || today.getFullYear();
@@ -454,11 +432,8 @@ function setupMonthFilterPicker() {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
-        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        document.addEventListener('scroll', reposition, true);
-        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -467,8 +442,6 @@ function setupMonthFilterPicker() {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
-        document.removeEventListener('scroll', reposition, true);
-        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -499,7 +472,6 @@ function setupMonthFilterPicker() {
             viewYear--;
         }
         render();
-        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -509,7 +481,6 @@ function setupMonthFilterPicker() {
             viewYear++;
         }
         render();
-        reposition();
     });
 
     selectMonth(today.getFullYear(), today.getMonth());
@@ -643,6 +614,85 @@ function renderTeamApprovals() {
         .join('');
 }
 
+function setupDuracaoModal() {
+    const trigger = $('bankreq-duracao-trigger');
+    const textEl = $('bankreq-duracao-text');
+    const hiddenH = $('bankreq-horas');
+    const hiddenM = $('bankreq-minutos');
+    const horasCol = $('duracao-horas-col');
+    const minCol = $('duracao-min-col');
+    const confirmBtn = $('btn-duracao-confirm');
+    const horasBtn = $('duracao-horas-btn');
+    const minBtn = $('duracao-min-btn');
+    if (!trigger || !horasCol || !minCol || !hiddenH || !hiddenM) return;
+
+    horasCol.innerHTML = Array.from({ length: 100 }, (_, h) => `<button type="button" class="duration-item" data-h="${h}">${h}</button>`).join('');
+    minCol.innerHTML = Array.from({ length: 60 }, (_, m) => `<button type="button" class="duration-item" data-m="${m}">${pad0(m)}</button>`).join('');
+
+    let selH = null,
+        selM = null;
+
+    function mark(col, attr, val) {
+        col.querySelectorAll('.duration-item').forEach((b) => b.classList.toggle('duration-item--selected', Number(b.dataset[attr]) === val));
+    }
+    function updateConfirmState() {
+        if (confirmBtn) confirmBtn.disabled = selH === null || selM === null;
+    }
+
+    horasCol.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-h]');
+        if (!btn) return;
+        selH = Number(btn.dataset.h);
+        mark(horasCol, 'h', selH);
+        if (horasBtn) horasBtn.textContent = `${selH}h`;
+        updateConfirmState();
+    });
+    minCol.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-m]');
+        if (!btn) return;
+        selM = Number(btn.dataset.m);
+        mark(minCol, 'm', selM);
+        if (minBtn) minBtn.textContent = `${pad0(selM)}min`;
+        updateConfirmState();
+    });
+
+    window.openModalDuracao = function () {
+        selH = hiddenH.value !== '' ? Number(hiddenH.value) : null;
+        selM = hiddenM.value !== '' ? Number(hiddenM.value) : null;
+        mark(horasCol, 'h', selH);
+        mark(minCol, 'm', selM);
+        if (horasBtn) horasBtn.textContent = `${selH ?? 0}h`;
+        if (minBtn) minBtn.textContent = `${pad0(selM ?? 0)}min`;
+        updateConfirmState();
+        openModal('modal-bankreq-duracao');
+        (horasCol.querySelector('.duration-item--selected') || horasCol.firstElementChild)?.scrollIntoView({ block: 'center' });
+        (minCol.querySelector('.duration-item--selected') || minCol.firstElementChild)?.scrollIntoView({ block: 'center' });
+    };
+
+    window.confirmDuracaoModal = function () {
+        if (selH === null || selM === null) return;
+        hiddenH.value = selH;
+        hiddenM.value = selM;
+        if (textEl) {
+            textEl.textContent = `${selH}h ${pad0(selM)}min`;
+            textEl.classList.remove('date-trigger-placeholder');
+        }
+        updateBankReqBtnState();
+        closeModal('modal-bankreq-duracao');
+    };
+
+    window.resetDuracaoModal = function () {
+        selH = null;
+        selM = null;
+        hiddenH.value = '';
+        hiddenM.value = '';
+        if (textEl) {
+            textEl.textContent = 'Selecione';
+            textEl.classList.add('date-trigger-placeholder');
+        }
+    };
+}
+
 function setupTipoToggle() {
     const toggle = $('bankreq-tipo-toggle');
     const hidden = $('bankreq-tipo');
@@ -679,10 +729,9 @@ window.viewBankRequestAnexo = async function (id) {
 };
 
 window.openModalBankRequest = function () {
-    ['bankreq-horas', 'bankreq-minutos', 'bankreq-justificativa'].forEach((id) => {
-        const el = $(id);
-        if (el) el.value = '';
-    });
+    const just = $('bankreq-justificativa');
+    if (just) just.value = '';
+    window.resetDuracaoModal?.();
     const tipo = $('bankreq-tipo');
     if (tipo) tipo.value = 'credito';
     document.querySelectorAll('#bankreq-tipo-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.tipo === 'credito'));
@@ -1065,9 +1114,7 @@ window.abrirConfirmar = function () {
         if (userCoords) {
             const nearest = nearestUnidade(userCoords.lat, userCoords.lng);
             const dentro = nearest.dist <= nearest.raioM;
-            locEl.textContent = dentro
-                ? `Dentro da empresa (${nearest.endereco}, ~${Math.round(nearest.dist)} m)`
-                : `Fora da empresa (mais próxima: ${nearest.endereco}, ~${Math.round(nearest.dist)} m)`;
+            locEl.textContent = dentro ? 'Dentro da empresa' : 'Fora da empresa';
             locEl.style.color = dentro ? '#10b981' : '#ef4444';
         } else {
             locEl.textContent = 'Localização não obtida';
@@ -1541,20 +1588,13 @@ function createSimpleDayPicker(prefix, onChange) {
             .join('');
     }
 
-    function reposition() {
-        positionFixedPopover(trigger, popover);
-    }
-
     function open() {
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
-        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        document.addEventListener('scroll', reposition, true);
-        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -1563,8 +1603,6 @@ function createSimpleDayPicker(prefix, onChange) {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
-        document.removeEventListener('scroll', reposition, true);
-        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -1584,7 +1622,10 @@ function createSimpleDayPicker(prefix, onChange) {
         if (!btn || btn.classList.contains('calendar-day--muted')) return;
         const day = Number(btn.dataset.day);
         hidden.value = `${viewYear}-${pad0(viewMonth + 1)}-${pad0(day)}`;
-        if (textEl) textEl.textContent = `${pad0(day)}/${pad0(viewMonth + 1)}/${viewYear}`;
+        if (textEl) {
+            textEl.textContent = `${pad0(day)}/${pad0(viewMonth + 1)}/${viewYear}`;
+            textEl.classList.remove('date-trigger-placeholder');
+        }
         close();
         onChange?.();
     });
@@ -1597,7 +1638,6 @@ function createSimpleDayPicker(prefix, onChange) {
             viewYear--;
         }
         render();
-        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1607,72 +1647,232 @@ function createSimpleDayPicker(prefix, onChange) {
             viewYear++;
         }
         render();
-        reposition();
     });
 
     return {
         reset() {
             hidden.value = '';
-            if (textEl) textEl.textContent = 'Selecionar data';
+            if (textEl) {
+                textEl.textContent = 'Selecione';
+                textEl.classList.add('date-trigger-placeholder');
+            }
             close();
             onChange?.();
         },
     };
 }
 
-function setupHorarioPicker() {
-    const trigger = $('ajuste-horario-trigger');
-    const textEl = $('ajuste-horario-text');
-    const hidden = $('ajuste-horario');
-    const popover = $('ajuste-horario-popover');
-    const hoursCol = $('ajuste-horario-hours');
-    const minsCol = $('ajuste-horario-minutes');
-    if (!trigger || !popover) return;
+const CLOCK_R = 120;
+const CLOCK_OUTER_NUM_R = 95;
+const CLOCK_INNER_NUM_R = 62;
 
-    let hour = null,
-        minute = null;
+function clockPolarXY(radius, i) {
+    const rad = ((i * 30 - 90) * Math.PI) / 180;
+    return { x: CLOCK_R + radius * Math.cos(rad), y: CLOCK_R + radius * Math.sin(rad) };
+}
 
-    hoursCol.innerHTML = Array.from({ length: 24 }, (_, h) => `<button type="button" class="time-item" data-hour="${h}">${pad0(h)}</button>`).join('');
-    minsCol.innerHTML = Array.from({ length: 60 }, (_, m) => `<button type="button" class="time-item" data-min="${m}">${pad0(m)}</button>`).join('');
+function setupClockDial() {
+    const dial = $('clock-dial');
+    const hand = $('clock-hand');
+    const hourBtn = $('clockmodal-hour-btn');
+    const minBtn = $('clockmodal-min-btn');
+    const confirmBtn = $('btn-clock-confirm');
+    if (!dial || !hand || !hourBtn || !minBtn) return;
 
-    function updateValue() {
-        if (hour === null || minute === null) return;
-        hidden.value = `${pad0(hour)}:${pad0(minute)}`;
-        if (textEl) textEl.textContent = hidden.value;
+    const hourNumbersEl = document.createElement('div');
+    hourNumbersEl.className = 'clock-numbers clock-numbers-hour';
+    const minNumbersEl = document.createElement('div');
+    minNumbersEl.className = 'clock-numbers clock-numbers-minute';
+    dial.append(hourNumbersEl, minNumbersEl);
+
+    for (let i = 0; i < 12; i++) {
+        const outerVal = i;
+        const outerPos = clockPolarXY(CLOCK_OUTER_NUM_R, i);
+        hourNumbersEl.insertAdjacentHTML(
+            'beforeend',
+            `<div class="clock-number" data-value="${outerVal}" style="left:${outerPos.x}px;top:${outerPos.y}px;">${pad0(outerVal)}</div>`
+        );
+        const innerVal = i === 0 ? 12 : i + 12;
+        const innerPos = clockPolarXY(CLOCK_INNER_NUM_R, i);
+        hourNumbersEl.insertAdjacentHTML(
+            'beforeend',
+            `<div class="clock-number clock-number--inner" data-value="${innerVal}" style="left:${innerPos.x}px;top:${innerPos.y}px;">${pad0(innerVal)}</div>`
+        );
+        const minVal = i * 5;
+        const minPos = clockPolarXY(CLOCK_OUTER_NUM_R, i);
+        minNumbersEl.insertAdjacentHTML(
+            'beforeend',
+            `<div class="clock-number" data-value="${minVal}" style="left:${minPos.x}px;top:${minPos.y}px;">${pad0(minVal)}</div>`
+        );
+    }
+
+    let step = 'hour';
+    let selHour = null,
+        selMinute = null,
+        dragging = false;
+
+    function angleFromEvent(e) {
+        const rect = dial.getBoundingClientRect();
+        const dx = e.clientX - (rect.left + rect.width / 2);
+        const dy = e.clientY - (rect.top + rect.height / 2);
+        let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+        if (deg < 0) deg += 360;
+        return { deg, dist: Math.sqrt(dx * dx + dy * dy) };
+    }
+
+    function valueFromAngle(deg, dist) {
+        if (step === 'minute') return Math.round(deg / 6) % 60;
+        const idx = Math.round(deg / 30) % 12;
+        const isInner = dist < (CLOCK_OUTER_NUM_R + CLOCK_INNER_NUM_R) / 2;
+        return isInner ? (idx === 0 ? 12 : idx + 12) : idx;
+    }
+
+    function renderHand(value) {
+        let deg, len;
+        if (step === 'minute') {
+            deg = value * 6;
+            len = CLOCK_OUTER_NUM_R;
+        } else {
+            const isInner = value >= 12;
+            deg = (value % 12) * 30;
+            len = isInner ? CLOCK_INNER_NUM_R : CLOCK_OUTER_NUM_R;
+        }
+        hand.style.top = `${CLOCK_R - len}px`;
+        hand.style.height = `${len}px`;
+        hand.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+    }
+
+    function highlight(container, value) {
+        container.querySelectorAll('.clock-number').forEach((el) => el.classList.toggle('clock-number--selected', Number(el.dataset.value) === value));
+    }
+
+    function updateConfirmState() {
+        if (confirmBtn) confirmBtn.disabled = selHour === null || selMinute === null;
+    }
+
+    function setHour(v) {
+        selHour = v;
+        renderHand(v);
+        highlight(hourNumbersEl, v);
+        hourBtn.textContent = pad0(v);
+        updateConfirmState();
+    }
+    function setMinute(v) {
+        selMinute = v;
+        renderHand(v);
+        highlight(minNumbersEl, v);
+        minBtn.textContent = pad0(v);
+        updateConfirmState();
+    }
+
+    function goToStep(s) {
+        step = s;
+        dial.classList.toggle('step-minute', s === 'minute');
+        hourBtn.classList.toggle('active', s === 'hour');
+        minBtn.classList.toggle('active', s === 'minute');
+        renderHand(s === 'hour' ? (selHour ?? 0) : (selMinute ?? 0));
+    }
+
+    function handlePointer(e) {
+        const { deg, dist } = angleFromEvent(e);
+        const val = valueFromAngle(deg, dist);
+        if (step === 'hour') setHour(val);
+        else setMinute(val);
+    }
+
+    dial.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        dial.setPointerCapture(e.pointerId);
+        handlePointer(e);
+    });
+    dial.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        handlePointer(e);
+    });
+    dial.addEventListener('pointerup', () => {
+        if (!dragging) return;
+        dragging = false;
+        if (step === 'hour') goToStep('minute');
+    });
+
+    hourBtn.addEventListener('click', () => goToStep('hour'));
+    minBtn.addEventListener('click', () => goToStep('minute'));
+
+    window.openModalRelogio = function () {
+        const cur = $('ajuste-horario')?.value || '';
+        if (cur) {
+            const [h, m] = cur.split(':').map(Number);
+            selHour = h;
+            selMinute = m;
+        } else {
+            selHour = null;
+            selMinute = null;
+        }
+        hourBtn.textContent = selHour === null ? '--' : pad0(selHour);
+        minBtn.textContent = selMinute === null ? '--' : pad0(selMinute);
+        highlight(hourNumbersEl, selHour);
+        highlight(minNumbersEl, selMinute);
+        updateConfirmState();
+        goToStep('hour');
+        openModal('modal-relogio');
+    };
+
+    window.confirmClockModal = function () {
+        if (selHour === null || selMinute === null) return;
+        const hidden = $('ajuste-horario');
+        const textEl = $('ajuste-horario-text');
+        hidden.value = `${pad0(selHour)}:${pad0(selMinute)}`;
+        if (textEl) {
+            textEl.textContent = hidden.value;
+            textEl.classList.remove('date-trigger-placeholder');
+        }
         updateAjusteBtnState();
-    }
+        closeModal('modal-relogio');
+    };
 
-    function markSelected(col, attr, value) {
-        col.querySelectorAll('.time-item').forEach((btn) => btn.classList.toggle('time-item--selected', Number(btn.dataset[attr]) === value));
-    }
+    window.resetHorarioPicker = function () {
+        selHour = null;
+        selMinute = null;
+        const textEl = $('ajuste-horario-text');
+        if (textEl) {
+            textEl.textContent = 'Selecione';
+            textEl.classList.add('date-trigger-placeholder');
+        }
+        const hidden = $('ajuste-horario');
+        if (hidden) hidden.value = '';
+    };
+}
 
-    function reposition() {
-        positionFixedPopover(trigger, popover);
-    }
+const AJUSTE_TIPO_LABELS = {
+    entrada: 'Correção de Entrada',
+    'saida-almoco': 'Correção de Saída p/ Almoço',
+    'retorno-almoco': 'Correção de Retorno do Almoço',
+    saida: 'Correção de Saída',
+    falta: 'Justificativa de Falta',
+};
+
+function setupAjusteTipoSelect() {
+    const trigger = $('ajuste-tipo-trigger');
+    const textEl = $('ajuste-tipo-text');
+    const hidden = $('ajuste-tipo');
+    const popover = $('ajuste-tipo-popover');
+    if (!trigger || !popover || !hidden) return;
 
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
-        reposition();
-        (hoursCol.querySelector('.time-item--selected') || hoursCol.firstElementChild)?.scrollIntoView({ block: 'center' });
-        (minsCol.querySelector('.time-item--selected') || minsCol.firstElementChild)?.scrollIntoView({ block: 'center' });
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        document.addEventListener('scroll', reposition, true);
-        window.addEventListener('resize', reposition);
     }
-
     function close() {
         popover.classList.remove('open');
         trigger.classList.remove('active');
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
-        document.removeEventListener('scroll', reposition, true);
-        window.removeEventListener('resize', reposition);
     }
-
     function onOutsideClick(e) {
         if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
     }
@@ -1685,28 +1885,26 @@ function setupHorarioPicker() {
         popover.classList.contains('open') ? close() : open();
     });
 
-    hoursCol.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-hour]');
+    popover.addEventListener('click', (e) => {
+        const btn = e.target.closest('.select-option');
         if (!btn) return;
-        hour = Number(btn.dataset.hour);
-        markSelected(hoursCol, 'hour', hour);
-        updateValue();
+        hidden.value = btn.dataset.value;
+        if (textEl) {
+            textEl.textContent = AJUSTE_TIPO_LABELS[btn.dataset.value] || btn.dataset.value;
+            textEl.classList.remove('date-trigger-placeholder');
+        }
+        popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', o === btn));
+        close();
+        window.onAjusteTipoChange();
     });
 
-    minsCol.addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-min]');
-        if (!btn) return;
-        minute = Number(btn.dataset.min);
-        markSelected(minsCol, 'min', minute);
-        updateValue();
-    });
-
-    window.resetHorarioPicker = function () {
-        hour = null;
-        minute = null;
-        markSelected(hoursCol, 'hour', -1);
-        markSelected(minsCol, 'min', -1);
-        if (textEl) textEl.textContent = 'Selecionar horário';
+    window.resetAjusteTipoSelect = function () {
+        hidden.value = '';
+        if (textEl) {
+            textEl.textContent = 'Selecione';
+            textEl.classList.add('date-trigger-placeholder');
+        }
+        popover.querySelectorAll('.select-option').forEach((o) => o.classList.remove('selected'));
         close();
     };
 }
@@ -1716,8 +1914,7 @@ window.openModalAjuste = function () {
         const el = $(id);
         if (el) el.value = '';
     });
-    const tipo = $('ajuste-tipo');
-    if (tipo) tipo.value = '';
+    window.resetAjusteTipoSelect?.();
     ['err-ajuste-data', 'err-ajuste-tipo', 'err-ajuste-horario', 'err-ajuste-just'].forEach((id) => {
         const el = $(id);
         if (el) el.textContent = '';
@@ -1958,10 +2155,8 @@ function openModal(id) {
 }
 window.closeModal = function (id) {
     const el = $(id);
-    if (el) {
-        el.classList.remove('open');
-        document.body.style.overflow = '';
-    }
+    if (el) el.classList.remove('open');
+    if (!document.querySelector('.modal-overlay.open')) document.body.style.overflow = '';
     if (id === 'modal-confirmar') {
         clearInterval(window._confirmTimer);
         pararCameraSelfie();

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://nexus-nine-zeta.vercel.app",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 async function gatherSnapshot(admin: ReturnType<typeof createClient>, today: string) {
   const d7 = new Date();
@@ -94,6 +90,7 @@ Responda sempre em português brasileiro. Seja direto, empático e orientado a a
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -163,7 +160,7 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
       const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")!}` },
-        body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 2048, messages: groqMessages, stream: true }),
+        body: JSON.stringify({ model: "openai/gpt-oss-120b", max_tokens: 2048, messages: groqMessages, stream: true }),
       });
       if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
       return new Response(groqResp.body, {
@@ -174,7 +171,7 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
     const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")!}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: action === "report" ? 4096 : 2048, messages: groqMessages }),
+      body: JSON.stringify({ model: "openai/gpt-oss-120b", max_tokens: action === "report" ? 4096 : 2048, messages: groqMessages }),
     });
     if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
 

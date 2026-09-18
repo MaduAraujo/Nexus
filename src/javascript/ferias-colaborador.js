@@ -5,26 +5,6 @@ let colleagues = [];
 let availableDays = 0;
 let acquisitivePeriod = null;
 
-function positionFixedPopover(trigger, popover) {
-    const margin = 8;
-    const rect = trigger.getBoundingClientRect();
-    const popW = popover.offsetWidth;
-    const popH = popover.offsetHeight;
-
-    let left = rect.left;
-    left = Math.min(left, window.innerWidth - popW - margin);
-    left = Math.max(margin, left);
-
-    let top = rect.bottom + 8;
-    if (top + popH > window.innerHeight - margin) {
-        const above = rect.top - popH - 8;
-        top = above >= margin ? above : Math.max(margin, window.innerHeight - popH - margin);
-    }
-
-    popover.style.left = `${left}px`;
-    popover.style.top = `${top}px`;
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
@@ -35,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyContractTypeUI();
     setupDatePickers();
     setupTimelineYearPicker();
+    setupSubstitutoSelect();
     await loadMyVacations();
     await loadColleagues();
     await autoExpireVacations();
@@ -104,11 +85,66 @@ function getColleague(id) {
 }
 
 function populateSubstitutoSelect() {
-    const sel = document.getElementById('req-substituto');
-    if (!sel) return;
-    sel.innerHTML =
-        '<option value="">Nenhum</option>' +
-        colleagues.map((c) => `<option value="${c.id}">${escHtml(c.name)}${c.dept ? ' — ' + escHtml(c.dept) : ''}</option>`).join('');
+    const popover = document.getElementById('req-substituto-popover');
+    const textEl = document.getElementById('req-substituto-text');
+    const hidden = document.getElementById('req-substituto');
+    if (!popover) return;
+    if (hidden) hidden.value = '';
+    if (textEl) {
+        textEl.textContent = 'Selecione';
+        textEl.classList.add('date-trigger-placeholder');
+    }
+    popover.innerHTML =
+        '<button type="button" class="select-option" data-value="">Nenhum</button>' +
+        colleagues
+            .map((c) => `<button type="button" class="select-option" data-value="${c.id}">${escHtml(c.name)}${c.dept ? ' — ' + escHtml(c.dept) : ''}</button>`)
+            .join('');
+}
+
+function setupSubstitutoSelect() {
+    const trigger = document.getElementById('req-substituto-trigger');
+    const textEl = document.getElementById('req-substituto-text');
+    const hidden = document.getElementById('req-substituto');
+    const popover = document.getElementById('req-substituto-popover');
+    if (!trigger || !popover || !hidden) return;
+
+    function open() {
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    popover.addEventListener('click', (e) => {
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        hidden.value = btn.dataset.value;
+        if (textEl) {
+            textEl.textContent = btn.textContent;
+            textEl.classList.remove('date-trigger-placeholder');
+        }
+        popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', o === btn));
+        close();
+    });
 }
 
 async function autoExpireVacations() {
@@ -518,9 +554,11 @@ function buildHistoryCard(v, i = 0) {
         <div class="hc-left">
             <div class="hc-icon"><i class="fas fa-umbrella-beach"></i></div>
             <div class="hc-info">
-                <p class="hc-period">${fmtBR(new Date(v.start_date + 'T00:00:00'))} &rarr; ${fmtBR(new Date(v.end_date + 'T00:00:00'))}</p>
-                <div class="hc-meta">
+                <p class="hc-period">
+                    <span>${fmtBR(new Date(v.start_date + 'T00:00:00'))} &rarr; ${fmtBR(new Date(v.end_date + 'T00:00:00'))}</span>
                     <span class="hc-meta-item"><i class="fas fa-calendar-day"></i> ${v.days} dias</span>
+                </p>
+                <div class="hc-meta">
                     ${v.abono ? '<span class="tag-abono"><i class="fas fa-hand-holding-usd"></i> Abono Pecuniário</span>' : ''}
                     ${v.coletiva ? '<span class="tag-abono tag-coletiva"><i class="fas fa-users"></i> Coletiva</span>' : ''}
                     ${substituto ? `<span class="hc-meta-item"><i class="fas fa-user-group"></i> Cobertura: ${escHtml(substituto.name)}</span>` : ''}
@@ -529,7 +567,7 @@ function buildHistoryCard(v, i = 0) {
             </div>
         </div>
         <div class="hc-right">
-            <span class="badge ${s.cls}"><i class="fas ${s.icon}"></i> ${s.label}</span>
+            <span class="badge ${s.cls}" title="${s.label}"><i class="fas ${s.icon}"></i><span class="badge-label">${s.label}</span></span>
             ${v.status === 'recusado' ? `<button class="btn-motivo" onclick="showReason(${JSON.stringify(v.rejection_reason || 'Motivo não informado.')})">Ver motivo</button>` : ''}
             ${v.status === 'pendente' ? `<button class="btn-motivo btn-motivo--danger" onclick="cancelRequest('${v.id}')">Cancelar</button>` : ''}
             ${
@@ -631,10 +669,6 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             .join('');
     }
 
-    function reposition() {
-        positionFixedPopover(trigger, popover);
-    }
-
     function open() {
         allDatePickers.forEach((p) => p !== api && p.close());
         const base = selected || getMin?.() || new Date();
@@ -644,11 +678,8 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         popover.classList.add('open');
         trigger.classList.add('active');
         trigger.setAttribute('aria-expanded', 'true');
-        reposition();
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        document.addEventListener('scroll', reposition, true);
-        window.addEventListener('resize', reposition);
     }
 
     function close() {
@@ -657,8 +688,6 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
-        document.removeEventListener('scroll', reposition, true);
-        window.removeEventListener('resize', reposition);
     }
 
     function onOutsideClick(e) {
@@ -679,7 +708,10 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         const [y, m, d] = btn.dataset.date.split('-').map(Number);
         selected = new Date(y, m - 1, d);
         if (hidden) hidden.value = btn.dataset.date;
-        if (textEl) textEl.textContent = fmtBR(selected);
+        if (textEl) {
+            textEl.textContent = fmtBR(selected);
+            textEl.classList.remove('date-trigger-placeholder');
+        }
         render();
         close();
         onSelect?.();
@@ -693,7 +725,6 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             viewYear--;
         }
         render();
-        reposition();
     });
     nextBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -703,7 +734,6 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
             viewYear++;
         }
         render();
-        reposition();
     });
 
     const api = {
@@ -711,7 +741,10 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         reset() {
             selected = null;
             if (hidden) hidden.value = '';
-            if (textEl) textEl.textContent = 'Selecionar data';
+            if (textEl) {
+                textEl.textContent = 'Selecione';
+                textEl.classList.add('date-trigger-placeholder');
+            }
             close();
         },
     };
@@ -763,7 +796,7 @@ window.openRequestModal = function () {
     const obs = document.getElementById('req-obs');
     if (obs) obs.value = '';
     populateSubstitutoSelect();
-    setEl('days-count', 'Define as datas para ver o total de dias');
+    setEl('days-count', 'Total de dias');
     document.getElementById('days-preview')?.setAttribute('class', 'days-preview');
     renderFractionInfo(new Date());
     hideAlert();
@@ -820,7 +853,7 @@ window.calcDays = function () {
     const hint = document.getElementById('abono-hint');
     hideAlert();
     if (!startVal || !endVal) {
-        if (countEl) countEl.textContent = 'Define as datas para ver o total de dias';
+        if (countEl) countEl.textContent = 'Total de dias';
         if (preview) preview.className = 'days-preview';
         setConfirmDisabled(true);
         document.getElementById('valor-ferias-preview')?.classList.add('hidden');
