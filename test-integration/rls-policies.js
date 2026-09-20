@@ -111,7 +111,10 @@ describe('RLS: time_records', () => {
     test('colaborador consegue bater o próprio ponto dentro da janela permitida (hoje)', async () => {
         await withUser({ sub: U_A }, async (db) => {
             // A policy (migration 036) usa a data de São Paulo; CURRENT_DATE seria UTC no CI.
-            const { rows } = await db.query("INSERT INTO time_records (employee_id, date) VALUES ($1, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date) RETURNING id", [E_A]);
+            const { rows } = await db.query(
+                "INSERT INTO time_records (employee_id, date) VALUES ($1, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date) RETURNING id",
+                [E_A]
+            );
             assert.equal(rows.length, 1);
         });
     });
@@ -119,7 +122,10 @@ describe('RLS: time_records', () => {
     test('colaborador não consegue inserir ponto retroativo fora da janela permitida', async () => {
         await withUser({ sub: U_A }, async (db) => {
             await assert.rejects(
-                () => db.query("INSERT INTO time_records (employee_id, date) VALUES ($1, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date - 5) RETURNING id", [E_A]),
+                () =>
+                    db.query("INSERT INTO time_records (employee_id, date) VALUES ($1, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date - 5) RETURNING id", [
+                        E_A,
+                    ]),
                 /row-level security/i
             );
         });
