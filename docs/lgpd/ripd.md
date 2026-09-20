@@ -31,7 +31,7 @@ O tratamento reúne fatores que a ANPD trata como de risco elevado:
 | Os dados são adequados e limitados ao necessário? | Em geral sim. Pontos de atenção: selfie e localização no ponto (manter só pelo tempo necessário à conferência); texto livre nas justificativas e no chat enviado à IA |
 | Há base legal para cada finalidade? | Sim, por operação (`ropa.md`). O legítimo interesse do assistente de IA e dos alertas de bem-estar depende do teste de proporcionalidade abaixo |
 | Teste de legítimo interesse (IA e alertas) | **Finalidade:** apoiar o RH a agir cedo sobre sobrecarga e pendências. **Necessidade:** os alertas usam só dados de jornada já tratados por obrigação legal; a IA recebe menos dados do que o RH já vê na tela. **Balanceamento:** o titular pode se opor (política, seção 8); a IA não decide; ação sugerida exige confirmação humana; notificações respeitam o horário comercial. Conclusão: **aceitável, condicionada** à minimização da seção 5 (R3) |
-| Qualidade e transparência | Política de Privacidade pública (`src/screens/privacidade.html`), com IA e transferência internacional declaradas |
+| Qualidade e transparência | Sem política de privacidade pública no momento (a página foi removida do projeto); IA e transferência internacional ficam declaradas apenas nestes documentos |
 | Direitos do titular | Atendidos manualmente pelo RH em até 15 dias (`ropa.md`); lacuna: sem tela de acessos aos dados para o titular |
 | Retenção | **Lacuna:** só `security_events` tem prazo automático (180 dias). Demais prazos são propostas em `ropa.md` |
 | Operadores | Contratos online sem cláusula ANPD (`operadores-e-groq.md`) |

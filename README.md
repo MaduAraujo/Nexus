@@ -94,12 +94,20 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 ### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
 
-As functions em `supabase/functions/` (`invite-employee`, `ai-alerts`, `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/) para os recursos de IA:
+As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `send-push` e `send-alert-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
 
 ```bash
 npx supabase functions deploy
 npx supabase secrets set GROQ_API_KEY=sua_chave_aqui
 ```
+
+A `nexus-files` cifra e decifra os arquivos do Storage (documentos, anexos de ponto e de chat, selfies). **Sem ela publicada, nenhum upload nem abertura de arquivo funciona**, porque o front não tem alternativa. Ela precisa de uma chave mestra própria, em base64 de 32 bytes (guarde uma cópia fora do Supabase: sem ela os arquivos cifrados são irrecuperáveis):
+
+```bash
+npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32)
+```
+
+Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as seis aparecem. Uma função ausente responde 404 ao front.
 
 A function `send-push` envia notificações push (Web Push) quando o RH publica um comunicado imediato (não agendado). Ela precisa de um par de chaves VAPID como secret — gere o seu com `npx web-push generate-vapid-keys` e configure:
 
@@ -129,10 +137,10 @@ node test-support/static-server.js
 
 ### 6. Rodar os testes
 
-O projeto tem 3 camadas de teste automatizado:
+O projeto tem 3 camadas de teste automatizado (o número exato de casos muda a cada mudança; rode os comandos para ver):
 
 ```bash
-npm test               # unidade — cálculos de folha/CLT/rescisão, ~100 casos, sem dependências externas
+npm test               # unidade — folha/CLT/rescisão, criptografia de arquivos, MFA, guarda de XSS e de CSP, 260+ casos, sem dependências externas
 npm run lint            # ESLint
 npm run format:check    # Prettier
 ```
@@ -144,7 +152,7 @@ npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,e
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
 
-npm run test:integration   # RLS (employees, time_records, hr_tickets…) e criptografia de colunas
+npm run test:integration   # RLS, criptografia de colunas, MFA, limite de chamadas, alertas de segurança e rotação de chaves (116 casos)
 
 npx playwright install --with-deps chromium
 npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
@@ -231,7 +239,7 @@ Como funciona:
 
 > ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
 
-**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` (`057` a `062`). A 059 e a 062 cifram os dados que já existem; a 060 restringe o que o colaborador edita e a 061 cria o limite de chamadas da IA. Em um projeto novo, `supabase/schema.sql` já traz tudo.
+**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a `068`. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
 
 **Regras para quem desenvolve:**
 
@@ -239,7 +247,9 @@ Como funciona:
 - Depois de **adicionar coluna** em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
 - Para cifrar **outra coluna**, siga o padrão de `employees_encrypt_sensitive()` na migration 059.
 
-**O que ainda NÃO é cifrado:** holerites (`payslips`), arquivos no Storage (protegidos por bucket privado e URL assinada, mas sem cifragem própria), feedback anônimo, histórico da IA do RH e os indicadores `pcd`, `pensao_alimenticia` e dependentes. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta nem rotação automática de chaves.
+**Também cifrados** (migrations 064 e 065): holerites (`payslips`), feedback anônimo, as tabelas de histórico, cache, memória e log da IA do RH, os indicadores `pcd` e `pensao_alimenticia`, e os arquivos dos buckets `documents`, `message-attachments` e `ponto-selfies` (AES-256-GCM pela Edge Function `nexus-files`, chave mestra no segredo `FILES_ENCRYPTION_KEY`). A leitura segue o mesmo padrão das views `*_decrypted`.
+
+**O que ainda NÃO é cifrado:** avatares (bucket público de propósito), o histórico de edição (`employee_audit.changes`) e o número de dependentes. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta. A rotação das chaves de colunas existe (migration 067), mas é manual; a chave dos arquivos ainda não tem rotação.
 
 **Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
 
@@ -254,18 +264,19 @@ Como funciona:
 | Senhas fracas | Mínimo de 12 caracteres, com letras e números, no app e em `supabase/config.toml`. **No projeto hospedado, ajuste o mesmo no painel** (Authentication → Sign In / Providers → Email). |
 | Abuso e custo das funções de IA | Migration `061`: `rate_limit_check` limita por usuário (ai-alerts: 30/h; ai-employee-chat: 60/h). |
 | Dependências vulneráveis | `npm audit --audit-level=high` no CI e Dependabot semanal. |
+| Funções internas chamáveis por anônimo | Migration `068`: retira o `EXECUTE` público das funções de cron/push e limita as demais a `authenticated`; `kudos` e `onboarding_tasks` deixam de ser legíveis sem login. |
 
 **Se o projeto Supabase mudar**, atualize o domínio em `connect-src` e `img-src` do `vercel.json`.
 
 **Sem `'unsafe-inline'` em `script-src`:** o app não usa mais `onclick=`/`<script>` inline. Os manipuladores são atributos `data-click`, `data-change`, `data-input`, `data-keydown` e `data-keyup` (com `-args`, veja `src/javascript/shared/events.js`), ligados por listeners. Em templates JS use `data-click="fn" data-click-args="${dargs(id)}"`; nunca escreva `onclick=` (o teste `test/csp-inline.test.js` falha). O dispatcher só chama funções globais declaradas pelo app (não nativas), então markup injetado com `data-click="eval"` não executa código. Janelas de impressão usam `printWhenLoaded(win)` em vez de `<script>` inline.
 
-**Limites conhecidos:** `style-src` ainda tem `'unsafe-inline'` (atributos `style=` e `<style>` em vários templates), então injeção de CSS não é barrada. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). Ainda **não há MFA** para o RH nem alertas de comportamento anormal.
+**Limites conhecidos:** `style-src` ainda tem `'unsafe-inline'` (atributos `style=` e `<style>` em vários templates), então injeção de CSS não é barrada. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Não há códigos de recuperação: se o RH perder o aparelho, só removendo o fator pelo painel do Supabase. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
 
 ---
 
 ## Privacidade (LGPD) e operação
 
-- **LGPD:** [`docs/lgpd/`](docs/lgpd/README.md) reúne a Política de Privacidade (página pública em `src/screens/privacidade.html`), o registro das operações de tratamento (ROPA), o RIPD e a análise dos operadores, incluindo o contrato com a Groq (DPA, Zero Data Retention e transferência internacional).
+- **LGPD:** [`docs/lgpd/`](docs/lgpd/README.md) reúne o registro das operações de tratamento (ROPA), o RIPD e a análise dos operadores, incluindo o contrato com a Groq (DPA, Zero Data Retention e transferência internacional).
 - **Backup e restauração:** [`docs/operacao/backup-e-restauracao.md`](docs/operacao/backup-e-restauracao.md). O backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions.
 - **Incidentes, acessos e pentest:** [`plano-resposta-incidentes.md`](docs/operacao/plano-resposta-incidentes.md), [`revisao-de-acessos.md`](docs/operacao/revisao-de-acessos.md) (com `scripts/ops/revisao-de-acessos.sql`) e [`pentest-owasp-zap.md`](docs/operacao/pentest-owasp-zap.md).
 - A pasta `docs/` e o schema não vão ao ar: o `.vercelignore` os exclui da hospedagem.
@@ -276,7 +287,7 @@ Como funciona:
 |---|---|
 | **Frontend** | HTML5 · CSS3 · JavaScript |
 | **Backend** | Supabase (PostgreSQL · Auth · Storage · Realtime) |
-| **Serverless** | TypeScript via Supabase Edge Functions |
+| **Serverless** | TypeScript via Supabase Edge Functions (convites, IA, arquivos cifrados, push) |
 | **IA** | Groq API — GPT-OSS 120B |
 | **Deploy** | Vercel |
 

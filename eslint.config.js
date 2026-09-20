@@ -2,7 +2,7 @@ const globals = require('globals');
 
 module.exports = [
     {
-        ignores: ['node_modules/**', 'package-lock.json'],
+        ignores: ['node_modules/**', 'package-lock.json', 'src/javascript/shared/supabase-client.example.js'],
     },
     {
         files: ['src/javascript/**/*.js'],

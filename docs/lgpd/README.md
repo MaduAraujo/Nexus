@@ -4,7 +4,7 @@ Atualizado em 2026-09-20.
 
 | Documento | O que é | Estado |
 |---|---|---|
-| [`src/screens/privacidade.html`](../../src/screens/privacidade.html) | **Política de Privacidade** pública, linkada no login e na página inicial | Pronta, com campos `[PREENCHER]` |
+| Política de Privacidade pública | **Removida do projeto** (página `privacidade.html`, estilos e links no login e na página inicial). Recuperável pelo histórico do git | Sem política pública no ar |
 | [`ropa.md`](ropa.md) | **Registro das operações de tratamento** (art. 37): 17 operações, base legal, retenção, operadores | Pronto, com campos `[PREENCHER]` e prazos de retenção como **proposta** |
 | [`ripd.md`](ripd.md) | **Relatório de Impacto** (art. 38): necessidade, proporcionalidade, 13 riscos e medidas | Rascunho técnico completo; falta parecer do DPO e aprovação |
 | [`operadores-e-groq.md`](operadores-e-groq.md) | **Contratos com operadores**, o que vai para a Groq, passo a passo do DPA/ZDR, modelo de pedido | Análise feita; **a contratação depende de quem tem conta na Groq** |

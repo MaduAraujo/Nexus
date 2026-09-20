@@ -46,7 +46,7 @@ Prazos de retenção marcados com ⚠ **não estão definidos no sistema** e pre
 | Correção | Colaborador edita nome, telefone, bio e foto; RH edita o restante (auditado em `employee_audit`) |
 | Anonimização / eliminação | `anonymize_employee` (só para desligados; RH) |
 | Portabilidade | Exportação de dados pelo RH a pedido do titular |
-| Informação sobre compartilhamento | Política de Privacidade (`src/screens/privacidade.html`) e este registro |
+| Informação sobre compartilhamento | este registro (a política de privacidade pública foi removida do projeto) |
 | Revisão de decisão com IA | A IA só sugere; a decisão é humana. Pedido de revisão via chamado ao RH |
 | Revogação de consentimento | Desligar notificações no perfil |
 

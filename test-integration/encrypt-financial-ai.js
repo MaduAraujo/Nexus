@@ -33,6 +33,7 @@ before(async () => {
             [U_RH, E_RH, U_A, E_A, U_B, E_B]
         );
         await db.query('DELETE FROM payslips WHERE employee_id = ANY($1)', [[E_A, E_B]]);
+        await db.query('DELETE FROM ai_decision_log WHERE employee_id = ANY($1)', [[E_A, E_B]]);
         await db.query(
             `INSERT INTO payslips (employee_id, mes, proventos, descontos, total_proventos, total_descontos, salario_liquido, status)
              VALUES ($1, $3, $4, $5, 5000, 550, 4450.5, 'pago'),

@@ -93,7 +93,7 @@ window.NexusMfaSetup = (function () {
                         copyIcon.className = 'fas fa-copy';
                         copyBtn.title = 'Copiar chave';
                     }, 1500);
-                } catch (_) {
+                } catch {
                     const range = document.createRange();
                     range.selectNodeContents(secretBox);
                     const selection = window.getSelection();

@@ -22,7 +22,6 @@
     const filterDateStart = document.getElementById('filter-date-start');
     const filterDateEnd = document.getElementById('filter-date-end');
     const filterClearBtn = document.getElementById('filter-clear-btn');
-    const colabFilterDropdown = document.getElementById('colab-filter-dropdown');
     const colabFilterTrigger = document.getElementById('colab-filter-trigger');
     const colabFilterMenu = document.getElementById('colab-filter-menu');
     const colabDeptFilterList = document.getElementById('colab-dept-filter-list');
