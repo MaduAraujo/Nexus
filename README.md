@@ -216,13 +216,14 @@ O módulo **Central de Alertas** usa a API da Groq (modelo GPT-OSS 120B) para an
 | Dado | Onde |
 |---|---|
 | CPF, RG, telefone, salário, chave PIX, agência e conta | `employees` |
+| Data de nascimento, gênero, raça/cor, deficiência e tipo de pensão (dados pessoais sensíveis, LGPD art. 5º, II) | `employees` (migration 062) |
 | Mensagens de canais e conversas diretas | `chat_messages.content` |
 | Mensagens do atendimento com o RH | `hr_ticket_messages.content` |
 
 Como funciona:
 
 - **Escrita:** triggers cifram sozinhos. O código continua gravando texto normal em `employees`, `chat_messages` e `hr_ticket_messages`.
-- **Leitura:** as tabelas devolvem texto cifrado. Para ler o valor, use as views **`employees_decrypted`**, **`chat_messages_decrypted`** e **`hr_ticket_messages_decrypted`**. Elas respeitam a RLS e só decifram para quem tem direito ao dado (RH e a própria pessoa em `employees`; membros em conversas; RH nunca em conversas diretas). O gestor enxerga a equipe, mas sem os campos cifrados.
+- **Leitura:** as tabelas devolvem texto cifrado. Para ler o valor, use as views **`employees_decrypted`**, **`chat_messages_decrypted`** e **`hr_ticket_messages_decrypted`**. Elas respeitam a RLS e só decifram para quem tem direito ao dado (RH e a própria pessoa em `employees`; membros em conversas; RH nunca em conversas diretas). O gestor enxerga a equipe, mas sem nenhum dos campos cifrados.
 - **Amarração ao dono:** cada valor cifrado carrega o seu dono (`emp:<id>`, `chan:<id>`, `tkt:<id>`). Copiar o texto cifrado de uma linha para outra não revela nada, e a função de decifrar confere a autorização antes de abrir.
 - **CPF único:** `cpf_hash` é um índice cego (HMAC-SHA256, com ou sem máscara) que garante unicidade sem guardar o CPF em claro.
 
@@ -230,17 +231,33 @@ Como funciona:
 
 > ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
 
-**Aplicando em um banco existente:** rode as migrations em ordem — `057`, `058` e `059`. A 059 cifra os dados que já existem. Em um projeto novo, `supabase/schema.sql` já traz tudo.
+**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` (`057` a `062`). A 059 e a 062 cifram os dados que já existem; a 060 restringe o que o colaborador edita e a 061 cria o limite de chamadas da IA. Em um projeto novo, `supabase/schema.sql` já traz tudo.
 
 **Regras para quem desenvolve:**
 
-- Para **ler** CPF, RG, telefone, salário, PIX, agência, conta ou o conteúdo de mensagens, consulte a view `*_decrypted`. A tabela devolve texto cifrado.
+- Para **ler** CPF, RG, telefone, salário, PIX, agência, conta, nascimento, gênero, raça/cor, deficiência ou o conteúdo de mensagens, consulte a view `*_decrypted`. A tabela devolve texto cifrado.
 - Depois de **adicionar coluna** em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
 - Para cifrar **outra coluna**, siga o padrão de `employees_encrypt_sensitive()` na migration 059.
 
-**O que ainda NÃO é cifrado:** holerites (`payslips`), arquivos no Storage (protegidos por bucket privado e URL assinada, mas sem cifragem própria), feedback anônimo, histórico da IA do RH, datas de nascimento e demais dados pessoais. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta.
+**O que ainda NÃO é cifrado:** holerites (`payslips`), arquivos no Storage (protegidos por bucket privado e URL assinada, mas sem cifragem própria), feedback anônimo, histórico da IA do RH e os indicadores `pcd`, `pensao_alimenticia` e dependentes. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta nem rotação automática de chaves.
 
 **Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
+
+### Proteções contra ataques
+
+| Ameaça | Proteção |
+|---|---|
+| Colaborador alterar o próprio salário, cargo, status ou gestor | Migration `060`: policy de UPDATE só na própria linha **e** trigger que recusa qualquer coluna fora de nome, telefone, bio, avatar, preferências e último acesso. Vale também para colunas criadas no futuro. |
+| XSS (código injetado por nome, mensagem, arquivo etc.) | Todo texto de usuário em HTML passa por `escapeHtml()` (`src/javascript/shared/html.js`). O teste `test/xss-guard.test.js` varre o código com um analisador de AST e **falha** se alguém interpolar texto de usuário sem escapar. Conteúdo HTML externo (markdown da IA, comunicados) passa por sanitizador com lista de permissões e parser inerte. |
+| Execução de script externo / vazamento de dados | `vercel.json`: Content-Security-Policy (só as origens usadas; `connect-src` limitado ao Supabase, ViaCEP e CDNs), `frame-ancestors 'none'`, HSTS, `nosniff`, `Permissions-Policy` e COOP. |
+| CDN comprometido (supply chain) | Todas as bibliotecas externas têm **versão fixa e SRI** (`integrity`). Para atualizar uma, gere o novo hash (`openssl dgst -sha384 -binary arquivo | openssl base64 -A`). |
+| Senhas fracas | Mínimo de 12 caracteres, com letras e números, no app e em `supabase/config.toml`. **No projeto hospedado, ajuste o mesmo no painel** (Authentication → Sign In / Providers → Email). |
+| Abuso e custo das funções de IA | Migration `061`: `rate_limit_check` limita por usuário (ai-alerts: 30/h; ai-employee-chat: 60/h). |
+| Dependências vulneráveis | `npm audit --audit-level=high` no CI e Dependabot semanal. |
+
+**Se o projeto Supabase mudar**, atualize o domínio em `connect-src` e `img-src` do `vercel.json`.
+
+**Limites conhecidos:** o CSP mantém `'unsafe-inline'` (o app usa manipuladores `onclick` inline), então ele limita para onde os dados podem ir, mas não impede sozinho a execução de script inline; a defesa principal contra XSS é o escape. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). Ainda **não há MFA** para o RH nem alertas de comportamento anormal.
 
 ---
 

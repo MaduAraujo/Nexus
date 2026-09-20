@@ -1437,8 +1437,8 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
         toast.innerHTML = `
             <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
             <div class="toast-content">
-                <p class="toast-title">${title}</p>
-                ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
+                <p class="toast-title">${escapeHtml(title)}</p>
+                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
             <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
                 <i class="fas fa-times"></i>

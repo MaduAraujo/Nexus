@@ -567,7 +567,7 @@ function buildHistoryCard(v, i = 0) {
             </div>
         </div>
         <div class="hc-right">
-            <span class="badge ${s.cls}" title="${s.label}"><i class="fas ${s.icon}"></i><span class="badge-label">${s.label}</span></span>
+            <span class="badge ${s.cls}" title="${escapeHtml(s.label)}"><i class="fas ${s.icon}"></i><span class="badge-label">${escapeHtml(s.label)}</span></span>
             ${v.status === 'recusado' ? `<button class="btn-motivo" onclick="showReason(${JSON.stringify(v.rejection_reason || 'Motivo não informado.')})">Ver motivo</button>` : ''}
             ${v.status === 'pendente' ? `<button class="btn-motivo btn-motivo--danger" onclick="cancelRequest('${v.id}')">Cancelar</button>` : ''}
             ${
@@ -1094,7 +1094,7 @@ function showToast(msg, type = 'success') {
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
-            <p class="toast-title">${msg}</p>
+            <p class="toast-title">${escapeHtml(msg)}</p>
         </div>
         <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>

@@ -119,7 +119,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (mobileSelectPopover) {
             mobileSelectPopover.innerHTML = myDocs
-                .map((d) => `<button type="button" class="select-option${d.id === selectedId ? ' selected' : ''}" data-value="${d.id}">${d.name}</button>`)
+                .map(
+                    (d) =>
+                        `<button type="button" class="select-option${d.id === selectedId ? ' selected' : ''}" data-value="${d.id}">${escapeHtml(d.name)}</button>`
+                )
                 .join('');
             const current = myDocs.find((d) => d.id === selectedId);
             if (mobileSelectText) {
@@ -152,11 +155,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <i class="fas ${fa}"></i>
                     </div>
                     <div class="doc-card-body">
-                        <span class="doc-card-name" title="${d.name}">${d.name}</span>
-                        <span class="doc-card-tipo">${d.tipo} · ${date}</span>
+                        <span class="doc-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</span>
+                        <span class="doc-card-tipo">${escapeHtml(d.tipo)} · ${date}</span>
                     </div>
                     <span class="doc-card-status doc-card-status--${st.cls}">
-                        <i class="fas ${st.icon}"></i> ${st.label}
+                        <i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}
                     </span>
                 </div>`;
             })
@@ -186,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (nameEl) nameEl.textContent = doc.name;
         if (badgeEl) {
             badgeEl.className = `doc-status-badge ${st.cls}`;
-            badgeEl.innerHTML = `<i class="fas ${st.icon}"></i> ${st.label}`;
+            badgeEl.innerHTML = `<i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}`;
         }
 
         const set = (id, val) => {
@@ -202,14 +205,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const statusEl = document.getElementById('detail-status');
         if (statusEl) {
-            statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;background:${st.cls === 'aprovado' ? '#dcfce7' : st.cls === 'recusado' ? '#fee2e2' : '#fef3c7'};color:${st.cls === 'aprovado' ? '#065f46' : st.cls === 'recusado' ? '#991b1b' : '#92400e'}"><i class="fas ${st.icon}"></i> ${st.label}</span>`;
+            statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;background:${st.cls === 'aprovado' ? '#dcfce7' : st.cls === 'recusado' ? '#fee2e2' : '#fef3c7'};color:${st.cls === 'aprovado' ? '#065f46' : st.cls === 'recusado' ? '#991b1b' : '#92400e'}"><i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}</span>`;
         }
 
         const signArea = document.getElementById('assinatura-area');
         const signBtn = document.getElementById('btn-sign-doc');
         if (signArea) {
             if (doc.assinado_em) {
-                signArea.innerHTML = `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${doc.assinado_por || emp?.name || ''} em ${new Date(doc.assinado_em).toLocaleString('pt-BR')}</p>`;
+                signArea.innerHTML = `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${escapeHtml(doc.assinado_por) || escapeHtml(emp?.name) || ''} em ${new Date(doc.assinado_em).toLocaleString('pt-BR')}</p>`;
             } else if (doc.requer_assinatura) {
                 signArea.innerHTML = `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Colaborador — pendente</p>`;
             } else {
@@ -570,8 +573,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         toast.innerHTML = `
             <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
             <div class="toast-content">
-                <p class="toast-title">${title}</p>
-                ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
+                <p class="toast-title">${escapeHtml(title)}</p>
+                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
             <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
                 <i class="fas fa-times"></i>

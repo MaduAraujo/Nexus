@@ -213,7 +213,7 @@ function getInitials(name) {
 
 function avatarHtml(emp, sizeClass) {
     if (emp.avatarUrl) {
-        return `<img class="${sizeClass}-img" src="${emp.avatarUrl}" alt="${escHtml(emp.name)}">`;
+        return `<img class="${sizeClass}-img" src="${escapeHtml(emp.avatarUrl)}" alt="${escHtml(emp.name)}">`;
     }
     return `<div class="${sizeClass}" style="background:${emp.avatarColor || '#6366f1'}">${getInitials(emp.name)}</div>`;
 }
@@ -249,8 +249,8 @@ function showToast(title, msg, type = 'success') {
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
-            <p class="toast-title">${title}</p>
-            ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
+            <p class="toast-title">${escapeHtml(title)}</p>
+            ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
         </div>
         <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>
@@ -531,7 +531,7 @@ function renderTable(data, filter) {
                 <td colspan="7">
                     <div class="empty-state">
                         <i class="fas ${es.icon}"></i>
-                        <p>${es.title}</p>
+                        <p>${escapeHtml(es.title)}</p>
                         ${es.sub ? `<span>${es.sub}</span>` : ''}
                     </div>
                 </td>
@@ -560,11 +560,11 @@ function renderTable(data, filter) {
             <td>#${start + index + 1}</td>
             <td class="employee-name-cell">
                 ${avatarHtml(emp, 'table-avatar')}
-                <strong>${emp.name}</strong> ${bellHtml}
+                <strong>${escapeHtml(emp.name)}</strong> ${bellHtml}
             </td>
             <td><span class="badge ${getBadgeClass(emp.status)}">${emp.status}</span></td>
-            <td>${emp.dept || '-'}</td>
-            <td>${emp.role || '-'}</td>
+            <td>${escapeHtml(emp.dept) || '-'}</td>
+            <td>${escapeHtml(emp.role) || '-'}</td>
             <td>${formatDateBR(emp.admissionDate)}</td>`;
         tbody.appendChild(tr);
     });
@@ -1373,12 +1373,15 @@ function renderAuditTimeline(entries) {
         .map((entry) => {
             const when = new Date(entry.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
             const changesHtml = (entry.changes || [])
-                .map((c) => `<div class="audit-timeline-field"><strong>${c.label}:</strong> ${c.oldValue || '—'} → ${c.newValue || '—'}</div>`)
+                .map(
+                    (c) =>
+                        `<div class="audit-timeline-field"><strong>${escapeHtml(c.label)}:</strong> ${escapeHtml(c.oldValue) || '—'} → ${escapeHtml(c.newValue) || '—'}</div>`
+                )
                 .join('');
             return `
             <div class="audit-timeline-item">
                 <div class="audit-timeline-header">
-                    <span class="audit-timeline-operator">${entry.operator_name || 'RH'}</span>
+                    <span class="audit-timeline-operator">${escapeHtml(entry.operator_name) || 'RH'}</span>
                     <span class="audit-timeline-date">${when}</span>
                 </div>
                 ${changesHtml}
@@ -1435,10 +1438,10 @@ function renderAccessLogTimeline(entries) {
             return `
             <div class="audit-timeline-item">
                 <div class="audit-timeline-header">
-                    <span class="audit-timeline-operator"><i class="fas ${meta.icon}"></i> ${entry.accessed_by_name || 'RH'}</span>
+                    <span class="audit-timeline-operator"><i class="fas ${meta.icon}"></i> ${escapeHtml(entry.accessed_by_name) || 'RH'}</span>
                     <span class="audit-timeline-date">${when}</span>
                 </div>
-                <div class="audit-timeline-field">${meta.label}${entry.detalhe ? ` — ${escHtml(entry.detalhe)}` : ''}</div>
+                <div class="audit-timeline-field">${escapeHtml(meta.label)}${entry.detalhe ? ` — ${escHtml(entry.detalhe)}` : ''}</div>
             </div>`;
         })
         .join('');
@@ -2033,7 +2036,7 @@ function populateManagerSelect(excludeId) {
         employees
             .filter((e) => e.status !== 'Inativo' && e.id !== excludeId)
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-            .map((e) => `<option value="${e.id}">${e.name}${e.role ? ' — ' + e.role : ''}</option>`)
+            .map((e) => `<option value="${e.id}">${escapeHtml(e.name)}${e.role ? ' — ' + escapeHtml(e.role) : ''}</option>`)
             .join('');
     sel.value = current;
 }

@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.dataset.ticketId = ticket.id;
 
         const avatarHtml = e.avatar_url
-            ? `<div class="ti-avatar" style="background:url(${e.avatar_url}) center/cover"></div>`
+            ? `<div class="ti-avatar" style="background:url(${escapeHtml(e.avatar_url)}) center/cover"></div>`
             : `<div class="ti-avatar" style="background:${e.avatar_color || '#6366f1'}">${esc(initials(e.name))}</div>`;
 
         const isNew = ticket.status === 'aguardando_rh' && currentTicketId !== ticket.id;
@@ -414,7 +414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const e = msg.employees || {};
 
         const avatarHtml = e.avatar_url
-            ? `<div class="msg-avatar" style="background:url(${e.avatar_url}) center/cover" title="${esc(e.name)}"></div>`
+            ? `<div class="msg-avatar" style="background:url(${escapeHtml(e.avatar_url)}) center/cover" title="${esc(e.name)}"></div>`
             : `<div class="msg-avatar" style="background:${e.avatar_color || '#6366f1'}" title="${esc(e.name)}">${esc(initials(e.name))}</div>`;
 
         const group = document.createElement('div');

@@ -106,7 +106,7 @@
                 (f, i) => `
             <span class="attach-chip">
                 <i class="fas ${fileIcon(f.type)}"></i>
-                <span class="attach-chip-name" title="${f.name}">${f.name}</span>
+                <span class="attach-chip-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
                 <span class="attach-chip-size">${fmtSize(f.size)}</span>
                 <button type="button" class="attach-chip-remove" data-idx="${i}" aria-label="Remover"><i class="fas fa-times"></i></button>
             </span>`
@@ -1189,7 +1189,7 @@
                               .map((w) => w[0]?.toUpperCase() || '')
                               .join('');
                           const avatar = emp?.avatar_url
-                              ? `<span class="reads-popover-avatar" style="background-image:url('${emp.avatar_url}')"></span>`
+                              ? `<span class="reads-popover-avatar" style="background-image:url('${escapeHtml(emp.avatar_url)}')"></span>`
                               : `<span class="reads-popover-avatar" style="background:${emp?.avatar_color || '#6366f1'}">${initials}</span>`;
                           return `<div class="reads-popover-item">
                 ${avatar}
@@ -1261,7 +1261,7 @@
                 (f, i) => `
             <span class="attach-chip">
                 <i class="fas ${fileIcon(f.type)}"></i>
-                <span class="attach-chip-name" title="${f.name}">${f.name}</span>
+                <span class="attach-chip-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
                 <span class="attach-chip-size">${fmtSize(f.size)}</span>
                 <button type="button" class="attach-chip-remove" data-kind="new" data-idx="${i}" aria-label="Remover"><i class="fas fa-times"></i></button>
             </span>`

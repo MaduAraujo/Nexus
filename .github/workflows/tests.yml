@@ -25,6 +25,9 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Audit dependencies (fails on high severity)
+        run: npm audit --audit-level=high
+
       - name: Check JS syntax
         run: |
           for f in $(find src/javascript -name '*.js'); do

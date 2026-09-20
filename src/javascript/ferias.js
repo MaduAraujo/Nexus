@@ -48,7 +48,7 @@ function isEstagioOuAprendiz(emp) {
 async function fetchData() {
     const [{ data: vData }, { data: eData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
-        sb.from('employees').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color'),
+        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color'),
     ]);
     vacations = (vData || []).map(dbToVacation);
     employees = (eData || []).map(dbToEmp);
@@ -75,7 +75,7 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp) {
-    if (emp?.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    if (emp?.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
     return `<div class="emp-avatar" style="background:${emp?.avatarColor || nameToColor(emp?.name)}">${initials(emp?.name)}</div>`;
 }
 
@@ -1236,7 +1236,7 @@ window.openViewModal = function (id) {
         { label: 'Criado em', value: v.createdAt ? new Date(v.createdAt).toLocaleDateString('pt-BR') : '—' },
     ];
     const rowsHtml = rows
-        .map((r) => `<div class="view-row"><span class="view-row-label">${r.label}</span><span class="view-row-value">${r.value}</span></div>`)
+        .map((r) => `<div class="view-row"><span class="view-row-label">${escapeHtml(r.label)}</span><span class="view-row-value">${r.value}</span></div>`)
         .join('');
     const calendarActions =
         v.status === 'aprovado' || v.status === 'concluido'
@@ -1558,7 +1558,7 @@ function renderGantt() {
             barsDiv.appendChild(bar);
         });
         const gAvatar = emp?.avatarUrl
-            ? `<div class="g-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`
+            ? `<div class="g-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`
             : `<div class="g-avatar" style="background:${emp?.avatarColor || nameToColor(name)}">${initials(name)}</div>`;
         row.innerHTML = `<div class="gantt-row-label">${gAvatar}<div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept"><span class="g-dept-dot" style="background:${deptColor(dept)}"></span><span class="g-dept-name">${escHtml(dept)}</span></div>` : ''}</div></div>`;
         row.appendChild(barsDiv);

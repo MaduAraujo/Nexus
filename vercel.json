@@ -1,0 +1,23 @@
+{
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://axyagainqlanowuejdcz.supabase.co https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self' https://axyagainqlanowuejdcz.supabase.co wss://axyagainqlanowuejdcz.supabase.co https://viacep.com.br https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; worker-src 'self' blob: https://cdn.jsdelivr.net; media-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+                },
+                { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+                { "key": "X-Content-Type-Options", "value": "nosniff" },
+                { "key": "X-Frame-Options", "value": "DENY" },
+                { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+                { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+                { "key": "Permissions-Policy", "value": "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), interest-cohort=()" }
+            ]
+        },
+        {
+            "source": "/service-worker.js",
+            "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+    ]
+}

@@ -42,7 +42,7 @@
         }
 
         if (tag === 'B') {
-            const strong = document.createElement('strong');
+            const strong = node.ownerDocument.createElement('strong');
             strong.innerHTML = node.innerHTML;
             node.replaceWith(strong);
             return;
@@ -51,16 +51,15 @@
         stripAllAttributes(node);
     }
 
+    // O HTML é lido em um documento inerte (DOMParser): imagens não carregam e onerror/onload não disparam antes da limpeza.
     window.sanitizeComunicadoHTML = function (html) {
-        const container = document.createElement('div');
-        container.innerHTML = String(html || '');
+        const container = new DOMParser().parseFromString(String(html || ''), 'text/html').body;
         Array.from(container.childNodes).forEach(cleanNode);
         return container.innerHTML;
     };
 
     window.comunicadoPlainText = function (html) {
-        const container = document.createElement('div');
-        container.innerHTML = String(html || '');
+        const container = new DOMParser().parseFromString(String(html || ''), 'text/html').body;
         return (container.textContent || '').replace(/\s+/g, ' ').trim();
     };
 })();

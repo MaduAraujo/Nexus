@@ -117,6 +117,10 @@ serve(async (req) => {
     const { data: profile } = await caller.from("profiles").select("profile").eq("id", user.id).single();
     if (profile?.profile !== "Administrador") return json({ error: "Acesso restrito ao Administrador" }, 403);
 
+    const { data: allowed, error: limitErr } = await caller.rpc("rate_limit_check", { p_action: "ai-alerts", p_max: 30, p_window_seconds: 3600 });
+    if (limitErr) console.error("rate_limit_check falhou:", limitErr.message);
+    if (allowed === false) return json({ error: "Limite de análises por hora atingido. Tente novamente mais tarde." }, 429);
+
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const today = new Date().toISOString().split("T")[0];
     const snapshot = await gatherSnapshot(admin, today);

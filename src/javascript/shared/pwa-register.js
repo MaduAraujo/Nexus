@@ -115,12 +115,17 @@
         injectStyles();
         const toast = document.createElement('div');
         toast.className = 'nexus-pwa-toast';
-        toast.innerHTML =
-            '<span>' +
-            message +
-            '</span><button type="button" class="nexus-pwa-secondary">Depois</button><button type="button" class="nexus-pwa-primary">' +
-            primaryLabel +
-            '</button>';
+        const text = document.createElement('span');
+        text.textContent = message;
+        const later = document.createElement('button');
+        later.type = 'button';
+        later.className = 'nexus-pwa-secondary';
+        later.textContent = 'Depois';
+        const primary = document.createElement('button');
+        primary.type = 'button';
+        primary.className = 'nexus-pwa-primary';
+        primary.textContent = primaryLabel;
+        toast.append(text, later, primary);
 
         const [, dismissBtn, primaryBtn] = toast.children;
         dismissBtn.addEventListener('click', function () {

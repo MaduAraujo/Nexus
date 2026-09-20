@@ -528,7 +528,7 @@ window.renderHistorico = function () {
                 if (!v) return `<span class="td-time missing">—</span>`;
                 return `<span class="td-time ${rec[f + '_ajustado'] ? 'ajustado' : ''}">${timeStr(v)}</span>`;
             };
-            return `<tr><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td>${t('entrada')}</td><td>${t('saida_almoco')}</td><td>${t('retorno_almoco')}</td><td>${t('saida')}</td><td class="td-total">${workedStr}</td><td class="td-saldo ${saldoCls}">${saldoStr}</td><td><span class="badge ${badge.cls}">${badge.label}</span>${intervaloTag}</td></tr>`;
+            return `<tr><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td>${t('entrada')}</td><td>${t('saida_almoco')}</td><td>${t('retorno_almoco')}</td><td>${t('saida')}</td><td class="td-total">${workedStr}</td><td class="td-saldo ${saldoCls}">${saldoStr}</td><td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>${intervaloTag}</td></tr>`;
         })
         .join('');
 };
@@ -563,7 +563,7 @@ function renderSolicitacoes() {
     list.innerHTML = pendentes
         .map(
             (a) =>
-                `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo] || a.tipo}</p><p class="sol-meta">Data: ${a.date}${a.horario ? ` • Horário: ${a.horario}` : ''} • Enviado em ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`
+                `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo] || escapeHtml(a.tipo)}</p><p class="sol-meta">Data: ${a.date}${a.horario ? ` • Horário: ${a.horario}` : ''} • Enviado em ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`
         )
         .join('');
 }
@@ -586,7 +586,7 @@ function renderBankRequests() {
             const tipoLabel = r.tipo === 'credito' ? 'Crédito' : 'Débito';
             const valor = `${r.tipo === 'credito' ? '+' : '-'}${minToStr(r.minutos)}`;
             const obs = r.status === 'rejeitado' && r.decision_obs ? `<p class="sol-obs"><i class="fas fa-comment"></i> ${esc(r.decision_obs)}</p>` : '';
-            return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-clock-rotate-left"></i></div><div class="sol-info"><p class="sol-tipo">${tipoLabel} — ${valor}${r.anexo_name ? ` <i class="fas fa-paperclip" title="${esc(r.anexo_name)}"></i>` : ''}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${obs}</div><span class="badge-status ${meta.cls}"><i class="fas ${meta.icon}"></i> ${meta.label}</span></div>`;
+            return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-clock-rotate-left"></i></div><div class="sol-info"><p class="sol-tipo">${tipoLabel} — ${valor}${r.anexo_name ? ` <i class="fas fa-paperclip" title="${esc(r.anexo_name)}"></i>` : ''}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${obs}</div><span class="badge-status ${meta.cls}"><i class="fas ${meta.icon}"></i> ${escapeHtml(meta.label)}</span></div>`;
         })
         .join('');
 }
@@ -992,7 +992,7 @@ function renderBurnoutCard(alertas) {
             const icone =
                 { extras_consecutivos: 'fa-clock', almoco_pulado: 'fa-bowl-food', sobrecarga_semanal: 'fa-chart-line' }[a.tipo] || 'fa-circle-exclamation';
             const diasHTML = a.dias?.length ? `<div class="burnout-dias">${a.dias.map((d) => `<span class="burnout-dia-tag">${d}</span>`).join('')}</div>` : '';
-            return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${a.titulo}</p><p class="burnout-item-msg">${a.mensagem}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${a.sugestao}</p></div></div>`;
+            return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
         .join('');
     section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas ${iconePrincipal}"></i></div><div><p class="burnout-titulo">${tituloPrincipal}</p><p class="burnout-subtitulo">${nivelGeral === 'critico' ? 'O RH foi notificado. Cuide-se!' : 'Identificamos padrões que merecem atenção.'}</p></div></div><button class="burnout-dismiss" onclick="dismissBurnout()" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
@@ -1069,7 +1069,7 @@ function renderCLTCard(alertas) {
         .map((a) => {
             const icone = { intervalo_intrajornada: 'fa-mug-saucer', dsr_risco: 'fa-calendar-xmark' }[a.tipo] || 'fa-scale-balanced';
             const diasHTML = a.dias?.length ? `<div class="burnout-dias">${a.dias.map((d) => `<span class="burnout-dia-tag">${d}</span>`).join('')}</div>` : '';
-            return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${a.titulo}</p><p class="burnout-item-msg">${a.mensagem}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${a.sugestao}</p></div></div>`;
+            return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
         .join('');
     section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas fa-scale-balanced"></i></div><div><p class="burnout-titulo">Conformidade CLT</p><p class="burnout-subtitulo">Intervalo intrajornada e DSR (art. 71 CLT / Lei 605/49)</p></div></div><button class="burnout-dismiss" onclick="dismissCLT()" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
@@ -1261,7 +1261,7 @@ window.retomarSelfie = function () {
     iniciarCameraSelfie();
 };
 
-const FACE_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+const FACE_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
 const FACE_MATCH_THRESHOLD = 0.55;
 
 function loadFaceModels() {
@@ -2178,7 +2178,7 @@ window.showToast = function (title, type = 'success') {
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
-            <p class="toast-title">${title}</p>
+            <p class="toast-title">${escapeHtml(title)}</p>
         </div>
         <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>

@@ -375,7 +375,7 @@ function showActionConfirmation(actionData, originalMessage) {
                         ? impact.porEmpregado.map((p) => `${esc(p.nome)}: ${fmtCurrency(p.valor)}`).join(' · ')
                         : `${impact.porEmpregado[0].semanas} semana${impact.porEmpregado[0].semanas > 1 ? 's' : ''} de DSR perdido`;
                 impactEl.classList.remove('hidden');
-                impactEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <span>Impacto estimado ao rejeitar: <strong>-${fmtCurrency(impact.total)}</strong> (${detalhe} — Lei 605/49 art. 6º).</span>`;
+                impactEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <span>Impacto estimado ao rejeitar: <strong>-${fmtCurrency(impact.total)}</strong> (${escapeHtml(detalhe)} — Lei 605/49 art. 6º).</span>`;
                 container.scrollTop = container.scrollHeight;
             })
             .catch(() => {});
@@ -533,7 +533,10 @@ function openReportModal(markdown) {
     const modal = document.getElementById('report-modal');
     const content = document.getElementById('report-content');
     if (!modal || !content) return;
-    content.innerHTML = typeof marked !== 'undefined' ? marked.parse(markdown) : markdown.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+    content.innerHTML =
+        typeof marked !== 'undefined'
+            ? sanitizeMarkdownHtml(marked.parse(markdown))
+            : markdown.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
 }
@@ -620,7 +623,7 @@ function alertCard(a, idx = 0) {
     const chips = (a.employees || []).map((n) => `<span class="emp-chip">${esc(n)}</span>`).join('');
     const page = CATEGORY_PAGE[a.category];
     const gotoLink = page
-        ? `<a class="alert-goto-link" href="${page.href}">${page.icon ? `<i class="fas ${page.icon}"></i>` : ''}${page.label}<i class="fas fa-arrow-right"></i></a>`
+        ? `<a class="alert-goto-link" href="${page.href}">${page.icon ? `<i class="fas ${page.icon}"></i>` : ''}${escapeHtml(page.label)}<i class="fas fa-arrow-right"></i></a>`
         : '';
     const resolveBtn = a.resolved
         ? `<span class="resolved-badge"><i class="fas fa-check-circle"></i> Resolvido</span>`

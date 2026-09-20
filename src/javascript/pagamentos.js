@@ -695,7 +695,7 @@ function renderSlipModal(emp, slip) {
                 `<tr>
             <td>${p.cod}</td>
             <td>${escHtml(p.descricao)}</td>
-            <td style="color:var(--text-secondary)">${p.referencia}</td>
+            <td style="color:var(--text-secondary)">${escapeHtml(p.referencia)}</td>
             <td class="td-val">${fmtCurrency(p.valor)}</td>
         </tr>`
         )
@@ -707,7 +707,7 @@ function renderSlipModal(emp, slip) {
                 `<tr>
             <td>${d.cod}</td>
             <td>${escHtml(d.descricao)}</td>
-            <td style="color:var(--text-secondary)">${d.referencia}</td>
+            <td style="color:var(--text-secondary)">${escapeHtml(d.referencia)}</td>
             <td class="td-val" style="color:var(--danger)">${fmtCurrency(d.valor)}</td>
         </tr>`
         )
@@ -722,7 +722,7 @@ function renderSlipModal(emp, slip) {
                 <div class="slip-company">Nexus RH</div>
                 <div class="slip-company-sub">Sistema de Gestão de Recursos Humanos</div>
             </div>
-            <div class="slip-period">Competência ${slip.competencia}</div>
+            <div class="slip-period">Competência ${escapeHtml(slip.competencia)}</div>
         </div>
         <div class="slip-employee-row">
             <div class="slip-field"><span class="slip-field-label">Nome</span><span class="slip-field-value">${escHtml(emp.name)}</span></div>
@@ -886,7 +886,7 @@ async function renderSlipBankInfo(emp, slip) {
         h = Math.floor(abs / 60),
         m = String(abs % 60).padStart(2, '0');
     const sinal = net > 0 ? '+' : net < 0 ? '-' : '';
-    el.innerHTML = `<i class="fas fa-clock"></i> Saldo do banco de horas na competência ${slip.competencia || slip.mes} (referência, não incluso nos totais acima): <strong>${sinal}${h}h ${m}min</strong>`;
+    el.innerHTML = `<i class="fas fa-clock"></i> Saldo do banco de horas na competência ${escapeHtml(slip.competencia) || slip.mes} (referência, não incluso nos totais acima): <strong>${sinal}${h}h ${m}min</strong>`;
     el.className = `slip-bank-info ${net > 0 ? 'positivo' : net < 0 ? 'negativo' : ''}`;
 }
 
@@ -1388,13 +1388,13 @@ window.printCurrentSlip = function () {
     const provRows = (slip.proventos || [])
         .map(
             (p) =>
-                `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${p.referencia}</td><td style="text-align:right;font-weight:700">${fmtCurrency(p.valor)}</td></tr>`
+                `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${escapeHtml(p.referencia)}</td><td style="text-align:right;font-weight:700">${fmtCurrency(p.valor)}</td></tr>`
         )
         .join('');
     const descRows = (slip.descontos || [])
         .map(
             (d) =>
-                `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${d.referencia}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtCurrency(d.valor)}</td></tr>`
+                `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${escapeHtml(d.referencia)}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtCurrency(d.valor)}</td></tr>`
         )
         .join('');
 
@@ -1402,7 +1402,7 @@ window.printCurrentSlip = function () {
     const win = window.open('', '_blank', 'width=820,height=700');
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
         <meta charset="UTF-8">
-        <title>Holerite — ${escHtml(emp.name)} — ${slip.competencia}</title>
+        <title>Holerite — ${escHtml(emp.name)} — ${escapeHtml(slip.competencia)}</title>
         <link rel="stylesheet" href="${cssHref}">
     </head><body>
         <div class="header">
@@ -1411,7 +1411,7 @@ window.printCurrentSlip = function () {
                     <div class="company">Nexus RH</div>
                     <div class="company-sub">Sistema de Gestão de Recursos Humanos</div>
                 </div>
-                <div class="period">Competência ${slip.competencia}</div>
+                <div class="period">Competência ${escapeHtml(slip.competencia)}</div>
             </div>
             <div class="emp-grid">
                 <div><div class="field-label">Nome</div><div class="field-value">${escHtml(emp.name)}</div></div>
@@ -1874,7 +1874,7 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp, ini, color) {
-    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
     return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
 }
 

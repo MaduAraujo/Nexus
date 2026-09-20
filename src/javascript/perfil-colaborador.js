@@ -45,8 +45,8 @@
         toast.innerHTML = `
             <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
             <div class="toast-content">
-                <p class="toast-title">${title}</p>
-                ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
+                <p class="toast-title">${escapeHtml(title)}</p>
+                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
             <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
                 <i class="fas fa-times"></i>
@@ -326,7 +326,8 @@
         const cp = document.getElementById('confirm-pass-profile')?.value || '';
         const msg = document.getElementById('pw-match-msg');
         const btn = document.getElementById('btn-change-pw');
-        if (btn) btn.disabled = !(curr && np.length >= 8 && np === cp);
+        const problem = passwordProblem(np);
+        if (btn) btn.disabled = !(curr && !problem && np === cp);
         if (!msg) return;
         if (!cp) {
             msg.textContent = '';
@@ -334,8 +335,8 @@
         } else if (np !== cp) {
             msg.textContent = 'As senhas não coincidem.';
             msg.className = 'pw-match-msg err';
-        } else if (np.length < 8) {
-            msg.textContent = 'Mínimo 8 caracteres.';
+        } else if (problem) {
+            msg.textContent = problem;
             msg.className = 'pw-match-msg err';
         } else {
             msg.textContent = 'Senhas coincidem ✓';
@@ -343,9 +344,20 @@
         }
     };
 
+    // Mesma regra do login: mínimo 12 caracteres, com letras e números (acompanha a configuração do Supabase Auth).
+    function passwordProblem(password) {
+        if (password.length < 12) return 'Mínimo 12 caracteres.';
+        if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return 'Use letras e números.';
+        return '';
+    }
+
     window.changePassword = async function () {
         const curr = document.getElementById('curr-pass')?.value || '';
         const np = document.getElementById('new-pass-profile')?.value || '';
+        if (passwordProblem(np)) {
+            showToast(passwordProblem(np), 'warning');
+            return;
+        }
 
         const { error: authError } = await sb.auth.signInWithPassword({ email: myEmployee.email, password: curr });
         if (authError) {

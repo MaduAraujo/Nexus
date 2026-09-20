@@ -560,7 +560,7 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp, ini, color) {
-    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${emp.avatarUrl}')"></div>`;
+    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
     return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
 }
 
@@ -579,7 +579,7 @@ function buildRow(d) {
     }
     const extrasCls = extrasMin > 0 ? 'extras' : 'zero',
         faltasCls = faltaMin > 0 ? 'faltas' : 'zero';
-    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${emp.name}</p><p class="emp-dept">${emp.dept || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" onclick="openDetailModal('${emp.id}')" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" onclick="openAdjustModal('${emp.id}')" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
+    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escapeHtml(emp.name)}</p><p class="emp-dept">${escapeHtml(emp.dept) || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" onclick="openDetailModal('${emp.id}')" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" onclick="openAdjustModal('${emp.id}')" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
 }
 
 const FILTER_LABELS_BH = {
@@ -732,7 +732,7 @@ function renderDetailModal(emp, monthKey) {
         }
     }
 
-    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${emp.name}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${emp.dept || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${emp.role || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><select class="detail-month-select" onchange="changeDetailMonth('${emp.id}',this.value)">${monthOptions}</select></div>
+    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><select class="detail-month-select" onchange="changeDetailMonth('${emp.id}',this.value)">${monthOptions}</select></div>
     ${ledgerHTML}
     ${isPJ ? '' : '<div class="trend-section"><p class="detail-section-title"><i class="fas fa-chart-line"></i> Tendência do Saldo (6 meses)</p><div class="trend-chart-wrap"><canvas id="detail-trend-canvas"></canvas></div></div>'}
     <div class="detail-stats"><div class="stat-card-sm"><div class="stat-label-sm">Dias Registrados</div><div class="stat-value-sm">${diasCompletos}</div></div><div class="stat-card-sm"><div class="stat-label-sm">H. Trabalhadas</div><div class="stat-value-sm">${totalWorked ? minToStr(totalWorked) : '0h 00min'}</div></div><div class="stat-card-sm ${isPJ ? '' : extrasMin ? 'positivo' : ''}"><div class="stat-label-sm">H. Extras</div><div class="stat-value-sm">${isPJ ? '—' : extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</div></div><div class="stat-card-sm ${saldoCls}"><div class="stat-label-sm">Saldo Líquido</div><div class="stat-value-sm">${saldoLiquido === null ? '—' : formatSaldo(saldoLiquido)}</div></div></div>
@@ -751,7 +751,7 @@ function renderDetailModal(emp, monthKey) {
         html += monthAjustes
             .map(
                 (a) =>
-                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${a.tipo}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><button class="btn-delete-ajuste" onclick="deleteAjuste('${emp.id}','${a.id}')" title="Excluir ajuste"><i class="fas fa-trash"></i></button></div>`
+                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${escapeHtml(a.tipo)}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><button class="btn-delete-ajuste" onclick="deleteAjuste('${emp.id}','${a.id}')" title="Excluir ajuste"><i class="fas fa-trash"></i></button></div>`
             )
             .join('');
     }
@@ -866,7 +866,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
     if (isFalta(rec)) {
         let badge;
         if (ferias) badge = `<span class="badge-sm badge-sm-ferias">Férias</span>`;
-        else if (holiday) badge = `<span class="badge-sm badge-sm-feriado" title="${holiday.name}">Feriado</span>`;
+        else if (holiday) badge = `<span class="badge-sm badge-sm-feriado" title="${escapeHtml(holiday.name)}">Feriado</span>`;
         else badge = `<span class="badge-sm badge-sm-falta">Falta</span>`;
         return `<tr><td class="dt-date">${d}/${m}/${y}<span class="dt-diaSem">${diaSem}</span></td><td colspan="4" style="color:var(--text-tertiary);font-style:italic;font-size:.8rem">Sem registros</td><td>—</td><td class="dt-saldo zero">—</td><td>${badge}</td></tr>`;
     }
@@ -878,7 +878,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
     const extraTags = [];
     if (holiday)
         extraTags.push(
-            `<span class="badge-sm badge-sm-feriado" title="${holiday.name} — adicional de 100% calculado no holerite do mês (Súmula 146 TST)">Feriado</span>`
+            `<span class="badge-sm badge-sm-feriado" title="${escapeHtml(holiday.name)} — adicional de 100% calculado no holerite do mês (Súmula 146 TST)">Feriado</span>`
         );
     else if (isSunday(key))
         extraTags.push(
@@ -978,7 +978,7 @@ window.submitAdjust = async function () {
     const showErr = (msg) => {
         if (al) {
             al.className = 'modal-alert error';
-            al.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+            al.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${escapeHtml(msg)}`;
         }
     };
     const total = horas * 60 + mins;
@@ -1145,7 +1145,7 @@ function buildRequestRow(r) {
     const valor = `<span class="td-hours ${r.tipo === 'credito' ? 'extras' : 'faltas'}">${r.tipo === 'credito' ? '+' : '-'}${minToStr(r.minutos)}</span>`;
     const aprovador = r.requires_approval_from === 'gestor' ? '<i class="fas fa-user-tie"></i> Gestor' : '<i class="fas fa-user-shield"></i> RH (2ª aprovação)';
     const statusMeta = REQ_STATUS_META[r.status] || REQ_STATUS_META.pendente;
-    const statusBadge = `<span class="badge ${statusMeta.cls}" title="${r.decision_obs ? r.decision_obs.replace(/"/g, '&quot;') : ''}"><i class="fas ${statusMeta.icon}"></i> ${statusMeta.label}</span>`;
+    const statusBadge = `<span class="badge ${statusMeta.cls}" title="${r.decision_obs ? r.decision_obs.replace(/"/g, '&quot;') : ''}"><i class="fas ${statusMeta.icon}"></i> ${escapeHtml(statusMeta.label)}</span>`;
     const anexoBtn = r.anexo_path
         ? `<button class="btn-icon btn-icon--view" onclick="viewRequestAnexo('${r.id}')" title="Ver anexo"><i class="fas fa-paperclip"></i></button>`
         : '';
@@ -1153,7 +1153,7 @@ function buildRequestRow(r) {
     if (r.status === 'pendente') {
         actions += `<button class="btn-icon btn-icon--adjust" onclick="approveRequest('${r.id}')" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-icon btn-icon--delete" onclick="openRejectRequestModal('${r.id}')" title="Rejeitar"><i class="fas fa-xmark"></i></button>`;
     }
-    return `<tr data-id="${r.id}"><td><div class="emp-cell"><div><p class="emp-name">${empName}</p><p class="emp-dept">${empDept}</p></div></div></td><td>${origemBadge}</td><td>${tipoLabel}</td><td>${valor}</td><td>${fmtDate(r.date)}</td><td>${aprovador}</td><td>${statusBadge}</td><td><div class="actions-cell">${actions}</div></td></tr>`;
+    return `<tr data-id="${r.id}"><td><div class="emp-cell"><div><p class="emp-name">${escapeHtml(empName)}</p><p class="emp-dept">${escapeHtml(empDept)}</p></div></div></td><td>${origemBadge}</td><td>${tipoLabel}</td><td>${valor}</td><td>${fmtDate(r.date)}</td><td>${aprovador}</td><td>${statusBadge}</td><td><div class="actions-cell">${actions}</div></td></tr>`;
 }
 
 window.viewPontoSelfie = async function (path) {
@@ -1285,7 +1285,7 @@ function renderHolidaysList() {
     wrap.innerHTML = list
         .map(
             ([date, h]) =>
-                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor" style="font-size:13px">${fmtDate(date)}</p><p class="ajuste-just">${h.name}</p></div><button class="btn-delete-ajuste" onclick="deleteHoliday('${h.id}')" title="Excluir"><i class="fas fa-trash"></i></button></div>`
+                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor" style="font-size:13px">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" onclick="deleteHoliday('${h.id}')" title="Excluir"><i class="fas fa-trash"></i></button></div>`
         )
         .join('');
 }
@@ -1352,7 +1352,7 @@ window.submitSettings = async function () {
     const showErr = (msg) => {
         if (al) {
             al.className = 'modal-alert error';
-            al.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+            al.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${escapeHtml(msg)}`;
         }
     };
     if (!vencimento || vencimento < 1) return showErr('Informe um prazo de vencimento válido (em meses).');
@@ -2054,7 +2054,7 @@ function showToast(title, type = 'success') {
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
-            <p class="toast-title">${title}</p>
+            <p class="toast-title">${escapeHtml(title)}</p>
         </div>
         <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>

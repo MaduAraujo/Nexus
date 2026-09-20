@@ -247,7 +247,7 @@
     function validadeCell(dataValidade) {
         const info = getExpiryInfo(dataValidade);
         if (!info) return `<span class="badge--sem-validade">—</span>`;
-        return `<span class="badge ${info.cls}">${info.label}</span>`;
+        return `<span class="badge ${info.cls}">${escapeHtml(info.label)}</span>`;
     }
 
     function versionBadge(doc) {
@@ -262,7 +262,7 @@
     function signBadge(doc) {
         if (!doc.requer_assinatura) return '';
         if (doc.assinado_em)
-            return `<span class="badge badge--assinado" title="Assinado por ${doc.assinado_por || '—'} em ${fmtDate(doc.assinado_em)}"><i class="fas fa-signature"></i> Assinado</span>`;
+            return `<span class="badge badge--assinado" title="Assinado por ${escapeHtml(doc.assinado_por) || '—'} em ${fmtDate(doc.assinado_em)}"><i class="fas fa-signature"></i> Assinado</span>`;
         return `<span class="badge badge--aguardando" title="Aguardando assinatura eletrônica do colaborador"><i class="fas fa-pen-nib"></i> Aguardando assinatura</span>`;
     }
 
@@ -306,7 +306,7 @@
                     return `<tr>
                     <td><div class="file-name-cell">${rowCheckbox(d.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo) || ''} ${versionBadge(d)}</div></div></div></td>
                     <td>${empName(d.employee_id)}</td>
-                    <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${st.label}</span></td>
+                    <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}</span></td>
                     <td class="file-date">${fmtDate(d.created_at)}</td>
                     <td class="file-size">${d.size_label || '—'}</td>
                     <td>${validadeCell(d.data_validade)}</td>
@@ -314,7 +314,7 @@
                         <button class="btn-icon btn-icon--approve" title="Aprovar"  onclick="approveColabDoc('${d.id}')"><i class="fas fa-check"></i></button>
                         <button class="btn-icon btn-icon--reject"  title="Recusar"  onclick="rejectColabDoc('${d.id}')"><i class="fas fa-times"></i></button>
                         ${historyBtn(d)}
-                        <button class="btn-icon btn-icon--delete"  title="Excluir"  onclick="deleteColabDoc('${d.id}','${d.storage_path || ''}')"><i class="fas fa-trash"></i></button>
+                        <button class="btn-icon btn-icon--delete"  title="Excluir"  onclick="deleteColabDoc('${d.id}','${escapeHtml(d.storage_path) || ''}')"><i class="fas fa-trash"></i></button>
                     </div></td>
                 </tr>`;
                 })
@@ -350,9 +350,9 @@
                 <td class="file-size">${f.size_label || '—'}</td>
                 <td>${validadeCell(f.data_validade)}</td>
                 <td><div class="actions-cell">
-                    <button class="btn-icon btn-icon--view"   title="Visualizar" onclick="viewFile('${f.id}','${f.storage_path || ''}')"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon btn-icon--view"   title="Visualizar" onclick="viewFile('${f.id}','${escapeHtml(f.storage_path) || ''}')"><i class="fas fa-eye"></i></button>
                     ${historyBtn(f)}
-                    <button class="btn-icon btn-icon--delete" title="Excluir"    onclick="deleteFile('${f.id}','${f.storage_path || ''}')"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon btn-icon--delete" title="Excluir"    onclick="deleteFile('${f.id}','${escapeHtml(f.storage_path) || ''}')"><i class="fas fa-trash"></i></button>
                 </div></td>
             </tr>`;
             })
@@ -406,7 +406,7 @@
             .map(
                 (p) => `
             <div class="checklist-row">
-                <span class="checklist-row-name">${p.emp.name}</span>
+                <span class="checklist-row-name">${escapeHtml(p.emp.name)}</span>
                 ${p.missing.map((t) => `<button type="button" class="checklist-chip" onclick="openUploadModal('${p.emp.id}','${activeTab}','${t.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
             </div>`
             )
@@ -462,9 +462,9 @@
             </div>`);
         }
         items.slice(0, 25).forEach((it) => {
-            rows.push(`<div class="notif-item" onclick="goToNotifItem('${it.docId}','${it.category}')">
+            rows.push(`<div class="notif-item" onclick="goToNotifItem('${it.docId}','${escapeHtml(it.category)}')">
                 <div class="notif-item-icon notif-item-icon--${it.type}"><i class="fas ${iconMap[it.type]}"></i></div>
-                <div class="notif-item-body"><span class="notif-item-title">${it.label}</span></div>
+                <div class="notif-item-body"><span class="notif-item-title">${escapeHtml(it.label)}</span></div>
             </div>`);
         });
         notifPanelBody.innerHTML = rows.join('');
@@ -959,10 +959,10 @@
             <div class="history-row${i === 0 ? ' history-row--current' : ''}">
                 <div class="history-row-badge">v${d.version}${i === 0 ? ' · atual' : ''}</div>
                 <div class="history-row-body">
-                    <span class="history-row-name">${d.name}</span>
+                    <span class="history-row-name">${escapeHtml(d.name)}</span>
                     <span class="history-row-meta">${fmtDate(d.created_at)} · ${d.size_label || '—'}</span>
                 </div>
-                ${d.storage_path ? `<button class="btn-icon btn-icon--view" title="Visualizar" onclick="viewFile('${d.id}','${d.storage_path}')"><i class="fas fa-eye"></i></button>` : ''}
+                ${d.storage_path ? `<button class="btn-icon btn-icon--view" title="Visualizar" onclick="viewFile('${d.id}','${escapeHtml(d.storage_path)}')"><i class="fas fa-eye"></i></button>` : ''}
             </div>`
             )
             .join('');
@@ -1015,8 +1015,8 @@
                 return `<div class="audit-row">
                 <div class="audit-row-icon audit-row-icon--${l.action}"><i class="fas ${icon}"></i></div>
                 <div class="audit-row-body">
-                    <span class="audit-row-title"><b>${label}</b> — ${l.document_name}${emp !== '—' ? ` (${emp})` : ''}</span>
-                    <span class="audit-row-meta">${l.actor_name || '—'} · ${when}</span>
+                    <span class="audit-row-title"><b>${label}</b> — ${escapeHtml(l.document_name)}${emp !== '—' ? ` (${emp})` : ''}</span>
+                    <span class="audit-row-meta">${escapeHtml(l.actor_name) || '—'} · ${when}</span>
                 </div>
             </div>`;
             })
@@ -1048,7 +1048,7 @@
         container.innerHTML = items
             .map(
                 (r) => `
-            <span class="requirements-chip">${r.tipo}<button type="button" onclick="removeRequirement('${r.id}')" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>
+            <span class="requirements-chip">${escapeHtml(r.tipo)}<button type="button" onclick="removeRequirement('${r.id}')" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>
         `
             )
             .join('');
@@ -1188,7 +1188,7 @@
                 (f, i) => `
             <div class="file-selected-item">
                 <div class="file-selected-icon"><i class="fas fa-file-circle-check"></i></div>
-                <span>${f.name}</span>
+                <span>${escapeHtml(f.name)}</span>
                 <button type="button" onclick="removeSelectedFile(${i})" aria-label="Remover arquivo"><i class="fas fa-xmark"></i></button>
             </div>`
             )
@@ -1393,8 +1393,8 @@
         toast.innerHTML = `
             <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
             <div class="toast-content">
-                <p class="toast-title">${title}</p>
-                ${msg ? `<p class="toast-msg">${msg}</p>` : ''}
+                <p class="toast-title">${escapeHtml(title)}</p>
+                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
             <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
                 <i class="fas fa-times"></i>

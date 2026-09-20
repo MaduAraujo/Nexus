@@ -1,7 +1,7 @@
 {
     "scripts": {
         "test": "node --test",
-        "test:integration": "node --test --test-concurrency=1 test-integration/rls-policies.js test-integration/column-encryption.js",
+        "test:integration": "node --test --test-concurrency=1 test-integration/rls-policies.js test-integration/column-encryption.js test-integration/employee-self-update.js test-integration/rate-limit.js",
         "test:e2e": "playwright test",
         "test:pwa": "node test-support/pwa-audit.js",
         "lint": "eslint src/javascript test test-support test-integration e2e",
@@ -16,6 +16,7 @@
     "devDependencies": {
         "@playwright/test": "^1.61.1",
         "@types/node": "^26.1.2",
+        "acorn": "^8.18.0",
         "eslint": "^10.7.0",
         "globals": "^17.7.0",
         "pg": "^8.22.0",

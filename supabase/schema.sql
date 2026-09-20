@@ -1722,34 +1722,8 @@ INSERT INTO onboarding_tasks (titulo, descricao, dias, ordem) VALUES
   ('Definir metas para os próximos 6 meses', 'Alinhe objetivos de médio prazo com o gestor.', 90, 2)
 ON CONFLICT DO NOTHING;
 
--- ============================================================================================
--- Criptografia de colunas sensíveis (migration 059_column_encryption.sql)
--- ============================================================================================
-
--- Criptografia em nível de coluna (pgcrypto, AES-256) para dados sensíveis.
---
--- O que fica cifrado no banco:
---   employees: cpf, rg, telefone, salary, chave_pix, agencia, conta
---   chat_messages.content (canais e conversas diretas) e hr_ticket_messages.content (chat com o RH)
---
--- Como funciona:
---   * Escrita: triggers BEFORE INSERT/UPDATE cifram sozinhos. O front continua gravando texto normal.
---   * Leitura: as tabelas passam a devolver texto cifrado. Quem precisa do valor lê das views
---     employees_decrypted, chat_messages_decrypted e hr_ticket_messages_decrypted. Elas respeitam a RLS das
---     tabelas e só decifram quando a pessoa está autorizada para aquele dado.
---   * Cada valor cifrado fica amarrado ao seu dono ('emp:<id>', 'chan:<canal>', 'tkt:<ticket>'): copiar o texto
---     cifrado de uma linha para outra não revela nada, e a função de decifrar confere a autorização antes de abrir.
---   * As chaves ficam no Supabase Vault (data_encryption_key e data_hmac_key), nunca no código.
---   * CPF tem um índice cego (cpf_hash, HMAC-SHA256) para manter a unicidade sem guardar o CPF em claro.
---
--- IMPORTANTE: faça backup do banco antes de aplicar e guarde uma cópia das duas chaves do Vault fora do
--- Supabase. Sem elas, os dados cifrados não podem ser recuperados.
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
--- 1. Chaves ---------------------------------------------------------------------------------------
-
--- Reserva para ambientes sem Vault (CI/desenvolvimento). Sem nenhum acesso para os papéis da API.
 CREATE TABLE IF NOT EXISTS nexus_key_store (
   name   TEXT PRIMARY KEY,
   secret TEXT NOT NULL
@@ -1799,12 +1773,6 @@ BEGIN
 END;
 $$;
 
--- 2. Funções de cifragem --------------------------------------------------------------------------
-
--- Valores cifrados começam com 'nexus:enc1:' (versão do formato, para permitir trocar de algoritmo no futuro).
--- Dentro do texto cifrado vai o contexto do dono antes do valor: <contexto> chr(31) <valor>.
-
--- Uso interno (triggers e views): cifra um valor amarrado ao contexto. Valor já cifrado passa direto.
 CREATE OR REPLACE FUNCTION nexus_wrap(p_context TEXT, p_plain TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -1825,8 +1793,6 @@ BEGIN
 END;
 $$;
 
--- Uso interno: abre um valor cifrado SEM checar quem pergunta. Devolve NULL se o texto estiver corrompido,
--- adulterado (o MDC do pgp detecta) ou pertencer a outro contexto. Valor sem o prefixo (dado antigo) sai como está.
 CREATE OR REPLACE FUNCTION nexus_unwrap(p_context TEXT, p_cipher TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -1857,10 +1823,6 @@ BEGIN
 END;
 $$;
 
--- Uso pela API: só decifra se quem está logado tem direito ao dado daquele contexto.
---   emp:<id>   -> RH ou a própria pessoa (gestor NÃO)
---   chan:<id>  -> membro do canal/conversa; RH apenas em canais (nunca em conversas diretas)
---   tkt:<id>   -> RH ou dono do ticket
 CREATE OR REPLACE FUNCTION nexus_decrypt_ctx(p_context TEXT, p_cipher TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -1914,8 +1876,6 @@ BEGIN
 END;
 $$;
 
--- Índice cego: mesmo CPF gera sempre o mesmo hash (com ou sem pontos e traço), então dá para exigir unicidade
--- sem guardar o CPF em claro.
 CREATE OR REPLACE FUNCTION nexus_blind_index(p_plain TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -1940,12 +1900,8 @@ REVOKE ALL ON FUNCTION nexus_decrypt_ctx_numeric(TEXT, TEXT)    FROM PUBLIC, ano
 GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx(TEXT, TEXT)         TO authenticated;
 GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_numeric(TEXT, TEXT) TO authenticated;
 
--- 3. employees ------------------------------------------------------------------------------------
-
--- notif_prefs é usada pelo app (preferências de notificação) mas nunca teve migration; garante a coluna em bancos novos.
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS notif_prefs JSONB;
 
--- salary passa a guardar texto cifrado.
 DO $$
 BEGIN
   IF (SELECT data_type FROM information_schema.columns
@@ -1966,8 +1922,6 @@ AS $$
 DECLARE
   v_ctx TEXT := 'emp:' || NEW.id::TEXT;
 BEGIN
-  -- Mesma regra da coluna NUMERIC(10,2) de antes: só número, com 2 casas, dentro da faixa (senão a gravação falha aqui,
-  -- e não a leitura depois).
   IF NEW.salary IS NOT NULL AND NEW.salary NOT LIKE 'nexus:enc1:%' THEN
     IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
       RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
@@ -1993,8 +1947,6 @@ CREATE TRIGGER employees_encrypt_sensitive_trg
   FOR EACH ROW EXECUTE FUNCTION employees_encrypt_sensitive();
 
 REVOKE ALL ON FUNCTION employees_encrypt_sensitive() FROM PUBLIC, anon, authenticated;
-
--- 4. Mensagens de chat ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION chat_messages_encrypt()
 RETURNS TRIGGER
@@ -2033,8 +1985,6 @@ CREATE TRIGGER hr_ticket_messages_encrypt_trg
   BEFORE INSERT OR UPDATE OF content ON hr_ticket_messages
   FOR EACH ROW EXECUTE FUNCTION hr_ticket_messages_encrypt();
 
--- 5. Cifra os dados que já existem ---------------------------------------------------------------
-
 ALTER TABLE employees DISABLE TRIGGER employees_updated_at;
 UPDATE employees SET cpf = cpf;
 ALTER TABLE employees ENABLE TRIGGER employees_updated_at;
@@ -2045,14 +1995,6 @@ UPDATE hr_ticket_messages SET content = content;
 ALTER TABLE employees ALTER COLUMN cpf_hash SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS employees_cpf_hash_key ON employees(cpf_hash);
 
--- 6. Views que decifram --------------------------------------------------------------------------
---
--- security_invoker: a view consulta a tabela com os direitos de quem chama, então a RLS de sempre continua valendo
--- (RH vê todos; colaborador vê a própria linha; gestor vê a equipe). Os campos cifrados só vêm preenchidos para quem
--- nexus_decrypt_ctx autoriza: no caso de employees, RH e a própria pessoa (o gestor vê a equipe, mas sem esses campos).
-
--- Recria employees_decrypted com as colunas atuais da tabela. Rode de novo depois de adicionar coluna em employees:
---   SELECT nexus_refresh_employees_view();
 CREATE OR REPLACE FUNCTION nexus_refresh_employees_view()
 RETURNS VOID
 LANGUAGE plpgsql
@@ -2105,9 +2047,6 @@ CREATE VIEW hr_ticket_messages_decrypted WITH (security_invoker = true) AS
 
 REVOKE ALL ON chat_messages_decrypted, hr_ticket_messages_decrypted FROM PUBLIC, anon;
 GRANT SELECT ON chat_messages_decrypted, hr_ticket_messages_decrypted TO authenticated;
-
--- 7. Anonimização (LGPD) -------------------------------------------------------------------------
--- Mesma função da migration 046, agora comparando o CPF já decifrado.
 
 CREATE OR REPLACE FUNCTION anonymize_employee(
   p_employee_id         UUID,
@@ -2174,3 +2113,198 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION anonymize_employee(UUID, TEXT, TEXT) TO authenticated;
+
+DROP POLICY IF EXISTS "colabo_employees_update_own" ON employees;
+CREATE POLICY "colabo_employees_update_own" ON employees FOR UPDATE
+  USING (id = my_employee_id())
+  WITH CHECK (id = my_employee_id());
+
+CREATE OR REPLACE FUNCTION employees_self_update_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_editable CONSTANT TEXT[] := ARRAY['name', 'telefone', 'bio', 'avatar_url', 'avatar_color', 'notif_prefs', 'last_access', 'updated_at'];
+BEGIN
+  IF auth.uid() IS NULL OR is_rh() THEN
+    RETURN NEW;
+  END IF;
+
+  IF (to_jsonb(NEW) - v_editable) IS DISTINCT FROM (to_jsonb(OLD) - v_editable) THEN
+    RAISE EXCEPTION 'Você só pode alterar nome, telefone, bio e avatar do seu perfil. Os demais dados são gerenciados pelo RH.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_self_update_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_self_update_guard_trg ON employees;
+CREATE TRIGGER employees_self_update_guard_trg
+  BEFORE UPDATE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_self_update_guard();
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key          TEXT PRIMARY KEY,
+  window_start TIMESTAMPTZ NOT NULL,
+  hits         INTEGER NOT NULL
+);
+
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON rate_limits FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION rate_limit_check(p_action TEXT, p_max INTEGER, p_window_seconds INTEGER)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_key  TEXT;
+  v_hits INTEGER;
+BEGIN
+  IF v_uid IS NULL OR p_action IS NULL OR p_max IS NULL OR p_max < 1 OR p_window_seconds IS NULL OR p_window_seconds < 1 THEN
+    RETURN FALSE;
+  END IF;
+
+  v_key := v_uid::TEXT || ':' || p_action;
+
+  INSERT INTO rate_limits AS r (key, window_start, hits)
+  VALUES (v_key, now(), 1)
+  ON CONFLICT (key) DO UPDATE SET
+    window_start = CASE WHEN r.window_start < now() - make_interval(secs => p_window_seconds) THEN now() ELSE r.window_start END,
+    hits         = CASE WHEN r.window_start < now() - make_interval(secs => p_window_seconds) THEN 1 ELSE r.hits + 1 END
+  RETURNING hits INTO v_hits;
+
+  RETURN v_hits <= p_max;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION rate_limit_check(TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION rate_limit_check(TEXT, INTEGER, INTEGER) TO authenticated;
+
+DROP VIEW IF EXISTS public.employees_decrypted;
+
+DO $$
+BEGIN
+  IF (SELECT data_type FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'birth_date') <> 'text' THEN
+    ALTER TABLE employees ALTER COLUMN birth_date TYPE TEXT USING birth_date::TEXT;
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION nexus_decrypt_ctx_date(p_context TEXT, p_cipher TEXT)
+RETURNS DATE
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_plain TEXT := nexus_decrypt_ctx(p_context, p_cipher);
+BEGIN
+  IF v_plain IS NULL OR v_plain !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_plain::DATE;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_decrypt_ctx_date(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_date(TEXT, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION employees_encrypt_sensitive()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'emp:' || NEW.id::TEXT;
+BEGIN
+  IF NEW.salary IS NOT NULL AND NEW.salary NOT LIKE 'nexus:enc1:%' THEN
+    IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.salary := (NEW.salary::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.birth_date IS NOT NULL AND NEW.birth_date NOT LIKE 'nexus:enc1:%' THEN
+    IF NEW.birth_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
+      RAISE EXCEPTION 'Data de nascimento inválida' USING ERRCODE = '22007';
+    END IF;
+    NEW.birth_date := (left(NEW.birth_date, 10)::DATE)::TEXT;
+  END IF;
+
+  NEW.cpf_hash     := nexus_blind_index(nexus_unwrap(v_ctx, NEW.cpf));
+  NEW.cpf          := nexus_wrap(v_ctx, NEW.cpf);
+  NEW.rg           := nexus_wrap(v_ctx, NEW.rg);
+  NEW.telefone     := nexus_wrap(v_ctx, NEW.telefone);
+  NEW.salary       := nexus_wrap(v_ctx, NEW.salary);
+  NEW.chave_pix    := nexus_wrap(v_ctx, NEW.chave_pix);
+  NEW.agencia      := nexus_wrap(v_ctx, NEW.agencia);
+  NEW.conta        := nexus_wrap(v_ctx, NEW.conta);
+  NEW.birth_date   := nexus_wrap(v_ctx, NEW.birth_date);
+  NEW.gender       := nexus_wrap(v_ctx, NEW.gender);
+  NEW.raca_cor     := nexus_wrap(v_ctx, NEW.raca_cor);
+  NEW.deficiencia  := nexus_wrap(v_ctx, NEW.deficiencia);
+  NEW.tipo_pensao  := nexus_wrap(v_ctx, NEW.tipo_pensao);
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_refresh_employees_view()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_cols TEXT;
+BEGIN
+  SELECT string_agg(
+           CASE a.attname
+             WHEN 'salary'     THEN 'nexus_decrypt_ctx_numeric(''emp:'' || e.id::text, e.salary) AS salary'
+             WHEN 'birth_date' THEN 'nexus_decrypt_ctx_date(''emp:'' || e.id::text, e.birth_date) AS birth_date'
+             WHEN 'cpf'         THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.cpf) AS cpf'
+             WHEN 'rg'          THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.rg) AS rg'
+             WHEN 'telefone'    THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.telefone) AS telefone'
+             WHEN 'chave_pix'   THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.chave_pix) AS chave_pix'
+             WHEN 'agencia'     THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.agencia) AS agencia'
+             WHEN 'conta'       THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.conta) AS conta'
+             WHEN 'gender'      THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.gender) AS gender'
+             WHEN 'raca_cor'    THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.raca_cor) AS raca_cor'
+             WHEN 'deficiencia' THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.deficiencia) AS deficiencia'
+             WHEN 'tipo_pensao' THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.tipo_pensao) AS tipo_pensao'
+             ELSE format('e.%I', a.attname)
+           END,
+           ', ' ORDER BY a.attnum)
+    INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = 'public.employees'::regclass
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+     AND a.attname <> 'cpf_hash';
+
+  DROP VIEW IF EXISTS public.employees_decrypted;
+  EXECUTE format('CREATE VIEW public.employees_decrypted WITH (security_invoker = true) AS SELECT %s FROM public.employees e', v_cols);
+
+  REVOKE ALL ON public.employees_decrypted FROM PUBLIC, anon;
+  GRANT SELECT ON public.employees_decrypted TO authenticated;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_refresh_employees_view() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE employees DISABLE TRIGGER employees_updated_at;
+UPDATE employees SET cpf = cpf;
+ALTER TABLE employees ENABLE TRIGGER employees_updated_at;
+
+SELECT nexus_refresh_employees_view();

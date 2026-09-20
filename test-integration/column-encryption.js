@@ -63,6 +63,35 @@ before(async () => {
             TICKET,
             E_SUB,
         ]);
+        await db.query("UPDATE employees SET birth_date = '1999-12-31', gender = 'Feminino', raca_cor = 'Preta', deficiencia = 'Visual' WHERE id = $1", [
+            E_SUB,
+        ]);
+    });
+});
+
+describe('Dados pessoais sensíveis cifrados (migration 062)', () => {
+    test('nascimento, gênero, raça/cor e deficiência ficam cifrados na tabela', async () => {
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query('SELECT birth_date, gender, raca_cor, deficiencia FROM employees WHERE id = $1', [E_SUB]);
+            for (const [coluna, valor] of Object.entries(rows[0])) assert.ok(valor.startsWith(PREFIX), `${coluna} está em claro`);
+        });
+    });
+
+    test('RH e a própria pessoa leem em claro; o gestor da equipe não', async () => {
+        await withUser({ sub: U_RH }, async (db) => {
+            const { rows } = await db.query('SELECT birth_date::text AS nascimento, gender, raca_cor, deficiencia FROM employees_decrypted WHERE id = $1', [
+                E_SUB,
+            ]);
+            assert.deepEqual(rows[0], { nascimento: '1999-12-31', gender: 'Feminino', raca_cor: 'Preta', deficiencia: 'Visual' });
+        });
+        await withUser({ sub: U_SUB }, async (db) => {
+            const { rows } = await db.query('SELECT birth_date::text AS nascimento, raca_cor FROM employees_decrypted');
+            assert.deepEqual(rows[0], { nascimento: '1999-12-31', raca_cor: 'Preta' });
+        });
+        await withUser({ sub: U_MGR }, async (db) => {
+            const { rows } = await db.query('SELECT birth_date, gender, raca_cor, deficiencia FROM employees_decrypted WHERE id = $1', [E_SUB]);
+            assert.deepEqual(rows[0], { birth_date: null, gender: null, raca_cor: null, deficiencia: null });
+        });
     });
 });
 

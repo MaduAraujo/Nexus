@@ -1,4 +1,13 @@
-﻿let selectedProfileType = null;
+﻿const PASSWORD_MIN_LENGTH = 12;
+
+// Regra única de senha do app. Deve acompanhar a configuração do Supabase Auth (mínimo 12, letras e números).
+function passwordProblem(password) {
+    if (password.length < PASSWORD_MIN_LENGTH) return `Mínimo ${PASSWORD_MIN_LENGTH} caracteres.`;
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return 'Use letras e números.';
+    return '';
+}
+
+let selectedProfileType = null;
 let loginStep = 1;
 let _firstAccessSession = null;
 let _faDebounce = null;
@@ -13,7 +22,7 @@ function showToast(msg, type = 'success') {
     toast.innerHTML = `
         <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
         <div class="toast-content">
-            <p class="toast-title">${msg}</p>
+            <p class="toast-title">${escapeHtml(msg)}</p>
         </div>
         <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
             <i class="fas fa-times"></i>
@@ -337,12 +346,10 @@ window.forgotValidatePass = function () {
     const cp = document.getElementById('confirm-pass')?.value || '';
     const btn = document.getElementById('btn-reset');
     const err = document.getElementById('confirm-pass-err');
-    const hasLength = np.length >= 8;
-    const hasLetter = /[a-zA-Z]/.test(np);
-    const hasNumber = /[0-9]/.test(np);
-    const valid = hasLength && hasLetter && hasNumber && np === cp;
+    const problem = passwordProblem(np);
+    const valid = !problem && np === cp;
     if (btn) btn.disabled = !valid;
-    if (err) err.textContent = cp && !valid ? (np !== cp ? 'As senhas não coincidem.' : 'Mínimo 8 caracteres com letras e números.') : '';
+    if (err) err.textContent = cp && !valid ? problem || 'As senhas não coincidem.' : '';
 };
 
 window.forgotReset = async function () {
@@ -391,11 +398,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cp = document.getElementById('create-pass-confirm')?.value || '';
         const err = document.getElementById('create-pass-err');
         const btn = document.getElementById('btn-create-pass');
-        const valid = np.length >= 8 && np === cp;
+        const problem = passwordProblem(np);
+        const valid = !problem && np === cp;
         if (btn) btn.disabled = !valid;
         if (!err) return;
         if (!cp) err.textContent = '';
-        else if (np.length < 8) err.textContent = 'Mínimo 8 caracteres.';
+        else if (problem) err.textContent = problem;
         else if (np !== cp) err.textContent = 'As senhas não coincidem.';
         else err.textContent = '';
     };
@@ -405,7 +413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = document.getElementById('btn-create-pass');
         const text = document.getElementById('btn-create-pass-text');
         const spin = document.getElementById('spin-create-pass');
-        if (!np || np.length < 8) return;
+        if (!np || passwordProblem(np)) return;
 
         if (btn) btn.disabled = true;
         if (text) text.style.opacity = '0';
