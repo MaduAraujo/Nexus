@@ -82,6 +82,30 @@ window.NexusMfaSetup = (function () {
             qr.src = qrCode;
 
             const secretBox = el('code', 'mfa-secret', secret);
+            const copyIcon = el('i', 'fas fa-copy');
+            copyIcon.setAttribute('aria-hidden', 'true');
+            const copyBtn = button('', 'mfa-copy', async () => {
+                try {
+                    await navigator.clipboard.writeText(secret);
+                    copyIcon.className = 'fas fa-check';
+                    copyBtn.title = 'Copiado!';
+                    setTimeout(() => {
+                        copyIcon.className = 'fas fa-copy';
+                        copyBtn.title = 'Copiar chave';
+                    }, 1500);
+                } catch (_) {
+                    const range = document.createRange();
+                    range.selectNodeContents(secretBox);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            });
+            copyBtn.append(copyIcon);
+            copyBtn.title = 'Copiar chave';
+            copyBtn.setAttribute('aria-label', 'Copiar chave');
+            const secretRow = el('div', 'mfa-secret-row');
+            secretRow.append(secretBox, copyBtn);
             const input = el('input', 'mfa-input');
             input.type = 'text';
             input.inputMode = 'numeric';
@@ -92,7 +116,7 @@ window.NexusMfaSetup = (function () {
 
             const error = el('p', 'mfa-notice mfa-notice--error');
             error.hidden = true;
-            const confirmBtn = button('Confirmar e ativar', 'mfa-btn mfa-btn--primary', confirm);
+            const confirmBtn = button('Ativar', 'mfa-btn mfa-btn--primary', confirm);
             confirmBtn.disabled = true;
 
             input.addEventListener('input', () => {
@@ -118,26 +142,44 @@ window.NexusMfaSetup = (function () {
                 showStatus();
             }
 
-            const actions = el('div', 'mfa-actions');
-            actions.append(
-                confirmBtn,
-                button('Cancelar', 'mfa-btn', async () => {
-                    await mfa.cancelEnroll(client, factorId);
-                    showStatus();
-                })
-            );
+            const cancelBtn = () => button('Cancelar', 'mfa-btn', async () => {
+                await mfa.cancelEnroll(client, factorId);
+                showStatus();
+            });
 
-            render(
-                el('p', 'mfa-step', '1. Escaneie o QR code com um app autenticador (Google Authenticator, Microsoft Authenticator, Authy, 1Password…).'),
-                qr,
-                el('p', 'mfa-muted', 'Sem câmera? Digite esta chave manualmente no app:'),
-                secretBox,
-                el('p', 'mfa-step', '2. Digite o código de 6 dígitos que o app mostrar:'),
-                input,
-                error,
-                actions
-            );
-            input.focus();
+            function actionsRow(...buttons) {
+                const row = el('div', 'mfa-actions');
+                row.append(...buttons);
+                return row;
+            }
+
+            function screen(...nodes) {
+                const wrapper = el('div', 'mfa-enroll');
+                wrapper.append(...nodes);
+                render(wrapper);
+            }
+
+            function scanScreen() {
+                screen(
+                    el('p', 'mfa-step', '1. Escaneie o QR code com um app autenticador (Google Authenticator, Microsoft Authenticator…).'),
+                    qr,
+                    el('p', 'mfa-muted', 'Sem câmera? Digite esta chave manualmente no app:'),
+                    secretRow,
+                    actionsRow(button('Continuar', 'mfa-btn mfa-btn--primary', codeScreen), cancelBtn())
+                );
+            }
+
+            function codeScreen() {
+                screen(
+                    el('p', 'mfa-step', '2. Digite o código de 6 dígitos que o app mostrar:'),
+                    input,
+                    error,
+                    actionsRow(confirmBtn, cancelBtn())
+                );
+                input.focus();
+            }
+
+            scanScreen();
         }
 
         async function disable(factorId) {
