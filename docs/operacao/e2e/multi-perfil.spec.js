@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { LOCAL_SUPABASE_URL, LOCAL_SUPABASE_ANON_KEY } = require('../test-support/e2e-supabase-config.js');
 const { E2E_USERS } = require('../test-support/e2e-seed.js');
+const { submitAdminMfa } = require('../test-support/e2e-mfa.js');
 
 const ORIGINAL_CLIENT_PATH = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
 
@@ -22,6 +23,7 @@ async function login(page, { email, password }, profileType) {
     await page.fill('#login-user', email);
     await page.fill('#login-pass', password);
     await page.click('#btn-login');
+    if (profileType === 'Administrador' && email === E2E_USERS.administrador.email && password === E2E_USERS.administrador.password) await submitAdminMfa(page);
 }
 
 test.describe('Colaborador e RH no mesmo navegador, em abas diferentes', () => {

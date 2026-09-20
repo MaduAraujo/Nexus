@@ -1,0 +1,57 @@
+name: ZAP baseline
+
+on:
+  schedule:
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - vercel.json
+      - .vercelignore
+      - index.html
+      - 'src/**'
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Subir o servidor que imita a produção
+        run: |
+          node scripts/pentest/prodlike-server.cjs &
+          for i in $(seq 1 20); do curl -sf http://127.0.0.1:4180/ > /dev/null && exit 0; sleep 1; done
+          echo "servidor não subiu"; exit 1
+
+      - name: Conferir que arquivos internos não são servidos
+        run: |
+          for p in /supabase/schema.sql /docs/lgpd/ripd.md /scripts/backup/backup-db.mjs /test/auth.test.js /.github/workflows/tests.yml; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:4180$p")
+            echo "$p -> $code"
+            [ "$code" = "404" ] || { echo "arquivo interno exposto: $p"; exit 1; }
+          done
+
+      - name: ZAP baseline
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          set +e
+          docker run --rm --network host -v "$PWD/zap-out:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://127.0.0.1:4180/ -r zap-baseline.html -J zap-baseline.json -w zap-baseline.md -m 2
+          code=$?
+          echo "ZAP terminou com código $code (0 = limpo, 2 = só avisos, 1 = falhas)"
+          [ "$code" = "0" ] || [ "$code" = "2" ]
+
+      - name: Publicar relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-out/
+          retention-days: 30

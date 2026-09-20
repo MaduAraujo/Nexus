@@ -568,14 +568,14 @@ function buildHistoryCard(v, i = 0) {
         </div>
         <div class="hc-right">
             <span class="badge ${s.cls}" title="${escapeHtml(s.label)}"><i class="fas ${s.icon}"></i><span class="badge-label">${escapeHtml(s.label)}</span></span>
-            ${v.status === 'recusado' ? `<button class="btn-motivo" onclick="showReason(${JSON.stringify(v.rejection_reason || 'Motivo não informado.')})">Ver motivo</button>` : ''}
-            ${v.status === 'pendente' ? `<button class="btn-motivo btn-motivo--danger" onclick="cancelRequest('${v.id}')">Cancelar</button>` : ''}
+            ${v.status === 'recusado' ? `<button class="btn-motivo" data-click="showReason" data-click-args="${dargs(v.rejection_reason || 'Motivo não informado.')}">Ver motivo</button>` : ''}
+            ${v.status === 'pendente' ? `<button class="btn-motivo btn-motivo--danger" data-click="cancelRequest" data-click-args="${dargs(v.id)}">Cancelar</button>` : ''}
             ${
                 v.status === 'aprovado' || v.status === 'concluido'
                     ? `
                 <div class="hc-cal-actions">
-                    <button class="btn-cal-sm" title="Adicionar ao Google Calendar" onclick="openGoogleCalendar('${v.id}')"><i class="fab fa-google"></i></button>
-                    <button class="btn-cal-sm" title="Baixar .ics (Outlook)" onclick="downloadIcs('${v.id}')"><i class="fas fa-file-arrow-down"></i></button>
+                    <button class="btn-cal-sm" title="Adicionar ao Google Calendar" data-click="openGoogleCalendar" data-click-args="${dargs(v.id)}"><i class="fab fa-google"></i></button>
+                    <button class="btn-cal-sm" title="Baixar .ics (Outlook)" data-click="downloadIcs" data-click-args="${dargs(v.id)}"><i class="fas fa-file-arrow-down"></i></button>
                 </div>`
                     : ''
             }
@@ -1096,7 +1096,7 @@ function showToast(msg, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(msg)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

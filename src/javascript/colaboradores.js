@@ -252,7 +252,7 @@ function showToast(title, msg, type = 'success') {
             <p class="toast-title">${escapeHtml(title)}</p>
             ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);
@@ -554,8 +554,8 @@ function renderTable(data, filter) {
         const empAlerts = computeEmployeeAlerts(emp);
         const bellHtml = empAlerts.length ? `<i class="fas fa-bell bell-alert-icon" title="${empAlerts.map((a) => a.label).join(' · ')}"></i>` : '';
         tr.innerHTML = `
-            <td class="td-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" class="row-checkbox" ${selectedIds.has(emp.id) ? 'checked' : ''} onchange="toggleRowSelection('${emp.id}', this.checked)">
+            <td class="td-checkbox" data-click="noop" data-click-stop>
+                <input type="checkbox" class="row-checkbox" ${selectedIds.has(emp.id) ? 'checked' : ''} data-change="toggleRowSelection" data-change-args="${dargs(emp.id, { $: 'this.checked' })}">
             </td>
             <td>#${start + index + 1}</td>
             <td class="employee-name-cell">
@@ -709,10 +709,10 @@ function renderPagination(totalItems) {
 
     container.innerHTML = `
         <div class="pagination-controls">
-            <button type="button" class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} aria-label="Página anterior">
+            <button type="button" class="pagination-btn" data-click="goToPage" data-click-args="${dargs(currentPage - 1)}" ${currentPage === 1 ? 'disabled' : ''} aria-label="Página anterior">
                 <i class="fas fa-chevron-left"></i>
             </button>
-            <button type="button" class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} aria-label="Próxima página">
+            <button type="button" class="pagination-btn" data-click="goToPage" data-click-args="${dargs(currentPage + 1)}" ${currentPage === totalPages ? 'disabled' : ''} aria-label="Próxima página">
                 <i class="fas fa-chevron-right"></i>
             </button>
         </div>`;
@@ -777,6 +777,7 @@ function exportEmployeesCSV() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), 'Colaboradores');
     XLSX.writeFile(wb, `colaboradores_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    NexusAuth.logExport('colaboradores.xlsx', rows.length);
     showToast('Exportação Concluída!', 'O arquivo Excel foi baixado.', 'success');
 }
 
@@ -816,9 +817,10 @@ function exportEmployeesPDF() {
             <thead><tr><th>Nome</th><th>CPF</th><th>Email</th><th>Cargo</th><th>Depto</th><th>Status</th><th>Contrato</th><th>Admissão</th><th>Salário</th></tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
-        <script>window.onload = () => window.print();<\/script>
         </body></html>`);
     win.document.close();
+    NexusAuth.logExport('colaboradores.pdf', rows.length);
+    printWhenLoaded(win);
 }
 
 let importRows = [];
@@ -1028,7 +1030,7 @@ function renderImportPreview() {
                 ? `<div class="import-detail-errors"><strong>Erros</strong><span>${escHtml(r.errors.join(' · '))}</span></div>`
                 : '';
             return `
-            <tr class="import-row${r.status === 'error' ? ' import-row-error' : ''}" onclick="toggleImportRowDetail(${i})">
+            <tr class="import-row${r.status === 'error' ? ' import-row-error' : ''}" data-click="toggleImportRowDetail" data-click-args="${dargs(i)}">
                 <td>${escHtml(m.name) || '—'}</td>
                 <td>${escHtml(m.cpf) || '—'}</td>
                 <td>${escHtml(m.email) || '—'}</td>
@@ -1286,13 +1288,13 @@ window.showStatusSubmenu = function () {
     dynamicOptions.innerHTML = '';
     if (emp.status === 'Ativo') {
         dynamicOptions.innerHTML =
-            `<a href="javascript:void(0)" onclick="updateStatus('Inativo')"><i class="fas fa-user-slash"></i> Inativo</a>` +
-            `<a href="javascript:void(0)" onclick="updateStatus('Férias')"><i class="fas fa-umbrella-beach"></i> Férias</a>` +
-            `<a href="javascript:void(0)" onclick="updateStatus('Afastado')"><i class="fas fa-user-clock"></i> Afastado</a>`;
+            `<a href="#" data-click="updateStatus" data-click-args="[&quot;Inativo&quot;]"><i class="fas fa-user-slash"></i> Inativo</a>` +
+            `<a href="#" data-click="updateStatus" data-click-args="[&quot;Férias&quot;]"><i class="fas fa-umbrella-beach"></i> Férias</a>` +
+            `<a href="#" data-click="updateStatus" data-click-args="[&quot;Afastado&quot;]"><i class="fas fa-user-clock"></i> Afastado</a>`;
     } else if (emp.status === 'Férias') {
-        dynamicOptions.innerHTML = `<a href="javascript:void(0)" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar das Férias</a>`;
+        dynamicOptions.innerHTML = `<a href="#" data-click="updateStatus" data-click-args="[&quot;Ativo&quot;]"><i class="fas fa-check"></i> Voltar das Férias</a>`;
     } else if (emp.status === 'Afastado') {
-        dynamicOptions.innerHTML = `<a href="javascript:void(0)" onclick="updateStatus('Ativo')"><i class="fas fa-check"></i> Voltar do Afastamento</a>`;
+        dynamicOptions.innerHTML = `<a href="#" data-click="updateStatus" data-click-args="[&quot;Ativo&quot;]"><i class="fas fa-check"></i> Voltar do Afastamento</a>`;
     } else if (emp.status === 'Inativo') {
         dynamicOptions.innerHTML = `<p style="padding:10px 16px;font-size:12px;color:#999;margin:0;">Status Inativo é permanente.</p>`;
     }
@@ -1454,7 +1456,12 @@ const AI_DECISION_TABLE_LABEL = {
 };
 
 async function fetchAiDecisionLog(employeeId) {
-    const { data, error } = await sb.from('ai_decision_log').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await sb
+        .from('ai_decision_log_decrypted')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false })
+        .limit(50);
     if (error) {
         console.error('[Nexus] fetchAiDecisionLog:', error);
         return [];
@@ -1541,6 +1548,7 @@ window.exportEmployeeDataLGPD = function () {
     a.remove();
     URL.revokeObjectURL(url);
     NexusAuth.logAccess(emp.id, 'perfil_completo', 'Exportação de dados (portabilidade LGPD)');
+    NexusAuth.logExport('colaborador-lgpd.json', 1);
     showToast('Dados exportados', 'O arquivo JSON foi baixado.', 'success');
 };
 
@@ -1593,7 +1601,7 @@ function renderOrgNode(node) {
     const inactive = node.emp.status !== 'Ativo' ? ' org-node--inactive' : '';
     const childrenHtml = node.children.length ? `<ul>${node.children.map(renderOrgNode).join('')}</ul>` : '';
     return `<li class="org-node${inactive}">
-        <div class="org-card" onclick="openOrgEmployee('${node.emp.id}')">
+        <div class="org-card" data-click="openOrgEmployee" data-click-args="${dargs(node.emp.id)}">
             <strong>${escHtml(node.emp.name)}</strong>
             <small>${escHtml(node.emp.role || '—')}</small>
             ${node.emp.dept ? `<span class="org-card-dept">${escHtml(node.emp.dept)}</span>` : ''}
@@ -1667,7 +1675,7 @@ function renderOnboardingTasksGroup(dias) {
                 <div class="onb-chip-title">${escHtml(t.titulo)}</div>
                 ${t.descricao ? `<div class="onb-chip-desc">${escHtml(t.descricao)}</div>` : ''}
             </div>
-            <button type="button" onclick="removeOnboardingTask('${t.id}')" aria-label="Remover"><i class="fas fa-xmark"></i></button>
+            <button type="button" data-click="removeOnboardingTask" data-click-args="${dargs(t.id)}" aria-label="Remover"><i class="fas fa-xmark"></i></button>
         </div>`
         )
         .join('');
@@ -1915,10 +1923,10 @@ function renderRegDocList() {
                 <span class="reg-doc-item-name" title="${escHtml(doc.file.name)}">${escHtml(doc.file.name)}</span>
                 <span class="reg-doc-item-size">${formatFileSize(doc.file.size)}</span>
             </div>
-            <select class="reg-doc-item-tipo" onchange="updateRegDocTipo(${i}, this.value)" aria-label="Tipo do documento">
+            <select class="reg-doc-item-tipo" data-change="updateRegDocTipo" data-change-args="${dargs(i, { $: 'this.value' })}" aria-label="Tipo do documento">
                 ${tipoOptions.map((t) => `<option value="${t}" ${doc.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select>
-            <button type="button" class="reg-doc-item-remove" onclick="removeRegDoc(${i})" aria-label="Remover documento">
+            <button type="button" class="reg-doc-item-remove" data-click="removeRegDoc" data-click-args="${dargs(i)}" aria-label="Remover documento">
                 <i class="fas fa-times"></i>
             </button>
         </div>`
@@ -1936,7 +1944,7 @@ function renderRegDocTypeList() {
             const attached = pendingRegDocs.some((d) => d.tipo === tipo);
             const required = tipo !== 'Outros';
             return `
-            <button type="button" class="reg-doc-type-item${attached ? ' reg-doc-type-item--attached' : ''}" onclick="selectRegDocType('${escHtml(tipo)}')">
+            <button type="button" class="reg-doc-type-item${attached ? ' reg-doc-type-item--attached' : ''}" data-click="selectRegDocType" data-click-args="${dargs(tipo)}">
                 <div class="reg-doc-type-icon"><i class="fas ${regDocTypeIcon(tipo)}"></i></div>
                 <div class="reg-doc-type-info">
                     <span class="reg-doc-type-name">${escHtml(tipo)}</span>
@@ -1996,7 +2004,7 @@ async function uploadPendingRegDocs(employeeId) {
 
     for (const doc of pendingRegDocs) {
         const storagePath = `rh/${Date.now()}_${doc.file.name.replace(/\s/g, '_')}`;
-        const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, doc.file);
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, doc.file);
         if (uploadError) continue;
 
         const { error: docError } = await sb.from('documents').insert({

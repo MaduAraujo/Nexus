@@ -10,11 +10,12 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Meu Perfil</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/btn-back.css">
     <link rel="stylesheet" href="../styles/perfil-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
+    <link rel="stylesheet" href="../styles/mfa.css">
 </head>
 <body>
     <header class="topbar">
@@ -35,30 +36,30 @@
                             <img class="profile-avatar-img hidden" id="profile-avatar-img" alt="Foto de perfil" />
                             <div class="profile-avatar" id="profile-avatar">?</div>
                             <button class="avatar-edit-btn" id="avatar-edit-btn"
-                                    onclick="toggleAvatarMenu()" title="Editar foto / cor">
+                                    data-click="toggleAvatarMenu" title="Editar foto / cor">
                                 <i class="fas fa-camera"></i>
                             </button>
                         </div>
 
                         <div class="avatar-menu" id="avatar-menu">
-                            <button class="avatar-menu-item" onclick="triggerPhotoUpload()">
+                            <button class="avatar-menu-item" data-click="triggerPhotoUpload">
                                 <i class="fas fa-arrow-up-from-bracket"></i>
                                 <span>Enviar foto</span>
                             </button>
                             <button class="avatar-menu-item" id="avatar-menu-remove"
-                                    onclick="removePhoto()" style="display:none">
+                                    data-click="removePhoto" style="display:none">
                                 <i class="fas fa-trash-alt"></i>
                                 <span>Remover foto</span>
                             </button>
                             <div class="avatar-menu-divider"></div>
-                            <button class="avatar-menu-item" onclick="openColorPicker()">
+                            <button class="avatar-menu-item" data-click="openColorPicker">
                                 <i class="fas fa-palette"></i>
                                 <span>Mudar cor do avatar</span>
                             </button>
                         </div>
 
                         <input type="file" id="photo-input" accept="image/*"
-                               style="display:none" onchange="handlePhotoUpload(event)" />
+                               style="display:none" data-change="handlePhotoUpload" data-change-args='[{"$":"event"}]' />
 
                         <div class="color-picker" id="color-picker">
                             <p class="color-picker-title">Cor do avatar</p>
@@ -76,19 +77,19 @@
                 </div>
 
                 <div class="profile-tabs">
-                    <button class="ptab active" data-ptab="info" onclick="switchPTab(this,'info')">
+                    <button class="ptab active" data-ptab="info" data-click="switchPTab" data-click-args='[{"$":"this"},"info"]'>
                         <i class="fas fa-id-card"></i>
                         <span>Informações</span>
                     </button>
-                    <button class="ptab" data-ptab="professional" onclick="switchPTab(this,'professional')">
+                    <button class="ptab" data-ptab="professional" data-click="switchPTab" data-click-args='[{"$":"this"},"professional"]'>
                         <i class="fas fa-briefcase"></i>
                         <span>Profissional</span>
                     </button>
-                    <button class="ptab" data-ptab="notifications" onclick="switchPTab(this,'notifications')">
+                    <button class="ptab" data-ptab="notifications" data-click="switchPTab" data-click-args='[{"$":"this"},"notifications"]'>
                         <i class="fas fa-bell"></i>
                         <span>Notificações</span>
                     </button>
-                    <button class="ptab" data-ptab="security" onclick="switchPTab(this,'security')">
+                    <button class="ptab" data-ptab="security" data-click="switchPTab" data-click-args='[{"$":"this"},"security"]'>
                         <i class="fas fa-lock"></i>
                         <span>Segurança</span>
                     </button>
@@ -98,7 +99,7 @@
                     <div class="profile-card">
                         <div class="profile-card-header">
                             <h3><i class="fas fa-user-circle"></i> Dados Pessoais</h3>
-                            <button class="btn-edit-section" id="btn-edit-info" onclick="toggleEditInfo()">
+                            <button class="btn-edit-section" id="btn-edit-info" data-click="toggleEditInfo">
                                 <i class="fas fa-pen"></i> Editar
                             </button>
                         </div>
@@ -139,8 +140,8 @@
                                     </div>
                                 </div>
                                 <div class="edit-actions">
-                                    <button class="btn-cancel-edit" onclick="cancelEditInfo()">Cancelar</button>
-                                    <button class="btn-save-edit" onclick="saveInfo()">
+                                    <button class="btn-cancel-edit" data-click="cancelEditInfo">Cancelar</button>
+                                    <button class="btn-save-edit" data-click="saveInfo">
                                         Salvar alterações
                                     </button>
                                 </div>
@@ -237,7 +238,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-push-browser"
-                                               onchange="togglePushNotifications(this.checked)" />
+                                               data-change="togglePushNotifications" data-change-args='[{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -249,7 +250,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-comunicados" checked
-                                               onchange="saveNotifPref('comunicados', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["comunicados",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -261,7 +262,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-holerite" checked
-                                               onchange="saveNotifPref('holerite', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["holerite",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -273,7 +274,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-ferias" checked
-                                               onchange="saveNotifPref('ferias', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["ferias",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -285,7 +286,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-horas"
-                                               onchange="saveNotifPref('horas', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["horas",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -297,7 +298,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-seguranca" checked
-                                               onchange="saveNotifPref('seguranca', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["seguranca",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -309,7 +310,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-compliance" checked
-                                               onchange="saveNotifPref('compliance', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["compliance",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -321,7 +322,7 @@
                                     </div>
                                     <label class="toggle-switch">
                                         <input type="checkbox" id="notif-burnout" checked
-                                               onchange="saveNotifPref('burnout', this.checked)" />
+                                               data-change="saveNotifPref" data-change-args='["burnout",{"$":"this.checked"}]' />
                                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                                     </label>
                                 </div>
@@ -341,7 +342,7 @@
                                     <label>Senha atual</label>
                                     <div class="pw-wrap">
                                         <input type="password" id="curr-pass" placeholder="••••••••" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('curr-pass', this)">
+                                        <button class="toggle-pw-small" data-click="togglePwSmall" data-click-args='["curr-pass",{"$":"this"}]'>
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -350,8 +351,8 @@
                                     <label>Nova senha</label>
                                     <div class="pw-wrap">
                                         <input type="password" id="new-pass-profile" placeholder="••••••••"
-                                               oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('new-pass-profile', this)">
+                                               data-input="checkNewPass" />
+                                        <button class="toggle-pw-small" data-click="togglePwSmall" data-click-args='["new-pass-profile",{"$":"this"}]'>
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -360,8 +361,8 @@
                                     <label>Confirmar nova senha</label>
                                     <div class="pw-wrap">
                                         <input type="password" id="confirm-pass-profile" placeholder="••••••••"
-                                               oninput="checkNewPass()" />
-                                        <button class="toggle-pw-small" onclick="togglePwSmall('confirm-pass-profile', this)">
+                                               data-input="checkNewPass" />
+                                        <button class="toggle-pw-small" data-click="togglePwSmall" data-click-args='["confirm-pass-profile",{"$":"this"}]'>
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
@@ -370,10 +371,19 @@
                             </div>
                             <div class="edit-actions">
                                 <button class="btn-save-edit" id="btn-change-pw"
-                                        onclick="changePassword()" disabled>
+                                        data-click="changePassword" disabled>
                                     <i class="fas fa-lock"></i> Alterar senha
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-card">
+                        <div class="profile-card-header">
+                            <h3><i class="fas fa-mobile-alt"></i> Verificação em duas etapas</h3>
+                        </div>
+                        <div class="profile-card-body">
+                            <div id="mfa-card" class="mfa-card"></div>
                         </div>
                     </div>
 
@@ -389,7 +399,7 @@
                                     <p class="danger-label">Encerrar sessão em todos os dispositivos</p>
                                     <p class="danger-desc">Você será desconectado de todos os acessos ativos.</p>
                                 </div>
-                                <button class="btn-danger-outline" onclick="logoutAll()">
+                                <button class="btn-danger-outline" data-click="logoutAll">
                                     Encerrar sessões
                                 </button>
                             </div>
@@ -402,9 +412,12 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/mfa-setup.js"></script>
 <script src="../javascript/perfil-colaborador.js"></script>
 </body>
 </html>

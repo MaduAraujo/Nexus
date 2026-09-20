@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
 
-async function gatherSnapshot(admin: ReturnType<typeof createClient>, today: string) {
+async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: ReturnType<typeof createClient>, today: string) {
   const d7 = new Date();
   d7.setDate(d7.getDate() - 7);
   const sevenDaysAgo = d7.toISOString().split("T")[0];
@@ -14,7 +15,7 @@ async function gatherSnapshot(admin: ReturnType<typeof createClient>, today: str
     admin.from("burnout_alerts").select("id,employee_id,date,alertas,created_at,employees(name)").eq("lido", false).order("created_at", { ascending: false }).limit(15),
     admin.from("documents").select("employee_id,name,created_at,employees(name)").eq("status", "pendente").eq("source", "colaborador"),
     admin.from("time_records").select("employee_id,date,entrada").gte("date", sevenDaysAgo).lte("date", today),
-    admin.from("ai_decision_memory").select("action_type,description,created_at").order("created_at", { ascending: false }).limit(10),
+    caller.from("ai_decision_memory_decrypted").select("action_type,description,created_at").order("created_at", { ascending: false }).limit(10),
   ]);
 
   const employees: any[]         = r1.data ?? [];
@@ -116,6 +117,7 @@ serve(async (req) => {
 
     const { data: profile } = await caller.from("profiles").select("profile").eq("id", user.id).single();
     if (profile?.profile !== "Administrador") return json({ error: "Acesso restrito ao Administrador" }, 403);
+    if (!mfaSatisfied(user, authHeader, true)) return json({ error: MFA_REQUIRED_MESSAGE }, 403);
 
     const { data: allowed, error: limitErr } = await caller.rpc("rate_limit_check", { p_action: "ai-alerts", p_max: 30, p_window_seconds: 3600 });
     if (limitErr) console.error("rate_limit_check falhou:", limitErr.message);
@@ -123,7 +125,7 @@ serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const today = new Date().toISOString().split("T")[0];
-    const snapshot = await gatherSnapshot(admin, today);
+    const snapshot = await gatherSnapshot(admin, caller, today);
     const system = buildSystem(snapshot, today);
 
     let messages: { role: string; content: string }[];

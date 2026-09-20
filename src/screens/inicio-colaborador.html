@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Painel</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/inicio-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
@@ -65,7 +65,7 @@
                     <p class="user-name" id="sidebar-name">—</p>
                     <p class="user-role" id="sidebar-role">Colaborador</p>
                 </div>
-                <button class="sidebar-logout-btn" onclick="logout()" title="Sair">
+                <button class="sidebar-logout-btn" data-click="logout" title="Sair">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
@@ -180,7 +180,7 @@
                 </div>
 
                 <div class="quick-actions">
-                    <button class="quick-card quick-card--blue" onclick="window.location.href='../screens/holerite-colaborador.html'">
+                    <button class="quick-card quick-card--blue" data-click="navigate" data-click-args='["../screens/holerite-colaborador.html"]'>
                         <i class="fas fa-file-invoice-dollar quick-card-icon"></i>
                         <div class="quick-card-content">
                             <span class="quick-label">Ver Holerite</span>
@@ -188,7 +188,7 @@
                         </div>
                         <i class="fas fa-arrow-right quick-card-arrow"></i>
                     </button>
-                    <button class="quick-card quick-card--green" onclick="window.location.href='../screens/ferias-colaborador.html'">
+                    <button class="quick-card quick-card--green" data-click="navigate" data-click-args='["../screens/ferias-colaborador.html"]'>
                         <i class="fas fa-umbrella-beach quick-card-icon"></i>
                         <div class="quick-card-content">
                             <span class="quick-label">Solicitar Férias</span>
@@ -196,7 +196,7 @@
                         </div>
                         <i class="fas fa-arrow-right quick-card-arrow"></i>
                     </button>
-                    <button class="quick-card quick-card--purple" onclick="window.location.href='../screens/documentos-colaborador.html'">
+                    <button class="quick-card quick-card--purple" data-click="navigate" data-click-args='["../screens/documentos-colaborador.html"]'>
                         <i class="fas fa-folder-open quick-card-icon"></i>
                         <div class="quick-card-content">
                             <span class="quick-label">Documentos</span>
@@ -204,7 +204,7 @@
                         </div>
                         <i class="fas fa-arrow-right quick-card-arrow"></i>
                     </button>
-                    <button class="quick-card quick-card--orange" onclick="window.location.href='../screens/ponto-colaborador.html'">
+                    <button class="quick-card quick-card--orange" data-click="navigate" data-click-args='["../screens/ponto-colaborador.html"]'>
                         <i class="fas fa-clock quick-card-icon"></i>
                         <div class="quick-card-content">
                             <span class="quick-label">Banco de Horas</span>
@@ -212,7 +212,7 @@
                         </div>
                         <i class="fas fa-arrow-right quick-card-arrow"></i>
                     </button>
-                    <button class="quick-card quick-card--blue hidden" id="quick-card-equipe" onclick="window.location.href='../screens/equipe-colaborador.html'">
+                    <button class="quick-card quick-card--blue hidden" id="quick-card-equipe" data-click="navigate" data-click-args='["../screens/equipe-colaborador.html"]'>
                         <i class="fas fa-people-group quick-card-icon"></i>
                         <div class="quick-card-content">
                             <span class="quick-label">Minha Equipe</span>
@@ -229,8 +229,10 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/inicio-colaborador.js"></script>
 </body>

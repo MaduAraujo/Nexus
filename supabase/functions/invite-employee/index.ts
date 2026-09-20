@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
 
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
@@ -34,6 +35,13 @@ serve(async (req) => {
 
     if (profile?.profile !== "Administrador") {
       return new Response(JSON.stringify({ error: "Acesso restrito ao Administrador" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!mfaSatisfied(user, authHeader, true)) {
+      return new Response(JSON.stringify({ error: MFA_REQUIRED_MESSAGE }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

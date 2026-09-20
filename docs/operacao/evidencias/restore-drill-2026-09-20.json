@@ -1,0 +1,204 @@
+{
+  "imagem": "public.ecr.aws/supabase/postgres:17.6.1.111",
+  "inicio": "2026-09-20T17:55:03.868Z",
+  "tabelas": 43,
+  "backup": {
+    "bytes": 273853,
+    "sha256": "a58b399c89ebf728dd5031a5230ca12023ab396079c32d67c8a246bb0ccb349a"
+  },
+  "errosRestore": [],
+  "semChaves": "CPF, holerites, feedback e histórico da IA voltam NULL",
+  "chavesRecolocadasVia": "vault.create_secret",
+  "restauracaoSegundos": 27.2,
+  "comparacao": {
+    "contagemDepois": {
+      "activity_logs": 0,
+      "adjustment_requests": 0,
+      "admin_push_subscriptions": 0,
+      "ai_analysis_cache": 0,
+      "ai_analysis_history": 0,
+      "ai_chat_history": 1,
+      "ai_decision_log": 0,
+      "ai_decision_memory": 0,
+      "anonymous_feedback": 1,
+      "bank_adjustments": 0,
+      "bank_requests": 0,
+      "burnout_alerts": 0,
+      "chat_channel_members": 0,
+      "chat_channels": 7,
+      "chat_messages": 0,
+      "compliance_alerts": 0,
+      "data_access_log": 0,
+      "document_audit_log": 0,
+      "document_requirements": 11,
+      "documents": 0,
+      "employee_audit": 0,
+      "employees": 3,
+      "holidays": 13,
+      "hr_settings": 1,
+      "hr_ticket_hidden": 0,
+      "hr_ticket_messages": 0,
+      "hr_tickets": 0,
+      "kudos": 0,
+      "message_reads": 0,
+      "message_templates": 0,
+      "messages": 0,
+      "nexus_key_config": 2,
+      "onboarding_progress": 0,
+      "onboarding_tasks": 9,
+      "payslips": 2,
+      "profiles": 3,
+      "push_subscriptions": 0,
+      "rate_limits": 0,
+      "security_alerts": 0,
+      "security_events": 0,
+      "security_rules": 5,
+      "time_records": 1,
+      "vacations": 0
+    },
+    "catalogoDepois": {
+      "policies": 137,
+      "triggers": 13,
+      "functions": 68,
+      "views": 11,
+      "tables_with_rls": 44
+    }
+  },
+  "concluido": true,
+  "fim": "2026-09-20T17:56:17.119Z",
+  "totalSegundos": 73.8,
+  "passos": [
+    {
+      "name": "Postgres de origem no ar",
+      "ok": true,
+      "detail": "porta 64612",
+      "seconds": 35.8
+    },
+    {
+      "name": "schema.sql carregado",
+      "ok": true,
+      "detail": "17 avisos de erro esperados (storage.* não existe neste ambiente)",
+      "seconds": 3.1
+    },
+    {
+      "name": "Chaves de cifragem copiadas da origem (a \"cópia offline\")",
+      "ok": true,
+      "detail": "estavam no Vault do banco",
+      "seconds": 0.1
+    },
+    {
+      "name": "Dados sintéticos gravados e legíveis pelo RH",
+      "ok": true,
+      "detail": "3 colaboradores",
+      "seconds": 0.1
+    },
+    {
+      "name": "Backup cifrado gerado",
+      "ok": true,
+      "detail": "273853 bytes, sha256 a58b399c89ebf728…",
+      "seconds": 1.7
+    },
+    {
+      "name": "Arquivo é gpg simétrico AES-256 com proteção de integridade",
+      "ok": true,
+      "detail": "simétrico=true aes256=true integridade=true",
+      "seconds": 2.6
+    },
+    {
+      "name": "Nenhum dado pessoal legível dentro do arquivo",
+      "ok": true,
+      "detail": "4 textos sentinela procurados, 0 achados",
+      "seconds": 0
+    },
+    {
+      "name": "Controle positivo: o mesmo conteúdo em texto puro deixa o nome legível",
+      "ok": true,
+      "detail": "prova que a busca acima consegue enxergar o texto se ele estivesse lá",
+      "seconds": 0.7
+    },
+    {
+      "name": "Chave de cifragem de colunas não vai dentro do backup",
+      "ok": true,
+      "detail": "procurada no dump em texto puro, onde ela apareceria se estivesse no banco",
+      "seconds": 0.4
+    },
+    {
+      "name": "Frase-secreta errada é recusada",
+      "ok": true,
+      "detail": "",
+      "seconds": 0.5
+    },
+    {
+      "name": "Arquivo adulterado é detectado (integridade)",
+      "ok": true,
+      "detail": "",
+      "seconds": 0.5
+    },
+    {
+      "name": "SHA-256 registrado confere com o arquivo",
+      "ok": true,
+      "detail": "",
+      "seconds": 0
+    },
+    {
+      "name": "Banco de origem destruído (simula a perda do projeto)",
+      "ok": true,
+      "detail": "",
+      "seconds": 1.1
+    },
+    {
+      "name": "Banco novo no ar (equivale a um projeto Supabase recém-criado)",
+      "ok": true,
+      "detail": "porta 56302",
+      "seconds": 22
+    },
+    {
+      "name": "pg_restore executado a partir do arquivo decifrado em fluxo",
+      "ok": true,
+      "detail": "0 linhas de erro/aviso",
+      "seconds": 3.3
+    },
+    {
+      "name": "Contagem de linhas idêntica em todas as tabelas",
+      "ok": true,
+      "detail": "43 tabelas",
+      "seconds": 1.3
+    },
+    {
+      "name": "Políticas RLS, gatilhos, funções e views restaurados",
+      "ok": true,
+      "detail": "{\"policies\":137,\"triggers\":13,\"functions\":68,\"views\":11,\"tables_with_rls\":44}",
+      "seconds": 0
+    },
+    {
+      "name": "Dados cifrados voltaram byte a byte iguais",
+      "ok": true,
+      "detail": "",
+      "seconds": 0
+    },
+    {
+      "name": "SEM as chaves: o banco restaurado abre, mas os campos cifrados vêm vazios (NULL)",
+      "ok": true,
+      "detail": "é exatamente o que acontece se restaurar sem recolocar as chaves do Vault",
+      "seconds": 0.1
+    },
+    {
+      "name": "COM as chaves recolocadas: tudo legível e idêntico ao original",
+      "ok": true,
+      "detail": "3 colaboradores, 2 holerites",
+      "seconds": 0.2
+    },
+    {
+      "name": "RLS continua valendo após a restauração (colaborador vê só o que é dele)",
+      "ok": true,
+      "detail": "vê 1 holerite(s)",
+      "seconds": 0.2
+    },
+    {
+      "name": "Índice cego do CPF funciona (chave HMAC restaurada)",
+      "ok": true,
+      "detail": "",
+      "seconds": 0.1
+    }
+  ]
+}

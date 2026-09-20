@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Comunicação Interna</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/comunicacao.css">
     <link rel="stylesheet" href="../styles/btn-back.css">
@@ -262,12 +262,12 @@
                                         <p class="filter-menu-label">Categoria</p>
                                         <div class="category-filters" id="category-filters">
                                             <button class="hist-chip hist-chip--active" data-cat="todas"
-                                                onclick="setCatFilter(this)">Todas categorias</button>
-                                            <button class="hist-chip" data-cat="Urgente" onclick="setCatFilter(this)">Urgente</button>
-                                            <button class="hist-chip" data-cat="Institucional" onclick="setCatFilter(this)">Institucional</button>
-                                            <button class="hist-chip" data-cat="Benefícios" onclick="setCatFilter(this)">Benefícios</button>
-                                            <button class="hist-chip" data-cat="Evento" onclick="setCatFilter(this)">Evento</button>
-                                            <button class="hist-chip" data-cat="Política" onclick="setCatFilter(this)">Política</button>
+                                                data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Todas categorias</button>
+                                            <button class="hist-chip" data-cat="Urgente" data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Urgente</button>
+                                            <button class="hist-chip" data-cat="Institucional" data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Institucional</button>
+                                            <button class="hist-chip" data-cat="Benefícios" data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Benefícios</button>
+                                            <button class="hist-chip" data-cat="Evento" data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Evento</button>
+                                            <button class="hist-chip" data-cat="Política" data-click="setCatFilter" data-click-args='[{"$":"this"}]'>Política</button>
                                         </div>
 
                                         <div class="dropdown-divider"></div>
@@ -275,17 +275,17 @@
                                         <p class="filter-menu-label">Destino</p>
                                         <div class="history-filters" id="history-filters">
                                             <button class="hist-chip hist-chip--active" data-dest="todos"
-                                                onclick="setHistFilter(this)">Todos</button>
-                                            <button class="hist-chip" data-dest="TI" onclick="setHistFilter(this)">TI</button>
-                                            <button class="hist-chip" data-dest="RH" onclick="setHistFilter(this)">RH</button>
+                                                data-click="setHistFilter" data-click-args='[{"$":"this"}]'>Todos</button>
+                                            <button class="hist-chip" data-dest="TI" data-click="setHistFilter" data-click-args='[{"$":"this"}]'>TI</button>
+                                            <button class="hist-chip" data-dest="RH" data-click="setHistFilter" data-click-args='[{"$":"this"}]'>RH</button>
                                             <button class="hist-chip" data-dest="Financeiro"
-                                                onclick="setHistFilter(this)">Financeiro</button>
+                                                data-click="setHistFilter" data-click-args='[{"$":"this"}]'>Financeiro</button>
                                             <button class="hist-chip" data-dest="Marketing"
-                                                onclick="setHistFilter(this)">Marketing</button>
+                                                data-click="setHistFilter" data-click-args='[{"$":"this"}]'>Marketing</button>
                                             <button class="hist-chip" data-dest="Jurídico"
-                                                onclick="setHistFilter(this)">Jurídico</button>
+                                                data-click="setHistFilter" data-click-args='[{"$":"this"}]'>Jurídico</button>
                                             <button class="hist-chip" data-dest="Administrativo"
-                                                onclick="setHistFilter(this)">Administrativo</button>
+                                                data-click="setHistFilter" data-click-args='[{"$":"this"}]'>Administrativo</button>
                                         </div>
                                     </div>
                                 </div>
@@ -456,9 +456,12 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+    <script src="../javascript/shared/events.js"></script>
     <script src="../javascript/shared/html.js"></script>
     <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/mfa.js"></script>
     <script src="../javascript/shared/auth.js"></script>
+    <script src="../javascript/shared/files.js"></script>
     <script src="../javascript/shared/search.js"></script>
     <script src="../javascript/comunicado-format.js"></script>
     <script src="../javascript/comunicacao.js"></script>

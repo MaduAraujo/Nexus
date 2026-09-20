@@ -272,7 +272,7 @@ function renderTable() {
         const tr = document.createElement('tr');
         tr.dataset.id = v.id;
         tr.innerHTML = `
-            <td class="select-cell">${v.status === 'pendente' ? `<label class="checkbox-label row-check"><input type="checkbox" data-id="${v.id}" ${selectedIds.has(v.id) ? 'checked' : ''} onchange="toggleRowSelect('${v.id}', this.checked)"><span class="checkbox-box"></span></label>` : ''}</td>
+            <td class="select-cell">${v.status === 'pendente' ? `<label class="checkbox-label row-check"><input type="checkbox" data-id="${v.id}" ${selectedIds.has(v.id) ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(v.id, { $: 'this.checked' })}"><span class="checkbox-box"></span></label>` : ''}</td>
             <td class="col-employee"><div class="emp-cell">${empAvatarHtml(emp)}<div><div class="emp-name">${escHtml(name)}</div><div class="emp-dept">${escHtml(dept)}</div></div></div></td>
             <td><div class="period-dates">${formatDate(v.startDate)} → ${formatDate(v.endDate)}</div></td>
             <td><strong>${v.days || '—'}</strong></td>
@@ -372,16 +372,16 @@ function buildBadge(status) {
 }
 
 function buildActions(v) {
-    let html = `<button class="btn-action btn-action--view" title="Ver detalhes" onclick="openViewModal('${v.id}')"><i class="fas fa-eye"></i></button>`;
+    let html = `<button class="btn-action btn-action--view" title="Ver detalhes" data-click="openViewModal" data-click-args="${dargs(v.id)}"><i class="fas fa-eye"></i></button>`;
     if (v.status === 'pendente') {
-        html += `<button class="btn-action btn-action--approve" title="Aprovar" onclick="approveRequest('${v.id}')"><i class="fas fa-check"></i></button>`;
-        html += `<button class="btn-action btn-action--reject"  title="Recusar" onclick="openRejectModal('${v.id}')"><i class="fas fa-times"></i></button>`;
+        html += `<button class="btn-action btn-action--approve" title="Aprovar" data-click="approveRequest" data-click-args="${dargs(v.id)}"><i class="fas fa-check"></i></button>`;
+        html += `<button class="btn-action btn-action--reject"  title="Recusar" data-click="openRejectModal" data-click-args="${dargs(v.id)}"><i class="fas fa-times"></i></button>`;
     }
     if ((v.status === 'aprovado' || v.status === 'concluido') && !v.coletiva) {
-        html += `<button class="btn-action btn-action--receipt" title="Gerar recibo" onclick="generateReceipt('${v.id}')"><i class="fas fa-file-invoice"></i></button>`;
+        html += `<button class="btn-action btn-action--receipt" title="Gerar recibo" data-click="generateReceipt" data-click-args="${dargs(v.id)}"><i class="fas fa-file-invoice"></i></button>`;
     }
     if (v.status === 'aprovado' || v.status === 'pendente') {
-        html += `<button class="btn-action btn-action--edit" title="Editar" onclick="openEditModal('${v.id}')"><i class="fas fa-pen"></i></button>`;
+        html += `<button class="btn-action btn-action--edit" title="Editar" data-click="openEditModal" data-click-args="${dargs(v.id)}"><i class="fas fa-pen"></i></button>`;
     }
     return html;
 }
@@ -1241,8 +1241,8 @@ window.openViewModal = function (id) {
     const calendarActions =
         v.status === 'aprovado' || v.status === 'concluido'
             ? `<div class="view-calendar-actions">
-                <button class="btn-cal" onclick="openGoogleCalendar('${v.id}')"><i class="fab fa-google"></i> Google Calendar</button>
-                <button class="btn-cal" onclick="downloadIcs('${v.id}')"><i class="fas fa-file-arrow-down"></i> Baixar .ics (Outlook)</button>
+                <button class="btn-cal" data-click="openGoogleCalendar" data-click-args="${dargs(v.id)}"><i class="fab fa-google"></i> Google Calendar</button>
+                <button class="btn-cal" data-click="downloadIcs" data-click-args="${dargs(v.id)}"><i class="fas fa-file-arrow-down"></i> Baixar .ics (Outlook)</button>
            </div>`
             : '';
     document.getElementById('view-body').innerHTML = rowsHtml + calendarActions;
@@ -1294,9 +1294,9 @@ window.generateReceipt = function (id) {
             <div>Assinatura do Colaborador</div>
             <div>Assinatura do RH</div>
         </div>
-        <script>window.onload = () => window.print();<\/script>
         </body></html>`);
     win.document.close();
+    printWhenLoaded(win);
 };
 
 function icsDate(dateStr) {
@@ -1396,6 +1396,7 @@ window.exportVacationsCSV = function () {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    NexusAuth.logExport('ferias.csv', rows.length);
     showToast('CSV exportado com sucesso!', 'success');
 };
 
@@ -1434,9 +1435,10 @@ window.exportVacationsPDF = function () {
             <thead><tr><th>Colaborador</th><th>Depto</th><th>Período</th><th>Dias</th><th>Status</th><th>Abono</th><th>Substituto</th></tr></thead>
             <tbody>${tableRows}</tbody>
         </table>
-        <script>window.onload = () => window.print();<\/script>
         </body></html>`);
     win.document.close();
+    NexusAuth.logExport('ferias.pdf', rows.length);
+    printWhenLoaded(win);
 };
 
 window.openExpiredModal = function () {
@@ -1763,7 +1765,7 @@ function showToast(msg, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

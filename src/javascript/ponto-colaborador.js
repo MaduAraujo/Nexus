@@ -607,9 +607,9 @@ function renderTeamApprovals() {
             const tipoLabel = r.tipo === 'credito' ? 'Crédito' : 'Débito';
             const valor = `${r.tipo === 'credito' ? '+' : '-'}${minToStr(r.minutos)}`;
             const anexoBtn = r.anexo_path
-                ? `<button class="btn-link-anexo" onclick="viewBankRequestAnexo('${r.id}')"><i class="fas fa-paperclip"></i> Ver anexo</button>`
+                ? `<button class="btn-link-anexo" data-click="viewBankRequestAnexo" data-click-args="${dargs(r.id)}"><i class="fas fa-paperclip"></i> Ver anexo</button>`
                 : '';
-            return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-user-clock"></i></div><div class="sol-info"><p class="sol-tipo">${esc(empName)} <span class="sol-dept">(${esc(empDept)})</span> — ${tipoLabel} ${valor}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${anexoBtn}</div><div class="aprovacao-actions"><button class="btn-approve" onclick="approveTeamRequest('${r.id}')" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-reject" onclick="openRejectModal('${r.id}')" title="Rejeitar"><i class="fas fa-xmark"></i></button></div></div>`;
+            return `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-user-clock"></i></div><div class="sol-info"><p class="sol-tipo">${esc(empName)} <span class="sol-dept">(${esc(empDept)})</span> — ${tipoLabel} ${valor}</p><p class="sol-meta">Data: ${fmtDate(r.date)} • ${esc(r.justificativa)}</p>${anexoBtn}</div><div class="aprovacao-actions"><button class="btn-approve" data-click="approveTeamRequest" data-click-args="${dargs(r.id)}" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-reject" data-click="openRejectModal" data-click-args="${dargs(r.id)}" title="Rejeitar"><i class="fas fa-xmark"></i></button></div></div>`;
         })
         .join('');
 }
@@ -720,12 +720,8 @@ function setupAnexoPicker() {
 window.viewBankRequestAnexo = async function (id) {
     const r = [...bankRequests, ...teamRequests].find((x) => x.id === id);
     if (!r?.anexo_path) return;
-    const { data, error } = await sb.storage.from('documents').createSignedUrl(r.anexo_path, 3600);
-    if (error || !data?.signedUrl) {
-        showToast('Não foi possível abrir o anexo.', 'error');
-        return;
-    }
-    window.open(data.signedUrl, '_blank');
+    const { error } = await NexusFiles.open('documents', r.anexo_path, { name: r.anexo_name || 'anexo' });
+    if (error) showToast('Não foi possível abrir o anexo.', 'error');
 };
 
 window.openModalBankRequest = function () {
@@ -789,7 +785,7 @@ window.enviarBankRequest = async function () {
         anexoName = null;
     if (file) {
         const storagePath = `${myEmployeeId}/banco-horas/${Date.now()}_${file.name}`;
-        const { error: upErr } = await sb.storage.from('documents').upload(storagePath, file, { contentType: file.type });
+        const { error: upErr } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type });
         if (upErr) {
             showToast('Erro ao enviar o anexo.', 'error');
             return;
@@ -995,7 +991,7 @@ function renderBurnoutCard(alertas) {
             return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
         .join('');
-    section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas ${iconePrincipal}"></i></div><div><p class="burnout-titulo">${tituloPrincipal}</p><p class="burnout-subtitulo">${nivelGeral === 'critico' ? 'O RH foi notificado. Cuide-se!' : 'Identificamos padrões que merecem atenção.'}</p></div></div><button class="burnout-dismiss" onclick="dismissBurnout()" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
+    section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas ${iconePrincipal}"></i></div><div><p class="burnout-titulo">${tituloPrincipal}</p><p class="burnout-subtitulo">${nivelGeral === 'critico' ? 'O RH foi notificado. Cuide-se!' : 'Identificamos padrões que merecem atenção.'}</p></div></div><button class="burnout-dismiss" data-click="dismissBurnout" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
 }
 
 window.dismissBurnout = function () {
@@ -1072,7 +1068,7 @@ function renderCLTCard(alertas) {
             return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
         .join('');
-    section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas fa-scale-balanced"></i></div><div><p class="burnout-titulo">Conformidade CLT</p><p class="burnout-subtitulo">Intervalo intrajornada e DSR (art. 71 CLT / Lei 605/49)</p></div></div><button class="burnout-dismiss" onclick="dismissCLT()" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
+    section.innerHTML = `<div class="burnout-card burnout-card--${nivelGeral}"><div class="burnout-header"><div class="burnout-header-left"><div class="burnout-badge-icon burnout-badge-icon--${nivelGeral}"><i class="fas fa-scale-balanced"></i></div><div><p class="burnout-titulo">Conformidade CLT</p><p class="burnout-subtitulo">Intervalo intrajornada e DSR (art. 71 CLT / Lei 605/49)</p></div></div><button class="burnout-dismiss" data-click="dismissCLT" title="Fechar"><i class="fas fa-times"></i></button></div><div class="burnout-items">${itensHTML}</div></div>`;
 }
 
 window.dismissCLT = function () {
@@ -1481,7 +1477,7 @@ async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificati
         let selfiePath = null;
         if (selfie) {
             selfiePath = `${myEmployeeId}/${date}_${step}_${Date.now()}.jpg`;
-            const { error: upErr } = await sb.storage.from('ponto-selfies').upload(selfiePath, dataUrlToBlob(selfie), { contentType: 'image/jpeg' });
+            const { error: upErr } = await NexusFiles.upload('ponto-selfies', selfiePath, dataUrlToBlob(selfie), { contentType: 'image/jpeg' });
             if (upErr) return false;
         }
         const { data: upserted, error } = await sb
@@ -2180,7 +2176,7 @@ window.showToast = function (title, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(title)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

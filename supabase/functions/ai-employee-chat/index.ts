@@ -123,7 +123,7 @@ async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, e
     caller.from("time_records").select("date,entrada,saida_almoco,retorno_almoco,saida").eq("employee_id", employeeId),
     caller.from("bank_adjustments").select("tipo,minutos,date").eq("employee_id", employeeId).is("deleted_at", null),
     caller.from("hr_settings").select("banco_horas_vencimento_meses").eq("id", 1).single(),
-    caller.from("payslips").select("mes,competencia,salario_liquido,status").eq("employee_id", employeeId).order("mes", { ascending: false }).limit(3),
+    caller.from("payslips_decrypted").select("mes,competencia,salario_liquido,status").eq("employee_id", employeeId).order("mes", { ascending: false }).limit(3),
     caller.from("documents").select("name,tipo,status").eq("employee_id", employeeId).eq("source", "colaborador").eq("status", "pendente"),
     caller.from("adjustment_requests").select("tipo,date,status").eq("employee_id", employeeId).eq("status", "pendente"),
   ]);

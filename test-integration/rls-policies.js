@@ -170,3 +170,100 @@ describe('RLS: profiles', () => {
         });
     });
 });
+
+describe('RLS: leitura sem login (migration 068)', () => {
+    const MSG = 'elogio-fixture-068';
+
+    before(async () => {
+        await withServiceRole((db) => db.query('INSERT INTO kudos (from_employee_id, to_employee_id, message) VALUES ($1, $2, $3)', [E_A, E_B, MSG]));
+    });
+
+    after(async () => {
+        await withServiceRole((db) => db.query('DELETE FROM kudos WHERE message = $1', [MSG]));
+    });
+
+    for (const tabela of ['kudos', 'onboarding_tasks']) {
+        test(`quem não fez login não lê ${tabela}`, async () => {
+            await withUser({ sub: '', role: 'anon' }, async (db) => {
+                let n = 0;
+                try {
+                    n = (await db.query(`SELECT count(*)::int AS n FROM ${tabela}`)).rows[0].n;
+                } catch (e) {
+                    assert.match(e.message, /permission denied/);
+                }
+                assert.equal(n, 0);
+            });
+        });
+    }
+
+    test('quem está logado continua lendo os elogios', async () => {
+        await withUser({ sub: U_C }, async (db) => {
+            const { rows } = await db.query('SELECT message FROM kudos WHERE message = $1', [MSG]);
+            assert.equal(rows.length, 1);
+        });
+    });
+});
+
+describe('Funções expostas pela API (migration 068)', () => {
+    const doBanco = ['generate_compliance_alerts', 'dispatch_deferred_pushes', 'notify_alert_push'];
+    const doUsuarioLogado = [
+        'report_daily_overtime_alert',
+        'approve_bank_request',
+        'approve_adjustment_request',
+        'sign_document',
+        'sign_payslip',
+        'punch_time_record',
+        'get_or_create_dm',
+        'anonymize_employee',
+        'colleague_directory',
+    ];
+
+    const pode = async (db, papel, nomes) =>
+        (
+            await db.query(
+                `SELECT p.proname, has_function_privilege($1, p.oid, 'EXECUTE') AS pode
+                   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = ANY($2)`,
+                [papel, nomes]
+            )
+        ).rows;
+
+    test('rotinas do banco (cron e push) não são chamáveis por anônimo nem por logado', async () => {
+        await withServiceRole(async (db) => {
+            for (const papel of ['anon', 'authenticated']) {
+                const rows = await pode(db, papel, doBanco);
+                assert.equal(rows.length, doBanco.length);
+                assert.deepEqual(
+                    rows.filter((r) => r.pode),
+                    [],
+                    papel
+                );
+            }
+        });
+    });
+
+    test('funções de uso logado: anônimo não chama, usuário logado continua chamando', async () => {
+        await withServiceRole(async (db) => {
+            const anon = await pode(db, 'anon', doUsuarioLogado);
+            assert.equal(anon.length, doUsuarioLogado.length);
+            assert.deepEqual(
+                anon.filter((r) => r.pode),
+                []
+            );
+            const logado = await pode(db, 'authenticated', doUsuarioLogado);
+            assert.deepEqual(
+                logado.filter((r) => !r.pode),
+                []
+            );
+        });
+    });
+
+    test('o pg_cron continua podendo rodar as rotinas (o dono mantém a permissão)', async () => {
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query(
+                "SELECT has_function_privilege('postgres', 'public.generate_compliance_alerts()'::regprocedure, 'EXECUTE') AS pode"
+            );
+            assert.equal(rows[0].pode, true);
+        });
+    });
+});

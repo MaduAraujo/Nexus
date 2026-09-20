@@ -676,7 +676,7 @@
             const uploads = await Promise.all(
                 stagedFiles.map(async (file) => {
                     const path = `${data.id}/${Date.now()}_${file.name}`;
-                    const { error: upErr } = await sb.storage.from('message-attachments').upload(path, file, { contentType: file.type });
+                    const { error: upErr } = await NexusFiles.upload('message-attachments', path, file, { contentType: file.type });
                     return upErr ? null : { name: file.name, path, size: file.size, type: file.type };
                 })
             );
@@ -1005,9 +1005,9 @@
             const item = e.target.closest('.attach-popover-item');
             if (!item) return;
             const anexo = anexos[Number(item.dataset.idx)];
-            const { data } = await sb.storage.from('message-attachments').createSignedUrl(anexo.path, 3600);
-            if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+            const { error } = await NexusFiles.open('message-attachments', anexo.path, { name: anexo.name });
             closeAttachPopover();
+            if (error) alert(error.message);
         });
     }
 
@@ -1417,7 +1417,7 @@
             const uploads = await Promise.all(
                 editStagedFiles.map(async (file) => {
                     const path = `${editingId}/${Date.now()}_${file.name}`;
-                    const { error: upErr } = await sb.storage.from('message-attachments').upload(path, file, { contentType: file.type });
+                    const { error: upErr } = await NexusFiles.upload('message-attachments', path, file, { contentType: file.type });
                     return upErr ? null : { name: file.name, path, size: file.size, type: file.type };
                 })
             );

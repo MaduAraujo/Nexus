@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('pending-docs-chips').innerHTML = missing
             .map((t) => {
                 if (SELF_UPLOAD_TIPOS.includes(t)) {
-                    return `<button type="button" class="pending-doc-chip" onclick="quickUploadTipo('${t.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`;
+                    return `<button type="button" class="pending-doc-chip" data-click="quickUploadTipo" data-click-args="${dargs(t)}"><i class="fas fa-plus"></i> ${t}</button>`;
                 }
                 return `<span class="pending-doc-chip pending-doc-chip--waiting"><i class="fas fa-clock"></i> ${t} — aguardando o RH</span>`;
             })
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const st = statusMap[d.status] || statusMap.pendente;
                 const date = new Date(d.created_at).toLocaleDateString('pt-BR');
                 return `
-                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s" onclick="selectDocById('${d.id}')">
+                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s" data-click="selectDocById" data-click-args="${dargs(d.id)}">
                     <div class="doc-card-icon doc-card-icon--${cls}">
                         <i class="fas ${fa}"></i>
                     </div>
@@ -238,12 +238,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Arquivo indisponível', 'Este documento não tem um arquivo para visualizar.', 'warning');
             return;
         }
-        const { data, error } = await sb.storage.from('documents').createSignedUrl(doc.storage_path, 3600);
-        if (error || !data?.signedUrl) {
-            showToast('Erro ao abrir', 'Não foi possível gerar o link do arquivo.', 'error');
-            return;
-        }
-        window.open(data.signedUrl, '_blank');
+        const { error } = await NexusFiles.open('documents', doc.storage_path, { name: doc.name });
+        if (error) showToast('Erro ao abrir', error.message, 'error');
     };
 
     document.getElementById('doc-card')?.addEventListener('keydown', (e) => {
@@ -453,8 +449,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     function setSelectedFile(file) {
-        if (file.size > 50 * 1024 * 1024) {
-            showToast('Arquivo muito grande!', 'O arquivo ultrapassa o limite de 50 MB.', 'warning');
+        if (file.size > 25 * 1024 * 1024) {
+            showToast('Arquivo muito grande!', 'O arquivo ultrapassa o limite de 25 MB.', 'warning');
             return;
         }
         selectedFile = file;
@@ -496,7 +492,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const existingCurrent = myDocs.find((d) => d.source === 'colaborador' && d.tipo === tipo);
 
-        const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, selectedFile, { contentType: selectedFile.type });
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, selectedFile, { contentType: selectedFile.type });
 
         if (!uploadError) uploadedPath = storagePath;
 
@@ -576,7 +572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);

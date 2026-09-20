@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Arquivos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/arquivos.css">
     <link rel="stylesheet" href="../styles/btn-back.css">
@@ -37,13 +37,13 @@
                             <div class="notif-panel-body" id="notif-panel-body"></div>
                         </div>
                     </div>
-                    <button class="btn-notif" id="btn-requirements" onclick="openRequirementsModal()" aria-label="Configurar checklist" title="Configurar checklist obrigatório">
+                    <button class="btn-notif" id="btn-requirements" data-click="openRequirementsModal" aria-label="Configurar checklist" title="Configurar checklist obrigatório">
                         <i class="fas fa-list-check"></i>
                     </button>
-                    <button class="btn-notif" id="btn-audit" onclick="openAuditModal()" aria-label="Histórico de auditoria" title="Histórico de auditoria">
+                    <button class="btn-notif" id="btn-audit" data-click="openAuditModal" aria-label="Histórico de auditoria" title="Histórico de auditoria">
                         <i class="fas fa-clock-rotate-left"></i>
                     </button>
-                    <button class="btn-upload" id="btn-upload" onclick="openUploadModal()" aria-label="Enviar Arquivo" title="Enviar Arquivo">
+                    <button class="btn-upload" id="btn-upload" data-click="openUploadModal" aria-label="Enviar Arquivo" title="Enviar Arquivo">
                         <i class="fas fa-arrow-up-from-bracket"></i>
                     </button>
                 </div>
@@ -190,7 +190,7 @@
                     <h3 class="modal-title">Enviar Arquivo</h3>
                     <p class="modal-subtitle">Adicione documentos no acervo</p>
                 </div>
-                <button class="close-modal" onclick="closeUploadModal()" aria-label="Fechar">
+                <button class="close-modal" data-click="closeUploadModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
@@ -233,7 +233,7 @@
                                 <i class="fas fa-cloud-arrow-up"></i>
                             </div>
                             <p class="drop-zone-title">Arraste ou <span>escolha os arquivos</span></p>
-                            <p class="drop-zone-hint">.pdf, .docx ou .jpg · até 50 MB</p>
+                            <p class="drop-zone-hint">.pdf, .docx ou .jpg · até 25 MB</p>
                         </div>
                         <input type="file" id="file-input" accept=".pdf,.docx,.jpg,.jpeg,.png" multiple hidden>
                     </div>
@@ -255,7 +255,7 @@
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="btn-submit" onclick="submitUpload()">
+                <button class="btn-submit" data-click="submitUpload">
                     Enviar
                 </button>
             </div>
@@ -272,13 +272,13 @@
                     <h3 class="modal-title">Histórico de versões</h3>
                     <p class="modal-subtitle">Versões anteriores permanecem guardadas para auditoria</p>
                 </div>
-                <button class="close-modal" onclick="closeHistoryModal()" aria-label="Fechar">
+                <button class="close-modal" data-click="closeHistoryModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
             <div class="modal-body" id="history-modal-body"></div>
             <div class="modal-footer">
-                <button class="btn-cancel" onclick="closeHistoryModal()">Fechar</button>
+                <button class="btn-cancel" data-click="closeHistoryModal">Fechar</button>
             </div>
         </div>
     </div>
@@ -293,7 +293,7 @@
                     <h3 class="modal-title">Histórico de auditoria</h3>
                     <p class="modal-subtitle">Ações realizadas em cada documento</p>
                 </div>
-                <button class="close-modal" onclick="closeAuditModal()" aria-label="Fechar">
+                <button class="close-modal" data-click="closeAuditModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
@@ -322,7 +322,7 @@
                     <h3 class="modal-title">Checklist obrigatório</h3>
                     <p class="modal-subtitle">Documentos exigidos para o checklist de pendências</p>
                 </div>
-                <button class="close-modal" onclick="closeRequirementsModal()" aria-label="Fechar">
+                <button class="close-modal" data-click="closeRequirementsModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
@@ -332,7 +332,7 @@
                     <div class="requirements-chips" id="requirements-admissional"></div>
                     <div class="requirements-add">
                         <input type="text" id="requirements-add-admissional" placeholder="Novo tipo obrigatório...">
-                        <button type="button" onclick="addRequirement('admissional')" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                        <button type="button" data-click="addRequirement" data-click-args='["admissional"]' aria-label="Adicionar"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
                 <div class="requirements-group">
@@ -340,7 +340,7 @@
                     <div class="requirements-chips" id="requirements-demissional"></div>
                     <div class="requirements-add">
                         <input type="text" id="requirements-add-demissional" placeholder="Novo tipo obrigatório...">
-                        <button type="button" onclick="addRequirement('demissional')" aria-label="Adicionar"><i class="fas fa-plus"></i></button>
+                        <button type="button" data-click="addRequirement" data-click-args='["demissional"]' aria-label="Adicionar"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
             </div>
@@ -384,9 +384,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" integrity="sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F" crossorigin="anonymous"></script>
+    <script src="../javascript/shared/events.js"></script>
     <script src="../javascript/shared/html.js"></script>
     <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/mfa.js"></script>
     <script src="../javascript/shared/auth.js"></script>
+    <script src="../javascript/shared/files.js"></script>
     <script src="../javascript/shared/search.js"></script>
     <script src="../javascript/arquivos.js"></script>
 </body>

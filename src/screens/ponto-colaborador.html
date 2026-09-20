@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Registrar Ponto</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="../styles/ponto-colaborador.css">
@@ -24,10 +24,10 @@
             </a>
         </div>
         <div class="topbar-right">
-            <button class="btn-icon-topbar" onclick="openModalAjuste()" aria-label="Solicitar Ajuste" title="Solicitar Ajuste">
+            <button class="btn-icon-topbar" data-click="openModalAjuste" aria-label="Solicitar Ajuste" title="Solicitar Ajuste">
                 <i class="fas fa-edit"></i>
             </button>
-            <button class="btn-icon-topbar" onclick="openModalBankRequest()" aria-label="Solicitar Compensação" title="Solicitar Compensação">
+            <button class="btn-icon-topbar" data-click="openModalBankRequest" aria-label="Solicitar Compensação" title="Solicitar Compensação">
                 <i class="fas fa-clock-rotate-left"></i>
             </button>
         </div>
@@ -87,7 +87,7 @@
                             <span id="ponto-status-text">Carregando...</span>
                         </div>
 
-                        <button class="btn-ponto" id="btn-ponto" onclick="abrirConfirmar()">
+                        <button class="btn-ponto" id="btn-ponto" data-click="abrirConfirmar">
                             <i class="fas fa-sign-in-alt" id="btn-ponto-icon"></i>
                             <span id="btn-ponto-text">Registrar Entrada</span>
                         </button>
@@ -192,7 +192,7 @@
                                 <span class="map-info-val" id="map-dist-val">—</span>
                             </div>
                         </div>
-                        <button class="btn-refresh-loc" onclick="initLocation()" title="Atualizar localização">
+                        <button class="btn-refresh-loc" data-click="initLocation" title="Atualizar localização">
                             <i class="fas fa-rotate-right"></i>
                         </button>
                     </div>
@@ -254,7 +254,7 @@
     <div class="modal-content modal-sm">
         <div class="modal-header">
             <h3><i class="fas fa-fingerprint"></i> Confirmar Registro</h3>
-            <button class="modal-close" onclick="closeModal('modal-confirmar')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-confirmar"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <div class="confirmar-info">
@@ -288,10 +288,10 @@
                 <img id="selfie-preview" class="hidden" alt="Selfie capturada" />
                 <canvas id="selfie-canvas"></canvas>
                 <div class="selfie-actions">
-                    <button type="button" class="btn-selfie-shoot" id="btn-selfie-shoot" onclick="capturarSelfie()">
+                    <button type="button" class="btn-selfie-shoot" id="btn-selfie-shoot" data-click="capturarSelfie">
                         <i class="fas fa-camera"></i> Tirar Selfie
                     </button>
-                    <button type="button" class="btn-selfie-retake hidden" id="btn-selfie-retake" onclick="retomarSelfie()">
+                    <button type="button" class="btn-selfie-retake hidden" id="btn-selfie-retake" data-click="retomarSelfie">
                         <i class="fas fa-rotate-left"></i> Repetir
                     </button>
                 </div>
@@ -303,7 +303,7 @@
                 <p class="excesso-legal-msg" id="excesso-legal-msg"><i class="fas fa-triangle-exclamation"></i></p>
                 <div class="form-group">
                     <label for="excesso-legal-just">Motivo do excesso <span class="req">*</span></label>
-                    <textarea id="excesso-legal-just" rows="2" placeholder="Ex.: serviço inadiável, força maior..." oninput="onExcessoLegalJustInput()"></textarea>
+                    <textarea id="excesso-legal-just" rows="2" placeholder="Ex.: serviço inadiável, força maior..." data-input="onExcessoLegalJustInput"></textarea>
                 </div>
             </div>
 
@@ -313,7 +313,7 @@
             </p>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" id="btn-confirmar-ponto" onclick="confirmarRegistro()" disabled>
+            <button class="btn-primary" id="btn-confirmar-ponto" data-click="confirmarRegistro" disabled>
                 Confirmar
             </button>
         </div>
@@ -324,7 +324,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fas fa-edit"></i> Solicitar Ajuste de Ponto</h3>
-            <button class="modal-close" onclick="closeModal('modal-ajuste')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-ajuste"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <div class="info-banner">
@@ -375,7 +375,7 @@
             </div>
             <div class="form-group" id="ajuste-horario-group">
                 <label>Horário correto <span class="req">*</span></label>
-                <button type="button" class="date-trigger" id="ajuste-horario-trigger" onclick="openModalRelogio()">
+                <button type="button" class="date-trigger" id="ajuste-horario-trigger" data-click="openModalRelogio">
                     <i class="fas fa-clock"></i>
                     <span id="ajuste-horario-text" class="date-trigger-placeholder">Selecione</span>
                 </button>
@@ -384,12 +384,12 @@
             </div>
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
-                <textarea id="ajuste-justificativa" rows="3" oninput="updateAjusteBtnState()"></textarea>
+                <textarea id="ajuste-justificativa" rows="3" data-input="updateAjusteBtnState"></textarea>
                 <span class="field-error" id="err-ajuste-just"></span>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" id="btn-ajuste-enviar" onclick="enviarSolicitacao()" disabled>
+            <button class="btn-primary" id="btn-ajuste-enviar" data-click="enviarSolicitacao" disabled>
                 Enviar Solicitação
             </button>
         </div>
@@ -400,7 +400,7 @@
     <div class="modal-content modal-sm">
         <div class="modal-header">
             <h3><i class="fas fa-clock"></i> Horário correto</h3>
-            <button class="modal-close" onclick="closeModal('modal-relogio')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-relogio"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body clock-modal-body">
             <div class="clock-display">
@@ -414,8 +414,8 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" type="button" onclick="closeModal('modal-relogio')">Cancelar</button>
-            <button class="btn-primary" type="button" id="btn-clock-confirm" onclick="confirmClockModal()">OK</button>
+            <button class="btn-secondary" type="button" data-click="closeModal" data-click-args='["modal-relogio"]'>Cancelar</button>
+            <button class="btn-primary" type="button" id="btn-clock-confirm" data-click="confirmClockModal">OK</button>
         </div>
     </div>
 </div>
@@ -424,7 +424,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3><i class="fas fa-clock-rotate-left"></i> Solicitar Compensação de Horas</h3>
-            <button class="modal-close" onclick="closeModal('modal-bank-request')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-bank-request"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <div class="info-banner">
@@ -471,7 +471,7 @@
             </div>
             <div class="form-group">
                 <label>Duração <span class="req">*</span></label>
-                <button type="button" class="date-trigger" id="bankreq-duracao-trigger" onclick="openModalDuracao()">
+                <button type="button" class="date-trigger" id="bankreq-duracao-trigger" data-click="openModalDuracao">
                     <i class="fas fa-hourglass-half"></i>
                     <span id="bankreq-duracao-text" class="date-trigger-placeholder">Selecione</span>
                 </button>
@@ -481,7 +481,7 @@
             </div>
             <div class="form-group">
                 <label>Justificativa <span class="req">*</span></label>
-                <textarea id="bankreq-justificativa" rows="3" oninput="updateBankReqBtnState()"></textarea>
+                <textarea id="bankreq-justificativa" rows="3" data-input="updateBankReqBtnState"></textarea>
                 <span class="field-error" id="err-bankreq-just"></span>
             </div>
             <div class="form-group">
@@ -496,7 +496,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" id="btn-bankreq-enviar" onclick="enviarBankRequest()" disabled>
+            <button class="btn-primary" id="btn-bankreq-enviar" data-click="enviarBankRequest" disabled>
                 Enviar Solicitação
             </button>
         </div>
@@ -507,7 +507,7 @@
     <div class="modal-content modal-sm">
         <div class="modal-header">
             <h3><i class="fas fa-hourglass-half"></i> Duração</h3>
-            <button class="modal-close" onclick="closeModal('modal-bankreq-duracao')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-bankreq-duracao"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body clock-modal-body">
             <div class="clock-display">
@@ -526,7 +526,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" type="button" id="btn-duracao-confirm" onclick="confirmDuracaoModal()">OK</button>
+            <button class="btn-primary" type="button" id="btn-duracao-confirm" data-click="confirmDuracaoModal">OK</button>
         </div>
     </div>
 </div>
@@ -535,7 +535,7 @@
     <div class="modal-content modal-sm">
         <div class="modal-header">
             <h3><i class="fas fa-xmark"></i> Rejeitar Solicitação</h3>
-            <button class="modal-close" onclick="closeModal('modal-reject-obs')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-reject-obs"]'><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -545,8 +545,8 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="closeModal('modal-reject-obs')">Cancelar</button>
-            <button class="btn-primary" onclick="confirmRejectBankRequest()">
+            <button class="btn-secondary" data-click="closeModal" data-click-args='["modal-reject-obs"]'>Cancelar</button>
+            <button class="btn-primary" data-click="confirmRejectBankRequest">
                 <i class="fas fa-xmark"></i> Confirmar Rejeição
             </button>
         </div>
@@ -558,9 +558,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js" integrity="sha384-M5nePoB6/w/a9JhtegEibSLGiJy/+QMZZMfvcxjWVCQW/HPwrQ7i21V/Px/8AyVA" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/files.js"></script>
 <script src="../javascript/domain/clt-domain.js"></script>
 <script src="../javascript/ponto-colaborador.js"></script>
 </body>

@@ -830,7 +830,7 @@ async function loadHistory() {
     if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Carregando...</p></div>`;
     try {
         const { data } = await sb
-            .from('ai_analysis_history')
+            .from('ai_analysis_history_decrypted')
             .select('id,summary,health_score,alerts,analyzed_at')
             .order('analyzed_at', { ascending: false })
             .limit(20);
@@ -880,7 +880,7 @@ function historyItemHtml(item) {
             .join('') || `<span style="font-size:.75rem;color:#94a3b8">Sem alertas nesta análise</span>`;
     return `
     <div class="history-item">
-        <div class="history-item-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="history-item-header" data-click="toggleParentOpen">
             <div class="history-item-meta">
                 <span class="history-score ${sc}">${score ?? '—'}</span>
                 <div class="history-item-info">
@@ -1442,7 +1442,7 @@ function renderComunidadeKudos() {
                 <p class="kudos-mod-msg">${esc(k.message)}</p>
                 <span class="kudos-mod-time">${formatDate(new Date(k.created_at))}</span>
             </div>
-            <button class="kudos-mod-remove" onclick="removeKudosMod('${k.id}')" title="Remover do mural"><i class="fas fa-trash"></i></button>
+            <button class="kudos-mod-remove" data-click="removeKudosMod" data-click-args="${dargs(k.id)}" title="Remover do mural"><i class="fas fa-trash"></i></button>
         </div>`
         )
         .join('');
@@ -1457,7 +1457,7 @@ window.removeKudosMod = async function (id) {
 };
 
 async function loadAnonFeedbackMod() {
-    const { data } = await sb.from('anonymous_feedback').select('*').order('created_at', { ascending: false });
+    const { data } = await sb.from('anonymous_feedback_decrypted').select('*').order('created_at', { ascending: false });
     allAnonFeedbackMod = data || [];
     updateComunidadeBadge();
     renderComunidadeFeedback();
@@ -1489,8 +1489,8 @@ function renderComunidadeFeedback() {
             </div>
             <p class="af-item-msg">${esc(f.message)}</p>
             <div class="af-item-actions">
-                ${f.status !== 'lido' ? `<button class="af-item-btn" onclick="markAnonFeedbackMod('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
-                ${f.status !== 'arquivado' ? `<button class="af-item-btn" onclick="markAnonFeedbackMod('${f.id}','arquivado')"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
+                ${f.status !== 'lido' ? `<button class="af-item-btn" data-click="markAnonFeedbackMod" data-click-args="${dargs(f.id, 'lido')}"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
+                ${f.status !== 'arquivado' ? `<button class="af-item-btn" data-click="markAnonFeedbackMod" data-click-args="${dargs(f.id, 'arquivado')}"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
             </div>
         </div>`
         )
@@ -1579,7 +1579,7 @@ async function loadGestores() {
 
 async function loadChatHistory() {
     try {
-        const { data } = await sb.from('ai_chat_history').select('role,content').order('created_at', { ascending: true }).limit(60);
+        const { data } = await sb.from('ai_chat_history_decrypted').select('role,content').order('created_at', { ascending: true }).limit(60);
         if (!data || !data.length) return;
         hideInitialChips();
         data.forEach((m) => appendChatMessage(m.role, m.content));
@@ -1627,7 +1627,7 @@ async function saveAnalysisCache(summary, alerts, healthScore) {
 
 async function markAlertResolved(idx) {
     try {
-        const { data } = await sb.from('ai_analysis_cache').select('alerts').eq('cache_key', 'latest').single();
+        const { data } = await sb.from('ai_analysis_cache_decrypted').select('alerts').eq('cache_key', 'latest').single();
         if (!data?.alerts) return;
         const alerts = data.alerts.map((a, i) => (i === idx ? { ...a, resolved: true } : a));
         await sb.from('ai_analysis_cache').update({ alerts }).eq('cache_key', 'latest');
@@ -1647,7 +1647,7 @@ function renderHealthScore(score) {
 
 async function loadAnalysisCache() {
     try {
-        const { data, error } = await sb.from('ai_analysis_cache').select('summary, alerts, analyzed_at').eq('cache_key', 'latest').single();
+        const { data, error } = await sb.from('ai_analysis_cache_decrypted').select('summary, alerts, analyzed_at').eq('cache_key', 'latest').single();
 
         if (error || !data || !Array.isArray(data.alerts) || !data.alerts.length) return;
 

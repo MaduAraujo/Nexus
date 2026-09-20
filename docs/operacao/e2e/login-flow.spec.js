@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { LOCAL_SUPABASE_URL, LOCAL_SUPABASE_ANON_KEY } = require('../test-support/e2e-supabase-config.js');
 const { E2E_USERS } = require('../test-support/e2e-seed.js');
+const { submitAdminMfa } = require('../test-support/e2e-mfa.js');
 
 const ORIGINAL_CLIENT_PATH = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
 
@@ -22,6 +23,7 @@ async function login(page, { email, password }, profileType) {
     await page.fill('#login-user', email);
     await page.fill('#login-pass', password);
     await page.click('#btn-login');
+    if (profileType === 'Administrador' && email === E2E_USERS.administrador.email && password === E2E_USERS.administrador.password) await submitAdminMfa(page);
 }
 
 test.describe('Login → dashboard (sistema, ponta a ponta contra Supabase local real)', () => {
@@ -41,6 +43,22 @@ test.describe('Login → dashboard (sistema, ponta a ponta contra Supabase local
 
         await page.waitForURL('**/inicio-rh.html');
         await expect(page.locator('#rh-sidebar-name')).toHaveText(E2E_USERS.administrador.name);
+    });
+
+    test('administrador com código de verificação errado não entra', async ({ page }) => {
+        await page.goto('/src/screens/login.html');
+        await page.click('.profile-card.rh');
+        await page.click('#btn-continue');
+        await page.fill('#login-user', E2E_USERS.administrador.email);
+        await page.fill('#login-pass', E2E_USERS.administrador.password);
+        await page.click('#btn-login');
+
+        await page.waitForSelector('#form-mfa.active');
+        await page.fill('#mfa-code', '000000');
+        await page.click('#btn-mfa');
+
+        await expect(page.locator('#mfa-code-err')).toContainText('inválido');
+        await expect(page).toHaveURL(/login\.html/);
     });
 
     test('colaborador não consegue entrar com credenciais erradas', async ({ page }) => {

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a0a0d" />
+    <link rel="icon" href="/src/assets/icons/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/src/assets/icons/apple-touch-icon.png" />
+    <script src="/src/javascript/shared/pwa-register.js"></script>
+    <script src="../javascript/shared/theme.js"></script>
+    <title>Segurança</title>
+    <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
+    <link rel="stylesheet" href="../styles/seguranca.css">
+    <link rel="stylesheet" href="../styles/mfa.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-left">
+            <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </a>
+        </div>
+        <div class="topbar-right"></div>
+    </header>
+
+    <main class="content">
+        <div class="page-body">
+            <div class="sec-card">
+                <h3><i class="fas fa-shield-alt"></i> Verificação em duas etapas</h3>
+                <p class="sec-card-desc">Protege o acesso ao painel de RH com um código do seu app autenticador, além da senha.</p>
+                <div id="mfa-card" class="mfa-card"></div>
+            </div>
+
+            <div class="sec-card">
+                <div class="sec-card-head">
+                    <h3><i class="fas fa-triangle-exclamation"></i> Alertas de comportamento anormal</h3>
+                    <button type="button" id="sec-mark-read" class="sec-btn" hidden></button>
+                </div>
+                <p class="sec-card-desc">Logins falhos em série, exportações e downloads em massa e acesso fora do horário comercial. Notificações push só chegam em horário comercial.</p>
+                <div id="sec-alerts" class="sec-alerts" aria-live="polite"></div>
+            </div>
+
+            <div class="sec-card">
+                <h3><i class="fas fa-sliders"></i> Regras ativas</h3>
+                <div id="sec-rules" class="sec-rules"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+    <script src="../javascript/shared/events.js"></script>
+    <script src="../javascript/shared/html.js"></script>
+    <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/mfa.js"></script>
+    <script src="../javascript/shared/auth.js"></script>
+    <script src="../javascript/shared/mfa-setup.js"></script>
+    <script src="../javascript/seguranca.js"></script>
+</body>
+</html>

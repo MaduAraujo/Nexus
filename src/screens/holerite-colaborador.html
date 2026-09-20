@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Holerites</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/holerite-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
@@ -70,15 +70,15 @@
                             </span>
                         </div>
                         <div class="payslip-actions-btns">
-                            <button class="btn-print btn-ghost" onclick="openComparativoModal()" aria-label="Comparativo" title="Comparativo">
+                            <button class="btn-print btn-ghost" data-click="openComparativoModal" aria-label="Comparativo" title="Comparativo">
                                 <i class="fas fa-chart-line"></i>
                                 <span>Comparativo</span>
                             </button>
-                            <button class="btn-print btn-ghost" onclick="openInformeModal()" aria-label="Informe de Rendimentos" title="Informe de Rendimentos">
+                            <button class="btn-print btn-ghost" data-click="openInformeModal" aria-label="Informe de Rendimentos" title="Informe de Rendimentos">
                                 <i class="fas fa-file-invoice"></i>
                                 <span>Informe de Rendimentos</span>
                             </button>
-                            <button class="btn-print btn-ghost" onclick="printPayslip()" aria-label="Imprimir" title="Imprimir">
+                            <button class="btn-print btn-ghost" data-click="printPayslip" aria-label="Imprimir" title="Imprimir">
                                 <i class="fas fa-print"></i>
                                 <span>Imprimir</span>
                             </button>
@@ -199,7 +199,7 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="comparativo-modal-title">
             <div class="modal-header">
                 <h3 id="comparativo-modal-title"><i class="fas fa-chart-line"></i> Comparativo Histórico</h3>
-                <button class="modal-close" onclick="closeComparativoModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closeComparativoModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -220,7 +220,7 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="informe-modal-title">
             <div class="modal-header">
                 <h3 id="informe-modal-title"><i class="fas fa-file-invoice"></i> Informe de Rendimentos</h3>
-                <button class="modal-close" onclick="closeInformeModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closeInformeModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -244,7 +244,7 @@
                 <p class="informe-empty hidden" id="informe-empty">Nenhum holerite pago encontrado para este ano.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-print" onclick="printInforme()"><span>Imprimir</span></button>
+                <button class="btn-print" data-click="printInforme"><span>Imprimir</span></button>
             </div>
         </div>
     </div>
@@ -253,18 +253,18 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="print-orientation-title">
             <div class="modal-header">
                 <h3 id="print-orientation-title"><i class="fas fa-print"></i> Imprimir Holerite</h3>
-                <button class="modal-close" onclick="closePrintOrientationModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closePrintOrientationModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
                 <p class="print-orientation-hint">Escolha a orientação da página</p>
                 <div class="print-orientation-options">
-                    <button type="button" class="print-orientation-option" onclick="printPayslipWithOrientation('portrait')">
+                    <button type="button" class="print-orientation-option" data-click="printPayslipWithOrientation" data-click-args='["portrait"]'>
                         <span class="print-orientation-icon print-orientation-icon--portrait"></span>
                         <span class="print-orientation-label">Vertical</span>
                     </button>
-                    <button type="button" class="print-orientation-option" onclick="printPayslipWithOrientation('landscape')">
+                    <button type="button" class="print-orientation-option" data-click="printPayslipWithOrientation" data-click-args='["landscape"]'>
                         <span class="print-orientation-icon print-orientation-icon--landscape"></span>
                         <span class="print-orientation-label">Horizontal</span>
                     </button>
@@ -356,8 +356,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/holerite-colaborador.js"></script>
 </body>

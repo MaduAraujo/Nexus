@@ -256,7 +256,7 @@
 
     function historyBtn(doc) {
         if (!(doc.version > 1)) return '';
-        return `<button class="btn-icon btn-icon--history" title="Ver histórico de versões" onclick="showVersionHistory('${doc.id}')"><i class="fas fa-clock-rotate-left"></i></button>`;
+        return `<button class="btn-icon btn-icon--history" title="Ver histórico de versões" data-click="showVersionHistory" data-click-args="${dargs(doc.id)}"><i class="fas fa-clock-rotate-left"></i></button>`;
     }
 
     function signBadge(doc) {
@@ -311,10 +311,10 @@
                     <td class="file-size">${d.size_label || '—'}</td>
                     <td>${validadeCell(d.data_validade)}</td>
                     <td><div class="actions-cell">
-                        <button class="btn-icon btn-icon--approve" title="Aprovar"  onclick="approveColabDoc('${d.id}')"><i class="fas fa-check"></i></button>
-                        <button class="btn-icon btn-icon--reject"  title="Recusar"  onclick="rejectColabDoc('${d.id}')"><i class="fas fa-times"></i></button>
+                        <button class="btn-icon btn-icon--approve" title="Aprovar"  data-click="approveColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-check"></i></button>
+                        <button class="btn-icon btn-icon--reject"  title="Recusar"  data-click="rejectColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-times"></i></button>
                         ${historyBtn(d)}
-                        <button class="btn-icon btn-icon--delete"  title="Excluir"  onclick="deleteColabDoc('${d.id}','${escapeHtml(d.storage_path) || ''}')"><i class="fas fa-trash"></i></button>
+                        <button class="btn-icon btn-icon--delete"  title="Excluir"  data-click="deleteColabDoc" data-click-args="${dargs(d.id, d.storage_path || '')}"><i class="fas fa-trash"></i></button>
                     </div></td>
                 </tr>`;
                 })
@@ -350,9 +350,9 @@
                 <td class="file-size">${f.size_label || '—'}</td>
                 <td>${validadeCell(f.data_validade)}</td>
                 <td><div class="actions-cell">
-                    <button class="btn-icon btn-icon--view"   title="Visualizar" onclick="viewFile('${f.id}','${escapeHtml(f.storage_path) || ''}')"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon btn-icon--view"   title="Visualizar" data-click="viewFile" data-click-args="${dargs(f.id, f.storage_path || '')}"><i class="fas fa-eye"></i></button>
                     ${historyBtn(f)}
-                    <button class="btn-icon btn-icon--delete" title="Excluir"    onclick="deleteFile('${f.id}','${escapeHtml(f.storage_path) || ''}')"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon btn-icon--delete" title="Excluir"    data-click="deleteFile" data-click-args="${dargs(f.id, f.storage_path || '')}"><i class="fas fa-trash"></i></button>
                 </div></td>
             </tr>`;
             })
@@ -407,7 +407,7 @@
                 (p) => `
             <div class="checklist-row">
                 <span class="checklist-row-name">${escapeHtml(p.emp.name)}</span>
-                ${p.missing.map((t) => `<button type="button" class="checklist-chip" onclick="openUploadModal('${p.emp.id}','${activeTab}','${t.replace(/'/g, "\\'")}')"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
+                ${p.missing.map((t) => `<button type="button" class="checklist-chip" data-click="openUploadModal" data-click-args="${dargs(p.emp.id, activeTab, t)}"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
             </div>`
             )
             .join('');
@@ -453,7 +453,7 @@
         const iconMap = { vencido: 'fa-triangle-exclamation', avencer: 'fa-clock', recusado: 'fa-times-circle', assinatura: 'fa-pen-nib' };
         const rows = [];
         if (checklistCount) {
-            rows.push(`<div class="notif-item" onclick="closeNotifPanel()">
+            rows.push(`<div class="notif-item" data-click="closeNotifPanel">
                 <div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-clipboard-list"></i></div>
                 <div class="notif-item-body">
                     <span class="notif-item-title">${checklistCount} colaborador${checklistCount > 1 ? 'es' : ''} com documentos obrigatórios pendentes</span>
@@ -462,7 +462,7 @@
             </div>`);
         }
         items.slice(0, 25).forEach((it) => {
-            rows.push(`<div class="notif-item" onclick="goToNotifItem('${it.docId}','${escapeHtml(it.category)}')">
+            rows.push(`<div class="notif-item" data-click="goToNotifItem" data-click-args="${dargs(it.docId, it.category)}">
                 <div class="notif-item-icon notif-item-icon--${it.type}"><i class="fas ${iconMap[it.type]}"></i></div>
                 <div class="notif-item-body"><span class="notif-item-title">${escapeHtml(it.label)}</span></div>
             </div>`);
@@ -754,13 +754,13 @@
 
         if (activeTab === 'colaborador') {
             bulkBarActions.innerHTML = `
-                <button type="button" class="bulk-bar-btn bulk-bar-btn--success" onclick="bulkApproveColab()"><i class="fas fa-check"></i> Aprovar</button>
-                <button type="button" class="bulk-bar-btn" onclick="bulkRejectColab()"><i class="fas fa-times"></i> Recusar</button>
-                <button type="button" class="bulk-bar-btn bulk-bar-btn--danger" onclick="bulkDeleteColab()"><i class="fas fa-trash"></i> Excluir</button>`;
+                <button type="button" class="bulk-bar-btn bulk-bar-btn--success" data-click="bulkApproveColab"><i class="fas fa-check"></i> Aprovar</button>
+                <button type="button" class="bulk-bar-btn" data-click="bulkRejectColab"><i class="fas fa-times"></i> Recusar</button>
+                <button type="button" class="bulk-bar-btn bulk-bar-btn--danger" data-click="bulkDeleteColab"><i class="fas fa-trash"></i> Excluir</button>`;
         } else {
             bulkBarActions.innerHTML = `
-                <button type="button" class="bulk-bar-btn" onclick="bulkDownloadRh()"><i class="fas fa-download"></i> Baixar</button>
-                <button type="button" class="bulk-bar-btn bulk-bar-btn--danger" onclick="bulkDeleteRh()"><i class="fas fa-trash"></i> Excluir</button>`;
+                <button type="button" class="bulk-bar-btn" data-click="bulkDownloadRh"><i class="fas fa-download"></i> Baixar</button>
+                <button type="button" class="bulk-bar-btn bulk-bar-btn--danger" data-click="bulkDeleteRh"><i class="fas fa-trash"></i> Excluir</button>`;
         }
     }
 
@@ -872,11 +872,9 @@
             return;
         }
         for (const doc of docs) {
-            const { data } = await sb.storage.from('documents').createSignedUrl(doc.storage_path, 3600);
-            if (!data?.signedUrl) continue;
+            const { blob } = await NexusFiles.download('documents', doc.storage_path);
+            if (!blob) continue;
             try {
-                const res = await fetch(data.signedUrl);
-                const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -936,9 +934,12 @@
             showToast('Arquivo indisponível', 'Caminho do arquivo não encontrado.', 'warning');
             return;
         }
-        const { data } = await sb.storage.from('documents').createSignedUrl(storagePath, 3600);
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
         const doc = rhDocs.concat(colabDocs).find((d) => d.id === id);
+        const { error } = await NexusFiles.open('documents', storagePath, { name: doc?.name });
+        if (error) {
+            showToast('Não foi possível abrir', error.message, 'error');
+            return;
+        }
         if (doc?.employee_id) NexusAuth.logAccess(doc.employee_id, 'documento', doc.name);
     };
 
@@ -962,7 +963,7 @@
                     <span class="history-row-name">${escapeHtml(d.name)}</span>
                     <span class="history-row-meta">${fmtDate(d.created_at)} · ${d.size_label || '—'}</span>
                 </div>
-                ${d.storage_path ? `<button class="btn-icon btn-icon--view" title="Visualizar" onclick="viewFile('${d.id}','${escapeHtml(d.storage_path)}')"><i class="fas fa-eye"></i></button>` : ''}
+                ${d.storage_path ? `<button class="btn-icon btn-icon--view" title="Visualizar" data-click="viewFile" data-click-args="${dargs(d.id, d.storage_path)}"><i class="fas fa-eye"></i></button>` : ''}
             </div>`
             )
             .join('');
@@ -1048,7 +1049,7 @@
         container.innerHTML = items
             .map(
                 (r) => `
-            <span class="requirements-chip">${escapeHtml(r.tipo)}<button type="button" onclick="removeRequirement('${r.id}')" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>
+            <span class="requirements-chip">${escapeHtml(r.tipo)}<button type="button" data-click="removeRequirement" data-click-args="${dargs(r.id)}" aria-label="Remover"><i class="fas fa-xmark"></i></button></span>
         `
             )
             .join('');
@@ -1189,7 +1190,7 @@
             <div class="file-selected-item">
                 <div class="file-selected-icon"><i class="fas fa-file-circle-check"></i></div>
                 <span>${escapeHtml(f.name)}</span>
-                <button type="button" onclick="removeSelectedFile(${i})" aria-label="Remover arquivo"><i class="fas fa-xmark"></i></button>
+                <button type="button" data-click="removeSelectedFile" data-click-args="${dargs(i)}" aria-label="Remover arquivo"><i class="fas fa-xmark"></i></button>
             </div>`
             )
             .join('');
@@ -1199,8 +1200,8 @@
         const files = Array.from(fileList || []);
         let ocrCandidate = null;
         for (const file of files) {
-            if (file.size > 50 * 1024 * 1024) {
-                showToast('Arquivo muito grande!', `${file.name} ultrapassa o limite de 50 MB.`, 'warning');
+            if (file.size > 25 * 1024 * 1024) {
+                showToast('Arquivo muito grande!', `${file.name} ultrapassa o limite de 25 MB.`, 'warning');
                 continue;
             }
             if (selectedFiles.some((f) => f.name === file.name && f.size === file.size)) continue;
@@ -1303,7 +1304,7 @@
             const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
             const storagePath = `rh/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
 
-            const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, file);
+            const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file);
             if (uploadError) {
                 showToast('Erro no upload', `Não foi possível enviar ${file.name}.`, 'error');
                 continue;
@@ -1396,7 +1397,7 @@
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);

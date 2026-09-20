@@ -12,7 +12,7 @@ async function withServiceRole(fn) {
     }
 }
 
-async function withUser({ sub, role = 'authenticated' }, fn) {
+async function withUser({ sub, role = 'authenticated', aal = 'aal2' }, fn) {
     const client = new Client({ connectionString: DB_URL });
     await client.connect();
     try {
@@ -20,6 +20,7 @@ async function withUser({ sub, role = 'authenticated' }, fn) {
         await client.query(`SET LOCAL ROLE ${role === 'anon' ? 'anon' : 'authenticated'}`);
         await client.query("SELECT set_config('request.jwt.claim.sub', $1, true)", [sub]);
         await client.query("SELECT set_config('request.jwt.claim.role', $1, true)", [role]);
+        await client.query("SELECT set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub, role, aal })]);
         return await fn(client);
     } finally {
         await client.query('ROLLBACK').catch(() => {});

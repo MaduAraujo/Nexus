@@ -922,7 +922,7 @@ CREATE POLICY "tmsg_colab_insert_own" ON hr_ticket_messages FOR INSERT
     )
   );
 
-CREATE POLICY "kudos_read_all"   ON kudos FOR SELECT USING (true);
+CREATE POLICY "kudos_read_all"   ON kudos FOR SELECT TO authenticated USING (true);
 CREATE POLICY "kudos_colab_give" ON kudos FOR INSERT WITH CHECK (from_employee_id = my_employee_id());
 CREATE POLICY "kudos_rh_all"     ON kudos FOR ALL    USING (is_rh());
 
@@ -931,7 +931,7 @@ CREATE POLICY "anon_feedback_colab_insert" ON anonymous_feedback FOR INSERT
 
 CREATE POLICY "anon_feedback_rh_all" ON anonymous_feedback FOR ALL USING (is_rh());
 
-CREATE POLICY "onboarding_tasks_read_all" ON onboarding_tasks FOR SELECT USING (true);
+CREATE POLICY "onboarding_tasks_read_all" ON onboarding_tasks FOR SELECT TO authenticated USING (true);
 CREATE POLICY "onboarding_tasks_rh_all"   ON onboarding_tasks FOR ALL    USING (is_rh());
 
 CREATE POLICY "onboarding_progress_colab_own" ON onboarding_progress FOR ALL USING (employee_id = my_employee_id());
@@ -2308,3 +2308,1726 @@ UPDATE employees SET cpf = cpf;
 ALTER TABLE employees ENABLE TRIGGER employees_updated_at;
 
 SELECT nexus_refresh_employees_view();
+
+CREATE OR REPLACE FUNCTION public.mfa_ok()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF COALESCE(auth.jwt() ->> 'aal', '') = 'aal2' THEN
+    RETURN TRUE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM auth.mfa_factors f WHERE f.user_id = auth.uid() AND f.status = 'verified') THEN
+    RETURN FALSE;
+  END IF;
+  RETURN NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.profile = 'Administrador');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.mfa_ok() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.mfa_ok() TO authenticated;
+
+DO $$
+DECLARE
+  t RECORD;
+BEGIN
+  FOR t IN
+    SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity AND c.relname <> 'profiles'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS mfa_required ON public.%I', t.relname);
+    EXECUTE format('CREATE POLICY mfa_required ON public.%I AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()))', t.relname);
+  END LOOP;
+
+  IF to_regclass('storage.objects') IS NOT NULL THEN
+    DROP POLICY IF EXISTS mfa_required ON storage.objects;
+    CREATE POLICY mfa_required ON storage.objects AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()));
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION nexus_decrypt_ctx(p_context TEXT, p_cipher TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_kind TEXT := split_part(p_context, ':', 1);
+  v_id   UUID;
+  v_ok   BOOLEAN := FALSE;
+BEGIN
+  IF p_cipher IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  IF v_kind = 'ai' THEN
+    IF NOT is_rh() THEN
+      RETURN NULL;
+    END IF;
+    RETURN nexus_unwrap(p_context, p_cipher);
+  END IF;
+
+  BEGIN
+    v_id := split_part(p_context, ':', 2)::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+  END;
+
+  IF v_kind = 'emp' THEN
+    v_ok := is_rh() OR v_id = my_employee_id();
+  ELSIF v_kind = 'chan' THEN
+    v_ok := (is_rh() AND NOT chat_channel_is_dm(v_id)) OR chat_is_member(v_id);
+  ELSIF v_kind = 'tkt' THEN
+    v_ok := is_rh() OR EXISTS (SELECT 1 FROM hr_tickets t WHERE t.id = v_id AND t.employee_id = my_employee_id());
+  ELSIF v_kind = 'slip' THEN
+    v_ok := is_rh() OR v_id = my_employee_id();
+  ELSIF v_kind = 'fb' THEN
+    v_ok := is_rh();
+  ELSIF v_kind = 'ail' THEN
+    v_ok := is_rh() OR EXISTS (SELECT 1 FROM ai_decision_log l WHERE l.id = v_id AND l.employee_id = my_employee_id());
+  END IF;
+
+  IF NOT COALESCE(v_ok, FALSE) THEN
+    RETURN NULL;
+  END IF;
+  RETURN nexus_unwrap(p_context, p_cipher);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_decrypt_ctx_bool(p_context TEXT, p_cipher TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_plain TEXT := nexus_decrypt_ctx(p_context, p_cipher);
+BEGIN
+  IF v_plain IN ('true', 'false') THEN
+    RETURN v_plain::BOOLEAN;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_decrypt_ctx_jsonb(p_context TEXT, p_cipher TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_plain TEXT := nexus_decrypt_ctx(p_context, p_cipher);
+BEGIN
+  IF v_plain IS NULL THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_plain::JSONB;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_decrypt_ctx(TEXT, TEXT)       FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION nexus_decrypt_ctx_bool(TEXT, TEXT)  FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION nexus_decrypt_ctx_jsonb(TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx(TEXT, TEXT)       TO authenticated;
+GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_bool(TEXT, TEXT)  TO authenticated;
+GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_jsonb(TEXT, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_value IS NULL OR p_value LIKE 'nexus:enc1:%' THEN
+    RETURN p_value;
+  END IF;
+  IF p_value !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+    RAISE EXCEPTION '% inválido', p_label USING ERRCODE = '22P02';
+  END IF;
+  RETURN (p_value::NUMERIC(10, 2))::TEXT;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_norm_json(p_label TEXT, p_value TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_value IS NULL OR p_value LIKE 'nexus:enc1:%' THEN
+    RETURN p_value;
+  END IF;
+  RETURN p_value::JSONB::TEXT;
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION '% inválido', p_label USING ERRCODE = '22P02';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_norm_money(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_norm_json(TEXT, TEXT)  FROM PUBLIC, anon, authenticated;
+
+DROP VIEW IF EXISTS public.employees_decrypted;
+
+DO $$
+DECLARE
+  v_col TEXT;
+BEGIN
+  FOREACH v_col IN ARRAY ARRAY['pcd', 'pensao_alimenticia'] LOOP
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = v_col) <> 'text' THEN
+      EXECUTE format('ALTER TABLE employees ALTER COLUMN %I DROP DEFAULT', v_col);
+      EXECUTE format('ALTER TABLE employees ALTER COLUMN %I TYPE TEXT USING %I::TEXT', v_col, v_col);
+      EXECUTE format('ALTER TABLE employees ALTER COLUMN %I SET DEFAULT ''false''', v_col);
+    END IF;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION employees_encrypt_sensitive()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'emp:' || NEW.id::TEXT;
+BEGIN
+  IF NEW.salary IS NOT NULL AND NEW.salary NOT LIKE 'nexus:enc1:%' THEN
+    IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.salary := (NEW.salary::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.birth_date IS NOT NULL AND NEW.birth_date NOT LIKE 'nexus:enc1:%' THEN
+    IF NEW.birth_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
+      RAISE EXCEPTION 'Data de nascimento inválida' USING ERRCODE = '22007';
+    END IF;
+    NEW.birth_date := (left(NEW.birth_date, 10)::DATE)::TEXT;
+  END IF;
+
+  IF NEW.pcd IS NOT NULL AND NEW.pcd NOT LIKE 'nexus:enc1:%' THEN
+    IF lower(NEW.pcd) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador PcD inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pcd := lower(NEW.pcd);
+  END IF;
+
+  IF NEW.pensao_alimenticia IS NOT NULL AND NEW.pensao_alimenticia NOT LIKE 'nexus:enc1:%' THEN
+    IF lower(NEW.pensao_alimenticia) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador de pensão alimentícia inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pensao_alimenticia := lower(NEW.pensao_alimenticia);
+  END IF;
+
+  NEW.cpf_hash           := nexus_blind_index(nexus_unwrap(v_ctx, NEW.cpf));
+  NEW.cpf                := nexus_wrap(v_ctx, NEW.cpf);
+  NEW.rg                 := nexus_wrap(v_ctx, NEW.rg);
+  NEW.telefone           := nexus_wrap(v_ctx, NEW.telefone);
+  NEW.salary             := nexus_wrap(v_ctx, NEW.salary);
+  NEW.chave_pix          := nexus_wrap(v_ctx, NEW.chave_pix);
+  NEW.agencia            := nexus_wrap(v_ctx, NEW.agencia);
+  NEW.conta              := nexus_wrap(v_ctx, NEW.conta);
+  NEW.birth_date         := nexus_wrap(v_ctx, NEW.birth_date);
+  NEW.gender             := nexus_wrap(v_ctx, NEW.gender);
+  NEW.raca_cor           := nexus_wrap(v_ctx, NEW.raca_cor);
+  NEW.deficiencia        := nexus_wrap(v_ctx, NEW.deficiencia);
+  NEW.tipo_pensao        := nexus_wrap(v_ctx, NEW.tipo_pensao);
+  NEW.pcd                := nexus_wrap(v_ctx, NEW.pcd);
+  NEW.pensao_alimenticia := nexus_wrap(v_ctx, NEW.pensao_alimenticia);
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_refresh_employees_view()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_cols TEXT;
+BEGIN
+  SELECT string_agg(
+           CASE a.attname
+             WHEN 'salary'             THEN 'nexus_decrypt_ctx_numeric(''emp:'' || e.id::text, e.salary) AS salary'
+             WHEN 'birth_date'         THEN 'nexus_decrypt_ctx_date(''emp:'' || e.id::text, e.birth_date) AS birth_date'
+             WHEN 'pcd'                THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pcd) AS pcd'
+             WHEN 'pensao_alimenticia' THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pensao_alimenticia) AS pensao_alimenticia'
+             WHEN 'cpf'                THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.cpf) AS cpf'
+             WHEN 'rg'                 THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.rg) AS rg'
+             WHEN 'telefone'           THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.telefone) AS telefone'
+             WHEN 'chave_pix'          THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.chave_pix) AS chave_pix'
+             WHEN 'agencia'            THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.agencia) AS agencia'
+             WHEN 'conta'              THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.conta) AS conta'
+             WHEN 'gender'             THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.gender) AS gender'
+             WHEN 'raca_cor'           THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.raca_cor) AS raca_cor'
+             WHEN 'deficiencia'        THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.deficiencia) AS deficiencia'
+             WHEN 'tipo_pensao'        THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.tipo_pensao) AS tipo_pensao'
+             ELSE format('e.%I', a.attname)
+           END,
+           ', ' ORDER BY a.attnum)
+    INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = 'public.employees'::regclass
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+     AND a.attname <> 'cpf_hash';
+
+  DROP VIEW IF EXISTS public.employees_decrypted;
+  EXECUTE format('CREATE VIEW public.employees_decrypted WITH (security_invoker = true) AS SELECT %s FROM public.employees e', v_cols);
+
+  REVOKE ALL ON public.employees_decrypted FROM PUBLIC, anon;
+  GRANT SELECT ON public.employees_decrypted TO authenticated;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_refresh_employees_view() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE employees DISABLE TRIGGER employees_updated_at;
+UPDATE employees SET cpf = cpf;
+ALTER TABLE employees ENABLE TRIGGER employees_updated_at;
+
+SELECT nexus_refresh_employees_view();
+
+DO $$
+DECLARE
+  v_col TEXT;
+BEGIN
+  FOREACH v_col IN ARRAY ARRAY['proventos', 'descontos', 'total_proventos', 'total_descontos', 'salario_liquido'] LOOP
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'payslips' AND column_name = v_col) <> 'text' THEN
+      EXECUTE format('ALTER TABLE payslips ALTER COLUMN %I TYPE TEXT USING %I::TEXT', v_col, v_col);
+    END IF;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION payslips_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'slip:' || NEW.employee_id::TEXT || ':' || NEW.mes || ':';
+BEGIN
+  IF TG_OP = 'UPDATE' AND (NEW.employee_id IS DISTINCT FROM OLD.employee_id OR NEW.mes IS DISTINCT FROM OLD.mes) THEN
+    RAISE EXCEPTION 'Um holerite não pode mudar de colaborador nem de mês' USING ERRCODE = '42501';
+  END IF;
+
+  NEW.proventos       := nexus_wrap(v_ctx || 'proventos',       nexus_norm_json('Proventos', NEW.proventos));
+  NEW.descontos       := nexus_wrap(v_ctx || 'descontos',       nexus_norm_json('Descontos', NEW.descontos));
+  NEW.total_proventos := nexus_wrap(v_ctx || 'total_proventos', nexus_norm_money('Total de proventos', NEW.total_proventos));
+  NEW.total_descontos := nexus_wrap(v_ctx || 'total_descontos', nexus_norm_money('Total de descontos', NEW.total_descontos));
+  NEW.salario_liquido := nexus_wrap(v_ctx || 'salario_liquido', nexus_norm_money('Salário líquido', NEW.salario_liquido));
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION payslips_encrypt() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS payslips_encrypt_trg ON payslips;
+CREATE TRIGGER payslips_encrypt_trg
+  BEFORE INSERT OR UPDATE ON payslips
+  FOR EACH ROW EXECUTE FUNCTION payslips_encrypt();
+
+UPDATE payslips SET proventos = proventos;
+
+DROP VIEW IF EXISTS payslips_decrypted;
+CREATE VIEW payslips_decrypted WITH (security_invoker = true) AS
+  SELECT p.id, p.employee_id, p.mes, p.mes_formatado, p.competencia,
+         nexus_decrypt_ctx_jsonb('slip:' || p.employee_id::text || ':' || p.mes || ':proventos', p.proventos) AS proventos,
+         nexus_decrypt_ctx_jsonb('slip:' || p.employee_id::text || ':' || p.mes || ':descontos', p.descontos) AS descontos,
+         nexus_decrypt_ctx_numeric('slip:' || p.employee_id::text || ':' || p.mes || ':total_proventos', p.total_proventos) AS total_proventos,
+         nexus_decrypt_ctx_numeric('slip:' || p.employee_id::text || ':' || p.mes || ':total_descontos', p.total_descontos) AS total_descontos,
+         nexus_decrypt_ctx_numeric('slip:' || p.employee_id::text || ':' || p.mes || ':salario_liquido', p.salario_liquido) AS salario_liquido,
+         p.status, p.pago_em, p.created_by, p.created_at, p.assinado_em, p.assinado_por
+    FROM payslips p;
+
+CREATE OR REPLACE FUNCTION anonymous_feedback_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  NEW.message := nexus_wrap('fb:' || NEW.id::TEXT || ':message', NEW.message);
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION anonymous_feedback_encrypt() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS anonymous_feedback_encrypt_trg ON anonymous_feedback;
+CREATE TRIGGER anonymous_feedback_encrypt_trg
+  BEFORE INSERT OR UPDATE OF message ON anonymous_feedback
+  FOR EACH ROW EXECUTE FUNCTION anonymous_feedback_encrypt();
+
+UPDATE anonymous_feedback SET message = message;
+
+DROP VIEW IF EXISTS anonymous_feedback_decrypted;
+CREATE VIEW anonymous_feedback_decrypted WITH (security_invoker = true) AS
+  SELECT f.id, f.categoria, nexus_decrypt_ctx('fb:' || f.id::text || ':message', f.message) AS message, f.status, f.created_at
+    FROM anonymous_feedback f;
+
+DO $$
+DECLARE
+  v_spec TEXT[];
+BEGIN
+  FOREACH v_spec SLICE 1 IN ARRAY ARRAY[
+    ARRAY['ai_analysis_cache',   'alerts',   '''[]'''],
+    ARRAY['ai_analysis_history', 'alerts',   '''[]'''],
+    ARRAY['ai_decision_log',     'evidence', NULL]
+  ] LOOP
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = v_spec[1] AND column_name = v_spec[2]) <> 'text' THEN
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I DROP DEFAULT', v_spec[1], v_spec[2]);
+      EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE TEXT USING %I::TEXT', v_spec[1], v_spec[2], v_spec[2]);
+      IF v_spec[3] IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN %I SET DEFAULT %s', v_spec[1], v_spec[2], v_spec[3]);
+      END IF;
+    END IF;
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION ai_analysis_cache_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'ai:cache:' || NEW.cache_key || ':';
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.cache_key IS DISTINCT FROM OLD.cache_key THEN
+    RAISE EXCEPTION 'A chave do cache de análise não pode mudar' USING ERRCODE = '42501';
+  END IF;
+  NEW.summary := nexus_wrap(v_ctx || 'summary', NEW.summary);
+  NEW.alerts  := nexus_wrap(v_ctx || 'alerts', nexus_norm_json('Alertas', NEW.alerts));
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION ai_analysis_history_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'ai:hist:' || NEW.id::TEXT || ':';
+BEGIN
+  NEW.summary := nexus_wrap(v_ctx || 'summary', NEW.summary);
+  NEW.alerts  := nexus_wrap(v_ctx || 'alerts', nexus_norm_json('Alertas', NEW.alerts));
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION ai_chat_history_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  NEW.content := nexus_wrap('ai:chat:' || NEW.id::TEXT || ':content', NEW.content);
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION ai_decision_memory_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  NEW.description := nexus_wrap('ai:mem:' || NEW.id::TEXT || ':description', NEW.description);
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION ai_decision_log_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'ail:' || NEW.id::TEXT || ':';
+BEGIN
+  NEW.ai_message := nexus_wrap(v_ctx || 'ai_message', NEW.ai_message);
+  NEW.evidence   := nexus_wrap(v_ctx || 'evidence', nexus_norm_json('Evidências', NEW.evidence));
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION ai_analysis_cache_encrypt()   FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION ai_analysis_history_encrypt() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION ai_chat_history_encrypt()     FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION ai_decision_memory_encrypt()  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION ai_decision_log_encrypt()     FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS ai_analysis_cache_encrypt_trg ON ai_analysis_cache;
+CREATE TRIGGER ai_analysis_cache_encrypt_trg
+  BEFORE INSERT OR UPDATE ON ai_analysis_cache
+  FOR EACH ROW EXECUTE FUNCTION ai_analysis_cache_encrypt();
+
+DROP TRIGGER IF EXISTS ai_analysis_history_encrypt_trg ON ai_analysis_history;
+CREATE TRIGGER ai_analysis_history_encrypt_trg
+  BEFORE INSERT OR UPDATE ON ai_analysis_history
+  FOR EACH ROW EXECUTE FUNCTION ai_analysis_history_encrypt();
+
+DROP TRIGGER IF EXISTS ai_chat_history_encrypt_trg ON ai_chat_history;
+CREATE TRIGGER ai_chat_history_encrypt_trg
+  BEFORE INSERT OR UPDATE OF content ON ai_chat_history
+  FOR EACH ROW EXECUTE FUNCTION ai_chat_history_encrypt();
+
+DROP TRIGGER IF EXISTS ai_decision_memory_encrypt_trg ON ai_decision_memory;
+CREATE TRIGGER ai_decision_memory_encrypt_trg
+  BEFORE INSERT OR UPDATE OF description ON ai_decision_memory
+  FOR EACH ROW EXECUTE FUNCTION ai_decision_memory_encrypt();
+
+DROP TRIGGER IF EXISTS ai_decision_log_encrypt_trg ON ai_decision_log;
+CREATE TRIGGER ai_decision_log_encrypt_trg
+  BEFORE INSERT OR UPDATE OF ai_message, evidence ON ai_decision_log
+  FOR EACH ROW EXECUTE FUNCTION ai_decision_log_encrypt();
+
+UPDATE ai_analysis_cache   SET summary = summary;
+UPDATE ai_analysis_history SET summary = summary;
+UPDATE ai_chat_history     SET content = content;
+UPDATE ai_decision_memory  SET description = description;
+UPDATE ai_decision_log     SET ai_message = ai_message;
+
+DROP VIEW IF EXISTS ai_analysis_cache_decrypted;
+CREATE VIEW ai_analysis_cache_decrypted WITH (security_invoker = true) AS
+  SELECT c.id, c.cache_key,
+         nexus_decrypt_ctx('ai:cache:' || c.cache_key || ':summary', c.summary) AS summary,
+         nexus_decrypt_ctx_jsonb('ai:cache:' || c.cache_key || ':alerts', c.alerts) AS alerts,
+         c.health_score, c.analyzed_at
+    FROM ai_analysis_cache c;
+
+DROP VIEW IF EXISTS ai_analysis_history_decrypted;
+CREATE VIEW ai_analysis_history_decrypted WITH (security_invoker = true) AS
+  SELECT h.id,
+         nexus_decrypt_ctx('ai:hist:' || h.id::text || ':summary', h.summary) AS summary,
+         h.health_score,
+         nexus_decrypt_ctx_jsonb('ai:hist:' || h.id::text || ':alerts', h.alerts) AS alerts,
+         h.analyzed_at
+    FROM ai_analysis_history h;
+
+DROP VIEW IF EXISTS ai_chat_history_decrypted;
+CREATE VIEW ai_chat_history_decrypted WITH (security_invoker = true) AS
+  SELECT m.id, m.role, nexus_decrypt_ctx('ai:chat:' || m.id::text || ':content', m.content) AS content, m.created_at
+    FROM ai_chat_history m;
+
+DROP VIEW IF EXISTS ai_decision_memory_decrypted;
+CREATE VIEW ai_decision_memory_decrypted WITH (security_invoker = true) AS
+  SELECT d.id, d.action_type, nexus_decrypt_ctx('ai:mem:' || d.id::text || ':description', d.description) AS description, d.created_at
+    FROM ai_decision_memory d;
+
+DROP VIEW IF EXISTS ai_decision_log_decrypted;
+CREATE VIEW ai_decision_log_decrypted WITH (security_invoker = true) AS
+  SELECT l.id, l.employee_id, l.target_table, l.target_id, l.action_type,
+         nexus_decrypt_ctx('ail:' || l.id::text || ':ai_message', l.ai_message) AS ai_message,
+         nexus_decrypt_ctx_jsonb('ail:' || l.id::text || ':evidence', l.evidence) AS evidence,
+         l.decided_by_name, l.decided_by_email, l.created_at
+    FROM ai_decision_log l;
+
+REVOKE ALL ON payslips_decrypted, anonymous_feedback_decrypted, ai_analysis_cache_decrypted, ai_analysis_history_decrypted,
+              ai_chat_history_decrypted, ai_decision_memory_decrypted, ai_decision_log_decrypted FROM PUBLIC, anon;
+GRANT SELECT ON payslips_decrypted, anonymous_feedback_decrypted, ai_analysis_cache_decrypted, ai_analysis_history_decrypted,
+                ai_chat_history_decrypted, ai_decision_memory_decrypted, ai_decision_log_decrypted TO authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- 065: buckets de Storage cifrados (supabase/migrations/065_storage_encrypted_buckets.sql)
+-- ---------------------------------------------------------------------------
+-- Cifragem de arquivos do Storage (Edge Function nexus-files).
+-- Os buckets documents, message-attachments e ponto-selfies passam a guardar só bytes cifrados, gravados como
+-- application/octet-stream. Por isso a lista de tipos permitidos do Storage não serve mais (rejeitaria tudo): quem
+-- valida tipo, conteúdo e tamanho, antes de cifrar, é a própria função (supabase/functions/_shared/files-core.mjs).
+-- O limite de tamanho do bucket fica um pouco acima do limite da função (o arquivo cifrado tem ~50 bytes a mais).
+--
+-- avatars continua público e sem cifra (fotos de perfil são exibidas por URL pública).
+-- Aplicar ANTES de rodar scripts/encrypt-existing-files.mjs (o backfill grava application/octet-stream).
+
+DO $$
+BEGIN
+  IF to_regclass('storage.buckets') IS NULL THEN
+    RAISE NOTICE 'Storage indisponível neste banco: ajuste os buckets no painel (sem allowed_mime_types).';
+    RETURN;
+  END IF;
+
+  UPDATE storage.buckets
+     SET allowed_mime_types = NULL, file_size_limit = 25 * 1024 * 1024 + 4096
+   WHERE id = 'documents';
+
+  UPDATE storage.buckets
+     SET allowed_mime_types = NULL, file_size_limit = 10 * 1024 * 1024 + 4096
+   WHERE id = 'message-attachments';
+
+  UPDATE storage.buckets
+     SET allowed_mime_types = NULL, file_size_limit = 3 * 1024 * 1024 + 4096
+   WHERE id = 'ponto-selfies';
+END $$;
+
+CREATE TABLE IF NOT EXISTS security_events (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind       TEXT NOT NULL CHECK (kind IN ('login_failed', 'login_success', 'data_export', 'file_download')),
+  actor_id   UUID,
+  email_hash TEXT,
+  ip         TEXT,
+  detail     JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS security_events_actor_idx ON security_events(kind, actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS security_events_hash_idx  ON security_events(kind, email_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS security_events_time_idx  ON security_events(created_at);
+
+CREATE TABLE IF NOT EXISTS security_rules (
+  kind             TEXT PRIMARY KEY CHECK (kind IN ('login_failures', 'login_after_failures', 'mass_export', 'mass_download', 'off_hours_access')),
+  enabled          BOOLEAN NOT NULL DEFAULT true,
+  threshold        INTEGER NOT NULL DEFAULT 1 CHECK (threshold >= 1),
+  threshold_rows   INTEGER CHECK (threshold_rows IS NULL OR threshold_rows >= 1),
+  window_minutes   INTEGER NOT NULL DEFAULT 60 CHECK (window_minutes >= 1),
+  cooldown_minutes INTEGER NOT NULL DEFAULT 60 CHECK (cooldown_minutes >= 1),
+  severity         TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('critical', 'warning', 'info')),
+  params           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  description      TEXT NOT NULL DEFAULT ''
+);
+
+INSERT INTO security_rules (kind, threshold, threshold_rows, window_minutes, cooldown_minutes, severity, params, description) VALUES
+  ('login_failures',       5,  NULL, 15,  60,  'warning',  '{}',
+   'Tentativas de login falhas em série na mesma conta'),
+  ('login_after_failures', 3,  NULL, 30,  60,  'warning',  '{}',
+   'Login bem-sucedido logo depois de várias falhas (possível senha adivinhada)'),
+  ('mass_export',          5,  500,  60,  60,  'warning',  '{}',
+   'Muitas exportações ou volume grande de registros exportados pela mesma pessoa'),
+  ('mass_download',        30, NULL, 10,  30,  'warning',  '{}',
+   'Muitos arquivos baixados pela mesma pessoa em pouco tempo'),
+  ('off_hours_access',     1,  NULL, 60,  720, 'warning',
+   '{"start_hour": 8, "end_hour": 18, "weekdays_only": true, "profiles": ["Administrador"]}',
+   'Acesso ao painel fora do horário comercial (fuso America/Sao_Paulo)')
+ON CONFLICT (kind) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS security_alerts (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind             TEXT NOT NULL CHECK (kind IN ('login_failures', 'login_after_failures', 'mass_export', 'mass_download', 'off_hours_access')),
+  severity         TEXT NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
+  subject_key      TEXT NOT NULL,
+  actor_id         UUID,
+  subject_label    TEXT NOT NULL,
+  title            TEXT NOT NULL,
+  message          TEXT NOT NULL,
+  detail           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  lido             BOOLEAN NOT NULL DEFAULT false,
+  lido_at          TIMESTAMPTZ,
+  lido_por         UUID,
+  push_scheduled_at TIMESTAMPTZ,
+  push_sent_at     TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS security_alerts_recent_idx  ON security_alerts(created_at DESC);
+CREATE INDEX IF NOT EXISTS security_alerts_subject_idx ON security_alerts(kind, subject_key, created_at DESC);
+
+ALTER TABLE security_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_rules  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_alerts ENABLE ROW LEVEL SECURITY;
+
+-- Eventos: só as funções abaixo (dono da tabela) leem e gravam; nada pela API.
+REVOKE ALL ON security_events FROM PUBLIC, anon, authenticated;
+-- Regras e alertas: o RH só lê. Marcar como lido é pela função mark_security_alerts_read; ninguém apaga nem edita alerta pela API.
+REVOKE ALL ON security_rules  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON security_alerts FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON security_rules  TO authenticated;
+GRANT SELECT ON security_alerts TO authenticated;
+
+DROP POLICY IF EXISTS "rh_security_rules_select"  ON security_rules;
+DROP POLICY IF EXISTS "rh_security_alerts_select" ON security_alerts;
+CREATE POLICY "rh_security_rules_select"  ON security_rules  FOR SELECT USING (is_rh());
+CREATE POLICY "rh_security_alerts_select" ON security_alerts FOR SELECT USING (is_rh());
+
+-- Política mfa_required (migration 063) nas tabelas novas. Se a 063 ainda não foi aplicada, esta migration não depende dela:
+-- o laço da 063 cobre toda tabela com RLS existente na hora em que rodar, inclusive estas.
+DO $$
+DECLARE
+  t TEXT;
+BEGIN
+  IF to_regprocedure('public.mfa_ok()') IS NULL THEN
+    RETURN;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['security_events', 'security_rules', 'security_alerts'] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS mfa_required ON public.%I', t);
+    EXECUTE format('CREATE POLICY mfa_required ON public.%I AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()))', t);
+  END LOOP;
+END $$;
+
+-- IP de quem chamou (cabeçalho que o gateway do Supabase põe na requisição). Só aceita caracteres de IP.
+CREATE OR REPLACE FUNCTION security_request_ip()
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_ip TEXT;
+BEGIN
+  BEGIN
+    v_ip := trim(split_part(COALESCE(current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''), ',', 1));
+  EXCEPTION WHEN others THEN
+    RETURN NULL;
+  END;
+  IF v_ip !~ '^[0-9a-fA-F:.]{2,45}$' THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_ip;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION security_subject_label(p_actor UUID)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(NULLIF(e.name, ''), u.email, 'Usuário removido')
+  FROM (SELECT 1) one
+  LEFT JOIN auth.users u ON u.id = p_actor
+  LEFT JOIN profiles p ON p.id = p_actor
+  LEFT JOIN employees e ON e.id = p.employee_id;
+$$;
+
+-- Grava o alerta, no máximo um por (tipo, alvo) dentro do período de espera da regra. Nunca deixa uma falha de push
+-- (ou de qualquer parte daqui) quebrar a operação que gerou o evento.
+CREATE OR REPLACE FUNCTION security_raise_alert(
+  p_rule        security_rules,
+  p_subject_key TEXT,
+  p_actor       UUID,
+  p_label       TEXT,
+  p_title       TEXT,
+  p_message     TEXT,
+  p_detail      JSONB,
+  p_severity    TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_id UUID;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('security_alert:' || p_rule.kind || ':' || p_subject_key));
+
+  IF EXISTS (
+    SELECT 1 FROM security_alerts
+    WHERE kind = p_rule.kind AND subject_key = p_subject_key
+      AND created_at > now() - make_interval(mins => p_rule.cooldown_minutes)
+  ) THEN
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO security_alerts (kind, severity, subject_key, actor_id, subject_label, title, message, detail)
+  VALUES (p_rule.kind, COALESCE(p_severity, p_rule.severity), p_subject_key, p_actor, p_label, p_title, p_message, COALESCE(p_detail, '{}'::jsonb))
+  RETURNING id INTO v_id;
+
+  BEGIN
+    PERFORM notify_alert_push('security_alerts', v_id);
+  EXCEPTION WHEN others THEN
+    RAISE WARNING 'security_raise_alert: push do alerta % não enviado (%)', v_id, SQLERRM;
+  END;
+
+  RETURN v_id;
+END;
+$$;
+
+-- Insere o evento, mas para de gravar quando a mesma origem passa do teto por hora (a checagem de regra continua valendo
+-- com o que já foi gravado). Protege a tabela de encher com chamadas repetidas.
+CREATE OR REPLACE FUNCTION security_insert_event(
+  p_kind       TEXT,
+  p_actor      UUID,
+  p_email_hash TEXT,
+  p_detail     JSONB,
+  p_cap_hour   INTEGER
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_recent INTEGER;
+BEGIN
+  SELECT count(*) INTO v_recent FROM security_events
+  WHERE kind = p_kind
+    AND created_at > now() - interval '1 hour'
+    AND ((p_actor IS NOT NULL AND actor_id = p_actor) OR (p_email_hash IS NOT NULL AND email_hash = p_email_hash));
+
+  IF v_recent >= p_cap_hour THEN
+    RETURN FALSE;
+  END IF;
+
+  INSERT INTO security_events (kind, actor_id, email_hash, ip, detail)
+  VALUES (p_kind, p_actor, p_email_hash, security_request_ip(), COALESCE(p_detail, '{}'::jsonb));
+  RETURN TRUE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION security_check_login_failures(p_actor UUID, p_email_hash TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_rule    security_rules;
+  v_count   INTEGER;
+  v_last_ip TEXT;
+  v_label   TEXT;
+  v_key     TEXT;
+BEGIN
+  SELECT * INTO v_rule FROM security_rules WHERE kind = 'login_failures' AND enabled;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  SELECT count(*) INTO v_count FROM security_events
+  WHERE kind = 'login_failed'
+    AND created_at > now() - make_interval(mins => v_rule.window_minutes)
+    AND ((p_actor IS NOT NULL AND actor_id = p_actor) OR (p_email_hash IS NOT NULL AND email_hash = p_email_hash));
+
+  IF v_count < v_rule.threshold THEN RETURN; END IF;
+
+  SELECT ip INTO v_last_ip FROM security_events
+  WHERE kind = 'login_failed' AND ip IS NOT NULL
+    AND ((p_actor IS NOT NULL AND actor_id = p_actor) OR (p_email_hash IS NOT NULL AND email_hash = p_email_hash))
+  ORDER BY created_at DESC LIMIT 1;
+
+  IF p_actor IS NOT NULL THEN
+    v_key := p_actor::TEXT;
+    v_label := security_subject_label(p_actor);
+  ELSE
+    v_key := p_email_hash;
+    v_label := 'E-mail não cadastrado (' || left(p_email_hash, 6) || ')';
+  END IF;
+
+  PERFORM security_raise_alert(
+    v_rule, v_key, p_actor, v_label,
+    format('%s tentativas de login falhas em %s min', v_count, v_rule.window_minutes),
+    format('%s teve %s tentativas de login sem sucesso nos últimos %s minutos.%s', v_label, v_count, v_rule.window_minutes,
+           CASE WHEN v_last_ip IS NOT NULL THEN ' Último IP: ' || v_last_ip || '.' ELSE '' END),
+    jsonb_build_object('failures', v_count, 'window_minutes', v_rule.window_minutes, 'last_ip', v_last_ip),
+    CASE WHEN p_actor IS NULL THEN 'info' ELSE NULL END
+  );
+END;
+$$;
+
+-- Chamada pela tela de login (anon) quando o e-mail/senha é recusado.
+CREATE OR REPLACE FUNCTION report_login_failure(p_email TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_email TEXT := lower(trim(COALESCE(p_email, '')));
+  v_hash  TEXT;
+  v_uid   UUID;
+BEGIN
+  IF length(v_email) < 3 OR length(v_email) > 254 THEN
+    RETURN;
+  END IF;
+
+  -- Teto global por hora: sem isso um script anônimo enche a tabela.
+  IF (SELECT count(*) FROM security_events WHERE kind = 'login_failed' AND created_at > now() - interval '1 hour') >= 5000 THEN
+    RETURN;
+  END IF;
+
+  v_hash := encode(digest(v_email, 'sha256'), 'hex');
+  SELECT id INTO v_uid FROM auth.users WHERE lower(email) = v_email LIMIT 1;
+
+  PERFORM security_insert_event('login_failed', v_uid, v_hash, jsonb_build_object('stage', 'password'), 60);
+  PERFORM security_check_login_failures(v_uid, v_hash);
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'report_login_failure: %', SQLERRM;
+END;
+$$;
+
+-- Código do segundo fator errado (a senha já passou, então há sessão de aal1).
+CREATE OR REPLACE FUNCTION report_mfa_failure()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+  PERFORM security_insert_event('login_failed', v_uid, NULL, jsonb_build_object('stage', 'mfa'), 60);
+  PERFORM security_check_login_failures(v_uid, NULL);
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'report_mfa_failure: %', SQLERRM;
+END;
+$$;
+
+-- p_kind = 'login' (login concluído, com MFA quando houver) ou 'session' (abertura de tela com sessão já existente).
+CREATE OR REPLACE FUNCTION record_access(p_kind TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid       UUID := auth.uid();
+  v_profile   TEXT;
+  v_rule      security_rules;
+  v_failures  INTEGER;
+  v_sp        TIMESTAMP;
+  v_hour      INTEGER;
+  v_dow       INTEGER;
+  v_start     INTEGER;
+  v_end       INTEGER;
+  v_off       BOOLEAN;
+  v_ip        TEXT := security_request_ip();
+BEGIN
+  IF v_uid IS NULL OR p_kind NOT IN ('login', 'session') THEN RETURN; END IF;
+
+  SELECT profile INTO v_profile FROM profiles WHERE id = v_uid;
+  IF v_profile IS NULL THEN RETURN; END IF;
+
+  IF p_kind = 'login' THEN
+    PERFORM security_insert_event('login_success', v_uid, NULL, jsonb_build_object('profile', v_profile), 60);
+
+    SELECT * INTO v_rule FROM security_rules WHERE kind = 'login_after_failures' AND enabled;
+    IF FOUND THEN
+      SELECT count(*) INTO v_failures FROM security_events
+      WHERE kind = 'login_failed' AND actor_id = v_uid
+        AND created_at > now() - make_interval(mins => v_rule.window_minutes);
+
+      IF v_failures >= v_rule.threshold THEN
+        PERFORM security_raise_alert(
+          v_rule, v_uid::TEXT, v_uid, security_subject_label(v_uid),
+          format('Login concluído após %s falhas seguidas', v_failures),
+          format('%s entrou com sucesso depois de %s tentativas falhas nos últimos %s minutos. Se não foi essa pessoa, troque a senha da conta.%s',
+                 security_subject_label(v_uid), v_failures, v_rule.window_minutes, CASE WHEN v_ip IS NOT NULL THEN ' IP: ' || v_ip || '.' ELSE '' END),
+          jsonb_build_object('failures', v_failures, 'window_minutes', v_rule.window_minutes, 'ip', v_ip)
+        );
+      END IF;
+    END IF;
+  END IF;
+
+  SELECT * INTO v_rule FROM security_rules WHERE kind = 'off_hours_access' AND enabled;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  IF NOT ((v_rule.params -> 'profiles') ? v_profile) THEN RETURN; END IF;
+
+  v_sp    := now() AT TIME ZONE 'America/Sao_Paulo';
+  v_hour  := extract(hour FROM v_sp);
+  v_dow   := extract(dow FROM v_sp);
+  v_start := COALESCE((v_rule.params ->> 'start_hour')::INTEGER, 8);
+  v_end   := COALESCE((v_rule.params ->> 'end_hour')::INTEGER, 18);
+  v_off   := v_hour < v_start OR v_hour >= v_end
+             OR (COALESCE((v_rule.params ->> 'weekdays_only')::BOOLEAN, true) AND v_dow IN (0, 6));
+
+  IF NOT v_off THEN RETURN; END IF;
+
+  PERFORM security_raise_alert(
+    v_rule, v_uid::TEXT, v_uid, security_subject_label(v_uid),
+    'Acesso fora do horário comercial',
+    format('%s acessou o painel em %s, fora do horário comercial (%sh às %sh%s).%s',
+           security_subject_label(v_uid), to_char(v_sp, 'DD/MM/YYYY "às" HH24:MI'), v_start, v_end,
+           CASE WHEN COALESCE((v_rule.params ->> 'weekdays_only')::BOOLEAN, true) THEN ', dias úteis' ELSE '' END,
+           CASE WHEN v_ip IS NOT NULL THEN ' IP: ' || v_ip || '.' ELSE '' END),
+    jsonb_build_object('at', to_char(v_sp, 'YYYY-MM-DD"T"HH24:MI'), 'via', p_kind, 'ip', v_ip)
+  );
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'record_access: %', SQLERRM;
+END;
+$$;
+
+-- p_source: identificador da tela/formato (ex.: 'colaboradores.xlsx'); p_rows: quantos registros saíram no arquivo.
+CREATE OR REPLACE FUNCTION report_data_export(p_source TEXT, p_rows INTEGER DEFAULT 0)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid     UUID := auth.uid();
+  v_rule    security_rules;
+  v_source  TEXT := left(regexp_replace(COALESCE(p_source, ''), '[^a-zA-Z0-9_.-]', '', 'g'), 60);
+  v_rows    INTEGER := GREATEST(0, LEAST(COALESCE(p_rows, 0), 1000000));
+  v_count   INTEGER;
+  v_total   BIGINT;
+  v_sources TEXT;
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+
+  PERFORM security_insert_event('data_export', v_uid, NULL, jsonb_build_object('source', v_source, 'rows', v_rows), 200);
+
+  SELECT * INTO v_rule FROM security_rules WHERE kind = 'mass_export' AND enabled;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  SELECT count(*), COALESCE(sum((detail ->> 'rows')::BIGINT), 0),
+         string_agg(DISTINCT detail ->> 'source', ', ')
+    INTO v_count, v_total, v_sources
+  FROM security_events
+  WHERE kind = 'data_export' AND actor_id = v_uid
+    AND created_at > now() - make_interval(mins => v_rule.window_minutes);
+
+  IF v_count >= v_rule.threshold OR (v_rule.threshold_rows IS NOT NULL AND v_total >= v_rule.threshold_rows) THEN
+    PERFORM security_raise_alert(
+      v_rule, v_uid::TEXT, v_uid, security_subject_label(v_uid),
+      format('%s exportações (%s registros) em %s min', v_count, v_total, v_rule.window_minutes),
+      format('%s exportou dados %s vez(es), somando %s registros, nos últimos %s minutos (%s).',
+             security_subject_label(v_uid), v_count, v_total, v_rule.window_minutes, COALESCE(v_sources, 'origem não informada')),
+      jsonb_build_object('exports', v_count, 'rows', v_total, 'window_minutes', v_rule.window_minutes, 'sources', v_sources)
+    );
+  END IF;
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'report_data_export: %', SQLERRM;
+END;
+$$;
+
+-- Chamada pela Edge Function nexus-files (com o JWT de quem baixou) a cada arquivo entregue.
+CREATE OR REPLACE FUNCTION report_file_download(p_bucket TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid    UUID := auth.uid();
+  v_rule   security_rules;
+  v_bucket TEXT := left(regexp_replace(COALESCE(p_bucket, ''), '[^a-zA-Z0-9_.-]', '', 'g'), 60);
+  v_count  INTEGER;
+BEGIN
+  IF v_uid IS NULL THEN RETURN; END IF;
+
+  PERFORM security_insert_event('file_download', v_uid, NULL, jsonb_build_object('bucket', v_bucket), 500);
+
+  SELECT * INTO v_rule FROM security_rules WHERE kind = 'mass_download' AND enabled;
+  IF NOT FOUND THEN RETURN; END IF;
+
+  SELECT count(*) INTO v_count FROM security_events
+  WHERE kind = 'file_download' AND actor_id = v_uid
+    AND created_at > now() - make_interval(mins => v_rule.window_minutes);
+
+  IF v_count >= v_rule.threshold THEN
+    PERFORM security_raise_alert(
+      v_rule, v_uid::TEXT, v_uid, security_subject_label(v_uid),
+      format('%s arquivos baixados em %s min', v_count, v_rule.window_minutes),
+      format('%s baixou %s arquivos nos últimos %s minutos.', security_subject_label(v_uid), v_count, v_rule.window_minutes),
+      jsonb_build_object('downloads', v_count, 'window_minutes', v_rule.window_minutes)
+    );
+  END IF;
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'report_file_download: %', SQLERRM;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION mark_security_alerts_read(p_ids UUID[])
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_n INTEGER;
+BEGIN
+  IF NOT is_rh() THEN
+    RAISE EXCEPTION 'Sem permissão';
+  END IF;
+  UPDATE security_alerts SET lido = true, lido_at = now(), lido_por = auth.uid()
+  WHERE id = ANY (p_ids) AND NOT lido;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION purge_security_events()
+RETURNS VOID
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  DELETE FROM security_events WHERE created_at < now() - interval '180 days';
+$$;
+
+REVOKE ALL ON FUNCTION security_request_ip() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION security_subject_label(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION security_raise_alert(security_rules, TEXT, UUID, TEXT, TEXT, TEXT, JSONB, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION security_insert_event(TEXT, UUID, TEXT, JSONB, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION security_check_login_failures(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION report_login_failure(TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION report_mfa_failure() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION record_access(TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION report_data_export(TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION report_file_download(TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION mark_security_alerts_read(UUID[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION purge_security_events() FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION report_login_failure(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION report_mfa_failure() TO authenticated;
+GRANT EXECUTE ON FUNCTION record_access(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_data_export(TEXT, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION report_file_download(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION mark_security_alerts_read(UUID[]) TO authenticated;
+
+-- Limpeza diária dos eventos antigos (os alertas ficam).
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NOT NULL THEN
+    PERFORM cron.schedule('purge-security-events', '30 6 * * *', 'SELECT purge_security_events();');
+  END IF;
+END $$;
+
+-- Push dos alertas de segurança adiados para o horário comercial, junto com os demais.
+
+CREATE OR REPLACE FUNCTION dispatch_deferred_pushes()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_msg         RECORD;
+  v_alert       RECORD;
+  v_url         TEXT;
+  v_service_key TEXT;
+  v_hour        INT := extract(hour FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+  v_dow         INT := extract(dow  FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+BEGIN
+  IF v_dow IN (0, 6) OR v_hour < 8 OR v_hour >= 18 THEN
+    RETURN;
+  END IF;
+
+  SELECT decrypted_secret INTO v_url         FROM vault.decrypted_secrets WHERE name = 'project_url';
+  SELECT decrypted_secret INTO v_service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+
+  IF v_url IS NULL OR v_service_key IS NULL THEN
+    RAISE WARNING 'dispatch_deferred_pushes: vault secrets project_url/service_role_key ausentes — pushes adiados (comunicados, compliance, burnout, segurança) não serão enviados';
+    RETURN;
+  END IF;
+
+  FOR v_msg IN
+    SELECT id FROM messages
+    WHERE scheduled_at IS NOT NULL
+      AND scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('message_id', v_msg.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM compliance_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'compliance_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM burnout_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'burnout_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM security_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'security_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+END;
+$$;
+
+CREATE TABLE IF NOT EXISTS nexus_key_config (
+  purpose TEXT PRIMARY KEY CHECK (purpose IN ('encryption', 'hmac')),
+  kid     TEXT NOT NULL CHECK (kid ~ '^[a-z0-9]{1,16}$')
+);
+INSERT INTO nexus_key_config (purpose, kid) VALUES ('encryption', 'v1'), ('hmac', 'v1') ON CONFLICT (purpose) DO NOTHING;
+ALTER TABLE nexus_key_config ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON nexus_key_config FROM PUBLIC, anon, authenticated;
+
+DO $$
+BEGIN
+  IF to_regprocedure('public.mfa_ok()') IS NOT NULL THEN
+    DROP POLICY IF EXISTS mfa_required ON nexus_key_config;
+    CREATE POLICY mfa_required ON nexus_key_config AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()));
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION nexus_key_name(p_purpose TEXT, p_kid TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  v_base TEXT := CASE p_purpose WHEN 'encryption' THEN 'data_encryption_key' WHEN 'hmac' THEN 'data_hmac_key' END;
+BEGIN
+  IF v_base IS NULL THEN
+    RAISE EXCEPTION 'Finalidade de chave inválida: % (use ''encryption'' ou ''hmac'')', p_purpose;
+  END IF;
+  IF p_kid IS NULL OR p_kid !~ '^[a-z0-9]{1,16}$' THEN
+    RAISE EXCEPTION 'Identificador de chave inválido: % (use de 1 a 16 letras minúsculas ou números)', p_kid;
+  END IF;
+  RETURN CASE WHEN p_kid = 'v1' THEN v_base ELSE v_base || '_' || p_kid END;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_active_kid(p_purpose TEXT)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE((SELECT kid FROM nexus_key_config WHERE purpose = p_purpose), 'v1');
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_secret_exists(p_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  -- IF aninhado de propósito: numa condição única com AND, o Postgres analisaria a consulta ao Vault mesmo sem Vault.
+  IF to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = p_name) THEN
+      RETURN TRUE;
+    END IF;
+  END IF;
+  RETURN EXISTS (SELECT 1 FROM nexus_key_store WHERE name = p_name);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_is_cipher(p_value TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT p_value LIKE 'nexus:enc1:%' OR p_value LIKE 'nexus:enc2:%';
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_cipher_kid(p_value TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+           WHEN p_value LIKE 'nexus:enc1:%' THEN 'v1'
+           WHEN p_value LIKE 'nexus:enc2:%' THEN split_part(p_value, ':', 3)
+         END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_cipher_prefix(p_kid TEXT)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE WHEN p_kid = 'v1' THEN 'nexus:enc1:' ELSE 'nexus:enc2:' || p_kid || ':' END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_encrypt_with(p_kid TEXT, p_context TEXT, p_plain TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  RETURN nexus_cipher_prefix(p_kid) || encode(
+    pgp_sym_encrypt(p_context || chr(31) || p_plain, nexus_secret(nexus_key_name('encryption', p_kid)), 'cipher-algo=aes256, compress-algo=0, s2k-mode=1'),
+    'base64'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_wrap(p_context TEXT, p_plain TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  IF p_plain IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF nexus_is_cipher(p_plain) THEN
+    RETURN p_plain;
+  END IF;
+  RETURN nexus_encrypt_with(nexus_active_kid('encryption'), p_context, p_plain);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_unwrap(p_context TEXT, p_cipher TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_plain TEXT;
+  v_sep   INT;
+  v_kid   TEXT;
+BEGIN
+  IF p_cipher IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF NOT nexus_is_cipher(p_cipher) THEN
+    RETURN p_cipher;
+  END IF;
+  BEGIN
+    v_kid := nexus_cipher_kid(p_cipher);
+    v_plain := pgp_sym_decrypt(
+      decode(substr(p_cipher, length(nexus_cipher_prefix(v_kid)) + 1), 'base64'),
+      nexus_secret(nexus_key_name('encryption', v_kid))
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+  END;
+  v_sep := position(chr(31) IN v_plain);
+  IF v_sep = 0 OR left(v_plain, v_sep - 1) <> p_context THEN
+    RETURN NULL;
+  END IF;
+  RETURN substr(v_plain, v_sep + 1);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_rewrap(p_context TEXT, p_cipher TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_kid   TEXT;
+  v_plain TEXT;
+  v_sep   INT;
+BEGIN
+  IF p_cipher IS NULL OR NOT nexus_is_cipher(p_cipher) THEN
+    RETURN p_cipher;
+  END IF;
+  v_kid := nexus_cipher_kid(p_cipher);
+  IF NOT nexus_secret_exists(nexus_key_name('encryption', v_kid)) THEN
+    RAISE EXCEPTION 'a chave "%" usada por este valor não está mais no Vault', v_kid;
+  END IF;
+  BEGIN
+    v_plain := pgp_sym_decrypt(
+      decode(substr(p_cipher, length(nexus_cipher_prefix(v_kid)) + 1), 'base64'),
+      nexus_secret(nexus_key_name('encryption', v_kid))
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION 'valor corrompido ou cifrado com outra chave (chave "%")', v_kid;
+  END;
+  v_sep := position(chr(31) IN v_plain);
+  IF v_sep = 0 OR left(v_plain, v_sep - 1) <> p_context THEN
+    RAISE EXCEPTION 'o contexto do valor não confere (cifra copiada de outra linha?)';
+  END IF;
+  RETURN nexus_encrypt_with(nexus_active_kid('encryption'), p_context, substr(v_plain, v_sep + 1));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_blind_index(p_plain TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  IF p_plain IS NULL THEN
+    RETURN NULL;
+  END IF;
+  RETURN encode(
+    hmac(regexp_replace(p_plain, '[.[:space:]/-]', '', 'g'), nexus_secret(nexus_key_name('hmac', nexus_active_kid('hmac'))), 'sha256'),
+    'hex'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_value IS NULL OR nexus_is_cipher(p_value) THEN
+    RETURN p_value;
+  END IF;
+  IF p_value !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+    RAISE EXCEPTION '% inválido', p_label USING ERRCODE = '22P02';
+  END IF;
+  RETURN (p_value::NUMERIC(10, 2))::TEXT;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_norm_json(p_label TEXT, p_value TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_value IS NULL OR nexus_is_cipher(p_value) THEN
+    RETURN p_value;
+  END IF;
+  RETURN p_value::JSONB::TEXT;
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION '% inválido', p_label USING ERRCODE = '22P02';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION employees_encrypt_sensitive()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'emp:' || NEW.id::TEXT;
+BEGIN
+  IF NEW.salary IS NOT NULL AND NOT nexus_is_cipher(NEW.salary) THEN
+    IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.salary := (NEW.salary::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.birth_date IS NOT NULL AND NOT nexus_is_cipher(NEW.birth_date) THEN
+    IF NEW.birth_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
+      RAISE EXCEPTION 'Data de nascimento inválida' USING ERRCODE = '22007';
+    END IF;
+    NEW.birth_date := (left(NEW.birth_date, 10)::DATE)::TEXT;
+  END IF;
+
+  IF NEW.pcd IS NOT NULL AND NOT nexus_is_cipher(NEW.pcd) THEN
+    IF lower(NEW.pcd) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador PcD inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pcd := lower(NEW.pcd);
+  END IF;
+
+  IF NEW.pensao_alimenticia IS NOT NULL AND NOT nexus_is_cipher(NEW.pensao_alimenticia) THEN
+    IF lower(NEW.pensao_alimenticia) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador de pensão alimentícia inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pensao_alimenticia := lower(NEW.pensao_alimenticia);
+  END IF;
+
+  NEW.cpf_hash           := nexus_blind_index(nexus_unwrap(v_ctx, NEW.cpf));
+  NEW.cpf                := nexus_wrap(v_ctx, NEW.cpf);
+  NEW.rg                 := nexus_wrap(v_ctx, NEW.rg);
+  NEW.telefone           := nexus_wrap(v_ctx, NEW.telefone);
+  NEW.salary             := nexus_wrap(v_ctx, NEW.salary);
+  NEW.chave_pix          := nexus_wrap(v_ctx, NEW.chave_pix);
+  NEW.agencia            := nexus_wrap(v_ctx, NEW.agencia);
+  NEW.conta              := nexus_wrap(v_ctx, NEW.conta);
+  NEW.birth_date         := nexus_wrap(v_ctx, NEW.birth_date);
+  NEW.gender             := nexus_wrap(v_ctx, NEW.gender);
+  NEW.raca_cor           := nexus_wrap(v_ctx, NEW.raca_cor);
+  NEW.deficiencia        := nexus_wrap(v_ctx, NEW.deficiencia);
+  NEW.tipo_pensao        := nexus_wrap(v_ctx, NEW.tipo_pensao);
+  NEW.pcd                := nexus_wrap(v_ctx, NEW.pcd);
+  NEW.pensao_alimenticia := nexus_wrap(v_ctx, NEW.pensao_alimenticia);
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_encrypted_columns()
+RETURNS TABLE (tbl TEXT, col TEXT, ctx TEXT)
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT * FROM (VALUES
+    ('employees', 'cpf',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'rg',                 $q$'emp:' || t.id::text$q$),
+    ('employees', 'telefone',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'salary',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'chave_pix',          $q$'emp:' || t.id::text$q$),
+    ('employees', 'agencia',            $q$'emp:' || t.id::text$q$),
+    ('employees', 'conta',              $q$'emp:' || t.id::text$q$),
+    ('employees', 'birth_date',         $q$'emp:' || t.id::text$q$),
+    ('employees', 'gender',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'raca_cor',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'deficiencia',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'tipo_pensao',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'pcd',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'pensao_alimenticia', $q$'emp:' || t.id::text$q$),
+    ('chat_messages',       'content',  $q$'chan:' || t.channel_id::text$q$),
+    ('hr_ticket_messages',  'content',  $q$'tkt:' || t.ticket_id::text$q$),
+    ('payslips', 'proventos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':proventos'$q$),
+    ('payslips', 'descontos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':descontos'$q$),
+    ('payslips', 'total_proventos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_proventos'$q$),
+    ('payslips', 'total_descontos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_descontos'$q$),
+    ('payslips', 'salario_liquido', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':salario_liquido'$q$),
+    ('anonymous_feedback',  'message',     $q$'fb:' || t.id::text || ':message'$q$),
+    ('ai_analysis_cache',   'summary',     $q$'ai:cache:' || t.cache_key || ':summary'$q$),
+    ('ai_analysis_cache',   'alerts',      $q$'ai:cache:' || t.cache_key || ':alerts'$q$),
+    ('ai_analysis_history', 'summary',     $q$'ai:hist:' || t.id::text || ':summary'$q$),
+    ('ai_analysis_history', 'alerts',      $q$'ai:hist:' || t.id::text || ':alerts'$q$),
+    ('ai_chat_history',     'content',     $q$'ai:chat:' || t.id::text || ':content'$q$),
+    ('ai_decision_memory',  'description', $q$'ai:mem:' || t.id::text || ':description'$q$),
+    ('ai_decision_log',     'ai_message',  $q$'ail:' || t.id::text || ':ai_message'$q$),
+    ('ai_decision_log',     'evidence',    $q$'ail:' || t.id::text || ':evidence'$q$)
+  ) AS r (tbl, col, ctx);
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_key_generate(p_purpose TEXT, p_kid TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_name   TEXT := nexus_key_name(p_purpose, p_kid);
+  v_secret TEXT;
+BEGIN
+  IF p_kid = 'v1' THEN
+    RAISE EXCEPTION 'v1 é a chave original e não pode ser gerada de novo; escolha outro identificador (ex.: v2)';
+  END IF;
+  IF nexus_secret_exists(v_name) THEN
+    RAISE EXCEPTION 'A chave % já existe', v_name;
+  END IF;
+  v_secret := encode(gen_random_bytes(32), 'hex');
+  IF to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
+    PERFORM vault.create_secret(v_secret, v_name, 'Cifragem de colunas sensíveis (Nexus): ' || p_purpose || ' ' || p_kid);
+  ELSE
+    INSERT INTO nexus_key_store (name, secret) VALUES (v_name, v_secret);
+  END IF;
+  RAISE NOTICE 'Chave % criada. Copie o valor para um cofre FORA do Supabase antes de ativá-la.', v_name;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_key_activate(p_purpose TEXT, p_kid TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_name TEXT := nexus_key_name(p_purpose, p_kid);
+BEGIN
+  IF NOT nexus_secret_exists(v_name) THEN
+    RAISE EXCEPTION 'A chave % não existe; crie antes com nexus_key_generate(%, %)', v_name, quote_literal(p_purpose), quote_literal(p_kid);
+  END IF;
+
+  IF p_purpose = 'hmac' THEN
+    LOCK TABLE employees IN SHARE ROW EXCLUSIVE MODE;
+  END IF;
+
+  INSERT INTO nexus_key_config (purpose, kid) VALUES (p_purpose, p_kid)
+  ON CONFLICT (purpose) DO UPDATE SET kid = EXCLUDED.kid;
+
+  IF p_purpose = 'hmac' THEN
+    BEGIN
+      UPDATE employees SET cpf_hash = nexus_blind_index(nexus_unwrap('emp:' || id::text, cpf));
+    EXCEPTION WHEN not_null_violation THEN
+      RAISE EXCEPTION 'Não foi possível recalcular o índice de CPF: há colaborador cujo CPF não pode ser decifrado. Nada foi alterado.';
+    END;
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_rewrap_all(p_batch INT DEFAULT 500)
+RETURNS TABLE (tbl TEXT, rewrapped BIGINT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_tbl    TEXT;
+  v_set    TEXT;
+  v_where  TEXT;
+  v_n      BIGINT;
+  v_prefix TEXT := nexus_cipher_prefix(nexus_active_kid('encryption')) || '%';
+BEGIN
+  IF p_batch IS NULL OR p_batch < 1 THEN
+    RAISE EXCEPTION 'O tamanho do lote deve ser um número positivo';
+  END IF;
+
+  FOR v_tbl IN SELECT DISTINCT r.tbl FROM nexus_encrypted_columns() r ORDER BY 1 LOOP
+    SELECT string_agg(
+             format('%1$I = CASE WHEN t.%1$I LIKE ''nexus:enc%%'' AND t.%1$I NOT LIKE %2$L THEN nexus_rewrap(%3$s, t.%1$I) ELSE t.%1$I END', r.col, v_prefix, r.ctx),
+             ', '),
+           string_agg(format('(t.%1$I LIKE ''nexus:enc%%'' AND t.%1$I NOT LIKE %2$L)', r.col, v_prefix), ' OR ')
+      INTO v_set, v_where
+      FROM nexus_encrypted_columns() r
+     WHERE r.tbl = v_tbl;
+
+    BEGIN
+      EXECUTE format(
+        'WITH todo AS (SELECT t.id FROM public.%1$I t WHERE %2$s ORDER BY t.id LIMIT %3$s FOR UPDATE SKIP LOCKED)
+         UPDATE public.%1$I t SET %4$s FROM todo WHERE t.id = todo.id',
+        v_tbl, v_where, p_batch, v_set);
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'Rotação interrompida em %: %. Nada desta chamada foi gravado.', v_tbl, SQLERRM;
+    END;
+
+    tbl := v_tbl;
+    rewrapped := v_n;
+    RETURN NEXT;
+  END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_key_status()
+RETURNS TABLE (scope TEXT, object TEXT, kid TEXT, active BOOLEAN, cipher_values BIGINT)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  r        RECORD;
+  v_active TEXT := nexus_active_kid('encryption');
+BEGIN
+  FOR r IN SELECT c.tbl, c.col FROM nexus_encrypted_columns() c ORDER BY 1, 2 LOOP
+    RETURN QUERY EXECUTE format(
+      'SELECT ''encryption''::text, %1$L::text, COALESCE(nexus_cipher_kid(t.%3$I), ''plaintext'')::text,
+              COALESCE(nexus_cipher_kid(t.%3$I), ''plaintext'') = %4$L, count(*)::bigint
+         FROM public.%2$I t WHERE t.%3$I IS NOT NULL GROUP BY 3',
+      r.tbl || '.' || r.col, r.tbl, r.col, v_active);
+  END LOOP;
+
+  FOR r IN
+    SELECT ic.table_name AS tbl, ic.column_name AS col
+      FROM information_schema.columns ic
+      JOIN information_schema.tables it ON it.table_schema = ic.table_schema AND it.table_name = ic.table_name AND it.table_type = 'BASE TABLE'
+     WHERE ic.table_schema = 'public'
+       AND ic.data_type IN ('text', 'character varying')
+       AND ic.table_name NOT IN ('nexus_key_store', 'nexus_key_config')
+       AND NOT EXISTS (SELECT 1 FROM nexus_encrypted_columns() c WHERE c.tbl = ic.table_name AND c.col = ic.column_name)
+     ORDER BY 1, 2
+  LOOP
+    RETURN QUERY EXECUTE format(
+      'SELECT ''unregistered''::text, %1$L::text, nexus_cipher_kid(t.%3$I)::text, false, count(*)::bigint
+         FROM public.%2$I t WHERE nexus_is_cipher(t.%3$I) GROUP BY 3',
+      r.tbl || '.' || r.col, r.tbl, r.col);
+  END LOOP;
+
+  RETURN QUERY
+    SELECT 'hmac'::text, 'employees.cpf_hash'::text, nexus_active_kid('hmac'), TRUE, count(*)::bigint
+      FROM employees e WHERE e.cpf_hash = nexus_blind_index(nexus_unwrap('emp:' || e.id::text, e.cpf));
+  RETURN QUERY
+    SELECT 'hmac'::text, 'employees.cpf_hash'::text, 'stale'::text, FALSE, count(*)::bigint
+      FROM employees e WHERE e.cpf_hash IS DISTINCT FROM nexus_blind_index(nexus_unwrap('emp:' || e.id::text, e.cpf));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION nexus_key_summary()
+RETURNS TABLE (scope TEXT, kid TEXT, active BOOLEAN, cipher_values BIGINT)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+  SELECT s.scope, s.kid, bool_or(s.active), sum(s.cipher_values)::bigint
+    FROM nexus_key_status() s
+   GROUP BY s.scope, s.kid
+   ORDER BY s.scope, s.kid;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_key_name(TEXT, TEXT)               FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_active_kid(TEXT)                   FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_secret_exists(TEXT)                FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_is_cipher(TEXT)                    FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_cipher_kid(TEXT)                   FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_cipher_prefix(TEXT)                FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_encrypt_with(TEXT, TEXT, TEXT)     FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_rewrap(TEXT, TEXT)                 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_encrypted_columns()                FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_key_generate(TEXT, TEXT)           FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_key_activate(TEXT, TEXT)           FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_rewrap_all(INT)                    FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_key_status()                       FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_key_summary()                      FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_norm_money(TEXT, TEXT)             FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_norm_json(TEXT, TEXT)              FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_wrap(TEXT, TEXT)                   FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_unwrap(TEXT, TEXT)                 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION nexus_blind_index(TEXT)                  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION employees_encrypt_sensitive()            FROM PUBLIC, anon, authenticated;
+
+-- 2) Funções criadas no schema public ficam executáveis por PUBLIC (inclui anon) e a API as expõe em /rest/v1/rpc/.
+--    As rotinas do pg_cron e o auxiliar de push rodavam para qualquer anônimo (disparar pushes, gerar alertas).
+--    Agora só o banco as chama (o pg_cron roda como dono; funções SECURITY DEFINER também).
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('generate_compliance_alerts', 'dispatch_deferred_pushes', 'notify_alert_push')
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', r.sig);
+  END LOOP;
+
+  -- 3) Funções de uso logado: tiram o anônimo e mantêm o usuário autenticado (todas checam o usuário por dentro).
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('report_daily_overtime_alert', 'approve_bank_request', 'approve_adjustment_request', 'sign_document',
+                         'sign_payslip', 'punch_time_record', 'get_or_create_dm', 'anonymize_employee', 'colleague_directory')
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', r.sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
+  END LOOP;
+END $$;

@@ -182,7 +182,7 @@ function renderTeamGrid() {
             </div>
             <div class="team-card-side">
                 <span class="team-card-badge team-card-badge--${badgeMap[m.status] || 'ativo'}">${escHtml(m.status || 'Ativo')}</span>
-                <button class="team-card-escalate" onclick="openEscalateModal('${m.id}')" title="Escalar ao RH sobre ${escHtml(m.name)}">
+                <button class="team-card-escalate" data-click="openEscalateModal" data-click-args="${dargs(m.id)}" title="Escalar ao RH sobre ${escHtml(m.name)}">
                     <i class="fas fa-flag"></i>
                 </button>
             </div>
@@ -218,8 +218,8 @@ function renderPendingList() {
                 ${v.obs ? `<p class="sol-meta">${escHtml(v.obs)}</p>` : ''}
             </div>
             <div class="aprovacao-actions">
-                <button class="btn-approve" onclick="approveVacation('${v.id}')" title="Aprovar"><i class="fas fa-check"></i></button>
-                <button class="btn-reject" onclick="openRejectModal('${v.id}')" title="Recusar"><i class="fas fa-xmark"></i></button>
+                <button class="btn-approve" data-click="approveVacation" data-click-args="${dargs(v.id)}" title="Aprovar"><i class="fas fa-check"></i></button>
+                <button class="btn-reject" data-click="openRejectModal" data-click-args="${dargs(v.id)}" title="Recusar"><i class="fas fa-xmark"></i></button>
             </div>
         </div>`;
         })
@@ -360,7 +360,7 @@ function showToast(msg, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

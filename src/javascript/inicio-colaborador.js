@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     .map(
                         (t) => `
                     <label class="onboarding-task ${onboardingDoneIds.has(t.id) ? 'done' : ''}">
-                        <input type="checkbox" ${onboardingDoneIds.has(t.id) ? 'checked' : ''} onchange="toggleOnboardingTask('${t.id}', this.checked)">
+                        <input type="checkbox" ${onboardingDoneIds.has(t.id) ? 'checked' : ''} data-change="toggleOnboardingTask" data-change-args="${dargs(t.id, { $: 'this.checked' })}">
                         <div class="onboarding-task-body">
                             <span class="onboarding-task-title">${escapeHTML(t.titulo)}</span>
                             ${t.descricao ? `<span class="onboarding-task-desc">${escapeHTML(t.descricao)}</span>` : ''}
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide'); setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);

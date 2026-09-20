@@ -46,7 +46,7 @@ window.logout = async function () {
 };
 
 async function loadPayslips() {
-    const { data } = await sb.from('payslips').select('*').eq('employee_id', myEmployeeId).eq('status', 'pago').order('mes', { ascending: false });
+    const { data } = await sb.from('payslips_decrypted').select('*').eq('employee_id', myEmployeeId).eq('status', 'pago').order('mes', { ascending: false });
     holerites = data || [];
     renderMonthList();
     buildMobileSelect();
@@ -509,7 +509,7 @@ function showToast(title, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escapeHTML(title)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

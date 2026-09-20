@@ -5,6 +5,15 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const PORT = process.env.E2E_STATIC_PORT || 4173;
 
+const SCRIPT_SRC = (() => {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+    const csp = config.headers.flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy').value;
+    return csp
+        .split(';')
+        .map((d) => d.trim())
+        .find((d) => d.startsWith('script-src '));
+})();
+
 const MIME = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
@@ -31,7 +40,9 @@ const server = http.createServer((req, res) => {
             return;
         }
         const ext = path.extname(filePath);
-        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
+        if (ext === '.html') headers['Content-Security-Policy'] = SCRIPT_SRC;
+        res.writeHead(200, headers);
         res.end(data);
     });
 });

@@ -13,6 +13,8 @@
     const myProfile = auth.profile.profile;
     let myEmployee = auth.employee;
 
+    NexusMfaSetup.mount(document.getElementById('mfa-card'), { client: sb, required: NexusMfa.isRequiredFor(myProfile) });
+
     const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#14b8a6', '#f97316', '#84cc16'];
     const NOTIF_DEFAULTS = { comunicados: true, holerite: true, ferias: true, horas: false, seguranca: true, compliance: true, burnout: true };
 
@@ -48,7 +50,7 @@
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);
@@ -344,7 +346,6 @@
         }
     };
 
-    // Mesma regra do login: mínimo 12 caracteres, com letras e números (acompanha a configuração do Supabase Auth).
     function passwordProblem(password) {
         if (password.length < 12) return 'Mínimo 12 caracteres.';
         if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return 'Use letras e números.';
@@ -359,8 +360,7 @@
             return;
         }
 
-        const { error: authError } = await sb.auth.signInWithPassword({ email: myEmployee.email, password: curr });
-        if (authError) {
+        if (!(await nexusCheckPassword(myEmployee.email, curr))) {
             showToast('Senha atual incorreta.', 'error');
             return;
         }

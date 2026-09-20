@@ -168,7 +168,7 @@ async function loadData() {
     const [{ data: empData }, { data: vacData }, { data: paySlipData }, { data: bankAdjData }, { data: msgData }, { data: readData }] = await Promise.all([
         sb.from('employees_decrypted').select('id,name,dept,status,contract_type,admission_date,termination_date,email,birth_date,gender,salary,pcd,raca_cor'),
         sb.from('vacations').select('id,employee_id,start_date,end_date,status'),
-        sb.from('payslips').select('mes,total_proventos,salario_liquido'),
+        sb.from('payslips_decrypted').select('mes,total_proventos,salario_liquido'),
         sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null),
         sb.from('messages').select('id,texto,destino,categoria,created_at,scheduled_at'),
         sb.from('message_reads').select('message_id,employee_id,read_at'),

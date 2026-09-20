@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/btn-back.css">
     <link rel="stylesheet" href="../styles/chat-colaborador.css">
@@ -186,7 +186,7 @@
                             <p class="chat-area-desc">Elogios entre colegas</p>
                         </div>
                     </div>
-                    <button class="new-ticket-btn new-ticket-btn--inline" id="btn-dar-reconhecimento" onclick="openKudosModal()" aria-label="Dar reconhecimento" title="Dar reconhecimento">
+                    <button class="new-ticket-btn new-ticket-btn--inline" id="btn-dar-reconhecimento" data-click="openKudosModal" aria-label="Dar reconhecimento" title="Dar reconhecimento">
                         <i class="fas fa-award"></i>
                         <span>Dar reconhecimento</span>
                     </button>
@@ -203,7 +203,7 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dm-modal-title">
             <div class="modal-header">
                 <h3 id="dm-modal-title"><i class="fas fa-user-group"></i> Nova mensagem</h3>
-                <button class="modal-close" onclick="closeDmModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closeDmModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -219,7 +219,7 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="kudos-modal-title">
             <div class="modal-header">
                 <h3 id="kudos-modal-title"><i class="fas fa-award"></i> Dar Reconhecimento</h3>
-                <button class="modal-close" onclick="closeKudosModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closeKudosModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -249,7 +249,7 @@
                 <p class="modal-alert-inline hidden" id="kudos-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" id="kudos-submit-btn" onclick="submitKudos()" disabled><span>Publicar</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" id="kudos-submit-btn" data-click="submitKudos" disabled><span>Publicar</span></button>
             </div>
         </div>
     </div>
@@ -258,7 +258,7 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="anon-feedback-modal-title">
             <div class="modal-header">
                 <h3 id="anon-feedback-modal-title"><i class="fas fa-user-secret"></i> Feedback Anônimo</h3>
-                <button class="modal-close" onclick="closeAnonFeedbackModal()" aria-label="Fechar">
+                <button class="modal-close" data-click="closeAnonFeedbackModal" aria-label="Fechar">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -284,7 +284,7 @@
                 <p class="modal-alert-inline hidden" id="anon-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" id="anon-submit-btn" onclick="submitAnonFeedback()" disabled><span>Enviar</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" id="anon-submit-btn" data-click="submitAnonFeedback" disabled><span>Enviar</span></button>
             </div>
         </div>
     </div>
@@ -292,8 +292,10 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/chat-colaborador.js"></script>
 </body>

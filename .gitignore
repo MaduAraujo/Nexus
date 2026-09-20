@@ -8,3 +8,6 @@ playwright-report/
 test-results/
 supabase/.branches/
 .claude/
+backups/
+*.dump
+*.dump.gpg

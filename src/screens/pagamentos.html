@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Pagamentos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/pagamentos.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
@@ -27,7 +27,7 @@
                     </a>
                 </div>
                 <div class="topbar-right">
-                    <button class="btn-topbar-icon" id="btn-open-rescisao" title="Simulador de Rescisão" aria-label="Simulador de Rescisão" onclick="openRescisaoModal()">
+                    <button class="btn-topbar-icon" id="btn-open-rescisao" title="Simulador de Rescisão" aria-label="Simulador de Rescisão" data-click="openRescisaoModal">
                         <i class="fas fa-right-from-bracket"></i>
                     </button>
                     <div class="export-dropdown" id="export-dropdown">
@@ -118,10 +118,10 @@
                 </div>
 
                 <div class="tabs-bar">
-                    <button class="tab-btn active" onclick="switchTab(this,'folha')">
+                    <button class="tab-btn active" data-click="switchTab" data-click-args='[{"$":"this"},"folha"]'>
                         <i class="fas fa-table-list"></i> Folha do Mês
                     </button>
-                    <button class="tab-btn" onclick="switchTab(this,'holerites')">
+                    <button class="tab-btn" data-click="switchTab" data-click-args='[{"$":"this"},"holerites"]'>
                         <i class="fas fa-file-invoice"></i> Holerites
                     </button>
                 </div>
@@ -131,8 +131,8 @@
                         <div class="filters-bar">
                             <div class="search-wrapper">
                                 <i class="fas fa-magnifying-glass search-icon"></i>
-                                <input type="text" id="search-input" placeholder="Buscar colaborador…" oninput="applySearch()">
-                                <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                                <input type="text" id="search-input" placeholder="Buscar colaborador…" data-input="applySearch">
+                                <button class="search-clear hidden" id="search-clear" data-click="clearSearch">
                                     <i class="fas fa-xmark"></i>
                                 </button>
                             </div>
@@ -144,7 +144,7 @@
                                 <div class="filter-dropdown-menu" id="dept-filter-menu">
                                     <p class="filter-dropdown-title">Departamento</p>
                                     <div class="filter-dropdown-chips" id="dept-filter-chips">
-                                        <button type="button" class="chip chip--active" data-dept="" onclick="setDeptFilter(this)">Todos os departamentos</button>
+                                        <button type="button" class="chip chip--active" data-dept="" data-click="setDeptFilter" data-click-args='[{"$":"this"}]'>Todos os departamentos</button>
                                     </div>
                                 </div>
                             </div>
@@ -155,10 +155,10 @@
                     <div class="bulk-bar" id="bulk-bar">
                         <span class="bulk-count" id="bulk-count">0 selecionados</span>
                         <div class="bulk-spacer"></div>
-                        <button class="btn-bulk" onclick="marcarSelecionadosPagos()">
+                        <button class="btn-bulk" data-click="marcarSelecionadosPagos">
                             <i class="fas fa-check"></i> Pagar
                         </button>
-                        <button class="btn-bulk-clear" onclick="limparSelecao()" title="Limpar seleção">
+                        <button class="btn-bulk-clear" data-click="limparSelecao" title="Limpar seleção">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -190,7 +190,7 @@
                         <table class="req-table">
                             <thead>
                                 <tr>
-                                    <th class="th-check"><input type="checkbox" class="cb-row" id="select-all-cb" onchange="toggleSelectAll(this)"></th>
+                                    <th class="th-check"><input type="checkbox" class="cb-row" id="select-all-cb" data-change="toggleSelectAll" data-change-args='[{"$":"this"}]'></th>
                                     <th>Colaborador</th>
                                     <th>Contrato</th>
                                     <th>Salário Bruto</th>
@@ -212,8 +212,8 @@
                     <div class="filters-bar">
                         <div class="search-wrapper">
                             <i class="fas fa-magnifying-glass search-icon"></i>
-                            <input type="text" id="search-hol" placeholder="Buscar colaborador…" oninput="applyHolSearch()">
-                            <button class="search-clear hidden" id="search-hol-clear" onclick="clearHolSearch()">
+                            <input type="text" id="search-hol" placeholder="Buscar colaborador…" data-input="applyHolSearch">
+                            <button class="search-clear hidden" id="search-hol-clear" data-click="clearHolSearch">
                                 <i class="fas fa-xmark"></i>
                             </button>
                         </div>
@@ -225,7 +225,7 @@
                             <div class="filter-dropdown-menu" id="dept-hol-filter-menu">
                                 <p class="filter-dropdown-title">Departamento</p>
                                 <div class="filter-dropdown-chips" id="dept-hol-filter-chips">
-                                    <button type="button" class="chip chip--active" data-dept="" onclick="setDeptHolFilter(this)">Todos os departamentos</button>
+                                    <button type="button" class="chip chip--active" data-dept="" data-click="setDeptHolFilter" data-click-args='[{"$":"this"}]'>Todos os departamentos</button>
                                 </div>
                             </div>
                         </div>
@@ -251,7 +251,7 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="slip-modal" onclick="handleOverlayClick(event,'slip-modal')">
+    <div class="modal-overlay" id="slip-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"slip-modal"]'>
         <div class="modal-card modal-card--lg">
             <div class="modal-head">
                 <div class="modal-head-info">
@@ -261,19 +261,19 @@
                         <p class="modal-sub" id="slip-modal-sub">—</p>
                     </div>
                 </div>
-                <button class="modal-close" onclick="closeModal('slip-modal')"><i class="fas fa-times"></i></button>
+                <button class="modal-close" data-click="closeModal" data-click-args='["slip-modal"]'><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" id="slip-modal-body"></div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="btn-close-slip" onclick="closeModal('slip-modal')">Fechar</button>
-                <button class="btn-secondary" id="btn-print-slip" onclick="printCurrentSlip()">
+                <button class="btn-secondary" id="btn-close-slip" data-click="closeModal" data-click-args='["slip-modal"]'>Fechar</button>
+                <button class="btn-secondary" id="btn-print-slip" data-click="printCurrentSlip">
                     <i class="fas fa-print"></i> Imprimir
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="modal-overlay" id="confirm-modal" onclick="handleOverlayClick(event,'confirm-modal')">
+    <div class="modal-overlay" id="confirm-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"confirm-modal"]'>
         <div class="modal-card modal-card--sm">
             <div class="modal-head">
                 <div class="modal-head-info">
@@ -283,14 +283,14 @@
                         <p class="modal-sub">Esta ação afetará múltiplos registros</p>
                     </div>
                 </div>
-                <button class="modal-close" onclick="closeModal('confirm-modal')"><i class="fas fa-times"></i></button>
+                <button class="modal-close" data-click="closeModal" data-click-args='["confirm-modal"]'><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <p class="modal-confirm-text" id="confirm-modal-text"></p>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal('confirm-modal')">Cancelar</button>
-                <button class="btn-primary" id="confirm-modal-ok" onclick="executarMarcarTodosPagos()">
+                <button class="btn-secondary" data-click="closeModal" data-click-args='["confirm-modal"]'>Cancelar</button>
+                <button class="btn-primary" id="confirm-modal-ok" data-click="executarMarcarTodosPagos">
                     <i class="fas fa-check-double"></i> Confirmar
                 </button>
             </div>
@@ -301,7 +301,7 @@
         <div class="modal-card modal-card--lg">
             <div class="modal-head">
                 <h3 class="modal-title"><i class="fas fa-right-from-bracket"></i> Simulador de Rescisão</h3>
-                <button class="modal-close" onclick="closeModal('rescisao-modal')"><i class="fas fa-xmark"></i></button>
+                <button class="modal-close" data-click="closeModal" data-click-args='["rescisao-modal"]'><i class="fas fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <div class="modal-alert info">
@@ -311,7 +311,7 @@
 
                 <div class="form-group">
                     <label class="form-label" for="rescisao-emp">Colaborador <span class="req">*</span></label>
-                    <select id="rescisao-emp" class="form-input" onchange="onRescisaoEmpChange()">
+                    <select id="rescisao-emp" class="form-input" data-change="onRescisaoEmpChange">
                         <option value="">Selecione</option>
                     </select>
                 </div>
@@ -384,10 +384,10 @@
                 <div id="rescisao-result" class="hidden"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" id="btn-calcular-rescisao" onclick="calcularRescisaoModal()" disabled>
+                <button class="btn-primary" id="btn-calcular-rescisao" data-click="calcularRescisaoModal" disabled>
                     Calcular
                 </button>
-                <button class="btn-danger hidden" id="btn-confirmar-desligamento" onclick="confirmarDesligamento()">
+                <button class="btn-danger hidden" id="btn-confirmar-desligamento" data-click="confirmarDesligamento">
                     Confirmar Desligamento
                 </button>
             </div>
@@ -400,9 +400,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+    <script src="../javascript/shared/events.js"></script>
     <script src="../javascript/shared/html.js"></script>
     <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/mfa.js"></script>
     <script src="../javascript/shared/auth.js"></script>
+    <script src="../javascript/shared/files.js"></script>
     <script src="../javascript/shared/search.js"></script>
     <script src="../javascript/domain/tabelas-fiscais.js"></script>
     <script src="../javascript/domain/clt-domain.js"></script>

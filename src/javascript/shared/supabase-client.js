@@ -39,6 +39,12 @@ function nexusUseProfileSession(profileType) {
     return sb;
 }
 
+async function nexusCheckPassword(email, password) {
+    const probe = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await probe.auth.signInWithPassword({ email, password });
+    return !error;
+}
+
 let sb = nexusCreateClient(nexusSlotFromPage());
 
 (function interceptSupabaseErrors() {

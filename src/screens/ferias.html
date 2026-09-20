@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Gestão de Férias</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/ferias.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
@@ -27,10 +27,10 @@
                 </a>
             </div>
             <div class="topbar-right">
-                <button class="btn-icon-only" onclick="openColetivaModal()" title="Férias Coletivas" aria-label="Férias Coletivas">
+                <button class="btn-icon-only" data-click="openColetivaModal" title="Férias Coletivas" aria-label="Férias Coletivas">
                     <i class="fas fa-users"></i>
                 </button>
-                <button class="btn-icon-only" onclick="openAddModal()" title="Nova Solicitação" aria-label="Nova Solicitação">
+                <button class="btn-icon-only" data-click="openAddModal" title="Nova Solicitação" aria-label="Nova Solicitação">
                     <i class="fas fa-user"></i>
                 </button>
             </div>
@@ -39,28 +39,28 @@
         <main class="content">
             <div class="page-body">
                 <div class="kpi-grid">
-                    <button type="button" class="kpi-card kpi--pending" onclick="openKpiModal('pendente')" title="Ver solicitações pendentes">
+                    <button type="button" class="kpi-card kpi--pending" data-click="openKpiModal" data-click-args='["pendente"]' title="Ver solicitações pendentes">
                         <div class="kpi-icon"><i class="fas fa-clock"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Aguardando Aprovação</span>
                             <span class="kpi-value" id="kpi-pending">0</span>
                         </div>
                     </button>
-                    <button type="button" class="kpi-card kpi--upcoming" onclick="openKpiModal('upcoming')" title="Ver quem sai nos próximos 15 dias">
+                    <button type="button" class="kpi-card kpi--upcoming" data-click="openKpiModal" data-click-args='["upcoming"]' title="Ver quem sai nos próximos 15 dias">
                         <div class="kpi-icon"><i class="fas fa-calendar-check"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Saem nos próximos 15 dias</span>
                             <span class="kpi-value" id="kpi-upcoming">0</span>
                         </div>
                     </button>
-                    <button type="button" class="kpi-card kpi--active" onclick="openKpiModal('ativas')" title="Ver quem está de férias agora">
+                    <button type="button" class="kpi-card kpi--active" data-click="openKpiModal" data-click-args='["ativas"]' title="Ver quem está de férias agora">
                         <div class="kpi-icon"><i class="fas fa-plane-departure"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Atualmente de férias</span>
                             <span class="kpi-value" id="kpi-active">0</span>
                         </div>
                     </button>
-                    <button type="button" class="kpi-card kpi--expired" onclick="openExpiredModal()" title="Ver colaboradores com férias vencidas">
+                    <button type="button" class="kpi-card kpi--expired" data-click="openExpiredModal" title="Ver colaboradores com férias vencidas">
                         <div class="kpi-icon"><i class="fas fa-hourglass-end"></i></div>
                         <div class="kpi-body">
                             <span class="kpi-label">Férias Vencidas</span>
@@ -70,10 +70,10 @@
                 </div>
 
                 <div class="tabs-bar">
-                    <button class="tab-btn active" data-tab="requests" onclick="switchTab(this,'requests')">
+                    <button class="tab-btn active" data-tab="requests" data-click="switchTab" data-click-args='[{"$":"this"},"requests"]'>
                         <i class="fas fa-list"></i> Solicitações
                     </button>
-                    <button class="tab-btn" data-tab="calendar" onclick="switchTab(this,'calendar')">
+                    <button class="tab-btn" data-tab="calendar" data-click="switchTab" data-click-args='[{"$":"this"},"calendar"]'>
                         <i class="fas fa-calendar-alt"></i> Calendário
                     </button>
                 </div>
@@ -83,7 +83,7 @@
                         <div class="search-wrapper">
                             <i class="fas fa-magnifying-glass search-icon"></i>
                             <input type="text" id="search-input" placeholder="Buscar colaborador…">
-                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                            <button class="search-clear hidden" id="search-clear" data-click="clearSearch">
                                 <i class="fas fa-xmark"></i>
                             </button>
                         </div>
@@ -95,12 +95,12 @@
                             <div class="filter-dropdown-menu" id="filter-dropdown-menu">
                                 <p class="filter-dropdown-title">Filtrar por status</p>
                                 <div class="filter-dropdown-chips">
-                                    <button class="chip chip--active" data-filter="todos"     onclick="setFilter(this)">Todos</button>
-                                    <button class="chip"              data-filter="pendente"  onclick="setFilter(this)">Pendente</button>
-                                    <button class="chip"              data-filter="aprovado"  onclick="setFilter(this)">Aprovado</button>
-                                    <button class="chip"              data-filter="concluido" onclick="setFilter(this)">Concluído</button>
-                                    <button class="chip"              data-filter="recusado"  onclick="setFilter(this)">Recusado</button>
-                                    <button class="chip"              data-filter="cancelado" onclick="setFilter(this)">Cancelado</button>
+                                    <button class="chip chip--active" data-filter="todos"     data-click="setFilter" data-click-args='[{"$":"this"}]'>Todos</button>
+                                    <button class="chip"              data-filter="pendente"  data-click="setFilter" data-click-args='[{"$":"this"}]'>Pendente</button>
+                                    <button class="chip"              data-filter="aprovado"  data-click="setFilter" data-click-args='[{"$":"this"}]'>Aprovado</button>
+                                    <button class="chip"              data-filter="concluido" data-click="setFilter" data-click-args='[{"$":"this"}]'>Concluído</button>
+                                    <button class="chip"              data-filter="recusado"  data-click="setFilter" data-click-args='[{"$":"this"}]'>Recusado</button>
+                                    <button class="chip"              data-filter="cancelado" data-click="setFilter" data-click-args='[{"$":"this"}]'>Cancelado</button>
                                 </div>
                             </div>
                         </div>
@@ -127,8 +127,8 @@
                     <div class="bulk-bar" id="bulk-bar">
                         <span id="bulk-count">0 selecionadas</span>
                         <div class="bulk-bar-actions">
-                            <button class="btn-bulk btn-bulk--approve" onclick="bulkApprove()"><i class="fas fa-check"></i> Aprovar selecionadas</button>
-                            <button class="btn-bulk btn-bulk--reject" onclick="bulkReject()"><i class="fas fa-times"></i> Recusar selecionadas</button>
+                            <button class="btn-bulk btn-bulk--approve" data-click="bulkApprove"><i class="fas fa-check"></i> Aprovar selecionadas</button>
+                            <button class="btn-bulk btn-bulk--reject" data-click="bulkReject"><i class="fas fa-times"></i> Recusar selecionadas</button>
                         </div>
                     </div>
 
@@ -136,7 +136,7 @@
                         <table class="req-table">
                             <thead>
                                 <tr>
-                                    <th class="select-cell"><label class="checkbox-label row-check"><input type="checkbox" id="select-all-check" onchange="toggleSelectAll(this.checked)"><span class="checkbox-box"></span></label></th>
+                                    <th class="select-cell"><label class="checkbox-label row-check"><input type="checkbox" id="select-all-check" data-change="toggleSelectAll" data-change-args='[{"$":"this.checked"}]'><span class="checkbox-box"></span></label></th>
                                     <th class="col-employee">Colaborador</th>
                                     <th>Período Solicitado</th>
                                     <th>Dias</th>
@@ -207,12 +207,12 @@
                 <h3 class="modal-title" id="add-modal-title">Nova Solicitação</h3>
                 <p class="modal-subtitle">Registre férias para o colaborador</p>
             </div>
-            <button class="close-modal" onclick="closeAddModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeAddModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
                 <label class="form-label" for="add-employee">Colaborador</label>
-                <select id="add-employee" class="form-input" onchange="onAddEmployeeChange()">
+                <select id="add-employee" class="form-input" data-change="onAddEmployeeChange">
                     <option value="">Selecione o colaborador...</option>
                 </select>
                 <p class="add-emp-saldo-info hidden" id="add-emp-saldo-info"></p>
@@ -235,7 +235,7 @@
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
                             <div class="calendar-grid"></div>
                         </div>
-                        <input type="hidden" id="add-start" onchange="calcAddDays()">
+                        <input type="hidden" id="add-start" data-change="calcAddDays">
                     </div>
                 </div>
                 <div class="form-group">
@@ -254,7 +254,7 @@
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
                             <div class="calendar-grid"></div>
                         </div>
-                        <input type="hidden" id="add-end" onchange="calcAddDays()">
+                        <input type="hidden" id="add-end" data-change="calcAddDays">
                     </div>
                 </div>
             </div>
@@ -291,14 +291,14 @@
             <div class="modal-alert" id="add-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" onclick="submitAdd()">
+            <button class="btn-submit" data-click="submitAdd">
                 Salvar
             </button>
         </div>
     </div>
 </div>
 
-<div class="modal-overlay" id="reject-modal" onclick="handleOverlayClick(event,'reject-modal')">
+<div class="modal-overlay" id="reject-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"reject-modal"]'>
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-times-circle"></i></div>
@@ -306,17 +306,17 @@
                 <h3 class="modal-title">Recusar Solicitação</h3>
                 <p class="modal-subtitle" id="reject-sub">Informe o motivo da recusa</p>
             </div>
-            <button class="close-modal" onclick="closeRejectModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeRejectModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group" style="margin-bottom:10px">
                 <label class="form-label" style="margin-bottom:6px">Motivos frequentes</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
-                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período conflita com férias de outro colaborador do mesmo departamento.')">Conflito de equipe</button>
-                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período insuficiente de antecedência (mínimo 30 dias).')">Antecedência insuficiente</button>
-                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Saldo de dias disponível insuficiente para o período solicitado.')">Saldo insuficiente</button>
-                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Período solicitado coincide com prazo crítico do projeto.')">Prazo crítico</button>
-                    <button type="button" class="reject-template-btn" onclick="prefillRejectReason('Necessidade operacional do setor no período solicitado.')">Necessidade operacional</button>
+                    <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Período conflita com férias de outro colaborador do mesmo departamento."]'>Conflito de equipe</button>
+                    <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Período insuficiente de antecedência (mínimo 30 dias)."]'>Antecedência insuficiente</button>
+                    <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Saldo de dias disponível insuficiente para o período solicitado."]'>Saldo insuficiente</button>
+                    <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Período solicitado coincide com prazo crítico do projeto."]'>Prazo crítico</button>
+                    <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Necessidade operacional do setor no período solicitado."]'>Necessidade operacional</button>
                 </div>
             </div>
             <div class="form-group">
@@ -326,8 +326,8 @@
             <div class="modal-alert" id="reject-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeRejectModal()">Cancelar</button>
-            <button class="btn-submit" onclick="confirmReject()">
+            <button class="btn-cancel" data-click="closeRejectModal">Cancelar</button>
+            <button class="btn-submit" data-click="confirmReject">
                 <i class="fas fa-xmark"></i> Recusar
             </button>
         </div>
@@ -341,7 +341,7 @@
             <div>
                 <h3 class="modal-title">Detalhes da Solicitação</h3>
             </div>
-            <button class="close-modal" onclick="closeViewModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeViewModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="view-body"></div>
     </div>
@@ -355,7 +355,7 @@
                 <h3 class="modal-title">Férias Coletivas</h3>
                 <p class="modal-subtitle">Concede férias para um departamento ou toda a empresa de uma vez</p>
             </div>
-            <button class="close-modal" onclick="closeColetivaModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeColetivaModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -412,7 +412,7 @@
             <div class="modal-alert" id="coletiva-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" onclick="submitColetiva()">
+            <button class="btn-submit" data-click="submitColetiva">
                 Conceder Férias
             </button>
         </div>
@@ -427,7 +427,7 @@
                 <h3 class="modal-title">Férias Vencidas</h3>
                 <p class="modal-subtitle">Pagamento em dobro obrigatório (art. 137 CLT)</p>
             </div>
-            <button class="close-modal" onclick="closeExpiredModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeExpiredModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="expired-body"></div>
     </div>
@@ -441,7 +441,7 @@
                 <h3 class="modal-title" id="kpi-info-title">Título</h3>
                 <p class="modal-subtitle" id="kpi-info-sub">Subtítulo</p>
             </div>
-            <button class="close-modal" onclick="closeKpiInfoModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeKpiInfoModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="kpi-info-body"></div>
     </div>
@@ -450,8 +450,10 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/shared/search.js"></script>
 <script src="../javascript/ferias.js"></script>

@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Meus Documentos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/documentos-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
@@ -23,7 +23,7 @@
             </a>
         </div>
         <div class="topbar-right">
-            <button class="btn-upload" id="btn-upload" onclick="openUploadModal()" aria-label="Enviar Documento" title="Enviar Documento">
+            <button class="btn-upload" id="btn-upload" data-click="openUploadModal" aria-label="Enviar Documento" title="Enviar Documento">
                 <i class="fas fa-arrow-up-from-bracket"></i>
             </button>
         </div>
@@ -86,11 +86,11 @@
                             </span>
                         </div>
                         <div class="doc-actions-btns">
-                            <button class="btn-sign-doc hidden" id="btn-sign-doc" onclick="openSignModal()">
+                            <button class="btn-sign-doc hidden" id="btn-sign-doc" data-click="openSignModal">
                                 <i class="fas fa-signature"></i>
                                 <span>Assinar Documento</span>
                             </button>
-                            <button class="btn-delete-doc" id="btn-delete-doc" onclick="deleteSelectedDoc()" aria-label="Remover" title="Remover">
+                            <button class="btn-delete-doc" id="btn-delete-doc" data-click="deleteSelectedDoc" aria-label="Remover" title="Remover">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -136,7 +136,7 @@
                         </div>
 
 
-                        <div class="doc-preview-area doc-preview-area--clickable" onclick="viewSelectedDoc()" role="button" tabindex="0">
+                        <div class="doc-preview-area doc-preview-area--clickable" data-click="viewSelectedDoc" role="button" tabindex="0">
                             <div class="doc-preview-icon" id="detail-file-icon">
                                 <i class="fas fa-file"></i>
                             </div>
@@ -169,7 +169,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-arrow-up-from-bracket"></i> Enviar Documento</h3>
-                <button class="close-modal" onclick="closeUploadModal()"><i class="fas fa-times"></i></button>
+                <button class="close-modal" data-click="closeUploadModal"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -202,12 +202,12 @@
                     <div class="file-selected hidden" id="file-selected">
                         <i class="fas fa-file-check"></i>
                         <span id="file-selected-name"></span>
-                        <button onclick="clearFileInput()"><i class="fas fa-times"></i></button>
+                        <button data-click="clearFileInput"><i class="fas fa-times"></i></button>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" id="btn-submit-upload" onclick="submitUpload()" disabled>
+                <button class="btn-primary" id="btn-submit-upload" data-click="submitUpload" disabled>
                     Enviar
                 </button>
             </div>
@@ -219,7 +219,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-signature"></i> Assinar Documento</h3>
-                <button class="close-modal" onclick="closeSignModal()"><i class="fas fa-times"></i></button>
+                <button class="close-modal" data-click="closeSignModal"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -232,8 +232,8 @@
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeSignModal()">Cancelar</button>
-                <button class="btn-primary" onclick="confirmSignature()">
+                <button class="btn-secondary" data-click="closeSignModal">Cancelar</button>
+                <button class="btn-primary" data-click="confirmSignature">
                     <i class="fas fa-signature"></i> Confirmar Assinatura
                 </button>
             </div>
@@ -243,9 +243,12 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/files.js"></script>
 <script src="../javascript/documentos-colaborador.js"></script>
 </body>
 </html>

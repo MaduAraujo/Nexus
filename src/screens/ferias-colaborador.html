@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Solicitar Férias</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/ferias-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
@@ -23,7 +23,7 @@
             </a>
         </div>
         <div class="topbar-right">
-            <button class="btn-icon-topbar" id="btn-solicitar" onclick="openRequestModal()" aria-label="Solicitar Férias" title="Solicitar Férias">
+            <button class="btn-icon-topbar" id="btn-solicitar" data-click="openRequestModal" aria-label="Solicitar Férias" title="Solicitar Férias">
                 <i class="fas fa-plus"></i>
             </button>
         </div>
@@ -111,7 +111,7 @@
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-header">
             <h3 id="modal-title"><i class="fas fa-umbrella-beach"></i> Solicitar Férias</h3>
-            <button class="modal-close" onclick="closeRequestModal()" aria-label="Fechar">
+            <button class="modal-close" data-click="closeRequestModal" aria-label="Fechar">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -186,7 +186,7 @@
 
             <div class="form-group">
                 <label class="checkbox-label">
-                    <input type="checkbox" id="req-abono" onchange="calcDays()" disabled>
+                    <input type="checkbox" id="req-abono" data-change="calcDays" disabled>
                     <span class="checkbox-box"></span>
                     <span class="checkbox-text">
                         Abono Pecuniário
@@ -218,24 +218,24 @@
         </div>
 
         <div class="modal-footer">
-            <button class="btn-primary" id="btn-confirm" onclick="submitRequest()" disabled>
+            <button class="btn-primary" id="btn-confirm" data-click="submitRequest" disabled>
                 Enviar Solicitação
             </button>
         </div>
     </div>
 </div>
 
-<div class="modal-overlay" id="detail-modal" onclick="handleOverlayClick(event,'detail-modal')">
+<div class="modal-overlay" id="detail-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"detail-modal"]'>
     <div class="modal-content modal-sm" role="dialog" aria-modal="true">
         <div class="modal-header">
             <h3><i class="fas fa-times-circle"></i> Solicitação Recusada</h3>
-            <button class="modal-close" onclick="closeDetailModal()"><i class="fas fa-times"></i></button>
+            <button class="modal-close" data-click="closeDetailModal"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
             <p id="detail-reason" class="detail-reason-text">—</p>
         </div>
         <div class="modal-footer">
-            <button class="btn-primary" onclick="closeDetailModal()">Entendido</button>
+            <button class="btn-primary" data-click="closeDetailModal">Entendido</button>
         </div>
     </div>
 </div>
@@ -243,8 +243,10 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/ferias-colaborador.js"></script>
 </html>

@@ -429,6 +429,7 @@ function exportToCSV() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    NexusAuth.logExport('banco-horas.csv', filtered.length);
     showToast('Planilha CSV exportada.', 'success');
 }
 
@@ -520,6 +521,7 @@ function exportToPDF() {
     }
 
     doc.save(`banco-horas-${currentMonth}.pdf`);
+    NexusAuth.logExport('banco-horas.pdf', filtered.length);
     showToast('Relatório PDF exportado.', 'success');
 }
 
@@ -579,7 +581,7 @@ function buildRow(d) {
     }
     const extrasCls = extrasMin > 0 ? 'extras' : 'zero',
         faltasCls = faltaMin > 0 ? 'faltas' : 'zero';
-    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escapeHtml(emp.name)}</p><p class="emp-dept">${escapeHtml(emp.dept) || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" onclick="openDetailModal('${emp.id}')" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" onclick="openAdjustModal('${emp.id}')" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
+    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escapeHtml(emp.name)}</p><p class="emp-dept">${escapeHtml(emp.dept) || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" data-click="openDetailModal" data-click-args="${dargs(emp.id)}" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" data-click="openAdjustModal" data-click-args="${dargs(emp.id)}" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
 }
 
 const FILTER_LABELS_BH = {
@@ -732,7 +734,7 @@ function renderDetailModal(emp, monthKey) {
         }
     }
 
-    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><select class="detail-month-select" onchange="changeDetailMonth('${emp.id}',this.value)">${monthOptions}</select></div>
+    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><select class="detail-month-select" data-change="changeDetailMonth" data-change-args="${dargs(emp.id, { $: 'this.value' })}">${monthOptions}</select></div>
     ${ledgerHTML}
     ${isPJ ? '' : '<div class="trend-section"><p class="detail-section-title"><i class="fas fa-chart-line"></i> Tendência do Saldo (6 meses)</p><div class="trend-chart-wrap"><canvas id="detail-trend-canvas"></canvas></div></div>'}
     <div class="detail-stats"><div class="stat-card-sm"><div class="stat-label-sm">Dias Registrados</div><div class="stat-value-sm">${diasCompletos}</div></div><div class="stat-card-sm"><div class="stat-label-sm">H. Trabalhadas</div><div class="stat-value-sm">${totalWorked ? minToStr(totalWorked) : '0h 00min'}</div></div><div class="stat-card-sm ${isPJ ? '' : extrasMin ? 'positivo' : ''}"><div class="stat-label-sm">H. Extras</div><div class="stat-value-sm">${isPJ ? '—' : extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</div></div><div class="stat-card-sm ${saldoCls}"><div class="stat-label-sm">Saldo Líquido</div><div class="stat-value-sm">${saldoLiquido === null ? '—' : formatSaldo(saldoLiquido)}</div></div></div>
@@ -744,14 +746,14 @@ function renderDetailModal(emp, monthKey) {
         html += `<div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>Data</th><th>Entrada</th><th>Saída Alm.</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${monthRecs.map(([key, rec]) => buildDayRow(key, rec, jornadaMin, isPJ, emp.id)).join('')}</tbody></table></div>`;
     }
 
-    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title" style="margin-bottom:0"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" onclick="openAdjustModalFromDetail('${emp.id}')" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
+    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title" style="margin-bottom:0"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" data-click="openAdjustModalFromDetail" data-click-args="${dargs(emp.id)}" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
     if (!monthAjustes.length) {
         html += `<p class="no-ajustes">Nenhum ajuste manual para este período.</p>`;
     } else {
         html += monthAjustes
             .map(
                 (a) =>
-                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${escapeHtml(a.tipo)}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><button class="btn-delete-ajuste" onclick="deleteAjuste('${emp.id}','${a.id}')" title="Excluir ajuste"><i class="fas fa-trash"></i></button></div>`
+                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${escapeHtml(a.tipo)}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><button class="btn-delete-ajuste" data-click="deleteAjuste" data-click-args="${dargs(emp.id, a.id)}" title="Excluir ajuste"><i class="fas fa-trash"></i></button></div>`
             )
             .join('');
     }
@@ -857,7 +859,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
         const dt = new Date(v);
         const selfiePath = rec[field + '_selfie_path'];
         const selfieBtn = selfiePath
-            ? `<button type="button" class="btn-selfie-view" onclick="viewPontoSelfie('${selfiePath}')" title="Ver selfie do registro"><i class="fas fa-camera"></i></button>`
+            ? `<button type="button" class="btn-selfie-view" data-click="viewPontoSelfie" data-click-args="${dargs(selfiePath)}" title="Ver selfie do registro"><i class="fas fa-camera"></i></button>`
             : '';
         return `<span class="dt-time${rec[field + '_ajustado'] ? ' ajustado' : ''}">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}${selfieBtn}</span>`;
     };
@@ -1073,15 +1075,15 @@ function renderNotifPanel() {
     const rows = [];
     if (criticos.length)
         rows.push(
-            `<div class="notif-item" onclick="goToCriticos()"><div class="notif-item-icon notif-item-icon--vencido"><i class="fas fa-triangle-exclamation"></i></div><div class="notif-item-body"><span class="notif-item-title">${criticos.length} colaborador${criticos.length > 1 ? 'es' : ''} em saldo crítico</span><span class="notif-item-sub">Mais de 20h negativas no banco de horas</span></div></div>`
+            `<div class="notif-item" data-click="goToCriticos"><div class="notif-item-icon notif-item-icon--vencido"><i class="fas fa-triangle-exclamation"></i></div><div class="notif-item-body"><span class="notif-item-title">${criticos.length} colaborador${criticos.length > 1 ? 'es' : ''} em saldo crítico</span><span class="notif-item-sub">Mais de 20h negativas no banco de horas</span></div></div>`
         );
     if (vencidos.length)
         rows.push(
-            `<div class="notif-item" onclick="goToVencidos()"><div class="notif-item-icon notif-item-icon--vencido"><i class="fas fa-hourglass-end"></i></div><div class="notif-item-body"><span class="notif-item-title">${vencidos.length} colaborador${vencidos.length > 1 ? 'es' : ''} com banco de horas vencido</span><span class="notif-item-sub">Prazo de compensação expirado</span></div></div>`
+            `<div class="notif-item" data-click="goToVencidos"><div class="notif-item-icon notif-item-icon--vencido"><i class="fas fa-hourglass-end"></i></div><div class="notif-item-body"><span class="notif-item-title">${vencidos.length} colaborador${vencidos.length > 1 ? 'es' : ''} com banco de horas vencido</span><span class="notif-item-sub">Prazo de compensação expirado</span></div></div>`
         );
     if (pendentes.length)
         rows.push(
-            `<div class="notif-item" onclick="goToSolicitacoes()"><div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-inbox"></i></div><div class="notif-item-body"><span class="notif-item-title">${pendentes.length} solicitação${pendentes.length > 1 ? 'ões' : ''} de banco de horas pendente${pendentes.length > 1 ? 's' : ''}</span><span class="notif-item-sub">Aguardando decisão</span></div></div>`
+            `<div class="notif-item" data-click="goToSolicitacoes"><div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-inbox"></i></div><div class="notif-item-body"><span class="notif-item-title">${pendentes.length} solicitação${pendentes.length > 1 ? 'ões' : ''} de banco de horas pendente${pendentes.length > 1 ? 's' : ''}</span><span class="notif-item-sub">Aguardando decisão</span></div></div>`
         );
 
     const total = criticos.length + vencidos.length + pendentes.length;
@@ -1147,22 +1149,21 @@ function buildRequestRow(r) {
     const statusMeta = REQ_STATUS_META[r.status] || REQ_STATUS_META.pendente;
     const statusBadge = `<span class="badge ${statusMeta.cls}" title="${r.decision_obs ? r.decision_obs.replace(/"/g, '&quot;') : ''}"><i class="fas ${statusMeta.icon}"></i> ${escapeHtml(statusMeta.label)}</span>`;
     const anexoBtn = r.anexo_path
-        ? `<button class="btn-icon btn-icon--view" onclick="viewRequestAnexo('${r.id}')" title="Ver anexo"><i class="fas fa-paperclip"></i></button>`
+        ? `<button class="btn-icon btn-icon--view" data-click="viewRequestAnexo" data-click-args="${dargs(r.id)}" title="Ver anexo"><i class="fas fa-paperclip"></i></button>`
         : '';
     let actions = anexoBtn;
     if (r.status === 'pendente') {
-        actions += `<button class="btn-icon btn-icon--adjust" onclick="approveRequest('${r.id}')" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-icon btn-icon--delete" onclick="openRejectRequestModal('${r.id}')" title="Rejeitar"><i class="fas fa-xmark"></i></button>`;
+        actions += `<button class="btn-icon btn-icon--adjust" data-click="approveRequest" data-click-args="${dargs(r.id)}" title="Aprovar"><i class="fas fa-check"></i></button><button class="btn-icon btn-icon--delete" data-click="openRejectRequestModal" data-click-args="${dargs(r.id)}" title="Rejeitar"><i class="fas fa-xmark"></i></button>`;
     }
     return `<tr data-id="${r.id}"><td><div class="emp-cell"><div><p class="emp-name">${escapeHtml(empName)}</p><p class="emp-dept">${escapeHtml(empDept)}</p></div></div></td><td>${origemBadge}</td><td>${tipoLabel}</td><td>${valor}</td><td>${fmtDate(r.date)}</td><td>${aprovador}</td><td>${statusBadge}</td><td><div class="actions-cell">${actions}</div></td></tr>`;
 }
 
 window.viewPontoSelfie = async function (path) {
-    const { data, error } = await sb.storage.from('ponto-selfies').createSignedUrl(path, 3600);
-    if (error || !data?.signedUrl) {
+    const { error } = await NexusFiles.open('ponto-selfies', path, { name: 'selfie.jpg' });
+    if (error) {
         showToast('Não foi possível abrir a selfie.', 'error');
         return;
     }
-    window.open(data.signedUrl, '_blank');
     const empId = path.split('/')[0];
     if (empId) NexusAuth.logAccess(empId, 'selfie_ponto', path);
 };
@@ -1170,12 +1171,8 @@ window.viewPontoSelfie = async function (path) {
 window.viewRequestAnexo = async function (id) {
     const r = bankRequestsAll.find((x) => x.id === id);
     if (!r?.anexo_path) return;
-    const { data, error } = await sb.storage.from('documents').createSignedUrl(r.anexo_path, 3600);
-    if (error || !data?.signedUrl) {
-        showToast('Não foi possível abrir o anexo.', 'error');
-        return;
-    }
-    window.open(data.signedUrl, '_blank');
+    const { error } = await NexusFiles.open('documents', r.anexo_path, { name: r.anexo_name || 'anexo' });
+    if (error) showToast('Não foi possível abrir o anexo.', 'error');
 };
 
 window.approveRequest = async function (id) {
@@ -1285,7 +1282,7 @@ function renderHolidaysList() {
     wrap.innerHTML = list
         .map(
             ([date, h]) =>
-                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor" style="font-size:13px">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" onclick="deleteHoliday('${h.id}')" title="Excluir"><i class="fas fa-trash"></i></button></div>`
+                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor" style="font-size:13px">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" data-click="deleteHoliday" data-click-args="${dargs(h.id)}" title="Excluir"><i class="fas fa-trash"></i></button></div>`
         )
         .join('');
 }
@@ -2056,7 +2053,7 @@ function showToast(title, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(title)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

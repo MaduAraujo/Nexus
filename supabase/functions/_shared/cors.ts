@@ -6,7 +6,8 @@ export function corsHeadersFor(req: Request): Record<string, string> {
   const allowOrigin = origin === PROD_ORIGIN || LOCAL_ORIGIN_RE.test(origin) ? origin : PROD_ORIGIN;
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-nexus-bucket, x-nexus-path, x-nexus-mime, x-nexus-upsert",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Vary": "Origin",
   };
 }

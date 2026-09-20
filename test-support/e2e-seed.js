@@ -4,6 +4,8 @@ const U_ADMIN = '10000000-0000-4000-8000-000000000002';
 const E_ADMIN = '10000000-0000-4000-9000-000000000002';
 
 const E2E_PASSWORD = 'NexusE2E123!';
+const E2E_ADMIN_TOTP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+const E2E_ADMIN_FACTOR_ID = '10000000-0000-4000-a000-000000000002';
 
 const E2E_USERS = {
     colaborador: {
@@ -54,6 +56,16 @@ async function seedE2EUsers(db) {
             [u.userId, profile, u.employeeId]
         );
     }
+    await seedAdminMfaFactor(db);
+}
+
+async function seedAdminMfaFactor(db) {
+    await db.query(
+        `INSERT INTO auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+         VALUES ($1, $2, 'e2e-authenticator', 'totp', 'verified', now(), now(), $3)
+         ON CONFLICT (id) DO NOTHING`,
+        [E2E_ADMIN_FACTOR_ID, E2E_USERS.administrador.userId, E2E_ADMIN_TOTP_SECRET]
+    );
 }
 
 async function cleanupE2EUsers(db) {
@@ -61,4 +73,4 @@ async function cleanupE2EUsers(db) {
     await db.query('DELETE FROM employees WHERE id = ANY($1)', [[E_COLAB, E_ADMIN]]);
 }
 
-module.exports = { seedE2EUsers, cleanupE2EUsers, E2E_USERS };
+module.exports = { seedE2EUsers, cleanupE2EUsers, E2E_USERS, E2E_ADMIN_TOTP_SECRET };

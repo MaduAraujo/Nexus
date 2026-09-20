@@ -257,9 +257,18 @@ Como funciona:
 
 **Se o projeto Supabase mudar**, atualize o domínio em `connect-src` e `img-src` do `vercel.json`.
 
-**Limites conhecidos:** o CSP mantém `'unsafe-inline'` (o app usa manipuladores `onclick` inline), então ele limita para onde os dados podem ir, mas não impede sozinho a execução de script inline; a defesa principal contra XSS é o escape. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). Ainda **não há MFA** para o RH nem alertas de comportamento anormal.
+**Sem `'unsafe-inline'` em `script-src`:** o app não usa mais `onclick=`/`<script>` inline. Os manipuladores são atributos `data-click`, `data-change`, `data-input`, `data-keydown` e `data-keyup` (com `-args`, veja `src/javascript/shared/events.js`), ligados por listeners. Em templates JS use `data-click="fn" data-click-args="${dargs(id)}"`; nunca escreva `onclick=` (o teste `test/csp-inline.test.js` falha). O dispatcher só chama funções globais declaradas pelo app (não nativas), então markup injetado com `data-click="eval"` não executa código. Janelas de impressão usam `printWhenLoaded(win)` em vez de `<script>` inline.
+
+**Limites conhecidos:** `style-src` ainda tem `'unsafe-inline'` (atributos `style=` e `<style>` em vários templates), então injeção de CSS não é barrada. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). Ainda **não há MFA** para o RH nem alertas de comportamento anormal.
 
 ---
+
+## Privacidade (LGPD) e operação
+
+- **LGPD:** [`docs/lgpd/`](docs/lgpd/README.md) reúne a Política de Privacidade (página pública em `src/screens/privacidade.html`), o registro das operações de tratamento (ROPA), o RIPD e a análise dos operadores, incluindo o contrato com a Groq (DPA, Zero Data Retention e transferência internacional).
+- **Backup e restauração:** [`docs/operacao/backup-e-restauracao.md`](docs/operacao/backup-e-restauracao.md). O backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions.
+- **Incidentes, acessos e pentest:** [`plano-resposta-incidentes.md`](docs/operacao/plano-resposta-incidentes.md), [`revisao-de-acessos.md`](docs/operacao/revisao-de-acessos.md) (com `scripts/ops/revisao-de-acessos.sql`) e [`pentest-owasp-zap.md`](docs/operacao/pentest-owasp-zap.md).
+- A pasta `docs/` e o schema não vão ao ar: o `.vercelignore` os exclui da hospedagem.
 
 ## Tecnologias
 

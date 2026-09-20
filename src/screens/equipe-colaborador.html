@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Minha Equipe</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/equipe-colaborador.css">
     <link rel="stylesheet" href="../styles/toast.css">
@@ -60,7 +60,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-flag"></i> Escalar ao RH</h3>
-                <button class="modal-close" onclick="closeEscalateModal()"><i class="fas fa-times"></i></button>
+                <button class="modal-close" data-click="closeEscalateModal"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <p class="escalate-target">Sobre: <strong id="escalate-employee-name">—</strong></p>
@@ -71,8 +71,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeEscalateModal()">Cancelar</button>
-                <button class="btn-primary" onclick="confirmEscalateToRh()"><i class="fas fa-paper-plane"></i> Enviar ao RH</button>
+                <button class="btn-secondary" data-click="closeEscalateModal">Cancelar</button>
+                <button class="btn-primary" data-click="confirmEscalateToRh"><i class="fas fa-paper-plane"></i> Enviar ao RH</button>
             </div>
         </div>
     </div>
@@ -81,7 +81,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-xmark"></i> Recusar Solicitação</h3>
-                <button class="modal-close" onclick="closeRejectModal()"><i class="fas fa-times"></i></button>
+                <button class="modal-close" data-click="closeRejectModal"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -91,8 +91,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeRejectModal()">Cancelar</button>
-                <button class="btn-primary" onclick="confirmRejectVacation()"><i class="fas fa-xmark"></i> Confirmar Recusa</button>
+                <button class="btn-secondary" data-click="closeRejectModal">Cancelar</button>
+                <button class="btn-primary" data-click="confirmRejectVacation"><i class="fas fa-xmark"></i> Confirmar Recusa</button>
             </div>
         </div>
     </div>
@@ -100,8 +100,10 @@
 <div id="toast-container" class="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/equipe-colaborador.js"></script>
 </body>

@@ -10,7 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <script src="../javascript/shared/theme.js"></script>
     <title>Gestão de Horas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/banco-horas-rh.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
@@ -37,10 +37,10 @@
                         <div class="notif-panel-body" id="notif-panel-body"></div>
                     </div>
                 </div>
-                <button class="btn-topbar-icon" id="btn-holidays" title="Gerenciar feriados" onclick="openHolidaysModal()">
+                <button class="btn-topbar-icon" id="btn-holidays" title="Gerenciar feriados" data-click="openHolidaysModal">
                     <i class="fas fa-calendar-check"></i>
                 </button>
-                <button class="btn-topbar-icon" id="btn-settings" title="Configurações de compliance" onclick="openSettingsModal()">
+                <button class="btn-topbar-icon" id="btn-settings" title="Configurações de compliance" data-click="openSettingsModal">
                     <i class="fas fa-gear"></i>
                 </button>
                 <div class="month-picker-wrap" id="month-picker-wrap">
@@ -99,14 +99,14 @@
                 </div>
 
                 <div class="tabs-bar">
-                    <button class="tab-btn active" data-tab="banco" onclick="switchTab(this,'banco')" title="Banco de Horas">
+                    <button class="tab-btn active" data-tab="banco" data-click="switchTab" data-click-args='[{"$":"this"},"banco"]' title="Banco de Horas">
                         <i class="fas fa-clock-rotate-left"></i> <span class="tab-label">Banco de Horas</span>
                     </button>
-                    <button class="tab-btn" data-tab="solicitacoes" onclick="switchTab(this,'solicitacoes')" title="Solicitações">
+                    <button class="tab-btn" data-tab="solicitacoes" data-click="switchTab" data-click-args='[{"$":"this"},"solicitacoes"]' title="Solicitações">
                         <i class="fas fa-inbox"></i> <span class="tab-label">Solicitações</span>
                         <span class="tab-badge hidden" id="tab-badge-solicitacoes">0</span>
                     </button>
-                    <button class="tab-btn" data-tab="auditoria" onclick="switchTab(this,'auditoria')" title="Auditoria">
+                    <button class="tab-btn" data-tab="auditoria" data-click="switchTab" data-click-args='[{"$":"this"},"auditoria"]' title="Auditoria">
                         <i class="fas fa-scroll"></i> <span class="tab-label">Auditoria</span>
                     </button>
                 </div>
@@ -116,8 +116,8 @@
                     <div class="content-card-toolbar">
                         <div class="search-wrap">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="search-input" placeholder="Buscar colaborador..." oninput="applyFilters()">
-                            <button class="search-clear hidden" id="search-clear" onclick="clearSearch()">
+                            <input type="text" id="search-input" placeholder="Buscar colaborador..." data-input="applyFilters">
+                            <button class="search-clear hidden" id="search-clear" data-click="clearSearch">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -130,13 +130,13 @@
                                 <div class="filter-dropdown-menu" id="filter-dropdown-menu">
                                     <p class="filter-dropdown-title">Filtrar por saldo</p>
                                     <div class="filter-dropdown-chips">
-                                        <button class="chip chip--active" data-filter="todos"    onclick="setFilter(this)">Todos</button>
-                                        <button class="chip"              data-filter="positivo" onclick="setFilter(this)">Saldo Positivo</button>
-                                        <button class="chip"              data-filter="negativo" onclick="setFilter(this)">Saldo Negativo</button>
-                                        <button class="chip"              data-filter="zerado"   onclick="setFilter(this)">Zerado / PJ</button>
-                                        <button class="chip"              data-filter="critico"  onclick="setFilter(this)">Crítico</button>
-                                        <button class="chip"              data-filter="vencendo" onclick="setFilter(this)">Banco Vencendo</button>
-                                        <button class="chip"              data-filter="vencido"  onclick="setFilter(this)">Banco Vencido</button>
+                                        <button class="chip chip--active" data-filter="todos"    data-click="setFilter" data-click-args='[{"$":"this"}]'>Todos</button>
+                                        <button class="chip"              data-filter="positivo" data-click="setFilter" data-click-args='[{"$":"this"}]'>Saldo Positivo</button>
+                                        <button class="chip"              data-filter="negativo" data-click="setFilter" data-click-args='[{"$":"this"}]'>Saldo Negativo</button>
+                                        <button class="chip"              data-filter="zerado"   data-click="setFilter" data-click-args='[{"$":"this"}]'>Zerado / PJ</button>
+                                        <button class="chip"              data-filter="critico"  data-click="setFilter" data-click-args='[{"$":"this"}]'>Crítico</button>
+                                        <button class="chip"              data-filter="vencendo" data-click="setFilter" data-click-args='[{"$":"this"}]'>Banco Vencendo</button>
+                                        <button class="chip"              data-filter="vencido"  data-click="setFilter" data-click-args='[{"$":"this"}]'>Banco Vencido</button>
                                     </div>
                                 </div>
                             </div>
@@ -196,10 +196,10 @@
                 <div class="content-card">
                     <div class="content-card-toolbar">
                         <div class="filter-chips">
-                            <button class="chip chip--active" data-req-filter="pendente"  onclick="setReqFilter(this)">Pendentes</button>
-                            <button class="chip"              data-req-filter="aprovado"  onclick="setReqFilter(this)">Aprovadas</button>
-                            <button class="chip"              data-req-filter="rejeitado" onclick="setReqFilter(this)">Rejeitadas</button>
-                            <button class="chip"              data-req-filter="todos"     onclick="setReqFilter(this)">Todas</button>
+                            <button class="chip chip--active" data-req-filter="pendente"  data-click="setReqFilter" data-click-args='[{"$":"this"}]'>Pendentes</button>
+                            <button class="chip"              data-req-filter="aprovado"  data-click="setReqFilter" data-click-args='[{"$":"this"}]'>Aprovadas</button>
+                            <button class="chip"              data-req-filter="rejeitado" data-click="setReqFilter" data-click-args='[{"$":"this"}]'>Rejeitadas</button>
+                            <button class="chip"              data-req-filter="todos"     data-click="setReqFilter" data-click-args='[{"$":"this"}]'>Todas</button>
                         </div>
                     </div>
 
@@ -248,7 +248,7 @@
                                     <div class="filter-dropdown-menu" id="audit-emp-dropdown-menu">
                                         <p class="filter-dropdown-title">Colaborador</p>
                                         <div class="filter-dropdown-chips" id="audit-emp-chips">
-                                            <button class="chip chip--active" data-emp-id="all" onclick="setAuditEmp(this)">Todos</button>
+                                            <button class="chip chip--active" data-emp-id="all" data-click="setAuditEmp" data-click-args='[{"$":"this"}]'>Todos</button>
                                         </div>
                                     </div>
                                 </div>
@@ -282,9 +282,9 @@
                                 <div class="filter-dropdown-menu" id="audit-filter-dropdown-menu">
                                     <p class="filter-dropdown-title">Filtrar por tipo</p>
                                     <div class="filter-dropdown-chips">
-                                        <button class="chip chip--active" data-audit-tipo="todos"       onclick="setAuditTipo(this)">Todos</button>
-                                        <button class="chip"              data-audit-tipo="ponto"        onclick="setAuditTipo(this)">Registros de Ponto</button>
-                                        <button class="chip"              data-audit-tipo="ajuste_banco" onclick="setAuditTipo(this)">Ajustes de Banco</button>
+                                        <button class="chip chip--active" data-audit-tipo="todos"       data-click="setAuditTipo" data-click-args='[{"$":"this"}]'>Todos</button>
+                                        <button class="chip"              data-audit-tipo="ponto"        data-click="setAuditTipo" data-click-args='[{"$":"this"}]'>Registros de Ponto</button>
+                                        <button class="chip"              data-audit-tipo="ajuste_banco" data-click="setAuditTipo" data-click-args='[{"$":"this"}]'>Ajustes de Banco</button>
                                     </div>
                                 </div>
                             </div>
@@ -333,7 +333,7 @@
                 <h3 class="modal-title">Banco de Horas — Detalhes</h3>
                 <p class="modal-subtitle" id="detail-sub">Histórico de ponto e ajustes</p>
             </div>
-            <button class="close-modal" onclick="closeDetailModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeDetailModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body" id="detail-body"></div>
     </div>
@@ -347,7 +347,7 @@
                 <h3 class="modal-title">Lançar Ajuste Manual</h3>
                 <p class="modal-subtitle" id="adjust-sub">Crédito ou débito de horas</p>
             </div>
-            <button class="close-modal" onclick="closeAdjustModal()" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeAdjustModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -360,11 +360,11 @@
             <div class="form-row-2">
                 <div class="form-group">
                     <label class="form-label" for="adjust-horas">Horas</label>
-                    <input type="number" id="adjust-horas" class="form-input" min="0" max="99" placeholder="0" oninput="updateAdjustSubmitState()">
+                    <input type="number" id="adjust-horas" class="form-input" min="0" max="99" placeholder="0" data-input="updateAdjustSubmitState">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="adjust-min">Minutos</label>
-                    <input type="number" id="adjust-min" class="form-input" min="0" max="59" placeholder="0" oninput="updateAdjustSubmitState()">
+                    <input type="number" id="adjust-min" class="form-input" min="0" max="59" placeholder="0" data-input="updateAdjustSubmitState">
                 </div>
             </div>
             <div class="form-group">
@@ -390,12 +390,12 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
-                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..." oninput="updateAdjustSubmitState()"></textarea>
+                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..." data-input="updateAdjustSubmitState"></textarea>
             </div>
             <div class="modal-alert" id="adjust-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" id="adjust-submit-btn" onclick="submitAdjust()" disabled>
+            <button class="btn-submit" id="adjust-submit-btn" data-click="submitAdjust" disabled>
                 Lançar Ajuste
             </button>
         </div>
@@ -410,7 +410,7 @@
                 <h3 class="modal-title">Gerenciar Feriados</h3>
                 <p class="modal-subtitle">Feriados não contam como falta</p>
             </div>
-            <button class="close-modal" onclick="closeModal('holidays-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeModal" data-click-args='["holidays-modal"]' aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-row-2">
@@ -432,7 +432,7 @@
                 <label class="form-label" for="holiday-name">Nome do Feriado</label>
                 <div class="holiday-name-row">
                     <input type="text" id="holiday-name" class="form-input" placeholder="Ex.: Aniversário da cidade">
-                    <button class="btn-add-inline" onclick="submitHoliday()" title="Adicionar Feriado" aria-label="Adicionar Feriado">
+                    <button class="btn-add-inline" data-click="submitHoliday" title="Adicionar Feriado" aria-label="Adicionar Feriado">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
@@ -445,7 +445,7 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="reject-request-modal" onclick="handleOverlayClick(event,'reject-request-modal')">
+<div class="modal-overlay" id="reject-request-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"reject-request-modal"]'>
     <div class="modal-content modal-content--sm">
         <div class="modal-header">
             <div class="modal-header-icon"><i class="fas fa-xmark"></i></div>
@@ -453,7 +453,7 @@
                 <h3 class="modal-title">Rejeitar Solicitação</h3>
                 <p class="modal-subtitle" id="reject-request-sub">—</p>
             </div>
-            <button class="close-modal" onclick="closeModal('reject-request-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeModal" data-click-args='["reject-request-modal"]' aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -463,8 +463,8 @@
             <div class="modal-alert" id="reject-request-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeModal('reject-request-modal')">Cancelar</button>
-            <button class="btn-submit" onclick="confirmRejectRequest()">
+            <button class="btn-cancel" data-click="closeModal" data-click-args='["reject-request-modal"]'>Cancelar</button>
+            <button class="btn-submit" data-click="confirmRejectRequest">
                 <i class="fas fa-xmark"></i> Confirmar Rejeição
             </button>
         </div>
@@ -479,7 +479,7 @@
                 <h3 class="modal-title">Configurações de Compliance</h3>
                 <p class="modal-subtitle">Regras de vencimento e limite legal</p>
             </div>
-            <button class="close-modal" onclick="closeModal('settings-modal')" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+            <button class="close-modal" data-click="closeModal" data-click-args='["settings-modal"]' aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -495,7 +495,7 @@
             <div class="modal-alert" id="settings-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" onclick="submitSettings()">
+            <button class="btn-submit" data-click="submitSettings">
                 Salvar
             </button>
         </div>
@@ -507,9 +507,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/shared/files.js"></script>
 <script src="../javascript/shared/search.js"></script>
 <script src="../javascript/domain/clt-domain.js"></script>
 <script src="../javascript/banco-horas-rh.js"></script>

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { isBusinessHours, nextBusinessHourStart } from "../_shared/quiet-hours.ts";
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
 
 webpush.setVapidDetails(
   "mailto:suporte@nexus-nine-zeta.vercel.app",
@@ -51,6 +52,13 @@ serve(async (req) => {
 
       if (profile?.profile !== "Administrador") {
         return new Response(JSON.stringify({ error: "Acesso restrito ao Administrador" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!mfaSatisfied(user, authHeader, true)) {
+        return new Response(JSON.stringify({ error: MFA_REQUIRED_MESSAGE }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

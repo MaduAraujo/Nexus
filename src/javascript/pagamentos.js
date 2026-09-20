@@ -57,7 +57,7 @@ async function loadData() {
             )
             .in('status', ['Ativo', 'ativo'])
             .order('name'),
-        sb.from('payslips').select('*').eq('mes', currentMonth),
+        sb.from('payslips_decrypted').select('*').eq('mes', currentMonth),
     ]);
 
     if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
@@ -364,7 +364,7 @@ function buildFolhaRow(r) {
     const isSelected = selectedIds.has(emp.id);
 
     return `<tr class="${isSelected ? 'row-selected' : ''}">
-        <td class="td-check"><input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} onchange="toggleRowSelect('${emp.id}', this)"></td>
+        <td class="td-check"><input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}"></td>
         <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
         <td data-label="Contrato">${ctBadge}</td>
         <td data-label="Bruto"><span class="val-blue">${fmtCurrency(calc.bruto)}</span></td>
@@ -393,7 +393,7 @@ function buildFolhaCard(r) {
     return `<div class="folha-card-item${isSelected ? ' row-selected' : ''}">
         <div class="folha-card-top">
             <label class="folha-card-check">
-                <input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} onchange="toggleRowSelect('${emp.id}', this)">
+                <input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}">
             </label>
             <div class="emp-cell">
                 ${empAvatarHtml(emp, ini, color)}
@@ -603,7 +603,7 @@ function buildHolRow(r, competLabel) {
         <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
         <td data-label="Status">${statusBadge}</td>
         <td data-label="Ações"><div class="actions-cell">
-            <button class="btn-action btn-action--view" onclick="verHolerite('${emp.id}')" title="Ver holerite" ${!pago ? 'disabled' : ''}>
+            <button class="btn-action btn-action--view" data-click="verHolerite" data-click-args="${dargs(emp.id)}" title="Ver holerite" ${!pago ? 'disabled' : ''}>
                 <i class="fas fa-eye"></i>
             </button>
         </div></td>
@@ -638,7 +638,7 @@ function buildHolCard(r, competLabel) {
             <span>Líquido</span>
             <span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span>
         </div>
-        <button type="button" class="btn-secondary folha-card-btn" onclick="verHolerite('${emp.id}')" ${!pago ? 'disabled' : ''}>
+        <button type="button" class="btn-secondary folha-card-btn" data-click="verHolerite" data-click-args="${dargs(emp.id)}" ${!pago ? 'disabled' : ''}>
             <i class="fas fa-eye"></i> Ver Holerite
         </button>
     </div>`;
@@ -913,7 +913,7 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
     const desdeKey = desde.toISOString().slice(0, 7);
     const ateKey = ateDataStr.slice(0, 7);
 
-    const { data: slips } = await sb.from('payslips').select('mes,proventos').eq('employee_id', empId).gte('mes', desdeKey).lt('mes', ateKey);
+    const { data: slips } = await sb.from('payslips_decrypted').select('mes,proventos').eq('employee_id', empId).gte('mes', desdeKey).lt('mes', ateKey);
     if (!slips || !slips.length) return 0;
 
     let total = 0;
@@ -1146,7 +1146,7 @@ window.confirmarDesligamento = async function () {
         const fileName = `rescisao_${emp.name.replace(/\s+/g, '_')}.pdf`;
         const storagePath = `rh/${Date.now()}_${fileName}`;
 
-        const { error: uploadError } = await sb.storage.from('documents').upload(storagePath, blob, { contentType: 'application/pdf' });
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, blob, { contentType: 'application/pdf' });
         if (uploadError) {
             showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning');
         } else {
@@ -1437,9 +1437,9 @@ window.printCurrentSlip = function () {
             <span>Gerado pelo Nexus RH em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
             <span>Este documento tem validade apenas com assinatura digital ou carimbo da empresa.</span>
         </div>
-        <script>window.onload = () => { window.print(); }<\/script>
     </body></html>`);
     win.document.close();
+    printWhenLoaded(win);
 };
 
 function populateDeptFilters() {
@@ -1453,10 +1453,10 @@ function buildDeptChips(chipsId, btnId, depts, selected, fnName) {
     if (!chipsEl) return;
 
     chipsEl.innerHTML = [
-        `<button type="button" class="chip${!selected ? ' chip--active' : ''}" data-dept="" onclick="${fnName}(this)">Todos os departamentos</button>`,
+        `<button type="button" class="chip${!selected ? ' chip--active' : ''}" data-dept="" data-click="${fnName}" data-click-args="[{&quot;$&quot;:&quot;this&quot;}]">Todos os departamentos</button>`,
         ...depts.map(
             (d) =>
-                `<button type="button" class="chip${d === selected ? ' chip--active' : ''}" data-dept="${escHtml(d)}" onclick="${fnName}(this)">${escHtml(d)}</button>`
+                `<button type="button" class="chip${d === selected ? ' chip--active' : ''}" data-dept="${escHtml(d)}" data-click="${fnName}" data-click-args="[{&quot;$&quot;:&quot;this&quot;}]">${escHtml(d)}</button>`
         ),
     ].join('');
 
@@ -1588,6 +1588,7 @@ async function exportCSV() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
         XLSX.writeFile(wb, `folha-pagamento-${currentMonth}-contabilidade.csv`);
+        NexusAuth.logExport('folha-pagamento.csv', employees.length);
         showToast('Exportação CSV concluída.', 'success');
     } catch (e) {
         console.error('exportCSV:', e);
@@ -1617,6 +1618,7 @@ function exportExcel() {
     ]);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
     XLSX.writeFile(wb, `folha-pagamento-${currentMonth}.xlsx`);
+    NexusAuth.logExport('folha-pagamento.xlsx', allRows.length);
     showToast('Exportação Excel concluída.', 'success');
 }
 
@@ -1656,6 +1658,7 @@ function exportPDF() {
         styles: { fontSize: 9 },
     });
     doc.save(`folha-pagamento-${currentMonth}.pdf`);
+    NexusAuth.logExport('folha-pagamento.pdf', allRows.length);
     showToast('Exportação PDF concluída.', 'success');
 }
 
@@ -1894,7 +1897,7 @@ function showToast(msg, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);

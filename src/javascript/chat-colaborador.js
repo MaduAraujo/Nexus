@@ -1440,7 +1440,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);

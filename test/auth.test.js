@@ -5,6 +5,7 @@ const { createMockSupabase } = require('../test-support/mock-supabase');
 global.window = global;
 global.window.location = { href: '' };
 
+require('../src/javascript/shared/mfa.js');
 const NexusAuth = require('../src/javascript/shared/auth.js');
 
 beforeEach(() => {
@@ -64,6 +65,57 @@ describe('requireProfile', () => {
         assert.equal(global.window.location.href, '');
         assert.equal(result.employee.name, 'Ana Souza');
         assert.equal(result.employee.dept, 'TI');
+    });
+});
+
+describe('requireProfile e o segundo fator', () => {
+    const admin = { profiles: [{ id: 'a1', profile: 'Administrador', employee_id: null }] };
+    const colab = { profiles: [{ id: 'c1', profile: 'colaborador', employee_id: null }] };
+    const comFator = { currentLevel: 'aal1', nextLevel: 'aal2' };
+    const semFator = { currentLevel: 'aal1', nextLevel: 'aal1' };
+
+    test('fator ativo mas código não digitado (aal1 → aal2): volta ao login e não retorna dados', async () => {
+        global.sb = createMockSupabase(admin, { user: { id: 'a1' }, mfaLevel: comFator });
+        assert.equal(await NexusAuth.requireProfile('Administrador'), null);
+        assert.equal(global.window.location.href, '../screens/login.html');
+    });
+
+    test('vale para colaborador que optou pelo MFA', async () => {
+        global.sb = createMockSupabase(colab, { user: { id: 'c1' }, mfaLevel: comFator });
+        assert.equal(await NexusAuth.requireProfile('colaborador'), null);
+        assert.equal(global.window.location.href, '../screens/login.html');
+    });
+
+    test('Administrador sem nenhum fator é levado à tela de ativação', async () => {
+        global.sb = createMockSupabase(admin, { user: { id: 'a1' }, mfaLevel: semFator });
+        assert.equal(await NexusAuth.requireProfile('Administrador'), null);
+        assert.equal(global.window.location.href, '../screens/seguranca.html');
+    });
+
+    test('a própria tela de ativação pode abrir sem fator (allowMfaSetup)', async () => {
+        global.sb = createMockSupabase(admin, { user: { id: 'a1' }, mfaLevel: semFator });
+        const result = await NexusAuth.requireProfile('Administrador', undefined, { allowMfaSetup: true });
+        assert.equal(result.user.id, 'a1');
+        assert.equal(global.window.location.href, '');
+    });
+
+    test('allowMfaSetup não dispensa o código de quem já tem fator', async () => {
+        global.sb = createMockSupabase(admin, { user: { id: 'a1' }, mfaLevel: comFator });
+        assert.equal(await NexusAuth.requireProfile('Administrador', undefined, { allowMfaSetup: true }), null);
+        assert.equal(global.window.location.href, '../screens/login.html');
+    });
+
+    test('colaborador sem fator entra normalmente (MFA opcional)', async () => {
+        global.sb = createMockSupabase(colab, { user: { id: 'c1' }, mfaLevel: semFator });
+        const result = await NexusAuth.requireProfile('colaborador');
+        assert.equal(result.user.id, 'c1');
+        assert.equal(global.window.location.href, '');
+    });
+
+    test('falha ao consultar o nível de segurança nega o acesso', async () => {
+        global.sb = createMockSupabase(admin, { user: { id: 'a1' }, mfaError: { message: 'boom' } });
+        assert.equal(await NexusAuth.requireProfile('Administrador'), null);
+        assert.equal(global.window.location.href, '../screens/login.html');
     });
 });
 

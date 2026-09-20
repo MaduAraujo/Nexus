@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let anonFilter = 'all';
 
     async function loadAnonFeedback() {
-        const { data } = await sb.from('anonymous_feedback').select('*').order('created_at', { ascending: false });
+        const { data } = await sb.from('anonymous_feedback_decrypted').select('*').order('created_at', { ascending: false });
         allAnonFeedback = data || [];
         updateAnonBadge();
         renderAnonFeedback();
@@ -663,8 +663,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 <p class="af-item-msg">${esc(f.message)}</p>
                 <div class="af-item-actions">
-                    ${f.status !== 'lido' ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','lido')"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
-                    ${f.status !== 'arquivado' ? `<button class="af-item-btn" onclick="markAnonFeedback('${f.id}','arquivado')"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
+                    ${f.status !== 'lido' ? `<button class="af-item-btn" data-click="markAnonFeedback" data-click-args="${dargs(f.id, 'lido')}"><i class="fas fa-check"></i> Marcar como lido</button>` : ''}
+                    ${f.status !== 'arquivado' ? `<button class="af-item-btn" data-click="markAnonFeedback" data-click-args="${dargs(f.id, 'arquivado')}"><i class="fas fa-box-archive"></i> Arquivar</button>` : ''}
                 </div>
             </div>`
             )
@@ -717,7 +717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="toast-title">${esc(title)}</p>
                 ${msg ? `<p class="toast-msg">${esc(msg)}</p>` : ''}
             </div>
-            <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+            <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
             </button>`;
         container.appendChild(toast);

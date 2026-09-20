@@ -1,6 +1,5 @@
 ﻿const PASSWORD_MIN_LENGTH = 12;
 
-// Regra única de senha do app. Deve acompanhar a configuração do Supabase Auth (mínimo 12, letras e números).
 function passwordProblem(password) {
     if (password.length < PASSWORD_MIN_LENGTH) return `Mínimo ${PASSWORD_MIN_LENGTH} caracteres.`;
     if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) return 'Use letras e números.';
@@ -12,6 +11,7 @@ let loginStep = 1;
 let _firstAccessSession = null;
 let _faDebounce = null;
 let _isPasswordRecovery = false;
+let _mfaPending = null;
 
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
@@ -24,7 +24,7 @@ function showToast(msg, type = 'success') {
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(msg)}</p>
         </div>
-        <button class="toast-close" onclick="this.closest('.toast').classList.add('hide');setTimeout(()=>this.closest('.toast').remove(),400)">
+        <button class="toast-close" data-click="dismissToast">
             <i class="fas fa-times"></i>
         </button>`;
     container.appendChild(toast);
@@ -167,9 +167,12 @@ async function resumeProfileSession(profileType) {
     } = await client.auth.getSession();
     if (!session?.user) return;
 
-    const { data: profile } = await client.from('profiles').select('profile').eq('id', session.user.id).single();
+    const { data: profile } = await client.from('profiles').select('profile, employee_id').eq('id', session.user.id).single();
     if (profile?.profile === profileType) {
-        if (selectedProfileType === profileType) window.location.href = PROFILE_HOME[profileType];
+        if (selectedProfileType !== profileType) return;
+        const factorId = await pendingMfaFactorId(profileType);
+        if (factorId) showMfaStep(factorId, profile);
+        else window.location.href = PROFILE_HOME[profileType];
         return;
     }
 
@@ -220,6 +223,85 @@ function showPasswordStep() {
     setTimeout(() => loginPass?.focus(), 50);
 }
 
+async function pendingMfaFactorId(profileType) {
+    const level = await NexusMfa.assurance(sb);
+    if (!level || NexusMfa.decide(level, profileType) !== 'challenge') return null;
+    const { verified } = await NexusMfa.listFactors(sb);
+    return verified[0]?.id || null;
+}
+
+function showMfaStep(factorId, profile) {
+    _mfaPending = { factorId, profile };
+    setLoginLoading(false);
+    document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
+    document.getElementById('form-mfa')?.classList.add('active');
+    setNavBack(true, cancelMfa);
+    const input = document.getElementById('mfa-code');
+    if (input) input.value = '';
+    updateMfaBtnState();
+    setTimeout(() => input?.focus(), 50);
+}
+
+// Alimenta os alertas de segurança (migration 066). Espera no máximo 1,5 s para não segurar o redirecionamento e ignora
+// qualquer erro: o login nunca depende disso.
+async function reportSecurity(rpcName, args) {
+    try {
+        await Promise.race([Promise.resolve(sb.rpc(rpcName, args)), new Promise((resolve) => setTimeout(resolve, 1500))]);
+    } catch {}
+}
+
+async function finishLogin(profile) {
+    await reportSecurity('record_access', { p_kind: 'login' });
+    if (profile.profile === 'colaborador' && profile.employee_id) {
+        await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
+    }
+    window.location.href = PROFILE_HOME[profile.profile] || PROFILE_HOME.colaborador;
+}
+
+window.updateMfaBtnState = function () {
+    const btn = document.getElementById('btn-mfa');
+    const code = document.getElementById('mfa-code')?.value || '';
+    const err = document.getElementById('mfa-code-err');
+    if (err) err.textContent = '';
+    if (btn) btn.disabled = !NexusMfa.isValidCode(code);
+};
+
+function setMfaLoading(on) {
+    const btn = document.getElementById('btn-mfa');
+    const text = document.getElementById('btn-mfa-text');
+    const spin = document.getElementById('spinner-mfa');
+    if (btn) btn.disabled = on;
+    if (text) text.style.opacity = on ? '0' : '1';
+    if (spin) spin.style.display = on ? 'block' : 'none';
+}
+
+window.submitMfaCode = async function () {
+    if (!_mfaPending || document.getElementById('btn-mfa')?.disabled) return;
+    const code = document.getElementById('mfa-code')?.value || '';
+    setMfaLoading(true);
+    try {
+        const { error } = await NexusMfa.verify(sb, _mfaPending.factorId, code);
+        if (error) {
+            reportSecurity('report_mfa_failure');
+            setMfaLoading(false);
+            const err = document.getElementById('mfa-code-err');
+            if (err) err.textContent = 'Código inválido ou expirado. Confira o app e tente de novo.';
+            document.getElementById('mfa-code')?.select();
+            return;
+        }
+        await finishLogin(_mfaPending.profile);
+    } catch {
+        setMfaLoading(false);
+        showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
+    }
+};
+
+window.cancelMfa = async function () {
+    _mfaPending = null;
+    await sb.auth.signOut({ scope: 'local' });
+    goToProfileSelection();
+};
+
 window.handleLogin = async function () {
     const emailInput = document.getElementById('login-user').value.trim().toLowerCase();
     const passInput = document.getElementById('login-pass').value;
@@ -252,6 +334,7 @@ window.handleLogin = async function () {
             if (error.message === 'Email not confirmed') {
                 showToast('Confirme seu e-mail antes de acessar.', 'error');
             } else {
+                if (/invalid/i.test(error.message)) reportSecurity('report_login_failure', { p_email: emailInput });
                 showToast('E-mail ou senha incorretos.', 'error');
             }
             return;
@@ -278,11 +361,26 @@ window.handleLogin = async function () {
             return;
         }
 
-        if (profile.profile === 'colaborador' && profile.employee_id) {
-            await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
+        const level = await NexusMfa.assurance(sb);
+        if (!level) {
+            await sb.auth.signOut({ scope: 'local' });
+            setLoginLoading(false);
+            showToast('Não foi possível verificar a segurança da conta. Tente novamente.', 'error');
+            return;
+        }
+        if (NexusMfa.decide(level, profile.profile) === 'challenge') {
+            const { verified } = await NexusMfa.listFactors(sb);
+            if (!verified[0]) {
+                await sb.auth.signOut({ scope: 'local' });
+                setLoginLoading(false);
+                showToast('Não foi possível carregar o segundo fator da conta. Tente novamente.', 'error');
+                return;
+            }
+            showMfaStep(verified[0].id, profile);
+            return;
         }
 
-        window.location.href = PROFILE_HOME[profile.profile] || PROFILE_HOME.colaborador;
+        await finishLogin(profile);
     } catch {
         setLoginLoading(false);
         showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
@@ -299,6 +397,11 @@ window.updateForgotBtnState = function () {
     const btn = document.getElementById('btn-forgot-send');
     const email = document.getElementById('forgot-email')?.value.trim() || '';
     if (btn) btn.disabled = !email;
+};
+
+window.onForgotEmailInput = function (input) {
+    forgotClearErr('forgot-email-err', input);
+    updateForgotBtnState();
 };
 
 window.backToLogin = function () {

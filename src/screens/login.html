@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/src/assets/icons/apple-touch-icon.png" />
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <title>Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles/fonts.css" />
     <link rel="stylesheet" href="../styles/login.css">
     <link rel="stylesheet" href="../styles/toast.css">
 </head>
@@ -39,11 +39,11 @@
                     </svg>
                     <input type="email" id="first-access-email"
                            autocomplete="email"
-                           oninput="onFirstAccessEmailInput()" />
+                           data-input="onFirstAccessEmailInput" />
                 </div>
                 <p class="field-error" id="first-access-email-err"></p>
             </div>
-            <button class="btn-submit" id="btn-first-access" onclick="openCreatePasswordModal()" disabled>Entrar</button>
+            <button class="btn-submit" id="btn-first-access" data-click="openCreatePasswordModal" disabled>Entrar</button>
         </div>
 
         <div id="form-profile" class="form-section active">
@@ -52,8 +52,8 @@
 
             <div class="profile-grid" role="radiogroup" aria-label="Selecione seu perfil de acesso">
                 <div class="profile-card rh" role="radio" tabindex="0" aria-checked="false"
-                     onclick="selectProfile('Administrador', this)"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectProfile('Administrador', this);}">
+                     data-click="selectProfile" data-click-args='["Administrador",{"$":"this"}]'
+                     data-keydown="selectProfile" data-keydown-args='["Administrador",{"$":"this"}]' data-keydown-keys="Enter| " data-keydown-prevent>
                     <div class="profile-check">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
@@ -72,8 +72,8 @@
                 </div>
 
                 <div class="profile-card colaborador" role="radio" tabindex="0" aria-checked="false"
-                     onclick="selectProfile('colaborador', this)"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectProfile('colaborador', this);}">
+                     data-click="selectProfile" data-click-args='["colaborador",{"$":"this"}]'
+                     data-keydown="selectProfile" data-keydown-args='["colaborador",{"$":"this"}]' data-keydown-keys="Enter| " data-keydown-prevent>
                     <div class="profile-check">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
@@ -90,7 +90,7 @@
                 </div>
             </div>
 
-            <button class="btn-submit btn-continue" id="btn-continue" onclick="goToLogin()" disabled>
+            <button class="btn-submit btn-continue" id="btn-continue" data-click="goToLogin" disabled>
                 Continuar
             </button>
         </div>
@@ -108,7 +108,7 @@
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                         <polyline points="22,6 12,13 2,6"/>
                     </svg>
-                    <input type="email" id="login-user" autocomplete="username" oninput="updateLoginBtnState()" />
+                    <input type="email" id="login-user" autocomplete="username" data-input="updateLoginBtnState" />
                 </div>
             </div>
 
@@ -121,9 +121,9 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
                         <input type="password" id="login-pass" autocomplete="current-password"
-                               oninput="updateLoginBtnState()"
-                               onkeydown="if(event.key==='Enter') handleLogin()" />
-                        <button class="toggle-pw" type="button" onclick="togglePw('login-pass', this)" aria-label="Mostrar senha">
+                               data-input="updateLoginBtnState"
+                               data-keydown="handleLogin" data-keydown-keys="Enter" />
+                        <button class="toggle-pw" type="button" data-click="togglePw" data-click-args='["login-pass",{"$":"this"}]' aria-label="Mostrar senha">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -131,15 +131,42 @@
                         </button>
                     </div>
                     <div class="forgot-link-row">
-                        <button type="button" class="link-btn" onclick="switchTab('forgot')">Esqueceu sua senha?</button>
+                        <button type="button" class="link-btn" data-click="switchTab" data-click-args='["forgot"]'>Esqueceu sua senha?</button>
                     </div>
                 </div>
             </div>
 
-            <button class="btn-submit" id="btn-login" onclick="handleLogin()" disabled>
+            <button class="btn-submit" id="btn-login" data-click="handleLogin" disabled>
                 <span id="btn-login-text">Entrar</span>
                 <div class="spinner" id="spinner-login"></div>
             </button>
+        </div>
+
+        <div id="form-mfa" class="form-section">
+            <p class="form-title">Verificação em duas etapas</p>
+            <p class="form-subtitle">Digite o código de 6 dígitos do seu app autenticador.</p>
+
+            <div class="field">
+                <label for="mfa-code">Código</label>
+                <div class="field-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <input type="text" id="mfa-code" inputmode="numeric" pattern="[0-9]*" maxlength="7"
+                           autocomplete="one-time-code" placeholder="000000"
+                           data-input="updateMfaBtnState"
+                           data-keydown="submitMfaCode" data-keydown-keys="Enter" />
+                </div>
+                <p class="field-error" id="mfa-code-err"></p>
+            </div>
+
+            <button class="btn-submit" id="btn-mfa" data-click="submitMfaCode" disabled>
+                <span id="btn-mfa-text">Verificar</span>
+                <div class="spinner" id="spinner-mfa"></div>
+            </button>
+            <div class="forgot-link-row">
+                <button type="button" class="link-btn" data-click="cancelMfa">Entrar com outra conta</button>
+            </div>
         </div>
 
         <div id="form-forgot" class="form-section">
@@ -164,12 +191,12 @@
                             <polyline points="22,6 12,13 2,6"/>
                         </svg>
                         <input type="email" id="forgot-email" autocomplete="email"
-                               oninput="forgotClearErr('forgot-email-err', this); updateForgotBtnState()"
-                               onkeydown="if(event.key==='Enter') forgotSendCode()" />
+                               data-input="onForgotEmailInput" data-input-args='[{"$":"this"}]'
+                               data-keydown="forgotSendCode" data-keydown-keys="Enter" />
                     </div>
                     <p class="field-error" id="forgot-email-err"></p>
                 </div>
-                <button class="btn-submit" id="btn-forgot-send" onclick="forgotSendCode()" disabled>
+                <button class="btn-submit" id="btn-forgot-send" data-click="forgotSendCode" disabled>
                     <span id="btn-forgot-send-text">Enviar link</span>
                     <div class="spinner" id="spin-forgot-send"></div>
                 </button>
@@ -186,7 +213,7 @@
                 <p class="form-subtitle">Enviamos um link de redefinição para <strong id="forgot-email-shown"></strong>. Clique no link para criar sua nova senha.</p>
                 <p class="forgot-resend-hint">
                     Não recebeu? Verifique o spam ou
-                    <button type="button" class="link-btn" onclick="setForgotStep(1)">tente novamente</button>.
+                    <button type="button" class="link-btn" data-click="setForgotStep" data-click-args='[1]'>tente novamente</button>.
                 </p>
             </div>
 
@@ -201,8 +228,8 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
                         <input type="password" id="new-pass" autocomplete="new-password"
-                               oninput="forgotValidatePass()" onkeydown="if(event.key==='Enter') forgotReset()" />
-                        <button class="toggle-pw" type="button" onclick="togglePw('new-pass', this)" aria-label="Mostrar senha">
+                               data-input="forgotValidatePass" data-keydown="forgotReset" data-keydown-keys="Enter" />
+                        <button class="toggle-pw" type="button" data-click="togglePw" data-click-args='["new-pass",{"$":"this"}]' aria-label="Mostrar senha">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -219,8 +246,8 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
                         <input type="password" id="confirm-pass" autocomplete="new-password"
-                               oninput="forgotValidatePass()" onkeydown="if(event.key==='Enter') forgotReset()" />
-                        <button class="toggle-pw" type="button" onclick="togglePw('confirm-pass', this)" aria-label="Mostrar senha">
+                               data-input="forgotValidatePass" data-keydown="forgotReset" data-keydown-keys="Enter" />
+                        <button class="toggle-pw" type="button" data-click="togglePw" data-click-args='["confirm-pass",{"$":"this"}]' aria-label="Mostrar senha">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -229,7 +256,7 @@
                     </div>
                     <p class="field-error" id="confirm-pass-err"></p>
                 </div>
-                <button class="btn-submit" id="btn-reset" onclick="forgotReset()" disabled>
+                <button class="btn-submit" id="btn-reset" data-click="forgotReset" disabled>
                     <span id="btn-reset-text">Redefinir senha</span>
                     <div class="spinner" id="spin-reset"></div>
                 </button>
@@ -243,7 +270,7 @@
                 </div>
                 <p class="form-title">Senha redefinida!</p>
                 <p class="form-subtitle">Sua senha foi alterada com sucesso.</p>
-                <button class="btn-submit" onclick="goToProfileSelection()">Ir para o login</button>
+                <button class="btn-submit" data-click="goToProfileSelection">Ir para o login</button>
             </div>
         </div>
     </div>
@@ -272,8 +299,8 @@
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                     <input type="password" id="create-pass-new" placeholder="Mínimo 12 caracteres, com letras e números"
-                           oninput="validateCreatePass()"
-                           onkeydown="if(event.key==='Enter') submitCreatePass()"
+                           data-input="validateCreatePass"
+                           data-keydown="submitCreatePass" data-keydown-keys="Enter"
                            autocomplete="new-password" />
                 </div>
             </div>
@@ -285,26 +312,30 @@
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                     <input type="password" id="create-pass-confirm" placeholder="Repita a senha"
-                           oninput="validateCreatePass()"
-                           onkeydown="if(event.key==='Enter') submitCreatePass()"
+                           data-input="validateCreatePass"
+                           data-keydown="submitCreatePass" data-keydown-keys="Enter"
                            autocomplete="new-password" />
                 </div>
             </div>
             <p class="fam-error" id="create-pass-err"></p>
         </div>
-        <button class="fam-btn" id="btn-create-pass" onclick="submitCreatePass()" disabled>
+        <button class="fam-btn" id="btn-create-pass" data-click="submitCreatePass" disabled>
             <span id="btn-create-pass-text">Salvar e entrar</span>
             <div class="fam-spinner" id="spin-create-pass"></div>
         </button>
     </div>
 </div>
 
+<p class="privacy-link"><a href="./privacidade.html">Política de Privacidade</a></p>
+
 <div id="toast-container" class="toast-container"></div>
 
-<script>window._loginHash = location.hash;</script>
+<script src="../javascript/shared/login-hash.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
+<script src="../javascript/shared/events.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/login.js"></script>
 </body>
 </html>

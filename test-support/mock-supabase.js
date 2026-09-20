@@ -25,7 +25,10 @@ function applyFilters(rows, filters) {
     );
 }
 
-function createMockSupabase(tables = {}, { user = null, authError = null } = {}) {
+const MFA_OK = { currentLevel: 'aal2', nextLevel: 'aal2' };
+
+function createMockSupabase(tables = {}, { user = null, authError = null, mfaLevel = MFA_OK, mfaFactors = [], mfaError = null } = {}) {
+    const mfaCalls = [];
     function builder(table) {
         const filters = [];
         let single = false;
@@ -119,7 +122,28 @@ function createMockSupabase(tables = {}, { user = null, authError = null } = {})
             async signOut() {
                 return { error: null };
             },
+            mfa: {
+                async getAuthenticatorAssuranceLevel() {
+                    return mfaError ? { data: null, error: mfaError } : { data: mfaLevel, error: null };
+                },
+                async listFactors() {
+                    return { data: { all: mfaFactors }, error: null };
+                },
+                async enroll(params) {
+                    mfaCalls.push(['enroll', params]);
+                    return { data: { id: 'f-new', totp: { qr_code: 'data:image/svg+xml;utf-8,<svg/>', secret: 'ABCDEF' } }, error: null };
+                },
+                async challengeAndVerify(params) {
+                    mfaCalls.push(['challengeAndVerify', params]);
+                    return params.code === '123456' ? { data: {}, error: null } : { data: null, error: { message: 'Invalid TOTP code entered' } };
+                },
+                async unenroll(params) {
+                    mfaCalls.push(['unenroll', params]);
+                    return { data: {}, error: null };
+                },
+            },
         },
+        mfaCalls,
     };
 }
 
