@@ -158,6 +158,8 @@ npx playwright install --with-deps chromium
 npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
 ```
 
+> **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`. Validado assim: os 7 testes E2E passam.
+
 Esses 2 comandos rodam automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`, jobs `rls-integration` e `e2e`).
 
 ---
@@ -276,10 +278,9 @@ Como funciona:
 
 ## Privacidade (LGPD) e operação
 
-- **LGPD:** [`docs/lgpd/`](docs/lgpd/README.md) reúne o registro das operações de tratamento (ROPA), o RIPD e a análise dos operadores, incluindo o contrato com a Groq (DPA, Zero Data Retention e transferência internacional).
-- **Backup e restauração:** [`docs/operacao/backup-e-restauracao.md`](docs/operacao/backup-e-restauracao.md). O backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions.
-- **Incidentes, acessos e pentest:** [`plano-resposta-incidentes.md`](docs/operacao/plano-resposta-incidentes.md), [`revisao-de-acessos.md`](docs/operacao/revisao-de-acessos.md) (com `scripts/ops/revisao-de-acessos.sql`) e [`pentest-owasp-zap.md`](docs/operacao/pentest-owasp-zap.md).
-- A pasta `docs/` e o schema não vão ao ar: o `.vercelignore` os exclui da hospedagem.
+- **Backup e restauração:** o backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions. O relatório fica em `test-results/restore-drill/`.
+- **Acessos:** `scripts/ops/revisao-de-acessos.sql` lista quem tem acesso a quê.
+- O schema não vai ao ar: o `.vercelignore` o exclui da hospedagem.
 
 ## Tecnologias
 

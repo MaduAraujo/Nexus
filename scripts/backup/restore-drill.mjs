@@ -437,7 +437,7 @@ async function main() {
 
 function writeReport(report) {
     const day = report.inicio.slice(0, 10);
-    const dir = join(ROOT, 'docs/operacao/evidencias');
+    const dir = join(ROOT, 'test-results/restore-drill');
     mkdirSync(dir, { recursive: true });
     const failed = !report.concluido || steps.some((s) => !s.ok);
     const lines = [
@@ -458,7 +458,7 @@ function writeReport(report) {
         '',
         '- Prova: o procedimento (`backup-db.mjs` → arquivo AES-256 → `pg_restore` num banco novo) funciona, o arquivo não contém dado legível nem as chaves de cifragem, adulteração e frase errada são recusadas, e a restauração recompõe tabelas, RLS, gatilhos e dados cifrados.',
         '- Prova: sem recolocar as chaves do Vault, os campos cifrados voltam **NULL sem erro** — o sintoma silencioso a reconhecer numa restauração real.',
-        '- **Não prova** que os backups automáticos do Supabase estão cifrados nem que a restauração pelo painel funciona: isso é feito pelo provedor e precisa ser conferido no projeto real (ver `docs/operacao/backup-e-restauracao.md`).',
+        '- **Não prova** que os backups automáticos do Supabase estão cifrados nem que a restauração pelo painel funciona: isso é feito pelo provedor e precisa ser conferido no projeto real.',
         '- Não cobre Storage (arquivos), Edge Functions e segredos da Groq/VAPID: o banco não os contém.',
         '',
         report.errosRestore?.length
@@ -467,7 +467,7 @@ function writeReport(report) {
     ];
     writeFileSync(join(dir, `restore-drill-${day}.md`), lines.filter((l) => l !== undefined).join('\n'));
     writeFileSync(join(dir, `restore-drill-${day}.json`), JSON.stringify(report, null, 2));
-    console.log(`\nRelatório: docs/operacao/evidencias/restore-drill-${day}.md`);
+    console.log(`\nRelatório: test-results/restore-drill/restore-drill-${day}.md`);
 }
 
 main().catch((e) => {

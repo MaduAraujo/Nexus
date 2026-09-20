@@ -89,10 +89,7 @@ window.NexusMfaSetup = (function () {
                     await navigator.clipboard.writeText(secret);
                     copyIcon.className = 'fas fa-check';
                     copyBtn.title = 'Copiado!';
-                    setTimeout(() => {
-                        copyIcon.className = 'fas fa-copy';
-                        copyBtn.title = 'Copiar chave';
-                    }, 1500);
+                    setTimeout(codeScreen, 700);
                 } catch {
                     const range = document.createRange();
                     range.selectNodeContents(secretBox);
@@ -166,7 +163,10 @@ window.NexusMfaSetup = (function () {
                     qr,
                     el('p', 'mfa-muted', 'Sem câmera? Digite esta chave manualmente no app:'),
                     secretRow,
-                    actionsRow(button('Continuar', 'mfa-btn mfa-btn--primary', codeScreen), cancelBtn())
+                    actionsRow(
+                        button('Continuar', 'mfa-btn mfa-btn--primary', () => codeScreen()),
+                        cancelBtn()
+                    )
                 );
             }
 

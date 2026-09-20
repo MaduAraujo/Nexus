@@ -32,7 +32,7 @@ jobs:
 
       - name: Conferir que arquivos internos não são servidos
         run: |
-          for p in /supabase/schema.sql /docs/lgpd/ripd.md /scripts/backup/backup-db.mjs /test/auth.test.js /.github/workflows/tests.yml; do
+          for p in /supabase/schema.sql /scripts/backup/backup-db.mjs /test/auth.test.js /.github/workflows/tests.yml; do
             code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:4180$p")
             echo "$p -> $code"
             [ "$code" = "404" ] || { echo "arquivo interno exposto: $p"; exit 1; }
