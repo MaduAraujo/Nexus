@@ -142,10 +142,11 @@ window.NexusMfaSetup = (function () {
                 showStatus();
             }
 
-            const cancelBtn = () => button('Cancelar', 'mfa-btn', async () => {
-                await mfa.cancelEnroll(client, factorId);
-                showStatus();
-            });
+            const cancelBtn = () =>
+                button('Cancelar', 'mfa-btn', async () => {
+                    await mfa.cancelEnroll(client, factorId);
+                    showStatus();
+                });
 
             function actionsRow(...buttons) {
                 const row = el('div', 'mfa-actions');
@@ -170,12 +171,7 @@ window.NexusMfaSetup = (function () {
             }
 
             function codeScreen() {
-                screen(
-                    el('p', 'mfa-step', '2. Digite o código de 6 dígitos que o app mostrar:'),
-                    input,
-                    error,
-                    actionsRow(confirmBtn, cancelBtn())
-                );
+                screen(el('p', 'mfa-step', '2. Digite o código de 6 dígitos que o app mostrar:'), input, error, actionsRow(confirmBtn, cancelBtn()));
                 input.focus();
             }
 
