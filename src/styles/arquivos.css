@@ -1254,7 +1254,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-tertiary);
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid var(--border-light);
     white-space: nowrap;
     font-weight: 700;
@@ -1264,8 +1264,14 @@ body {
     padding: 13px 16px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
+    text-align: center;
     font-size: 0.875rem;
     color: var(--text-secondary);
+}
+
+.files-table th:first-child,
+.files-table td:first-child {
+    text-align: left;
 }
 
 .files-table tr:last-child td {
@@ -1447,6 +1453,7 @@ body {
     display: flex;
     gap: 5px;
     align-items: center;
+    justify-content: center;
 }
 
 .btn-icon {
@@ -2537,4 +2544,14 @@ body {
     .page-title {
         font-size: 0.95rem;
     }
+}
+
+.btn-icon--return {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+.btn-icon--return:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: translateY(-1px);
 }

@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         'Carteira de Trabalho': 30,
         'Exame Admissional': 20,
         'Exame Demissional': 20,
+        'Termo de Compromisso de Estágio': 30,
+        'Plano de Atividades de Estágio': 30,
         'Aviso Prévio': 5,
         RG: 5,
         CPF: 5,
@@ -45,12 +47,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedFile = null;
     let selectedId = null;
 
-    const SELF_UPLOAD_TIPOS = ['RG', 'CPF', 'Comprovante de Residência', 'Carteira de Trabalho', 'Diploma', 'Certificado', 'Exame Médico', 'Outros'];
+    // Documentos que o RH preenche/assina e devolve ao colaborador (mesmos nomes da lista RETURN_TIPOS em arquivos.js).
+    const RETURN_TIPOS = [
+        'Termo de Compromisso de Estágio',
+        'Plano de Atividades de Estágio',
+        'Relatório de Atividades de Estágio',
+        'Termo de Vale-Transporte',
+        'Ficha de Salário-Família',
+        'Termo de Dependentes para o Imposto de Renda',
+    ];
+    const SELF_UPLOAD_TIPOS = [
+        'RG',
+        'CPF',
+        'Comprovante de Residência',
+        'Carteira de Trabalho',
+        'Diploma',
+        'Certificado',
+        'Exame Médico',
+        'Outros',
+        'Comprovante de Matrícula e Frequência',
+        ...RETURN_TIPOS,
+    ];
 
     async function refreshDocs() {
         const { data } = await sb.from('documents').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false });
         allMyDocs = data || [];
         myDocs = allMyDocs.filter((d) => d.is_current !== false);
+        try {
+            localStorage.setItem(`nexus:docs-seen:${myEmployeeId}`, new Date().toISOString());
+        } catch {}
     }
 
     async function loadRequirements() {
@@ -113,6 +138,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         recusado: { cls: 'recusado', label: 'Recusado', icon: 'fa-times-circle' },
     };
 
+    // Documento do colaborador que o RH já preencheu, assinou e devolveu: existe uma versão do RH, do mesmo tipo, criada depois.
+    function statusOf(doc) {
+        const returned =
+            doc.source === 'colaborador' &&
+            RETURN_TIPOS.includes(doc.tipo) &&
+            myDocs.some((r) => r.source === 'Administrador' && r.tipo === doc.tipo && r.created_at > doc.created_at);
+        if (returned) return { cls: 'aprovado', label: 'Devolvido pelo RH', icon: 'fa-reply' };
+        return statusMap[doc.status] || statusMap.pendente;
+    }
+
     function renderList() {
         renderPendingDocsBanner();
         if (docCountBadge) docCountBadge.textContent = myDocs.length;
@@ -147,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         docList.innerHTML = myDocs
             .map((d, i) => {
                 const { cls, fa } = getIconInfo(d.name);
-                const st = statusMap[d.status] || statusMap.pendente;
+                const st = statusOf(d);
                 const date = new Date(d.created_at).toLocaleDateString('pt-BR');
                 return `
                 <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s" data-click="selectDocById" data-click-args="${dargs(d.id)}">
@@ -156,7 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <div class="doc-card-body">
                         <span class="doc-card-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</span>
-                        <span class="doc-card-tipo">${escapeHtml(d.tipo)} · ${date}</span>
+                        <span class="doc-card-tipo">${escapeHtml(d.tipo)} · ${date}${d.source === 'Administrador' ? ' · Enviado pelo RH' : ''}${d.requer_assinatura && !d.assinado_em ? ' · Aguardando sua assinatura' : ''}</span>
                     </div>
                     <span class="doc-card-status doc-card-status--${st.cls}">
                         <i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}
@@ -180,7 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         docEmpty?.classList.add('hidden');
         docWrap?.classList.remove('hidden');
 
-        const st = statusMap[doc.status] || statusMap.pendente;
+        const st = statusOf(doc);
         const { cls: iconCls, fa: iconFa } = getIconInfo(doc.name);
         const date = new Date(doc.created_at).toLocaleDateString('pt-BR');
 
@@ -487,14 +522,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sizeKB = Math.round(selectedFile.size / 1024);
         const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
 
-        const storagePath = `${myEmployeeId}/${Date.now()}_${selectedFile.name}`;
+        const storagePath = `${myEmployeeId}/${Date.now()}_${NexusFiles.safeName(selectedFile.name)}`;
         let uploadedPath = null;
 
         const existingCurrent = myDocs.find((d) => d.source === 'colaborador' && d.tipo === tipo);
 
         const { error: uploadError } = await NexusFiles.upload('documents', storagePath, selectedFile, { contentType: selectedFile.type });
-
-        if (!uploadError) uploadedPath = storagePath;
+        if (uploadError) {
+            showToast('Erro ao enviar o arquivo.', uploadError.message, 'error');
+            return;
+        }
+        uploadedPath = storagePath;
 
         const { data: inserted, error: insertError } = await sb
             .from('documents')

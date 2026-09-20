@@ -198,6 +198,34 @@ describe('NexusFiles.open', () => {
         assert.equal(downloads[0].name, 'contrato.pdf');
     });
 
+    test('401 com sessão renovável: renova o token e repete a chamada uma vez', async () => {
+        let calls = 0;
+        fetchImpl = async () => (++calls === 1 ? response({ ok: false, status: 401, json: { error: 'Não autorizado' } }) : response());
+        global.sb.auth.refreshSession = async () => ({ data: { session: { access_token: 'jwt-novo' } } });
+        const { blob, error } = await NexusFiles.download('documents', 'x');
+        assert.equal(error, null);
+        assert.ok(blob);
+        assert.equal(fetchCalls.length, 2);
+        assert.equal(fetchCalls[1].options.headers.Authorization, 'Bearer jwt-novo');
+    });
+
+    test('401 com sessão encerrada em outro lugar: pede novo login em vez de "Não autorizado"', async () => {
+        fetchImpl = async () => response({ ok: false, status: 401, json: { error: 'Não autorizado' } });
+        global.sb.auth.refreshSession = async () => ({ data: { session: null }, error: { message: 'Invalid Refresh Token' } });
+        const { blob, error } = await NexusFiles.download('documents', 'x');
+        assert.equal(blob, null);
+        assert.match(error.message, /Sessão expirada/);
+        assert.equal(fetchCalls.length, 1);
+    });
+
+    test('safeName remove acentos, espaços e símbolos que o Storage recusa', () => {
+        assert.equal(NexusFiles.safeName('Comprovante de residência (2ª via).pdf'), 'Comprovante_de_residencia_2_via_.pdf');
+        assert.equal(NexusFiles.safeName('../../etc/passwd'), 'etc_passwd');
+        assert.equal(NexusFiles.safeName('日本語'), 'arquivo');
+        assert.equal(NexusFiles.safeName(''), 'arquivo');
+        assert.ok(NexusFiles.safeName('a'.repeat(500) + '.pdf').length <= 120);
+    });
+
     test('erro ao buscar fecha a aba em branco e devolve o erro', async () => {
         fetchImpl = async () => response({ ok: false, status: 403, json: { error: 'Sem permissão' } });
         const { error } = await NexusFiles.open('documents', 'rh/a.pdf');

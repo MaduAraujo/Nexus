@@ -63,6 +63,7 @@
     let checklistOpen = false;
     const selectedIds = new Set();
     let auditLogEntries = [];
+    let returnForDocId = null;
 
     const RETENTION_YEARS = {
         'Contrato de Trabalho': 30,
@@ -72,6 +73,11 @@
         'Carteira de Trabalho': 30,
         'Exame Admissional': 20,
         'Exame Demissional': 20,
+        'Ficha de Registro do Empregado': 30,
+        'Termo de Entrega de EPI': 20,
+        'Termo de Compromisso de Estágio': 30,
+        'Plano de Atividades de Estágio': 30,
+        'Termo de Realização do Estágio': 30,
         'Aviso Prévio': 5,
         RG: 5,
         CPF: 5,
@@ -79,7 +85,36 @@
     };
     const DEFAULT_RETENTION_YEARS = 5;
 
-    const SIGNATURE_TIPOS = ['Contrato de Trabalho', 'Termo de Rescisão', 'Aviso Prévio', 'Homologação'];
+    // Documentos que o RH entrega ao colaborador para formalizar a contratação e que ele precisa assinar (ciência/aceite).
+    const ONBOARDING_TERMOS = [
+        'Termo de Vale-Transporte',
+        'Ficha de Salário-Família',
+        'Termo de Dependentes para o Imposto de Renda',
+        'Regimento ou Política Interna',
+        'Termo de Responsabilidade de Equipamentos',
+        'Termo de Uso de Tecnologia',
+        'Termo de Entrega de EPI',
+    ];
+    const SIGNATURE_TIPOS = ['Contrato de Trabalho', 'Termo de Rescisão', 'Aviso Prévio', 'Homologação', ...ONBOARDING_TERMOS];
+    // Documentos que o colaborador envia, o RH preenche/assina e devolve. Nomes iguais aos da tela de envio do colaborador.
+    const RETURN_TIPOS = [
+        'Termo de Compromisso de Estágio',
+        'Plano de Atividades de Estágio',
+        'Relatório de Atividades de Estágio',
+        'Termo de Vale-Transporte',
+        'Ficha de Salário-Família',
+        'Termo de Dependentes para o Imposto de Renda',
+    ];
+    // Sem colaborador escolhido o documento não chegaria a ninguém.
+    const DELIVERY_TIPOS = [
+        'Contrato de Trabalho',
+        'Ficha de Registro do Empregado',
+        ...ONBOARDING_TERMOS,
+        ...RETURN_TIPOS,
+        'Comprovante de Matrícula e Frequência',
+        'Apólice de Seguro de Acidentes Pessoais',
+        'Termo de Realização do Estágio',
+    ];
 
     function computeRetentionDate(tipo) {
         const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
@@ -143,10 +178,59 @@
         employees = empData || [];
         terminatedEmployees = termData || [];
         requirements = reqData || [];
-        const all = docData || [];
-        rhDocs = all.filter((d) => d.source === 'Administrador');
-        colabDocs = all.filter((d) => d.source === 'colaborador');
+        splitDocs(docData || []);
         populateDeptFilter();
+    }
+
+    // Documento de colaborador aprovado deixa a caixa de entrada (aba Colaborador) e passa a constar em Admissional/Demissional.
+    function isFiledColabDoc(d) {
+        return d.source === 'colaborador' && d.status === 'aprovado' && (d.category === 'admissional' || d.category === 'demissional');
+    }
+
+    // Documentos aprovados antes desta regra existir não têm categoria: classifica na hora e grava em segundo plano.
+    const backfilling = new Set();
+
+    function backfillCategory(doc) {
+        doc.category = approvalUpdate(doc).category;
+        if (backfilling.has(doc.id)) return;
+        backfilling.add(doc.id);
+        sb.from('documents')
+            .update({ category: doc.category })
+            .eq('id', doc.id)
+            .then(() => {});
+    }
+
+    function splitDocs(all) {
+        all.forEach((d) => {
+            if (d.source === 'colaborador' && d.status === 'aprovado' && !d.category) backfillCategory(d);
+        });
+        const sorted = all.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+        rhDocs = sorted.filter((d) => d.source === 'Administrador' || isFiledColabDoc(d));
+        colabDocs = sorted.filter((d) => d.source === 'colaborador' && !isFiledColabDoc(d));
+    }
+
+    const DEMISSIONAL_TIPOS = ['Termo de Rescisão', 'Aviso Prévio', 'Homologação', 'Exame Demissional'];
+
+    function approvalUpdate(doc) {
+        const update = { status: 'aprovado' };
+        if (!doc.category) {
+            const demissional =
+                !RETURN_TIPOS.includes(doc.tipo) && (DEMISSIONAL_TIPOS.includes(doc.tipo) || terminatedEmployees.some((e) => e.id === doc.employee_id));
+            update.category = demissional ? 'demissional' : 'admissional';
+        }
+        return update;
+    }
+
+    async function approveDocs(ids) {
+        const docs = ids.map((id) => colabDocs.find((d) => d.id === id)).filter(Boolean);
+        const results = await Promise.all(docs.map((doc) => sb.from('documents').update(approvalUpdate(doc)).eq('id', doc.id)));
+        const approved = docs.filter((_, i) => !results[i].error);
+        approved.forEach((doc) => {
+            Object.assign(doc, approvalUpdate(doc));
+            logAudit('aprovado', doc);
+        });
+        splitDocs(rhDocs.concat(colabDocs));
+        return { approved, failed: docs.length - approved.length };
     }
 
     function empName(empId) {
@@ -253,6 +337,35 @@
         return doc.version > 1 ? `<span class="badge badge--version" title="Substituiu uma versão anterior">v${doc.version}</span>` : '';
     }
 
+    // Versão preenchida/assinada que o RH devolveu para um documento enviado pelo colaborador.
+    function returnedDoc(doc) {
+        if (doc.source !== 'colaborador' || !RETURN_TIPOS.includes(doc.tipo)) return null;
+        return (
+            rhDocs.find(
+                (r) =>
+                    r.source === 'Administrador' &&
+                    r.employee_id === doc.employee_id &&
+                    r.tipo === doc.tipo &&
+                    r.is_current !== false &&
+                    r.created_at > doc.created_at
+            ) || null
+        );
+    }
+
+    function returnBtn(doc) {
+        if (!RETURN_TIPOS.includes(doc.tipo) || doc.status === 'recusado' || returnedDoc(doc)) return '';
+        return `<button class="btn-icon btn-icon--return" title="Devolver preenchido e assinado" data-click="openReturnModal" data-click-args="${dargs(doc.id)}"><i class="fas fa-reply"></i></button>`;
+    }
+
+    function originBadge(doc) {
+        if (doc.source === 'colaborador') {
+            return returnedDoc(doc)
+                ? `<span class="badge badge--assinado"><i class="fas fa-reply"></i> Devolvido ao colaborador</span>`
+                : `<span class="badge badge--valido"><i class="fas fa-user"></i> Do colaborador</span>`;
+        }
+        return '';
+    }
+
     function historyBtn(doc) {
         if (!(doc.version > 1)) return '';
         return `<button class="btn-icon btn-icon--history" title="Ver histórico de versões" data-click="showVersionHistory" data-click-args="${dargs(doc.id)}"><i class="fas fa-clock-rotate-left"></i></button>`;
@@ -310,8 +423,10 @@
                     <td class="file-size">${d.size_label || '—'}</td>
                     <td>${validadeCell(d.data_validade)}</td>
                     <td><div class="actions-cell">
-                        <button class="btn-icon btn-icon--approve" title="Aprovar"  data-click="approveColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-check"></i></button>
+                        <button class="btn-icon btn-icon--view"    title="Visualizar" data-click="viewFile" data-click-args="${dargs(d.id, d.storage_path || '')}"><i class="fas fa-eye"></i></button>
+                        <button class="btn-icon btn-icon--approve" title="Aprovar" data-click="approveColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-check"></i></button>
                         <button class="btn-icon btn-icon--reject"  title="Recusar"  data-click="rejectColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-times"></i></button>
+                        ${returnBtn(d)}
                         ${historyBtn(d)}
                         <button class="btn-icon btn-icon--delete"  title="Excluir"  data-click="deleteColabDoc" data-click-args="${dargs(d.id, d.storage_path || '')}"><i class="fas fa-trash"></i></button>
                     </div></td>
@@ -342,7 +457,7 @@
                 const badgeCls = f.category === 'admissional' ? 'badge--admissional' : 'badge--demissional';
                 const badgeLabel = f.category === 'admissional' ? 'Admissional' : 'Demissional';
                 return `<tr>
-                <td><div class="file-name-cell">${rowCheckbox(f.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo) || ''} ${versionBadge(f)} ${signBadge(f)}</div></div></div></td>
+                <td><div class="file-name-cell">${rowCheckbox(f.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div><div class="file-meta">${esc(f.tipo) || ''} ${versionBadge(f)} ${signBadge(f)} ${originBadge(f)}</div></div></div></td>
                 <td>${empName(f.employee_id)}</td>
                 <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
                 <td class="file-date">${fmtDate(f.created_at)}</td>
@@ -790,22 +905,19 @@
     });
 
     window.bulkApproveColab = async () => {
-        const ids = Array.from(selectedIds);
-        const { error } = await sb.from('documents').update({ status: 'aprovado' }).in('id', ids);
-        if (error) {
+        const { approved, failed } = await approveDocs(Array.from(selectedIds));
+        if (!approved.length) {
             showToast('Erro', 'Não foi possível aprovar os documentos selecionados.', 'error');
             return;
         }
-        ids.forEach((id) => {
-            const doc = colabDocs.find((d) => d.id === id);
-            if (doc) {
-                doc.status = 'aprovado';
-                logAudit('aprovado', doc);
-            }
-        });
         selectedIds.clear();
         renderTable();
-        showToast('Documentos aprovados!', `${ids.length} documento${ids.length > 1 ? 's' : ''} atualizado${ids.length > 1 ? 's' : ''}.`, 'success');
+        const n = approved.length;
+        showToast(
+            'Documentos aprovados!',
+            `${n} documento${n > 1 ? 's' : ''} movido${n > 1 ? 's' : ''} para Admissional/Demissional.${failed ? ` ${failed} falhou.` : ''}`,
+            'success'
+        );
     };
 
     window.bulkRejectColab = async () => {
@@ -888,16 +1000,14 @@
     };
 
     window.approveColabDoc = async (id) => {
-        const { error } = await sb.from('documents').update({ status: 'aprovado' }).eq('id', id);
-        if (error) {
+        const { approved } = await approveDocs([id]);
+        if (!approved.length) {
             showToast('Erro', 'Não foi possível aprovar o documento.', 'error');
             return;
         }
-        const doc = colabDocs.find((d) => d.id === id);
-        if (doc) doc.status = 'aprovado';
         renderTable();
-        if (doc) logAudit('aprovado', doc);
-        showToast('Documento aprovado!', 'O status foi atualizado para Aprovado.', 'success');
+        const label = approved[0].category === 'demissional' ? 'Demissional' : 'Admissional';
+        showToast('Documento aprovado!', `O colaborador vê o status Aprovado e o arquivo agora consta em ${label}.`, 'success');
     };
 
     window.rejectColabDoc = async (id) => {
@@ -930,7 +1040,7 @@
 
     window.viewFile = async (id, storagePath) => {
         if (!storagePath) {
-            showToast('Arquivo indisponível', 'Caminho do arquivo não encontrado.', 'warning');
+            showToast('Arquivo indisponível', 'O arquivo não foi salvo no envio. Peça ao colaborador para enviar o documento novamente.', 'warning');
             return;
         }
         const doc = rhDocs.concat(colabDocs).find((d) => d.id === id);
@@ -1147,7 +1257,21 @@
         if (employeeId && empEl) empEl.value = employeeId;
         if (category && tipo) document.getElementById('upload-category').value = `${category}|${tipo}`;
     };
+    window.openReturnModal = (docId) => {
+        const doc = colabDocs.find((d) => d.id === docId);
+        if (!doc) return;
+        returnForDocId = docId;
+        const category = approvalUpdate(doc).category || doc.category;
+        window.openUploadModal(doc.employee_id, category, doc.tipo);
+        const hint = document.getElementById('upload-return-hint');
+        document.getElementById('upload-return-hint-text').textContent =
+            `Anexe a versão preenchida e assinada de "${doc.tipo}". Ao enviar, o documento de ${empName(doc.employee_id)} é aprovado e a devolução chega ao colaborador.`;
+        hint?.classList.remove('hidden');
+    };
+
     window.closeUploadModal = () => {
+        returnForDocId = null;
+        document.getElementById('upload-return-hint')?.classList.add('hidden');
         uploadModal?.classList.remove('open');
         document.body.style.overflow = '';
         const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
@@ -1291,17 +1415,25 @@
         const empId = empEl?.tagName === 'SELECT' ? empEl.value || null : null;
         const empInput = empEl?.tagName === 'INPUT' ? empEl.value.trim() : null;
         const lookupEmp = empInput ? employees.find((e) => e.name.toLowerCase() === empInput.toLowerCase()) : null;
-        const finalEmpId = empId || lookupEmp?.id || null;
+        const returning = returnForDocId ? colabDocs.find((d) => d.id === returnForDocId) : null;
+        const finalEmpId = returning?.employee_id || empId || lookupEmp?.id || null;
+        if (!finalEmpId && DELIVERY_TIPOS.includes(tipo)) {
+            showToast('Selecione o colaborador', 'Este documento é entregue ao colaborador, então é preciso escolher quem vai recebê-lo.', 'warning');
+            return;
+        }
 
         let docToSupersede = finalEmpId
-            ? rhDocs.find((d) => d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false)
+            ? rhDocs.find(
+                  (d) => d.source === 'Administrador' && d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false
+              )
             : null;
 
         let successCount = 0;
+        const deliveredIds = [];
         for (const file of selectedFiles) {
             const sizeKB = Math.round(file.size / 1024);
             const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-            const storagePath = `rh/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
+            const storagePath = `rh/${Date.now()}_${NexusFiles.safeName(file.name)}`;
 
             const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file);
             if (uploadError) {
@@ -1319,6 +1451,7 @@
                     size_label: sizeLabel,
                     storage_path: storagePath,
                     source: 'Administrador',
+                    status: 'aprovado',
                     created_by: user.id,
                     data_validade: uploadValidade?.value || null,
                     retido_ate: computeRetentionDate(tipo),
@@ -1342,6 +1475,7 @@
             }
 
             rhDocs.unshift(inserted);
+            if (finalEmpId) deliveredIds.push(inserted.id);
             logAudit(docToSupersede ? 'substituido' : 'criado', inserted);
             docToSupersede = null;
             successCount++;
@@ -1349,10 +1483,23 @@
 
         if (!successCount) return;
 
+        // Devolução: o documento do colaborador é aprovado junto e passa a constar em Admissional/Demissional.
+        if (returning) await approveDocs([returning.id]);
+
+        if (deliveredIds.length) {
+            sb.functions.invoke('send-document-push', { body: { document_ids: deliveredIds } }).catch((err) => {
+                console.error('[Nexus] send-document-push:', err);
+            });
+        }
+
         activeTab = category;
         document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === category));
         closeUploadModal();
         renderTable();
+        if (returning) {
+            showToast('Devolvido ao colaborador', `${returning.tipo} preenchido e assinado foi enviado para ${empName(returning.employee_id)}.`, 'success');
+            return;
+        }
         showToast(
             'Arquivos carregados com sucesso',
             `${successCount} arquivo${successCount > 1 ? 's' : ''} adicionado${successCount > 1 ? 's' : ''}.`,

@@ -255,6 +255,18 @@
                                     </label>
                                 </div>
                                 <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--purple"><i class="fas fa-file-signature"></i></div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Documentos do RH</p>
+                                        <p class="notif-item-desc">Alerta quando o RH enviar um documento ou termo para você</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-documentos" checked
+                                               data-change="saveNotifPref" data-change-args='["documentos",{"$":"this.checked"}]' />
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <div class="notif-item">
                                     <div class="notif-item-icon notif-icon--green"><i class="fas fa-file-invoice-dollar"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Holerite disponível</p>

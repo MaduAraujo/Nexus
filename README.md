@@ -94,7 +94,7 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 ### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
 
-As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `send-push` e `send-alert-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
+As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `send-push`, `send-alert-push` e `send-document-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
 
 ```bash
 npx supabase functions deploy
@@ -107,13 +107,15 @@ A `nexus-files` cifra e decifra os arquivos do Storage (documentos, anexos de po
 npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ```
 
-Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as seis aparecem. Uma função ausente responde 404 ao front.
+Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as sete aparecem. Uma função ausente responde 404 ao front.
 
 A function `send-push` envia notificações push (Web Push) quando o RH publica um comunicado imediato (não agendado). Ela precisa de um par de chaves VAPID como secret — gere o seu com `npx web-push generate-vapid-keys` e configure:
 
 ```bash
 npx supabase secrets set VAPID_PUBLIC_KEY=sua_chave_publica VAPID_PRIVATE_KEY=sua_chave_privada
 ```
+
+A function `send-document-push` avisa por push o colaborador quando o RH lhe entrega um documento (contrato, termos, políticas). Usa os mesmos secrets VAPID, só envia em horário comercial (fora dele o aviso fica apenas na tela inicial do colaborador) e respeita a preferência "Documentos do RH" em Meu Perfil.
 
 A chave pública também precisa ser colada em `VAPID_PUBLIC_KEY` no topo de `src/javascript/perfil-colaborador.js` (client-side, por isso não é secret) — mantenha as duas em sincronia. Sem isso configurado, o botão "Notificações push do navegador" em Meu Perfil aparece normalmente, mas o envio real falha silenciosamente (log no `send-push`).
 

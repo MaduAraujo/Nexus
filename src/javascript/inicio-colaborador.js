@@ -297,9 +297,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (descEl) descEl.textContent = count > 0 ? `${count} férias pendente${count > 1 ? 's' : ''}` : 'Aprovar férias';
     }
 
+    // Aviso passivo de documentos entregues pelo RH: fica na tela, sem push, para respeitar o direito à desconexão.
+    async function loadDocsAlert() {
+        const alertEl = document.getElementById('docs-alert');
+        if (!alertEl) return;
+        const { data } = await sb
+            .from('documents')
+            .select('id,name,tipo,requer_assinatura,assinado_em,created_at')
+            .eq('employee_id', myEmployeeId)
+            .eq('source', 'Administrador')
+            .eq('is_current', true);
+
+        let seenAt = 0;
+        try {
+            seenAt = Date.parse(localStorage.getItem(`nexus:docs-seen:${myEmployeeId}`)) || 0;
+        } catch {}
+
+        const docs = data || [];
+        const toSign = docs.filter((d) => d.requer_assinatura && !d.assinado_em);
+        const fresh = docs.filter((d) => !toSign.includes(d) && Date.parse(d.created_at) > seenAt);
+        const highlighted = toSign.length ? toSign : fresh;
+        if (!highlighted.length) {
+            alertEl.classList.add('hidden');
+            return;
+        }
+
+        const n = highlighted.length;
+        document.getElementById('docs-alert-title').textContent = toSign.length
+            ? `Você tem ${n} documento${n > 1 ? 's' : ''} do RH para assinar`
+            : `${n} novo${n > 1 ? 's' : ''} documento${n > 1 ? 's' : ''} enviado${n > 1 ? 's' : ''} pelo RH`;
+        document.getElementById('docs-alert-sub').textContent = highlighted.map((d) => d.tipo).join(' · ');
+        alertEl.classList.remove('hidden');
+    }
+
     renderAll(myEmployee);
     await loadOnboarding(myEmployeeId, myEmployee.admission_date);
     await checkIsManager();
+    await loadDocsAlert();
 
     sb.channel('inicio-colab')
         .on(
@@ -335,6 +369,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 renderComunicados(myEmployee.dept);
             }
         )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter: `employee_id=eq.${myEmployeeId}` }, () => {
+            loadDocsAlert();
+        })
         .subscribe();
 
     window.logout = async function () {

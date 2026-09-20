@@ -188,18 +188,20 @@
                 </div>
                 <div>
                     <h3 class="modal-title">Enviar Arquivo</h3>
-                    <p class="modal-subtitle">Adicione documentos no acervo</p>
+                    <p class="modal-subtitle">Adicione ao acervo ou entregue ao colaborador</p>
                 </div>
                 <button class="close-modal" data-click="closeUploadModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
             <div class="modal-body">
+                <p class="ocr-hint hidden" id="upload-return-hint"><i class="fas fa-reply"></i> <span id="upload-return-hint-text"></span></p>
                 <div class="form-group">
                     <label>Colaborador <span class="label-optional">opcional</span></label>
                     <select id="upload-employee-select">
                         <option value="">Selecione o colaborador...</option>
                     </select>
+                    <p class="field-hint">Obrigatório para contratos, termos e políticas: o colaborador recebe o documento em Meus Documentos.</p>
                 </div>
                 <div class="form-group">
                     <label>Categoria</label>
@@ -209,10 +211,32 @@
                             <option value="admissional|RG">RG</option>
                             <option value="admissional|CPF">CPF</option>
                             <option value="admissional|Comprovante de Residência">Comprovante de Residência</option>
-                            <option value="admissional|Exame Admissional">Exame Admissional</option>
                             <option value="admissional|Carteira de Trabalho">Carteira de Trabalho</option>
-                            <option value="admissional|Contrato de Trabalho">Contrato de Trabalho</option>
                             <option value="admissional|Outros">Outros (Admissional)</option>
+                        </optgroup>
+                        <optgroup label="Admissional · Contrato e Registro">
+                            <option value="admissional|Contrato de Trabalho">Contrato individual de trabalho</option>
+                            <option value="admissional|Ficha de Registro do Empregado">Ficha de registro do empregado</option>
+                            <option value="admissional|Exame Admissional">Atestado de Saúde Ocupacional (ASO)</option>
+                        </optgroup>
+                        <optgroup label="Admissional · Benefícios e Opções">
+                            <option value="admissional|Termo de Vale-Transporte">Termo de vale-transporte</option>
+                            <option value="admissional|Ficha de Salário-Família">Ficha de salário-família</option>
+                            <option value="admissional|Termo de Dependentes para o Imposto de Renda">Termo de dependentes para o Imposto de Renda</option>
+                        </optgroup>
+                        <optgroup label="Admissional · Políticas e Termos de Uso">
+                            <option value="admissional|Regimento ou Política Interna">Regimento ou política interna</option>
+                            <option value="admissional|Termo de Responsabilidade de Equipamentos">Termo de responsabilidade de equipamentos</option>
+                            <option value="admissional|Termo de Uso de Tecnologia">Termos de uso de tecnologia</option>
+                            <option value="admissional|Termo de Entrega de EPI">Termo de entrega de EPI</option>
+                        </optgroup>
+                        <optgroup label="Estágio (Lei 11.788/2008)">
+                            <option value="admissional|Termo de Compromisso de Estágio">Termo de Compromisso de Estágio (TCE)</option>
+                            <option value="admissional|Plano de Atividades de Estágio">Plano de atividades de estágio</option>
+                            <option value="admissional|Relatório de Atividades de Estágio">Relatório de atividades de estágio</option>
+                            <option value="admissional|Comprovante de Matrícula e Frequência">Comprovante de matrícula e frequência</option>
+                            <option value="admissional|Apólice de Seguro de Acidentes Pessoais">Apólice de seguro de acidentes pessoais</option>
+                            <option value="demissional|Termo de Realização do Estágio">Termo de realização do estágio</option>
                         </optgroup>
                         <optgroup label="Demissional">
                             <option value="demissional|Aviso Prévio">Aviso Prévio</option>
@@ -372,7 +396,6 @@
             <p class="filter-menu-label">Status</p>
             <button type="button" class="btn-filter active" data-status="">Todos os status</button>
             <button type="button" class="btn-filter" data-status="pendente">Pendente</button>
-            <button type="button" class="btn-filter" data-status="aprovado">Aprovado</button>
             <button type="button" class="btn-filter" data-status="recusado">Recusado</button>
             <div class="dropdown-divider"></div>
         </div>

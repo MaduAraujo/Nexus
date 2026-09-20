@@ -1,7 +1,7 @@
 {
     "scripts": {
         "test": "node --test",
-        "test:integration": "node --test --test-concurrency=1 test-integration/rls-policies.js test-integration/column-encryption.js test-integration/employee-self-update.js test-integration/rate-limit.js test-integration/mfa-enforcement.js test-integration/encrypt-financial-ai.js test-integration/security-alerts.js test-integration/key-rotation.js",
+        "test:integration": "node --test --test-concurrency=1 test-integration/rls-policies.js test-integration/documents-guard.js test-integration/column-encryption.js test-integration/employee-self-update.js test-integration/rate-limit.js test-integration/mfa-enforcement.js test-integration/encrypt-financial-ai.js test-integration/security-alerts.js test-integration/key-rotation.js",
         "test:e2e": "playwright test",
         "test:pwa": "node test-support/pwa-audit.js",
         "lint": "eslint src/javascript test test-support test-integration e2e",

@@ -31,17 +31,34 @@ window.NexusFiles = (function () {
     const SESSION_ERROR = { message: 'Sessão expirada. Entre novamente.', status: 401 };
     const NETWORK_ERROR = { message: 'Erro de conexão. Verifique sua internet e tente novamente.', status: 0 };
 
+    // getSession() devolve o token guardado no navegador sem perguntar ao servidor: se a sessão foi encerrada em outro
+    // lugar (logout global), o token ainda parece válido e a função responde 401. Aí tenta renovar uma vez; se não der, pede novo login.
+    async function authedFetch(url, init, extraHeaders) {
+        const headers = await authHeaders(extraHeaders);
+        if (!headers) return { session: false };
+        const response = await fetch(url, { ...init, headers });
+        if (response.status !== 401) return { response };
+
+        const { data } = await sb.auth.refreshSession();
+        const token = data?.session?.access_token;
+        if (!token) return { session: false };
+        return { response: await fetch(url, { ...init, headers: { ...headers, Authorization: `Bearer ${token}` } }) };
+    }
+
     async function upload(bucket, path, file, { contentType, upsert = false } = {}) {
         try {
-            const headers = await authHeaders({
-                'content-type': FALLBACK_TYPE,
-                'x-nexus-bucket': bucket,
-                'x-nexus-path': encodeURIComponent(path),
-                'x-nexus-mime': contentType || file.type || FALLBACK_TYPE,
-                'x-nexus-upsert': String(Boolean(upsert)),
-            });
-            if (!headers) return { error: SESSION_ERROR };
-            const response = await fetch(`${SUPABASE_URL}${FUNCTION_PATH}`, { method: 'POST', headers, body: file });
+            const { response, session } = await authedFetch(
+                `${SUPABASE_URL}${FUNCTION_PATH}`,
+                { method: 'POST', body: file },
+                {
+                    'content-type': FALLBACK_TYPE,
+                    'x-nexus-bucket': bucket,
+                    'x-nexus-path': encodeURIComponent(path),
+                    'x-nexus-mime': contentType || file.type || FALLBACK_TYPE,
+                    'x-nexus-upsert': String(Boolean(upsert)),
+                }
+            );
+            if (session === false) return { error: SESSION_ERROR };
             if (!response.ok) return { error: await failure(response) };
             return { error: null };
         } catch {
@@ -51,10 +68,9 @@ window.NexusFiles = (function () {
 
     async function download(bucket, path) {
         try {
-            const headers = await authHeaders();
-            if (!headers) return { blob: null, error: SESSION_ERROR };
             const url = `${SUPABASE_URL}${FUNCTION_PATH}?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}`;
-            const response = await fetch(url, { headers });
+            const { response, session } = await authedFetch(url, {});
+            if (session === false) return { blob: null, error: SESSION_ERROR };
             if (!response.ok) return { blob: null, error: await failure(response) };
             const blob = new Blob([await response.arrayBuffer()], { type: inlineType(response.headers.get('content-type')) });
             return { blob, error: null };
@@ -95,7 +111,17 @@ window.NexusFiles = (function () {
         return { error: null };
     }
 
-    return { upload, download, open, inlineType };
+    // O Storage recusa chaves com acento, espaço e símbolos; o nome original continua na coluna `name` do documento.
+    function safeName(name) {
+        const cleaned = String(name || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/[^A-Za-z0-9._-]+/g, '_')
+            .replace(/^[._]+/, '');
+        return (cleaned || 'arquivo').slice(-120);
+    }
+
+    return { upload, download, open, inlineType, safeName };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = window.NexusFiles;
