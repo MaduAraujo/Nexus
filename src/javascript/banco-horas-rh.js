@@ -169,7 +169,7 @@ async function loadAllData() {
     const monthEnd = nextMonthKey(currentMonth);
 
     const [{ data: empData }, { data: timeData }, { data: bankData }] = await Promise.all([
-        sb.from('employees').select('*').in('status', ['Ativo', 'ativo']).order('name'),
+        sb.from('employees_decrypted').select('*').in('status', ['Ativo', 'ativo']).order('name'),
         sb.from('time_records').select('*').gte('date', monthStart).lt('date', monthEnd),
         sb.from('bank_adjustments').select('*').is('deleted_at', null),
     ]);

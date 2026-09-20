@@ -32,7 +32,7 @@ window.NexusAuth = (function () {
                 redirectToLogin();
                 return null;
             }
-            const { data: emp } = await sb.from('employees').select(employeeFields).eq('id', profile.employee_id).single();
+            const { data: emp } = await sb.from('employees_decrypted').select(employeeFields).eq('id', profile.employee_id).single();
             if (!emp) {
                 redirectToLogin();
                 return null;
@@ -40,7 +40,15 @@ window.NexusAuth = (function () {
             employee = emp;
         }
 
+        rememberLastScreen(user.id);
+
         return { user, profile, employee };
+    }
+
+    function rememberLastScreen(userId) {
+        try {
+            localStorage.setItem('nexus:last-screen', JSON.stringify({ path: window.location.pathname + window.location.search, uid: userId }));
+        } catch {}
     }
 
     async function logAccess(employeeId, tipo, detalhe) {

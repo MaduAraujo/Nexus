@@ -429,7 +429,7 @@
         if (diasDisponiveis > 0) {
             return {
                 icon: 'prof-icon--green',
-                value: `${diasDisponiveis} dias disponíveis`,
+                value: `${diasDisponiveis} dias`,
                 note: mesesNoPeriodoAtual > 0 ? `+ ${diasAcumulados} dias acumulados no período atual` : `Próximo vencimento em ${mesesParaProximo} mês(es)`,
             };
         }

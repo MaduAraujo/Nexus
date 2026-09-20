@@ -138,7 +138,7 @@ body {
 }
 
 #form-login .form-subtitle {
-    margin-bottom: 1.75rem;
+    margin-bottom: 2.25rem;
 }
 #forgot-s1 .form-subtitle {
     margin-bottom: 1.75rem;
@@ -154,6 +154,18 @@ body {
 
 .profile-grid--signup {
     margin-bottom: 1.1rem;
+}
+
+#form-profile {
+    margin-top: 2rem;
+}
+
+#form-login {
+    margin-top: 3rem;
+}
+
+#form-profile .profile-grid {
+    margin-top: 2.25rem;
 }
 
 .profile-icon-row {
@@ -550,9 +562,9 @@ body {
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border);
+    border: 1px solid #fff;
     border-radius: 50%;
-    color: var(--text-muted);
+    color: #fff;
     cursor: pointer;
     padding: 0;
     transition: var(--transition);
@@ -560,9 +572,9 @@ body {
 }
 
 .back-btn:hover {
-    color: var(--text);
+    color: #f4f4f5;
     background: rgba(255, 255, 255, 0.08);
-    border-color: var(--border-hover);
+    border-color: rgba(255, 255, 255, 0.16);
 }
 .back-btn svg {
     width: 16px;
@@ -621,77 +633,6 @@ body {
 }
 .signup-row a:hover {
     opacity: 0.7;
-}
-
-.toast-container {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 9999;
-}
-
-.toast {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--accent-gold);
-    border-radius: 10px;
-    padding: 12px 14px;
-    min-width: 260px;
-    max-width: 340px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    opacity: 0;
-    transform: translateX(20px);
-    transition:
-        opacity 0.3s,
-        transform 0.3s;
-}
-.toast.show {
-    opacity: 1;
-    transform: translateX(0);
-}
-.toast.hide {
-    opacity: 0;
-    transform: translateX(20px);
-}
-.toast-error {
-    border-left-color: #e24b4a;
-}
-.toast-warning {
-    border-left-color: var(--accent-gold);
-}
-.toast-info {
-    border-left-color: var(--accent-blue);
-}
-.toast-icon {
-    font-size: 1rem;
-    color: var(--accent-gold);
-    padding-top: 1px;
-}
-.toast-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text);
-}
-.toast-msg {
-    font-size: 0.76rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-.toast-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.8rem;
-    padding: 2px;
-    align-self: flex-start;
 }
 
 .strength-wrap {
@@ -1257,6 +1198,10 @@ body {
         gap: 8px;
         margin-bottom: 1rem;
     }
+    #form-profile,
+    #form-login {
+        margin-top: 4rem;
+    }
     .profile-card {
         padding: 0.85rem 0.8rem;
         border-radius: 10px;
@@ -1290,15 +1235,7 @@ body {
         padding: 0.8rem;
         font-size: 14px;
     }
-    .toast-container {
-        top: 14px;
-        right: 10px;
-        left: 10px;
-        max-width: unset;
-    }
-    .toast {
-        width: 100%;
-    }
+
     .fam-card {
         padding: 28px 20px 24px;
         border-radius: 16px;
@@ -1348,6 +1285,10 @@ body {
     .logo-row {
         position: static;
         margin-bottom: 1rem;
+    }
+    #form-profile,
+    #form-login {
+        margin-top: 1rem;
     }
     .form-subtitle {
         margin-bottom: 1rem;

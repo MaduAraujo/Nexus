@@ -1,0 +1,119 @@
+/* Toast padrão do Nexus — usado por todas as telas. Referência visual: Meu Perfil > Preferências de notificação. */
+
+:root {
+    --toast-bg: #ffffff;
+    --toast-border: #e5e7eb;
+    --toast-title: #1f2937;
+    --toast-msg: #6b7280;
+    --toast-accent: #6366f1;
+    --toast-danger: #ef4444;
+    --toast-warning: #f59e0b;
+    --toast-info: #3b82f6;
+    --toast-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='dark'] {
+    --toast-bg: #16171d;
+    --toast-border: rgba(255, 255, 255, 0.08);
+    --toast-title: #e8eaf0;
+    --toast-msg: #9aa1b0;
+}
+
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--toast-bg);
+    border: 1px solid var(--toast-border);
+    border-left: 4px solid var(--toast-accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 260px;
+    max-width: 340px;
+    box-shadow: var(--toast-shadow);
+    opacity: 0;
+    transform: translateX(20px);
+    transition:
+        opacity 0.3s,
+        transform 0.3s;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+.toast.hide {
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.toast-icon {
+    font-size: 1rem;
+    color: var(--toast-accent);
+    padding-top: 1px;
+}
+.toast-content {
+    flex: 1;
+    min-width: 0;
+}
+.toast-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--toast-title);
+}
+.toast-msg {
+    font-size: 0.76rem;
+    color: var(--toast-msg);
+    margin-top: 2px;
+}
+.toast-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--toast-msg);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px;
+    align-self: flex-start;
+}
+
+.toast-error {
+    border-left-color: var(--toast-danger);
+}
+.toast-warning {
+    border-left-color: var(--toast-warning);
+}
+.toast-info {
+    border-left-color: var(--toast-info);
+}
+
+@media (max-width: 768px) {
+    .toast-container {
+        top: 14px;
+        right: 10px;
+        left: auto;
+        align-items: flex-end;
+        max-width: calc(100vw - 20px);
+    }
+    .toast {
+        min-width: 0;
+        width: auto;
+        max-width: 100%;
+    }
+}
+
+@media (forced-colors: active) {
+    .toast {
+        forced-color-adjust: none;
+    }
+}

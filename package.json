@@ -1,7 +1,7 @@
 {
     "scripts": {
         "test": "node --test",
-        "test:integration": "node --test test-integration/rls-policies.js",
+        "test:integration": "node --test --test-concurrency=1 test-integration/rls-policies.js test-integration/column-encryption.js",
         "test:e2e": "playwright test",
         "test:pwa": "node test-support/pwa-audit.js",
         "lint": "eslint src/javascript test test-support test-integration e2e",

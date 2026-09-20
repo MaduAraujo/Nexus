@@ -29,6 +29,7 @@ Empresas perdem horas toda semana gerenciando ponto em planilha, férias por e-m
 - [Painel do RH](#painel-do-rh)
 - [Portal do Colaborador](#portal-do-colaborador)
 - [Inteligência Artificial](#inteligência-artificial)
+- [Segurança e criptografia](#segurança-e-criptografia)
 - [Tecnologias](#tecnologias)
 - [Equipe](#equipe)
 
@@ -143,7 +144,7 @@ npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,e
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
 
-npm run test:integration   # RLS: policies de employees, time_records, hr_tickets etc.
+npm run test:integration   # RLS (employees, time_records, hr_tickets…) e criptografia de colunas
 
 npx playwright install --with-deps chromium
 npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
@@ -203,6 +204,43 @@ O módulo **Central de Alertas** usa a API da Groq (modelo GPT-OSS 120B) para an
 ![Central de Alertas](README/Captura%20de%20tela%202026-05-18%20140350.png)
 
 </div>
+
+---
+
+## Segurança e criptografia
+
+**Em trânsito:** todo o tráfego usa HTTPS (Vercel e Supabase).
+
+**Em repouso, no banco (criptografia em nível de coluna, AES-256 via `pgcrypto`)** — migration `059_column_encryption.sql`:
+
+| Dado | Onde |
+|---|---|
+| CPF, RG, telefone, salário, chave PIX, agência e conta | `employees` |
+| Mensagens de canais e conversas diretas | `chat_messages.content` |
+| Mensagens do atendimento com o RH | `hr_ticket_messages.content` |
+
+Como funciona:
+
+- **Escrita:** triggers cifram sozinhos. O código continua gravando texto normal em `employees`, `chat_messages` e `hr_ticket_messages`.
+- **Leitura:** as tabelas devolvem texto cifrado. Para ler o valor, use as views **`employees_decrypted`**, **`chat_messages_decrypted`** e **`hr_ticket_messages_decrypted`**. Elas respeitam a RLS e só decifram para quem tem direito ao dado (RH e a própria pessoa em `employees`; membros em conversas; RH nunca em conversas diretas). O gestor enxerga a equipe, mas sem os campos cifrados.
+- **Amarração ao dono:** cada valor cifrado carrega o seu dono (`emp:<id>`, `chan:<id>`, `tkt:<id>`). Copiar o texto cifrado de uma linha para outra não revela nada, e a função de decifrar confere a autorização antes de abrir.
+- **CPF único:** `cpf_hash` é um índice cego (HMAC-SHA256, com ou sem máscara) que garante unicidade sem guardar o CPF em claro.
+
+**Chaves:** ficam no **Supabase Vault** (`data_encryption_key` e `data_hmac_key`), geradas pela própria migration. Nunca estão no código nem no navegador.
+
+> ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
+
+**Aplicando em um banco existente:** rode as migrations em ordem — `057`, `058` e `059`. A 059 cifra os dados que já existem. Em um projeto novo, `supabase/schema.sql` já traz tudo.
+
+**Regras para quem desenvolve:**
+
+- Para **ler** CPF, RG, telefone, salário, PIX, agência, conta ou o conteúdo de mensagens, consulte a view `*_decrypted`. A tabela devolve texto cifrado.
+- Depois de **adicionar coluna** em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
+- Para cifrar **outra coluna**, siga o padrão de `employees_encrypt_sensitive()` na migration 059.
+
+**O que ainda NÃO é cifrado:** holerites (`payslips`), arquivos no Storage (protegidos por bucket privado e URL assinada, mas sem cifragem própria), feedback anônimo, histórico da IA do RH, datas de nascimento e demais dados pessoais. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta.
+
+**Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
 
 ---
 

@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentTab = 'social';
     let currentChannelId = null;
     let currentTicketId = null;
+    let currentDm = null;
     let isEscalated = false;
     let activeChatSub = null;
     let activeTicketSub = null;
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     let onlineCount = 0;
+    let onlineIds = new Set();
 
     function setupPresence() {
         const presenceCh = sb.channel('chat:presence', {
@@ -134,7 +136,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             .on('presence', { event: 'sync' }, () => {
                 const state = presenceCh.presenceState();
                 onlineCount = Object.keys(state).length;
+                onlineIds = new Set(Object.keys(state));
                 updatePresenceUI();
+                updateDmPresence();
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
@@ -152,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const numEl = $('presence-number');
         if (!pill || !numEl) return;
         numEl.textContent = onlineCount;
-        pill.style.display = currentChannelId ? 'flex' : 'none';
+        pill.style.display = currentChannelId && !currentDm ? 'flex' : 'none';
     }
 
     function avatarStyle(e) {
@@ -168,18 +172,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!list) return;
 
         const { data: channels } = await sb.from('chat_channels').select('*').order('name');
-        allChannels = channels || [];
+        allChannels = (channels || []).filter((c) => c.kind !== 'dm');
+
+        const deptSlug = (myEmployee.dept || '')
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+        const isMyDeptChannel = (c) => !!myEmployee.dept && (c.dept === myEmployee.dept || c.slug === deptSlug);
 
         const geral = allChannels.find((c) => c.slug === 'geral');
         if (geral) await joinChannel(geral.id);
-        if (myEmployee.dept) {
-            const deptSlug = myEmployee.dept
-                .toLowerCase()
-                .replace(/\s+/g, '-')
-                .replace(/[^a-z0-9-]/g, '');
-            const deptCh = allChannels.find((c) => c.dept === myEmployee.dept || c.slug === deptSlug);
-            if (deptCh) await joinChannel(deptCh.id);
-        }
+        const deptCh = allChannels.find(isMyDeptChannel);
+        if (deptCh) await joinChannel(deptCh.id);
 
         const { data: memberships } = await sb.from('chat_channel_members').select('channel_id').eq('employee_id', myEmployeeId);
 
@@ -187,17 +191,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         list.innerHTML = '';
 
-        const mine = allChannels.filter((c) => memberOf.has(c.id));
-        const other = allChannels.filter((c) => !memberOf.has(c.id));
+        const mine = allChannels.filter(isMyDeptChannel);
+        const other = allChannels.filter((c) => !isMyDeptChannel(c));
 
         if (mine.length) {
             const hd = document.createElement('li');
             hd.className = 'channel-section-hd';
             hd.style.cssText =
-                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);';
+                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
             hd.textContent = 'Meus canais';
             list.appendChild(hd);
-            mine.forEach((c) => list.appendChild(buildChannelItem(c, true)));
+            mine.forEach((c) => list.appendChild(buildChannelItem(c, memberOf.has(c.id))));
         }
 
         if (other.length) {
@@ -207,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
             hd.textContent = 'Outros canais';
             list.appendChild(hd);
-            other.forEach((c) => list.appendChild(buildChannelItem(c, false)));
+            other.forEach((c) => list.appendChild(buildChannelItem(c, memberOf.has(c.id))));
         }
 
         if (!mine.length && !other.length) {
@@ -251,12 +255,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function selectChannel(channel, isMember) {
-        if (!isMember) {
+        const isDm = channel.kind === 'dm';
+        if (!isMember && !isDm) {
             await joinChannel(channel.id);
             isMember = true;
         }
 
         currentChannelId = channel.id;
+        currentDm = isDm ? channel : null;
         currentTicketId = null;
         isEscalated = false;
 
@@ -268,19 +274,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateChannelBadge(channel.id);
         updateSidebarUnread();
 
-        setTopbarChannel('#', channel.name);
+        const areaIcon = $('chat-area-icon');
         const areaName = $('chat-area-name');
         const areaDesc = $('chat-area-desc');
-        if (areaName) areaName.textContent = `#${channel.name}`;
-        if (areaDesc) areaDesc.textContent = channel.description || '';
-
         const input = $('chat-input');
-        if (input) input.placeholder = `Mensagem para #${channel.name}...`;
+
+        if (isDm) {
+            setTopbarChannel(dmAvatar(channel.other, 'dm-avatar--sm'), channel.name);
+            if (areaIcon) {
+                areaIcon.innerHTML = dmAvatar(channel.other);
+                areaIcon.classList.add('dm-icon');
+            }
+            if (areaName) areaName.textContent = channel.name;
+            if (areaDesc) areaDesc.textContent = dmStatusText(channel);
+            if (input) input.placeholder = `Mensagem para ${channel.name.split(' ')[0]}...`;
+            closeChatLeft();
+        } else {
+            setTopbarChannel('#', channel.name);
+            if (areaIcon) {
+                areaIcon.textContent = '#';
+                areaIcon.classList.remove('dm-icon');
+            }
+            if (areaName) areaName.textContent = `#${channel.name}`;
+            if (areaDesc) areaDesc.textContent = channel.description || '';
+            if (input) input.placeholder = `Mensagem para #${channel.name}...`;
+        }
+
+        const hintIcon = $('compliance-hint-icon');
+        const hintText = $('compliance-hint-text');
+        if (hintIcon) hintIcon.className = `fas ${isDm ? 'fa-lock' : 'fa-shield-alt'}`;
+        if (hintText) {
+            hintText.textContent = isDm
+                ? `Conversa privada — somente você e ${channel.name.split(' ')[0]} veem estas mensagens`
+                : 'Ambiente corporativo — comunicações monitoradas conforme política de compliance';
+        }
 
         showChatArea();
 
         const pill = $('presence-pill');
-        if (pill) pill.style.display = 'flex';
+        if (pill) pill.style.display = isDm ? 'none' : 'flex';
 
         await loadMessages(channel.id);
         subscribeToChannel(channel.id);
@@ -293,8 +325,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: msgs } = await sb
-            .from('chat_messages')
-            .select('*, employees(name, avatar_url, avatar_color, role)')
+            .from('chat_messages_decrypted')
+            .select('*')
             .eq('channel_id', channelId)
             .order('created_at', { ascending: true })
             .limit(80);
@@ -307,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function appendMessage(msg, doScroll = true) {
         const list = $('messages-list');
         if (!list) return;
-        const e = msg.employees || {};
+        const e = msg.employees?.name ? msg.employees : colleagues.find((c) => c.id === msg.employee_id) || {};
         const mine = msg.employee_id === myEmployeeId;
 
         const group = document.createElement('div');
@@ -351,8 +383,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const msg = payload.new;
                     if (msg.employee_id === myEmployeeId) return;
 
-                    const { data: e } = await sb.from('employees').select('name, avatar_url, avatar_color, role').eq('id', msg.employee_id).single();
-                    appendMessage({ ...msg, employees: e || {} });
+                    const { data: decrypted } = await sb.from('chat_messages_decrypted').select('*').eq('id', msg.id).single();
+                    if (!decrypted) return;
+                    appendMessage(decrypted);
 
                     if (currentChannelId !== channelId) {
                         unreadCounts[channelId] = (unreadCounts[channelId] || 0) + 1;
@@ -440,7 +473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        appendMessage({ ...msg, employees: myEmployee });
+        appendMessage({ ...msg, content: text, employees: myEmployee });
     }
 
     function updateChannelBadge(channelId) {
@@ -452,6 +485,171 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateSidebarUnread() {}
+
+    let dms = [];
+    let dmStarting = false;
+
+    const dmAvatar = (person, cls = '') =>
+        `<span class="dm-avatar ${cls}" ${avatarStyle(person)}>${person?.avatar_url ? '' : esc(initials(person?.name))}</span>`;
+
+    const sortDms = () => dms.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+    function dmStatusText(dm) {
+        const status = onlineIds.has(dm.other.id) ? 'Online' : 'Offline';
+        return dm.other.role ? `${status} · ${dm.other.role}` : status;
+    }
+
+    function updateDmPresence() {
+        document.querySelectorAll('.dm-item').forEach((li) => li.classList.toggle('online', onlineIds.has(li.dataset.otherId)));
+        if (currentDm) {
+            const desc = $('chat-area-desc');
+            if (desc) desc.textContent = dmStatusText(currentDm);
+        }
+    }
+
+    async function loadDms() {
+        const { data, error } = await sb
+            .from('chat_channel_members')
+            .select('channel_id, chat_channels!inner(id, kind, dm_key)')
+            .eq('employee_id', myEmployeeId)
+            .eq('chat_channels.kind', 'dm');
+
+        const byId = new Map(colleagues.map((c) => [c.id, c]));
+        dms = error
+            ? []
+            : (data || [])
+                  .map((m) => {
+                      const otherId = m.chat_channels.dm_key.split(':').find((id) => id !== myEmployeeId);
+                      const other = byId.get(otherId);
+                      return other ? { id: m.channel_id, kind: 'dm', name: other.name, other } : null;
+                  })
+                  .filter(Boolean);
+        sortDms();
+        renderDmList();
+    }
+
+    function renderDmList() {
+        const list = $('dm-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!dms.length) {
+            list.innerHTML = '<li class="ch-loading"><span>Nenhuma conversa ainda</span></li>';
+            return;
+        }
+        dms.forEach((dm) => list.appendChild(buildDmItem(dm)));
+        updateDmPresence();
+    }
+
+    function buildDmItem(dm) {
+        const li = document.createElement('li');
+        li.className = `channel-item dm-item${dm.id === currentChannelId ? ' active' : ''}`;
+        li.dataset.channelId = dm.id;
+        li.dataset.otherId = dm.other.id;
+
+        const unread = unreadCounts[dm.id] || 0;
+        li.innerHTML = `
+            <span class="dm-avatar-wrap">${dmAvatar(dm.other)}</span>
+            <span class="ch-name">${esc(dm.name)}</span>
+            <span class="ch-badge" id="badge-${dm.id}" style="display:${unread > 0 ? 'flex' : 'none'}">${unread}</span>`;
+
+        li.addEventListener('click', () => selectChannel(dm, true));
+        return li;
+    }
+
+    function renderDmPicker() {
+        const list = $('dm-picker-list');
+        if (!list) return;
+        const query = ($('dm-search')?.value || '').trim().toLowerCase();
+        const matches = colleagues.filter((c) => !query || `${c.name} ${c.dept || ''}`.toLowerCase().includes(query));
+
+        if (!matches.length) {
+            list.innerHTML = '<li class="dm-picker-empty">Nenhum colega encontrado</li>';
+            return;
+        }
+
+        list.innerHTML = matches
+            .map(
+                (c) => `
+            <li>
+                <button type="button" class="dm-picker-item" data-id="${c.id}">
+                    ${dmAvatar(c)}
+                    <span class="dm-picker-info">
+                        <span class="dm-picker-name">${esc(c.name)}</span>
+                        <span class="dm-picker-meta">${esc([c.role, c.dept].filter(Boolean).join(' · '))}</span>
+                    </span>
+                </button>
+            </li>`
+            )
+            .join('');
+    }
+
+    window.openDmModal = function () {
+        const search = $('dm-search');
+        if (search) search.value = '';
+        $('dm-error')?.classList.add('hidden');
+        renderDmPicker();
+        $('dm-modal')?.classList.add('open');
+        search?.focus();
+    };
+
+    window.closeDmModal = function () {
+        $('dm-modal')?.classList.remove('open');
+    };
+
+    async function startDm(otherId) {
+        if (dmStarting) return;
+        dmStarting = true;
+        const errEl = $('dm-error');
+        errEl?.classList.add('hidden');
+
+        const { data: channelId, error } = await sb.rpc('get_or_create_dm', { p_other: otherId });
+        dmStarting = false;
+
+        const other = colleagues.find((c) => c.id === otherId);
+        if (error || !channelId || !other) {
+            if (errEl) {
+                errEl.textContent = 'Não foi possível abrir a conversa. Tente novamente.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        let dm = dms.find((d) => d.id === channelId);
+        if (!dm) {
+            dm = { id: channelId, kind: 'dm', name: other.name, other };
+            dms.push(dm);
+            sortDms();
+            renderDmList();
+        }
+
+        closeDmModal();
+        await selectChannel(dm, true);
+    }
+
+    $('dm-new-btn')?.addEventListener('click', openDmModal);
+    $('dm-search')?.addEventListener('input', renderDmPicker);
+    $('dm-picker-list')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.dm-picker-item');
+        if (btn) startDm(btn.dataset.id);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDmModal();
+    });
+
+    function setupDmInbox() {
+        sb.channel('chat:inbox')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, async (payload) => {
+                const msg = payload.new;
+                if (msg.employee_id === myEmployeeId || allChannels.some((c) => c.id === msg.channel_id)) return;
+
+                if (!dms.some((d) => d.id === msg.channel_id)) await loadDms();
+                if (!dms.some((d) => d.id === msg.channel_id) || currentChannelId === msg.channel_id) return;
+
+                unreadCounts[msg.channel_id] = (unreadCounts[msg.channel_id] || 0) + 1;
+                updateChannelBadge(msg.channel_id);
+            })
+            .subscribe();
+    }
 
     const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! Sou o Agente de Atendimento RH.
 Com o que posso te ajudar hoje?`;
@@ -704,7 +902,7 @@ Com o que posso te ajudar hoje?`;
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-        const { data: msgs } = await sb.from('hr_ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+        const { data: msgs } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
 
         list.innerHTML = '';
         (msgs || []).forEach((m) => appendTicketMessage(m, false));
@@ -831,7 +1029,7 @@ Com o que posso te ajudar hoje?`;
             .select()
             .single();
 
-        appendTicketMessage({ ...userMsg, role: 'user' });
+        appendTicketMessage({ ...userMsg, content: text, role: 'user' });
 
         if (text.toLowerCase().includes('falar com analista') || text.toLowerCase().includes('analista') || text.toLowerCase().includes('humano')) {
             await delay(800);
@@ -844,7 +1042,7 @@ Com o que posso te ajudar hoje?`;
 
     async function getTicketAiHistory(ticketId) {
         const { data } = await sb
-            .from('hr_ticket_messages')
+            .from('hr_ticket_messages_decrypted')
             .select('role, content')
             .eq('ticket_id', ticketId)
             .in('role', ['user', 'bot'])
@@ -1000,10 +1198,11 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
                     table: 'hr_ticket_messages',
                     filter: `ticket_id=eq.${ticketId}`,
                 },
-                (payload) => {
+                async (payload) => {
                     const msg = payload.new;
                     if (msg.role === 'rh') {
-                        appendTicketMessage(msg);
+                        const { data: decrypted } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('id', msg.id).single();
+                        if (decrypted) appendTicketMessage(decrypted);
                         updateHrStatusBadge('em_atendimento');
                     }
                 }
@@ -1060,7 +1259,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     let allKudos = [];
 
     async function loadColleagues() {
-        const { data } = await sb.rpc('colleague_directory').select('id,name,dept').neq('id', myEmployeeId).order('name');
+        const { data } = await sb.rpc('colleague_directory').select('id,name,dept,role,avatar_color,avatar_url').neq('id', myEmployeeId).order('name');
         colleagues = data || [];
     }
 
@@ -1109,11 +1308,23 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
             .subscribe();
     }
 
+    function updateKudosSubmitState() {
+        const btn = $('kudos-submit-btn');
+        if (btn) btn.disabled = !($('kudos-colleague')?.value && $('kudos-message')?.value.trim());
+    }
+
+    $('kudos-message')?.addEventListener('input', () => {
+        updateKudosSubmitState();
+        $('kudos-error')?.classList.add('hidden');
+    });
+    $('kudos-colleague')?.addEventListener('change', updateKudosSubmitState);
+
     window.openKudosModal = function () {
         const sel = $('kudos-colleague');
         if (sel) sel.innerHTML = colleagues.map((c) => `<option value="${c.id}">${esc(c.name)}${c.dept ? ' — ' + esc(c.dept) : ''}</option>`).join('');
         const msgEl = $('kudos-message');
         if (msgEl) msgEl.value = '';
+        updateKudosSubmitState();
         $('kudos-error')?.classList.add('hidden');
         $('kudos-modal')?.classList.add('open');
     };
@@ -1162,9 +1373,20 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
         showToast('Reconhecimento publicado!', 'success', 'Seu colega vai adorar ver isso no mural.');
     };
 
+    function updateAnonSubmitState() {
+        const btn = $('anon-submit-btn');
+        if (btn) btn.disabled = !$('anon-message')?.value.trim();
+    }
+
+    $('anon-message')?.addEventListener('input', () => {
+        updateAnonSubmitState();
+        $('anon-error')?.classList.add('hidden');
+    });
+
     $('anon-feedback-btn')?.addEventListener('click', () => {
         const msgEl = $('anon-message');
         if (msgEl) msgEl.value = '';
+        updateAnonSubmitState();
         $('anon-error')?.classList.add('hidden');
         $('anon-feedback-modal')?.classList.add('open');
     });
@@ -1239,6 +1461,8 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     await loadChannels();
     await loadTickets();
     await loadColleagues();
+    await loadDms();
+    setupDmInbox();
     await loadKudos();
     setupKudosRealtime();
 });

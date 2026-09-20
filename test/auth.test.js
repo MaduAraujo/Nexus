@@ -43,7 +43,10 @@ describe('requireProfile', () => {
     });
 
     test('employee_id aponta pra um funcionário que não existe (ex.: desligado), redireciona', async () => {
-        global.sb = createMockSupabase({ profiles: [{ id: 'u3', profile: 'colaborador', employee_id: 'ghost' }], employees: [] }, { user: { id: 'u3' } });
+        global.sb = createMockSupabase(
+            { profiles: [{ id: 'u3', profile: 'colaborador', employee_id: 'ghost' }], employees_decrypted: [] },
+            { user: { id: 'u3' } }
+        );
         const result = await NexusAuth.requireProfile('colaborador', 'name,dept');
         assert.equal(result, null);
         assert.equal(global.window.location.href, '../screens/login.html');
@@ -53,7 +56,7 @@ describe('requireProfile', () => {
         global.sb = createMockSupabase(
             {
                 profiles: [{ id: 'u4', profile: 'colaborador', employee_id: 'e4' }],
-                employees: [{ id: 'e4', name: 'Ana Souza', dept: 'TI' }],
+                employees_decrypted: [{ id: 'e4', name: 'Ana Souza', dept: 'TI' }],
             },
             { user: { id: 'u4' } }
         );

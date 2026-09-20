@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="../styles/btn-back.css">
     <link rel="stylesheet" href="../styles/chat-colaborador.css">
+    <link rel="stylesheet" href="../styles/toast.css">
 </head>
 <body>
     <header class="topbar">
@@ -55,7 +56,18 @@
             </div>
 
             <div class="chat-list-panel" id="panel-social">
-                <div class="channel-section-hd">Canais</div>
+                <div class="channel-section-hd channel-section-hd--action">
+                    <span>Mensagens diretas</span>
+                    <button type="button" class="dm-new-btn" id="dm-new-btn" aria-label="Nova mensagem direta" title="Nova mensagem direta">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <ul class="channel-list" id="dm-list">
+                    <li class="ch-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Carregando...</span>
+                    </li>
+                </ul>
                 <ul class="channel-list" id="channel-list">
                     <li class="ch-loading">
                         <i class="fas fa-spinner fa-spin"></i>
@@ -95,7 +107,7 @@
                     <i class="fas fa-comments"></i>
                 </div>
                 <h3>Bem-vindo ao Chat</h3>
-                <p>Selecione um canal para começar a conversar.</p>
+                <p>Selecione um canal ou uma mensagem direta para começar a conversar.</p>
                 <div class="chat-welcome-chips">
                     <span><i class="fas fa-lock"></i> Mensagens criptografadas</span>
                     <span><i class="fas fa-shield-alt"></i> Ambiente corporativo</span>
@@ -124,8 +136,8 @@
 
                 <div class="chat-input-bar">
                     <div class="compliance-hint">
-                        <i class="fas fa-shield-alt"></i>
-                        Ambiente corporativo — comunicações monitoradas conforme política de compliance
+                        <i class="fas fa-shield-alt" id="compliance-hint-icon"></i>
+                        <span id="compliance-hint-text">Ambiente corporativo — comunicações monitoradas conforme política de compliance</span>
                     </div>
                     <div class="chat-input-wrap">
                         <textarea class="chat-input" id="chat-input" placeholder="Mensagem..." rows="1" maxlength="2000"></textarea>
@@ -187,6 +199,22 @@
         </section>
     </div>
 
+    <div class="modal-overlay" id="dm-modal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dm-modal-title">
+            <div class="modal-header">
+                <h3 id="dm-modal-title"><i class="fas fa-user-group"></i> Nova mensagem</h3>
+                <button class="modal-close" onclick="closeDmModal()" aria-label="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="search" id="dm-search" class="form-input" placeholder="Buscar colega por nome ou departamento..." autocomplete="off" aria-label="Buscar colega">
+                <ul class="dm-picker-list" id="dm-picker-list"></ul>
+                <p class="modal-alert-inline hidden" id="dm-error"></p>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="kudos-modal">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="kudos-modal-title">
             <div class="modal-header">
@@ -201,8 +229,8 @@
                     <span>Visível publicamente no mural, para toda a empresa.</span>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="kudos-colleague">Colega</label>
-                    <select id="kudos-colleague" class="form-input"></select>
+                    <label class="form-label" for="kudos-colleague">Colega <span class="required-mark" aria-hidden="true">*</span></label>
+                    <select id="kudos-colleague" class="form-input" required aria-required="true"></select>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="kudos-categoria">Categoria</label>
@@ -215,13 +243,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="kudos-message">Mensagem</label>
-                    <textarea id="kudos-message" class="form-input" rows="3" maxlength="300" placeholder="Descreva o que essa pessoa fez de especial..."></textarea>
+                    <label class="form-label" for="kudos-message">Mensagem <span class="required-mark" aria-hidden="true">*</span></label>
+                    <textarea id="kudos-message" class="form-input" rows="3" maxlength="300" required aria-required="true" placeholder="Descreva o que essa pessoa fez de especial..."></textarea>
                 </div>
                 <p class="modal-alert-inline hidden" id="kudos-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitKudos()"><span>Publicar</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" id="kudos-submit-btn" onclick="submitKudos()" disabled><span>Publicar</span></button>
             </div>
         </div>
     </div>
@@ -250,13 +278,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="anon-message">Sua mensagem</label>
-                    <textarea id="anon-message" class="form-input" rows="4" maxlength="1000" placeholder="Fique à vontade — este envio é 100% anônimo."></textarea>
+                    <label class="form-label" for="anon-message">Sua mensagem <span class="required-mark" aria-hidden="true">*</span></label>
+                    <textarea id="anon-message" class="form-input" rows="4" maxlength="1000" required aria-required="true" placeholder="Fique à vontade — este envio é 100% anônimo."></textarea>
                 </div>
                 <p class="modal-alert-inline hidden" id="anon-error"></p>
             </div>
             <div class="modal-footer">
-                <button class="new-ticket-btn new-ticket-btn--inline" onclick="submitAnonFeedback()"><span>Enviar</span></button>
+                <button class="new-ticket-btn new-ticket-btn--inline" id="anon-submit-btn" onclick="submitAnonFeedback()" disabled><span>Enviar</span></button>
             </div>
         </div>
     </div>

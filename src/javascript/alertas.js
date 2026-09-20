@@ -488,7 +488,7 @@ async function estimateRejectionImpact(ids) {
     if (!reqs?.length) return null;
 
     const empIds = [...new Set(reqs.map((r) => r.employee_id))];
-    const { data: emps } = await sb.from('employees').select('id,name,salary').in('id', empIds);
+    const { data: emps } = await sb.from('employees_decrypted').select('id,name,salary').in('id', empIds);
     const empMap = {};
     (emps || []).forEach((e) => {
         empMap[e.id] = e;

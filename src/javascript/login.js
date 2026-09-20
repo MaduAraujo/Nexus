@@ -146,7 +146,26 @@ window.goToLogin = function () {
     }
 
     updateLoginBtnState();
+    resumeProfileSession(selectedProfileType);
 };
+
+const PROFILE_HOME = { Administrador: '../screens/inicio-rh.html', colaborador: '../screens/inicio-colaborador.html' };
+
+async function resumeProfileSession(profileType) {
+    const client = nexusUseProfileSession(profileType);
+    const {
+        data: { session },
+    } = await client.auth.getSession();
+    if (!session?.user) return;
+
+    const { data: profile } = await client.from('profiles').select('profile').eq('id', session.user.id).single();
+    if (profile?.profile === profileType) {
+        if (selectedProfileType === profileType) window.location.href = PROFILE_HOME[profileType];
+        return;
+    }
+
+    await client.auth.signOut({ scope: 'local' });
+}
 
 window.goToProfileSelection = function () {
     document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
@@ -232,14 +251,14 @@ window.handleLogin = async function () {
         const { data: profile, error: profileError } = await sb.from('profiles').select('profile, employee_id').eq('id', data.user.id).single();
 
         if (profileError || !profile) {
-            await sb.auth.signOut();
+            await sb.auth.signOut({ scope: 'local' });
             setLoginLoading(false);
             showToast('Perfil não encontrado. Entre em contato com o RH.', 'error');
             return;
         }
 
         if (profile.profile !== selectedProfileType) {
-            await sb.auth.signOut();
+            await sb.auth.signOut({ scope: 'local' });
             setLoginLoading(false);
             showToast(
                 selectedProfileType === 'Administrador'
@@ -254,7 +273,7 @@ window.handleLogin = async function () {
             await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
         }
 
-        window.location.href = profile.profile === 'Administrador' ? '../screens/inicio-rh.html' : '../screens/inicio-colaborador.html';
+        window.location.href = PROFILE_HOME[profile.profile] || PROFILE_HOME.colaborador;
     } catch {
         setLoginLoading(false);
         showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
@@ -446,21 +465,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (_isPasswordRecovery) return;
 
-    if (session?.user) {
-        if (isFirstAccessSession(session)) {
-            setupFirstAccess(session);
-            return;
-        }
-
-        const { data: profile } = await sb.from('profiles').select('profile').eq('id', session.user.id).single();
-        if (profile?.profile === 'Administrador') {
-            window.location.href = '../screens/inicio-rh.html';
-            return;
-        }
-        if (profile?.profile === 'colaborador') {
-            window.location.href = '../screens/inicio-colaborador.html';
-            return;
-        }
+    if (session?.user && isFirstAccessSession(session)) {
+        setupFirstAccess(session);
+        return;
     }
 
     document.getElementById('login-user')?.addEventListener('keydown', (e) => {

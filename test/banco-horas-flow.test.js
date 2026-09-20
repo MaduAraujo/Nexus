@@ -9,7 +9,7 @@ require('../src/javascript/domain/clt-domain.js');
 const rh = require('../src/javascript/banco-horas-rh.js');
 
 const TABLES = {
-    employees: [
+    employees_decrypted: [
         {
             id: 'e1',
             name: 'Carla Vencido',

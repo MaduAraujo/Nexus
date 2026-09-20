@@ -350,14 +350,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!list) return;
         list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-        const { data: msgs } = await sb
-            .from('hr_ticket_messages')
-            .select('*, employees(name, avatar_url, avatar_color)')
-            .eq('ticket_id', ticketId)
-            .order('created_at', { ascending: true });
+        const { data: rows } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+
+        const authorIds = [...new Set((rows || []).map((m) => m.employee_id).filter(Boolean))];
+        const { data: authors } = authorIds.length ? await sb.from('employees').select('id, name, avatar_url, avatar_color').in('id', authorIds) : { data: [] };
+        const authorById = new Map((authors || []).map((a) => [a.id, a]));
+        const msgs = (rows || []).map((m) => ({ ...m, employees: authorById.get(m.employee_id) || null }));
 
         list.innerHTML = '';
-        (msgs || []).forEach((m) => appendMessage(m, false));
+        msgs.forEach((m) => appendMessage(m, false));
         scrollBottom('messages-scroll');
     }
 
@@ -510,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        appendRhMessage(msg);
+        appendRhMessage({ ...msg, content: text });
         scrollBottom('messages-scroll');
 
         await sb.from('hr_tickets').update({ updated_at: new Date().toISOString() }).eq('id', currentTicketId);
@@ -530,8 +531,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     filter: `ticket_id=eq.${ticketId}`,
                 },
                 async (payload) => {
-                    const msg = payload.new;
-                    if (msg.role === 'rh' && msg.employee_id === analystEmpId) return;
+                    if (payload.new.role === 'rh' && payload.new.employee_id === analystEmpId) return;
+
+                    const { data: msg } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('id', payload.new.id).single();
+                    if (!msg) return;
 
                     if (msg.role === 'user' && msg.employee_id) {
                         const { data: e } = await sb.from('employees').select('name, avatar_url, avatar_color').eq('id', msg.employee_id).single();

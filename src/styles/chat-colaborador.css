@@ -379,6 +379,144 @@ body {
     flex-shrink: 0;
 }
 
+.channel-section-hd--action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 10px;
+}
+.dm-new-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border-dark);
+    border-radius: 6px;
+    color: var(--text-on-dark2);
+    font-size: 0.66rem;
+    cursor: pointer;
+    transition:
+        background var(--speed),
+        color var(--speed);
+}
+.dm-new-btn:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--text-on-dark);
+}
+
+.dm-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-size: cover !important;
+    background-position: center !important;
+}
+.dm-avatar--sm {
+    width: 20px;
+    height: 20px;
+    font-size: 0.56rem;
+}
+.chat-area-icon.dm-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+}
+.chat-area-icon.dm-icon .dm-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 0.8rem;
+}
+.topbar-channel-icon .dm-avatar {
+    display: inline-flex;
+    vertical-align: middle;
+}
+
+.dm-avatar-wrap {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+}
+.dm-item.online .dm-avatar-wrap::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    border: 2px solid var(--bg-chat-l);
+}
+
+.dm-picker-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: min(320px, 50svh);
+    overflow-y: auto;
+}
+.dm-picker-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s;
+}
+.dm-picker-item:hover,
+.dm-picker-item:focus-visible {
+    background: var(--bg-page);
+    outline: none;
+}
+.dm-picker-item .dm-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 0.72rem;
+}
+.dm-picker-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.dm-picker-name {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dm-picker-meta {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dm-picker-empty {
+    padding: 16px 10px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
 .new-ticket-btn {
     display: flex;
     align-items: center;
@@ -1013,6 +1151,9 @@ body {
     font-size: 0.9rem;
     color: var(--text-main);
     line-height: 1.5;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 7px 0;
     max-height: 120px;
     overflow-y: auto;
 }
@@ -1045,77 +1186,6 @@ body {
     cursor: not-allowed;
 }
 
-.toast-container {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 9999;
-}
-
-.toast {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-left: 4px solid var(--accent);
-    border-radius: 10px;
-    padding: 12px 14px;
-    min-width: 260px;
-    max-width: 340px;
-    box-shadow: var(--shadow-md);
-    opacity: 0;
-    transform: translateX(20px);
-    transition:
-        opacity 0.3s,
-        transform 0.3s;
-}
-.toast.show {
-    opacity: 1;
-    transform: translateX(0);
-}
-.toast.hide {
-    opacity: 0;
-    transform: translateX(20px);
-}
-.toast-error {
-    border-left-color: var(--danger);
-}
-.toast-warning {
-    border-left-color: var(--warning);
-}
-.toast-info {
-    border-left-color: #3b82f6;
-}
-.toast-icon {
-    font-size: 1rem;
-    color: var(--accent);
-    padding-top: 1px;
-}
-.toast-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-main);
-}
-.toast-msg {
-    font-size: 0.76rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-.toast-close {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.8rem;
-    padding: 2px;
-    align-self: flex-start;
-}
-
 .new-ticket-btn--ghost {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-on-dark2);
@@ -1136,6 +1206,20 @@ body {
 .new-ticket-btn--inline {
     margin: 0;
     width: auto;
+}
+.new-ticket-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.new-ticket-btn:disabled:hover {
+    background: var(--accent-hr-bg);
+    border-color: rgba(236, 72, 153, 0.3);
+}
+
+.form-label .required-mark {
+    color: var(--danger);
+    font-weight: 700;
+    margin-left: 1px;
 }
 
 #btn-dar-reconhecimento i {
@@ -1459,15 +1543,6 @@ body {
     }
     .topbar-panels-btn {
         display: flex;
-    }
-    .toast-container {
-        top: 14px;
-        right: 10px;
-        left: 10px;
-        max-width: unset;
-    }
-    .toast {
-        width: 100%;
     }
 }
 

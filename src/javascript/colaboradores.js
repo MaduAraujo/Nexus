@@ -116,12 +116,21 @@ function employeeToDb(emp) {
 }
 
 async function fetchEmployees() {
-    const { data, error } = await sb.from('employees').select('*').order('created_at', { ascending: false });
+    const { data, error } = await sb.from('employees_decrypted').select('*').order('created_at', { ascending: false });
     if (error) {
         console.error('[Nexus] fetchEmployees:', error);
         return;
     }
     employees = (data || []).map(dbToEmployee);
+}
+
+// A tabela devolve os campos sensíveis cifrados; depois de gravar, a linha completa é lida pela view que decifra.
+async function insertEmployee(dbData) {
+    const { data: created, error } = await sb.from('employees').insert(dbData).select('id').single();
+    if (error) throw error;
+    const { data: row, error: readError } = await sb.from('employees_decrypted').select('*').eq('id', created.id).single();
+    if (readError) throw readError;
+    return row;
 }
 
 async function inviteEmployee(email) {
@@ -1149,8 +1158,7 @@ window.confirmImport = async function () {
         if (progressEl) progressEl.textContent = `Importando ${i + 1} de ${okRows.length}…`;
         try {
             const dbData = employeeToDb({ ...row.mapped, status: 'Ativo' });
-            const { data: inserted, error } = await sb.from('employees').insert(dbData).select().single();
-            if (error) throw error;
+            const inserted = await insertEmployee(dbData);
             employees.unshift(dbToEmployee(inserted));
 
             try {
@@ -2270,8 +2278,7 @@ function setupFormListener() {
                 const docsUploaded = await uploadPendingRegDocs(idField);
                 if (docsUploaded) successMsg += ` ${docsUploaded} documento${docsUploaded > 1 ? 's' : ''} anexado${docsUploaded > 1 ? 's' : ''}.`;
             } else {
-                const { data: inserted, error } = await sb.from('employees').insert(dbData).select().single();
-                if (error) throw error;
+                const inserted = await insertEmployee(dbData);
                 const newEmp = dbToEmployee(inserted);
                 employees.unshift(newEmp);
                 let inviteSent = false;

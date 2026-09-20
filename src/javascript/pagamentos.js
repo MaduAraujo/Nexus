@@ -51,7 +51,7 @@ function setLoading(show) {
 async function loadData() {
     const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }] = await Promise.all([
         sb
-            .from('employees')
+            .from('employees_decrypted')
             .select(
                 'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao,avatar_url'
             )

@@ -118,7 +118,7 @@ function calcFeriasSnapshot(emp: any, vacations: any[]) {
 
 async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([
-    caller.from("employees").select("name,role,dept,admission_date,contract_type,work_load,salary").eq("id", employeeId).single(),
+    caller.from("employees_decrypted").select("name,role,dept,admission_date,contract_type,work_load,salary").eq("id", employeeId).single(),
     caller.from("vacations").select("status,days,abono,start_date,end_date").eq("employee_id", employeeId),
     caller.from("time_records").select("date,entrada,saida_almoco,retorno_almoco,saida").eq("employee_id", employeeId),
     caller.from("bank_adjustments").select("tipo,minutos,date").eq("employee_id", employeeId).is("deleted_at", null),
