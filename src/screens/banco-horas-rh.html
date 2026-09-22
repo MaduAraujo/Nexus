@@ -351,11 +351,18 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label">Tipo de Ajuste</label>
-                <select id="adjust-tipo" class="form-input">
-                    <option value="credito">Crédito — adicionar horas ao banco</option>
-                    <option value="debito">Débito — descontar horas do banco</option>
-                </select>
+                <label class="form-label" for="adjust-tipo-trigger">Tipo de Ajuste</label>
+                <div class="select-field">
+                    <button type="button" class="select-trigger" id="adjust-tipo-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="adjust-tipo-label">Crédito — adicionar horas ao banco</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="adjust-tipo" value="credito">
+                    <div class="select-popover" id="adjust-tipo-popover" role="listbox">
+                        <button type="button" class="select-option selected" role="option" data-value="credito">Crédito — adicionar horas ao banco</button>
+                        <button type="button" class="select-option" role="option" data-value="debito">Débito — descontar horas do banco</button>
+                    </div>
+                </div>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
@@ -369,10 +376,10 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="adjust-data-trigger">Data de Referência</label>
-                <div class="date-field-wrap" id="adjust-data-wrap">
-                    <button type="button" class="form-input date-field-trigger" id="adjust-data-trigger">
-                        <i class="fas fa-calendar-day"></i>
-                        <span id="adjust-data-label">Selecione a data</span>
+                <div class="date-field">
+                    <button type="button" class="select-trigger date-trigger" id="adjust-data-trigger" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span id="adjust-data-text" class="select-placeholder">Selecione</span>
                     </button>
                     <input type="hidden" id="adjust-data">
                     <div class="calendar-popover" id="adjust-data-popover">
@@ -390,7 +397,7 @@
             </div>
             <div class="form-group">
                 <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
-                <textarea id="adjust-just" class="form-textarea" rows="2" placeholder="Ex.: Compensação por trabalho em feriado, home-office extra..." data-input="updateAdjustSubmitState"></textarea>
+                <textarea id="adjust-just" class="form-textarea" rows="2" data-input="updateAdjustSubmitState"></textarea>
             </div>
             <div class="modal-alert" id="adjust-alert"></div>
         </div>
@@ -415,23 +422,47 @@
         <div class="modal-body">
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label" for="holiday-date">Data</label>
-                    <input type="date" id="holiday-date" class="form-input">
+                    <label class="form-label" for="holiday-date-trigger">Data</label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="holiday-date-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="holiday-date-text" class="select-placeholder">Selecione</span>
+                        </button>
+                        <input type="hidden" id="holiday-date">
+                        <div class="calendar-popover" id="holiday-date-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="holiday-date-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="holiday-date-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="holiday-date-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="holiday-date-grid"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="holiday-abrangencia">Abrangência</label>
-                    <select id="holiday-abrangencia" class="form-input">
-                        <option value="nacional">Nacional</option>
-                        <option value="estadual">Estadual</option>
-                        <option value="municipal">Municipal</option>
-                        <option value="facultativo">Ponto Facultativo</option>
-                    </select>
+                    <label class="form-label" for="holiday-abrangencia-trigger">Abrangência</label>
+                    <div class="select-field">
+                        <button type="button" class="select-trigger" id="holiday-abrangencia-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="holiday-abrangencia-label">Nacional</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="holiday-abrangencia" value="nacional">
+                        <div class="select-popover" id="holiday-abrangencia-popover" role="listbox">
+                            <button type="button" class="select-option selected" role="option" data-value="nacional">Nacional</button>
+                            <button type="button" class="select-option" role="option" data-value="estadual">Estadual</button>
+                            <button type="button" class="select-option" role="option" data-value="municipal">Municipal</button>
+                            <button type="button" class="select-option" role="option" data-value="facultativo">Ponto Facultativo</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label" for="holiday-name">Nome do Feriado</label>
                 <div class="holiday-name-row">
-                    <input type="text" id="holiday-name" class="form-input" placeholder="Ex.: Aniversário da cidade">
+                    <input type="text" id="holiday-name" class="form-input">
                     <button class="btn-add-inline" data-click="submitHoliday" title="Adicionar Feriado" aria-label="Adicionar Feriado">
                         <i class="fas fa-plus"></i>
                     </button>
@@ -484,12 +515,24 @@
         <div class="modal-body">
             <div class="form-group">
                 <label class="form-label" for="settings-vencimento">Prazo de compensação do banco de horas (meses)</label>
-                <input type="number" id="settings-vencimento" class="form-input" min="1" max="24">
+                <div class="number-field">
+                    <input type="number" id="settings-vencimento" class="form-input" min="1" max="24">
+                    <div class="number-field-steps">
+                        <button type="button" class="number-step" data-click="stepNumber" data-click-args='["settings-vencimento",1]' aria-label="Aumentar"><i class="fas fa-chevron-up"></i></button>
+                        <button type="button" class="number-step" data-click="stepNumber" data-click-args='["settings-vencimento",-1]' aria-label="Diminuir"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
                 <p class="modal-hint">CLT art. 59 §2º: 6 meses por padrão, podendo chegar a 12 meses havendo acordo/convenção coletiva.</p>
             </div>
             <div class="form-group">
                 <label class="form-label" for="settings-limite-extra">Limite legal de horas extras diárias (minutos)</label>
-                <input type="number" id="settings-limite-extra" class="form-input" min="0" max="600" step="10">
+                <div class="number-field">
+                    <input type="number" id="settings-limite-extra" class="form-input" min="0" max="600" step="10">
+                    <div class="number-field-steps">
+                        <button type="button" class="number-step" data-click="stepNumber" data-click-args='["settings-limite-extra",1]' aria-label="Aumentar"><i class="fas fa-chevron-up"></i></button>
+                        <button type="button" class="number-step" data-click="stepNumber" data-click-args='["settings-limite-extra",-1]' aria-label="Diminuir"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
                 <p class="modal-hint">CLT art. 59: no máximo 2h (120 min) de prorrogação da jornada por dia.</p>
             </div>
             <div class="modal-alert" id="settings-alert"></div>

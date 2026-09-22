@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const auth = await NexusAuth.requireProfile('colaborador', 'name');
+    const auth = await NexusAuth.requireProfile('colaborador', 'name,contract_type');
     if (!auth) return;
     const myEmployeeId = auth.profile.employee_id;
     const emp = auth.employee;
@@ -79,8 +79,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function loadRequirements() {
-        const { data } = await sb.from('document_requirements').select('tipo').eq('category', 'admissional').eq('obrigatorio', true);
-        requiredTipos = (data || []).map((r) => r.tipo);
+        const { data } = await sb.from('document_requirements').select('tipo,category,contract_type').eq('category', 'admissional').eq('obrigatorio', true);
+        requiredTipos = RequisitosDocumentos.requiredTipos(data, 'admissional', emp?.contract_type);
     }
 
     function renderPendingDocsBanner() {

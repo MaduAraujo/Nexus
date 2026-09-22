@@ -33,7 +33,10 @@
                             <span class="notif-badge hidden" id="notif-badge">0</span>
                         </button>
                         <div class="notif-panel hidden" id="notif-panel">
-                            <div class="notif-panel-header">Pendências</div>
+                            <div class="notif-panel-header">
+                                <span>Pendências</span>
+                                <button type="button" class="notif-mark-all hidden" id="notif-mark-all" data-click="markAllNotifsRead">Marcar todas como lidas</button>
+                            </div>
                             <div class="notif-panel-body" id="notif-panel-body"></div>
                         </div>
                     </div>
@@ -197,57 +200,64 @@
             <div class="modal-body">
                 <p class="ocr-hint hidden" id="upload-return-hint"><i class="fas fa-reply"></i> <span id="upload-return-hint-text"></span></p>
                 <div class="form-group">
-                    <label>Colaborador <span class="label-optional">opcional</span></label>
-                    <select id="upload-employee-select">
-                        <option value="">Selecione o colaborador...</option>
-                    </select>
-                    <p class="field-hint">Obrigatório para contratos, termos e políticas: o colaborador recebe o documento em Meus Documentos.</p>
+                    <label for="upload-employee-select-trigger">Colaborador <span class="req">*</span></label>
+                    <div class="select-field">
+                        <button type="button" class="select-trigger" id="upload-employee-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="upload-employee-select-label" class="select-placeholder">Selecione</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="upload-employee-select">
+                        <div class="select-popover" id="upload-employee-select-popover" role="listbox"></div>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Categoria</label>
-                    <select id="upload-category">
-                        <option value="" disabled selected>Selecione a categoria...</option>
-                        <optgroup label="Admissional">
-                            <option value="admissional|RG">RG</option>
-                            <option value="admissional|CPF">CPF</option>
-                            <option value="admissional|Comprovante de Residência">Comprovante de Residência</option>
-                            <option value="admissional|Carteira de Trabalho">Carteira de Trabalho</option>
-                            <option value="admissional|Outros">Outros (Admissional)</option>
-                        </optgroup>
-                        <optgroup label="Admissional · Contrato e Registro">
-                            <option value="admissional|Contrato de Trabalho">Contrato individual de trabalho</option>
-                            <option value="admissional|Ficha de Registro do Empregado">Ficha de registro do empregado</option>
-                            <option value="admissional|Exame Admissional">Atestado de Saúde Ocupacional (ASO)</option>
-                        </optgroup>
-                        <optgroup label="Admissional · Benefícios e Opções">
-                            <option value="admissional|Termo de Vale-Transporte">Termo de vale-transporte</option>
-                            <option value="admissional|Ficha de Salário-Família">Ficha de salário-família</option>
-                            <option value="admissional|Termo de Dependentes para o Imposto de Renda">Termo de dependentes para o Imposto de Renda</option>
-                        </optgroup>
-                        <optgroup label="Admissional · Políticas e Termos de Uso">
-                            <option value="admissional|Regimento ou Política Interna">Regimento ou política interna</option>
-                            <option value="admissional|Termo de Responsabilidade de Equipamentos">Termo de responsabilidade de equipamentos</option>
-                            <option value="admissional|Termo de Uso de Tecnologia">Termos de uso de tecnologia</option>
-                            <option value="admissional|Termo de Entrega de EPI">Termo de entrega de EPI</option>
-                        </optgroup>
-                        <optgroup label="Estágio (Lei 11.788/2008)">
-                            <option value="admissional|Termo de Compromisso de Estágio">Termo de Compromisso de Estágio (TCE)</option>
-                            <option value="admissional|Plano de Atividades de Estágio">Plano de atividades de estágio</option>
-                            <option value="admissional|Relatório de Atividades de Estágio">Relatório de atividades de estágio</option>
-                            <option value="admissional|Comprovante de Matrícula e Frequência">Comprovante de matrícula e frequência</option>
-                            <option value="admissional|Apólice de Seguro de Acidentes Pessoais">Apólice de seguro de acidentes pessoais</option>
-                            <option value="demissional|Termo de Realização do Estágio">Termo de realização do estágio</option>
-                        </optgroup>
-                        <optgroup label="Demissional">
-                            <option value="demissional|Aviso Prévio">Aviso Prévio</option>
-                            <option value="demissional|Termo de Rescisão">Termo de Rescisão</option>
-                            <option value="demissional|Exame Demissional">Exame Demissional</option>
-                            <option value="demissional|Carteira de Trabalho">Carteira de Trabalho</option>
-                            <option value="demissional|Homologação">Homologação</option>
-                            <option value="demissional|Guia FGTS">Guia FGTS</option>
-                            <option value="demissional|Outros">Outros (Demissional)</option>
-                        </optgroup>
-                    </select>
+                    <label for="upload-category-trigger">Categoria <span class="req">*</span></label>
+                    <div class="select-field">
+                        <button type="button" class="select-trigger" id="upload-category-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="upload-category-label" class="select-placeholder">Selecione</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="upload-category">
+                        <div class="select-popover" id="upload-category-popover" role="listbox">
+                            <span class="select-group-label">Admissional</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|RG">RG</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|CPF">CPF</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Comprovante de Residência">Comprovante de Residência</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Carteira de Trabalho">Carteira de Trabalho</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Outros">Outros (Admissional)</button>
+                            <span class="select-group-label">Admissional · Contrato e Registro</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Contrato de Trabalho">Contrato individual de trabalho</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Ficha de Registro do Empregado">Ficha de registro do empregado</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Exame Admissional">Atestado de Saúde Ocupacional (ASO)</button>
+                            <span class="select-group-label">Admissional · Benefícios e Opções</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Vale-Transporte">Termo de vale-transporte</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Ficha de Salário-Família">Ficha de salário-família</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Dependentes para o Imposto de Renda">Termo de dependentes para o Imposto de Renda</button>
+                            <span class="select-group-label">Admissional · Políticas e Termos de Uso</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Regimento ou Política Interna">Regimento ou política interna</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Responsabilidade de Equipamentos">Termo de responsabilidade de equipamentos</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Uso de Tecnologia">Termos de uso de tecnologia</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Entrega de EPI">Termo de entrega de EPI</button>
+                            <span class="select-group-label">Admissional · Prestador PJ</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Contrato de Prestação de Serviços">Contrato de prestação de serviços</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Cartão CNPJ">Cartão CNPJ</button>
+                            <span class="select-group-label">Estágio (Lei 11.788/2008)</span>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Termo de Compromisso de Estágio">Termo de Compromisso de Estágio (TCE)</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Plano de Atividades de Estágio">Plano de atividades de estágio</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Relatório de Atividades de Estágio">Relatório de atividades de estágio</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Comprovante de Matrícula e Frequência">Comprovante de matrícula e frequência</button>
+                            <button type="button" class="select-option" role="option" data-value="admissional|Apólice de Seguro de Acidentes Pessoais">Apólice de seguro de acidentes pessoais</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Termo de Realização do Estágio">Termo de realização do estágio</button>
+                            <span class="select-group-label">Demissional</span>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Aviso Prévio">Aviso Prévio</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Termo de Rescisão">Termo de Rescisão</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Exame Demissional">Exame Demissional</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Carteira de Trabalho">Carteira de Trabalho</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Homologação">Homologação</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Guia FGTS">Guia FGTS</button>
+                            <button type="button" class="select-option" role="option" data-value="demissional|Outros">Outros (Demissional)</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Arquivo(s)</label>
@@ -257,7 +267,6 @@
                                 <i class="fas fa-cloud-arrow-up"></i>
                             </div>
                             <p class="drop-zone-title">Arraste ou <span>escolha os arquivos</span></p>
-                            <p class="drop-zone-hint">.pdf, .docx ou .jpg · até 25 MB</p>
                         </div>
                         <input type="file" id="file-input" accept=".pdf,.docx,.jpg,.jpeg,.png" multiple hidden>
                     </div>
@@ -269,8 +278,28 @@
                     <p class="ocr-hint hidden" id="ocr-hint"><i class="fas fa-wand-magic-sparkles"></i> <span id="ocr-hint-text"></span></p>
                 </div>
                 <div class="form-group">
-                    <label>Data de validade <span class="label-optional">opcional</span></label>
-                    <input type="date" id="upload-validade">
+                    <label for="upload-validade-trigger">Data de validade</label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="upload-validade-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="upload-validade-text" class="select-placeholder">Selecione</span>
+                        </button>
+                        <input type="hidden" id="upload-validade">
+                        <div class="calendar-popover" id="upload-validade-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="upload-validade-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="upload-validade-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="upload-validade-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                            </div>
+                            <div class="calendar-grid" id="upload-validade-grid"></div>
+                            <div class="calendar-footer hidden" id="upload-validade-footer">
+                                <button type="button" class="calendar-footer-clear" id="upload-validade-clear">Limpar data</button>
+                            </div>
+                        </div>
+                    </div>
                     <p class="field-hint">Preencha para documentos com prazo, como ASO, exames periódicos ou certidões. Um alerta será enviado quando estiver perto de vencer.</p>
                 </div>
                 <label class="lgpd-consent">
@@ -279,7 +308,7 @@
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="btn-submit" data-click="submitUpload">
+                <button class="btn-submit" id="btn-submit-upload" data-click="submitUpload" disabled>
                     Enviar
                 </button>
             </div>
@@ -322,15 +351,22 @@
                 </button>
             </div>
             <div class="modal-body">
-                <select id="audit-filter-action" class="filter-select">
-                    <option value="">Todas as ações</option>
-                    <option value="criado">Criado</option>
-                    <option value="substituido">Substituído</option>
-                    <option value="aprovado">Aprovado</option>
-                    <option value="recusado">Recusado</option>
-                    <option value="assinado">Assinado</option>
-                    <option value="excluido">Excluído</option>
-                </select>
+                <div class="select-field">
+                    <button type="button" class="select-trigger" id="audit-filter-action-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Filtrar por ação">
+                        <span id="audit-filter-action-label">Todas as ações</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="audit-filter-action" value="">
+                    <div class="select-popover" id="audit-filter-action-popover" role="listbox">
+                        <button type="button" class="select-option selected" role="option" data-value="">Todas as ações</button>
+                        <button type="button" class="select-option" role="option" data-value="criado">Criado</button>
+                        <button type="button" class="select-option" role="option" data-value="substituido">Substituído</button>
+                        <button type="button" class="select-option" role="option" data-value="aprovado">Aprovado</button>
+                        <button type="button" class="select-option" role="option" data-value="recusado">Recusado</button>
+                        <button type="button" class="select-option" role="option" data-value="assinado">Assinado</button>
+                        <button type="button" class="select-option" role="option" data-value="excluido">Excluído</button>
+                    </div>
+                </div>
                 <div id="audit-log-list"></div>
             </div>
         </div>
@@ -344,13 +380,25 @@
                 </div>
                 <div>
                     <h3 class="modal-title">Checklist obrigatório</h3>
-                    <p class="modal-subtitle">Documentos exigidos para o checklist de pendências</p>
+                    <p class="modal-subtitle">Documentos exigidos por tipo de contratação</p>
                 </div>
                 <button class="close-modal" data-click="closeRequirementsModal" aria-label="Fechar">
                     <i class="fas fa-xmark"></i>
                 </button>
             </div>
             <div class="modal-body">
+                <div class="form-group">
+                    <label for="requirements-contract-type-trigger">Tipo de contratação</label>
+                    <div class="select-field">
+                        <button type="button" class="select-trigger" id="requirements-contract-type-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="requirements-contract-type-label">CLT</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="requirements-contract-type" value="CLT">
+                        <div class="select-popover" id="requirements-contract-type-popover" role="listbox"></div>
+                    </div>
+                    <p class="field-hint" id="requirements-legal-basis"></p>
+                </div>
                 <div class="requirements-group">
                     <h4 class="requirements-group-title"><i class="fas fa-user-plus"></i> Admissional</h4>
                     <div class="requirements-chips" id="requirements-admissional"></div>
@@ -414,6 +462,7 @@
     <script src="../javascript/shared/auth.js"></script>
     <script src="../javascript/shared/files.js"></script>
     <script src="../javascript/shared/search.js"></script>
+    <script src="../javascript/domain/requisitos-documentos.js"></script>
     <script src="../javascript/arquivos.js"></script>
 </body>
 </html>

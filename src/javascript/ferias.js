@@ -676,20 +676,20 @@ window.confirmReject = async function () {
 window.openAddModal = function () {
     editingId = null;
     document.getElementById('add-modal-title').textContent = 'Nova Solicitação';
-    ['add-employee', 'add-obs'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
+    const obs = document.getElementById('add-obs');
+    if (obs) obs.value = '';
+    setSelectValue('add-employee', null);
     setDatePickerValue('add-start', '');
     setDatePickerValue('add-end', '');
-    document.getElementById('add-status').value = 'pendente';
+    setSelectValue('add-status', 'pendente');
     document.getElementById('add-abono').checked = false;
     document.getElementById('add-days-count').textContent = 'Selecione as datas';
     document.getElementById('add-days-preview')?.classList.remove('has-value');
     document.getElementById('add-emp-saldo-info')?.classList.add('hidden');
     document.getElementById('add-emp-ferias-info')?.classList.add('hidden');
-    populateSubstitutoSelect(null, '');
+    populateSubstitutoSelect(null, null);
     clearAlert('add-alert');
+    updateAddSubmitState();
     openModal('add-modal');
 };
 
@@ -698,10 +698,10 @@ window.openEditModal = function (id) {
     if (!v) return;
     editingId = id;
     document.getElementById('add-modal-title').textContent = 'Editar Solicitação';
-    document.getElementById('add-employee').value = v.employeeId;
+    setSelectValue('add-employee', v.employeeId);
     setDatePickerValue('add-start', v.startDate);
     setDatePickerValue('add-end', v.endDate);
-    document.getElementById('add-status').value = v.status;
+    setSelectValue('add-status', v.status);
     document.getElementById('add-abono').checked = v.abono || false;
     document.getElementById('add-obs').value = v.obs || '';
     populateSubstitutoSelect(v.employeeId, v.substitutoId);
@@ -714,6 +714,7 @@ window.openEditModal = function (id) {
 
 window.onAddEmployeeChange = function () {
     const empId = document.getElementById('add-employee')?.value;
+    updateAddSubmitState();
     renderEmpSaldoBanco();
     renderEmpFeriasInfo(empId);
     const currentSubstituto = document.getElementById('add-substituto')?.value;
@@ -823,7 +824,18 @@ window.closeAddModal = function () {
     editingId = null;
 };
 
+// Salvar só habilita com os campos obrigatórios (colaborador, data de início e data de fim) preenchidos.
+function updateAddSubmitState() {
+    const btn = document.getElementById('btn-add-submit');
+    if (!btn) return;
+    const empId = document.getElementById('add-employee')?.value;
+    const start = document.getElementById('add-start')?.value;
+    const end = document.getElementById('add-end')?.value;
+    btn.disabled = !(empId && start && end);
+}
+
 window.calcAddDays = function () {
+    updateAddSubmitState();
     const s = document.getElementById('add-start').value;
     const e = document.getElementById('add-end').value;
     const preview = document.getElementById('add-days-preview');
@@ -939,75 +951,122 @@ window.submitAdd = async function () {
     closeAddModal();
 };
 
-function populateEmployeeSelect() {
-    const sel = document.getElementById('add-employee');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Selecione o colaborador...</option>';
-    employees
-        .filter((e) => e.status !== 'Inativo')
-        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-        .forEach((e) => {
-            const opt = document.createElement('option');
-            opt.value = e.id;
-            opt.textContent = `${e.name} — ${e.dept || 'Sem departamento'}`;
-            sel.appendChild(opt);
-        });
+// Só um popover (calendário ou lista de opções) fica aberto por vez.
+let closeActivePopover = null;
+function claimPopover(close) {
+    if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
+    closeActivePopover = close;
+}
+function releasePopover(close) {
+    if (closeActivePopover === close) closeActivePopover = null;
 }
 
-function populateSubstitutoSelect(excludeId, selectedId) {
-    const sel = document.getElementById('add-substituto');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Nenhum</option>';
-    employees
-        .filter((e) => e.status !== 'Inativo' && e.id !== excludeId)
-        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-        .forEach((e) => {
-            const opt = document.createElement('option');
-            opt.value = e.id;
-            opt.textContent = `${e.name} — ${e.dept || 'Sem departamento'}`;
-            sel.appendChild(opt);
-        });
-    sel.value = selectedId || '';
+// Dropdown padronizado (mesmo padrão da tela do colaborador): botão + lista flutuante + input oculto com o valor.
+// setValue(valor) é silencioso (uso programático); só a escolha do usuário dispara onChange.
+const selectFields = {};
+function createSelectField(id, onChange) {
+    const trigger = document.getElementById(`${id}-trigger`);
+    const popover = document.getElementById(`${id}-popover`);
+    const label = document.getElementById(`${id}-label`);
+    const hidden = document.getElementById(id);
+    if (!trigger || !popover || !label || !hidden) return null;
+
+    function open() {
+        claimPopover(close);
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        releasePopover(close);
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    function setValue(value) {
+        const opts = Array.from(popover.querySelectorAll('.select-option'));
+        const opt = value == null ? null : opts.find((o) => o.dataset.value === String(value));
+        hidden.value = opt ? opt.dataset.value : '';
+        label.textContent = opt ? opt.textContent : 'Selecione';
+        label.classList.toggle('select-placeholder', !opt);
+        opts.forEach((o) => o.classList.toggle('selected', o === opt));
+        close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    popover.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        setValue(btn.dataset.value);
+        onChange?.();
+    });
+
+    selectFields[id] = { setValue };
+    return selectFields[id];
 }
 
-const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const datePickers = {};
-
-function setDatePickerValue(fieldId, isoDate) {
-    const hidden = document.getElementById(fieldId);
-    const text = document.getElementById(`${fieldId}-text`);
-    if (hidden) hidden.value = isoDate;
-    if (text) text.textContent = isoDate ? formatDate(isoDate) : 'Selecionar data';
-    const picker = datePickers[fieldId];
-    if (picker) picker.selected = isoDate || null;
+function setSelectValue(id, value) {
+    selectFields[id]?.setValue(value);
 }
 
-function setupDatePicker(fieldId) {
-    const trigger = document.getElementById(`${fieldId}-trigger`);
-    const popover = document.getElementById(`${fieldId}-popover`);
-    const hidden = document.getElementById(fieldId);
-    if (!trigger || !popover || !hidden) return;
-    const titleEl = popover.querySelector('.calendar-title');
-    const gridEl = popover.querySelector('.calendar-grid');
-    const prevBtn = popover.querySelector('[data-nav="prev"]');
-    const nextBtn = popover.querySelector('[data-nav="next"]');
+// Calendário padronizado (mesmo padrão da tela do colaborador). O valor fica no input oculto em aaaa-mm-dd
+// e a escolha do usuário dispara "change" nele (é isso que recalcula os dias).
+const calendarFields = {};
+function createCalendarField(id) {
+    const trigger = document.getElementById(`${id}-trigger`);
+    const popover = document.getElementById(`${id}-popover`);
+    const textEl = document.getElementById(`${id}-text`);
+    const titleEl = document.getElementById(`${id}-title`);
+    const gridEl = document.getElementById(`${id}-grid`);
+    const prevBtn = document.getElementById(`${id}-prev`);
+    const nextBtn = document.getElementById(`${id}-next`);
+    const hidden = document.getElementById(id);
+    if (!trigger || !popover || !textEl || !gridEl || !hidden) return null;
 
+    const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const state = { viewYear: today.getFullYear(), viewMonth: today.getMonth(), selected: null };
-    datePickers[fieldId] = state;
+    let viewYear = today.getFullYear(),
+        viewMonth = today.getMonth();
+
+    function setValue(dateStr) {
+        hidden.value = dateStr || '';
+        textEl.textContent = dateStr ? formatDate(dateStr) : 'Selecione';
+        textEl.classList.toggle('select-placeholder', !dateStr);
+        close();
+    }
 
     function render() {
-        titleEl.textContent = `${MESES_PT[state.viewMonth]} ${state.viewYear}`;
-        const startOffset = new Date(state.viewYear, state.viewMonth, 1).getDay();
-        const daysInMonth = new Date(state.viewYear, state.viewMonth + 1, 0).getDate();
-        const daysInPrevMonth = new Date(state.viewYear, state.viewMonth, 0).getDate();
+        titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
         const cells = [];
         for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
         for (let d = 1; d <= daysInMonth; d++) {
-            const iso = `${state.viewYear}-${String(state.viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            cells.push({ day: d, muted: false, iso, isToday: iso === formatIso(today), isSelected: iso === state.selected });
+            const iso = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
+            cells.push({
+                day: d,
+                muted: false,
+                iso,
+                isToday: d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear(),
+                isSelected: iso === hidden.value,
+            });
         }
         let next = 1;
         while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
@@ -1020,54 +1079,29 @@ function setupDatePicker(fieldId) {
             .join('');
     }
 
-    function formatIso(d) {
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-
-    function positionPopover() {
-        const rect = trigger.getBoundingClientRect();
-        const popW = popover.offsetWidth || 280;
-        const modal = trigger.closest('.modal-content');
-        const bounds = modal ? modal.getBoundingClientRect() : null;
-        const minLeft = Math.max(12, bounds ? bounds.left : 12);
-        const maxLeft = Math.min(window.innerWidth - popW - 12, bounds ? bounds.right - popW : window.innerWidth - popW - 12);
-        let left = rect.right - popW;
-        if (left < minLeft) left = Math.min(rect.left, maxLeft);
-        left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
-        const top = rect.bottom + 8;
-        const cb = popover.offsetParent ? popover.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
-        popover.style.left = `${left - cb.left}px`;
-        popover.style.top = `${top - cb.top}px`;
-    }
-    function onReposition() {
-        if (popover.classList.contains('open')) positionPopover();
-    }
-
     function open() {
-        document.querySelectorAll('.calendar-popover.open').forEach((p) => {
-            if (p !== popover) p.classList.remove('open');
-        });
-        if (state.selected) {
-            const [y, m] = state.selected.split('-');
-            state.viewYear = +y;
-            state.viewMonth = +m - 1;
-        }
+        claimPopover(close);
+        const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
+        viewYear = selYear || today.getFullYear();
+        viewMonth = selMonth ? selMonth - 1 : today.getMonth();
         render();
         popover.classList.add('open');
-        positionPopover();
         trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        window.addEventListener('scroll', onReposition, true);
-        window.addEventListener('resize', onReposition);
+        // Depois da animação de abertura, traz o calendário para a área visível se estiver mais abaixo.
+        setTimeout(() => {
+            if (popover.classList.contains('open')) popover.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }, 200);
     }
     function close() {
+        releasePopover(close);
         popover.classList.remove('open');
         trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
-        window.removeEventListener('scroll', onReposition, true);
-        window.removeEventListener('resize', onReposition);
     }
     function onOutsideClick(e) {
         if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
@@ -1080,46 +1114,102 @@ function setupDatePicker(fieldId) {
         e.stopPropagation();
         popover.classList.contains('open') ? close() : open();
     });
-    prevBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.viewMonth--;
-        if (state.viewMonth < 0) {
-            state.viewMonth = 11;
-            state.viewYear--;
-        }
-        render();
-    });
-    nextBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.viewMonth++;
-        if (state.viewMonth > 11) {
-            state.viewMonth = 0;
-            state.viewYear++;
-        }
-        render();
-    });
+    popover.addEventListener('click', (e) => e.stopPropagation());
     gridEl.addEventListener('click', (e) => {
         const btn = e.target.closest('.calendar-day[data-iso]');
         if (!btn) return;
-        setDatePickerValue(fieldId, btn.dataset.iso);
+        setValue(btn.dataset.iso);
         hidden.dispatchEvent(new Event('change'));
-        close();
     });
+    prevBtn?.addEventListener('click', () => {
+        viewMonth--;
+        if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+        }
+        render();
+    });
+    nextBtn?.addEventListener('click', () => {
+        viewMonth++;
+        if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+        }
+        render();
+    });
+
+    calendarFields[id] = { setValue };
+    return calendarFields[id];
+}
+
+function populateEmployeeSelect() {
+    const popover = document.getElementById('add-employee-popover');
+    if (!popover) return;
+    popover.innerHTML = employees
+        .filter((e) => e.status !== 'Inativo')
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+        .map(
+            (e) =>
+                `<button type="button" class="select-option" role="option" data-value="${escHtml(String(e.id))}">${escHtml(`${e.name} — ${e.dept || 'Sem departamento'}`)}</button>`
+        )
+        .join('');
+}
+
+function populateSubstitutoSelect(excludeId, selectedId) {
+    const popover = document.getElementById('add-substituto-popover');
+    if (!popover) return;
+    popover.innerHTML =
+        '<button type="button" class="select-option" role="option" data-value="">Nenhum</button>' +
+        employees
+            .filter((e) => e.status !== 'Inativo' && e.id !== excludeId)
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+            .map(
+                (e) =>
+                    `<button type="button" class="select-option" role="option" data-value="${escHtml(String(e.id))}">${escHtml(`${e.name} — ${e.dept || 'Sem departamento'}`)}</button>`
+            )
+            .join('');
+    setSelectValue('add-substituto', selectedId || null);
+}
+
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function setDatePickerValue(fieldId, isoDate) {
+    if (calendarFields[fieldId]) {
+        calendarFields[fieldId].setValue(isoDate || '');
+        return;
+    }
+    const hidden = document.getElementById(fieldId);
+    const text = document.getElementById(`${fieldId}-text`);
+    if (hidden) hidden.value = isoDate;
+    if (text) text.textContent = isoDate ? formatDate(isoDate) : 'Selecionar data';
 }
 
 function populateColetivaDeptSelect() {
-    const sel = document.getElementById('coletiva-dept');
+    const sel = document.getElementById('coletiva-dept-popover');
     if (!sel) return;
     const depts = [...new Set(employees.filter((e) => e.status !== 'Inativo' && e.dept).map((e) => e.dept))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    sel.innerHTML = '<option value="">Toda a empresa</option>' + depts.map((d) => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+    sel.innerHTML =
+        '<button type="button" class="select-option" role="option" data-value="">Toda a empresa</button>' +
+        depts.map((d) => `<button type="button" class="select-option" role="option" data-value="${escHtml(d)}">${escHtml(d)}</button>`).join('');
 }
+
+// Conceder Férias só habilita com o período (data de início e data de fim) preenchido.
+window.updateColetivaSubmitState = function () {
+    const btn = document.getElementById('btn-coletiva-submit');
+    if (!btn) return;
+    const start = document.getElementById('coletiva-start')?.value;
+    const end = document.getElementById('coletiva-end')?.value;
+    btn.disabled = !(start && end);
+};
 
 window.openColetivaModal = function () {
     populateColetivaDeptSelect();
+    setSelectValue('coletiva-dept', '');
     setDatePickerValue('coletiva-start', '');
     setDatePickerValue('coletiva-end', '');
     document.getElementById('coletiva-obs').value = '';
     clearAlert('coletiva-alert');
+    window.updateColetivaSubmitState();
     openModal('coletiva-modal');
 };
 
@@ -1805,10 +1895,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSearchListeners();
     setupFilterDropdown();
     setupExportDropdown();
-    setupDatePicker('coletiva-start');
-    setupDatePicker('coletiva-end');
-    setupDatePicker('add-start');
-    setupDatePicker('add-end');
+    createCalendarField('coletiva-start');
+    createCalendarField('coletiva-end');
+    createSelectField('coletiva-dept');
+    createCalendarField('add-start');
+    createCalendarField('add-end');
+    createSelectField('add-employee', () => window.onAddEmployeeChange());
+    createSelectField('add-status');
+    createSelectField('add-substituto');
     setupCalendarYearNav();
     setupRealtimeSync();
 

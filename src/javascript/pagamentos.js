@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupDeptFilterDropdown('dept-filter-dropdown', 'btn-dept-filter', 'dept-filter-menu', 'dept-filter-chevron');
         setupDeptFilterDropdown('dept-hol-filter-dropdown', 'btn-dept-hol-filter', 'dept-hol-filter-menu', 'dept-hol-filter-chevron');
         setupRescisaoDatePicker();
+        setupRescisaoEmpSelect();
         setupRescisaoTipoToggle();
 
         const now = new Date();
@@ -737,7 +738,7 @@ function renderSlipModal(emp, slip) {
     <p class="slip-section-title">Proventos</p>
     <div class="slip-table-wrap">
     <table class="slip-table">
-        <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+        <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th>Valor (R$)</th></tr></thead>
         <tbody>${provRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum provento</td></tr>'}</tbody>
     </table>
     </div>
@@ -745,7 +746,7 @@ function renderSlipModal(emp, slip) {
     <p class="slip-section-title">Descontos</p>
     <div class="slip-table-wrap">
     <table class="slip-table">
-        <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+        <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th>Valor (R$)</th></tr></thead>
         <tbody>${descRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum desconto</td></tr>'}</tbody>
     </table>
     </div>
@@ -930,11 +931,8 @@ function nextMonthKey(monthKey) {
 }
 
 window.openRescisaoModal = function () {
-    const sel = document.getElementById('rescisao-emp');
-    if (sel) {
-        sel.innerHTML = '<option value="">Selecione</option>' + employees.map((e) => `<option value="${e.id}">${escHtml(e.name)}</option>`).join('');
-        sel.value = '';
-    }
+    window.setRescisaoEmpOptions?.(employees);
+    window.setRescisaoEmp?.('');
     document.getElementById('rescisao-admissao').value = '';
     document.getElementById('rescisao-salario').value = '';
     window.setRescisaoDate?.('');
@@ -953,7 +951,7 @@ window.openRescisaoModal = function () {
 };
 
 function setRescisaoInputsDisabled(disabled) {
-    document.getElementById('rescisao-emp').disabled = disabled;
+    document.getElementById('rescisao-emp-trigger').disabled = disabled;
     document.getElementById('rescisao-tipo-toggle')?.classList.toggle('disabled', disabled);
     document.getElementById('rescisao-data-trigger').disabled = disabled;
 }
@@ -1248,6 +1246,16 @@ function renderRescisaoResult(r) {
         </div>`;
 }
 
+// Só um popover (calendário ou lista de opções) fica aberto por vez.
+let closeActivePopover = null;
+function claimPopover(close) {
+    if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
+    closeActivePopover = close;
+}
+function releasePopover(close) {
+    if (closeActivePopover === close) closeActivePopover = null;
+}
+
 function setupRescisaoDatePicker() {
     const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -1268,6 +1276,7 @@ function setupRescisaoDatePicker() {
     function setValue(y, m, d) {
         hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
         label.textContent = `${pad0(d)}/${pad0(m + 1)}/${y}`;
+        label.classList.remove('select-placeholder');
         updateRescisaoBtnState();
     }
 
@@ -1303,6 +1312,7 @@ function setupRescisaoDatePicker() {
     }
 
     function open() {
+        claimPopover(close);
         if (hidden.value) {
             const [y, m] = hidden.value.split('-').map(Number);
             viewYear = y;
@@ -1311,13 +1321,16 @@ function setupRescisaoDatePicker() {
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
     }
 
     function close() {
+        releasePopover(close);
         popover.classList.remove('open');
         trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
         document.removeEventListener('click', onOutsideClick);
         document.removeEventListener('keydown', onEscape);
     }
@@ -1356,7 +1369,8 @@ function setupRescisaoDatePicker() {
     window.setRescisaoDate = function (dateStr) {
         if (!dateStr) {
             hidden.value = '';
-            label.textContent = 'Selecione a data';
+            label.textContent = 'Selecione';
+            label.classList.add('select-placeholder');
             updateRescisaoBtnState();
             return;
         }
@@ -1364,6 +1378,68 @@ function setupRescisaoDatePicker() {
         setValue(y, m - 1, d);
         viewYear = y;
         viewMonth = m - 1;
+    };
+}
+
+function setupRescisaoEmpSelect() {
+    const trigger = document.getElementById('rescisao-emp-trigger');
+    const popover = document.getElementById('rescisao-emp-popover');
+    const label = document.getElementById('rescisao-emp-label');
+    const hidden = document.getElementById('rescisao-emp');
+    if (!trigger || !popover || !hidden) return;
+
+    function open() {
+        claimPopover(close);
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        releasePopover(close);
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+
+    popover.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        window.setRescisaoEmp(btn.dataset.value);
+        close();
+        window.onRescisaoEmpChange();
+    });
+
+    window.setRescisaoEmpOptions = function (list) {
+        popover.innerHTML = list.length
+            ? list
+                  .map((e) => `<button type="button" class="select-option" role="option" data-value="${escHtml(String(e.id))}">${escHtml(e.name)}</button>`)
+                  .join('')
+            : '<div class="select-empty">Nenhum colaborador cadastrado</div>';
+    };
+
+    window.setRescisaoEmp = function (empId) {
+        const emp = empId ? employees.find((e) => e.id === empId) : null;
+        hidden.value = emp ? emp.id : '';
+        label.textContent = emp ? emp.name : 'Selecione';
+        label.classList.toggle('select-placeholder', !emp);
+        popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', !!emp && o.dataset.value === emp.id));
+        close();
     };
 }
 

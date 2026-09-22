@@ -10,7 +10,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, redirectTo } = await req.json();
+    const { email, redirectTo } = await req.json().catch(() => ({}) as Record<string, unknown>);
 
     const authHeader = req.headers.get("Authorization");
     const callerClient = createClient(

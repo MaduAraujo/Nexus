@@ -65,6 +65,33 @@
     let auditLogEntries = [];
     let returnForDocId = null;
 
+    // "Lido" fica no navegador de quem marcou. A chave muda quando a situação muda (ex.: a vencer -> vencido), e aí volta a ser não lida.
+    const NOTIF_READ_STORAGE_KEY = `nexus:arquivos-notif-read:${user.id}`;
+    let currentNotifKeys = new Set();
+    let notifRead = loadNotifRead();
+
+    function loadNotifRead() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(NOTIF_READ_STORAGE_KEY) || '[]');
+            return new Set(Array.isArray(raw) ? raw : []);
+        } catch {
+            return new Set();
+        }
+    }
+
+    function saveNotifRead() {
+        notifRead = new Set([...notifRead].filter((k) => currentNotifKeys.has(k)));
+        try {
+            localStorage.setItem(NOTIF_READ_STORAGE_KEY, JSON.stringify([...notifRead]));
+        } catch {}
+    }
+
+    function hashKey(str) {
+        let h = 5381;
+        for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+        return (h >>> 0).toString(36);
+    }
+
     const RETENTION_YEARS = {
         'Contrato de Trabalho': 30,
         'Termo de Rescisão': 30,
@@ -104,16 +131,6 @@
         'Termo de Vale-Transporte',
         'Ficha de Salário-Família',
         'Termo de Dependentes para o Imposto de Renda',
-    ];
-    // Sem colaborador escolhido o documento não chegaria a ninguém.
-    const DELIVERY_TIPOS = [
-        'Contrato de Trabalho',
-        'Ficha de Registro do Empregado',
-        ...ONBOARDING_TERMOS,
-        ...RETURN_TIPOS,
-        'Comprovante de Matrícula e Frequência',
-        'Apólice de Seguro de Acidentes Pessoais',
-        'Termo de Realização do Estágio',
     ];
 
     function computeRetentionDate(tipo) {
@@ -170,8 +187,8 @@
 
     async function loadData() {
         const [{ data: empData }, { data: termData }, { data: docData }, { data: reqData }] = await Promise.all([
-            sb.from('employees').select('id,name,dept').neq('status', 'Inativo').order('name'),
-            sb.from('employees').select('id,name,dept').eq('status', 'Inativo').order('name'),
+            sb.from('employees').select('id,name,dept,contract_type').neq('status', 'Inativo').order('name'),
+            sb.from('employees').select('id,name,dept,contract_type').eq('status', 'Inativo').order('name'),
             sb.from('documents').select('*').order('created_at', { ascending: false }),
             sb.from('document_requirements').select('*').eq('obrigatorio', true),
         ]);
@@ -485,11 +502,10 @@
     }
 
     function computeChecklistPending(category) {
-        const reqTipos = requirements.filter((r) => r.category === category).map((r) => r.tipo);
-        if (!reqTipos.length) return [];
         const pool = category === 'admissional' ? employees : terminatedEmployees;
         return pool
             .map((emp) => {
+                const reqTipos = RequisitosDocumentos.requiredTipos(requirements, category, emp.contract_type);
                 const rhTipos = rhDocs.filter((d) => d.employee_id === emp.id && d.category === category).map((d) => d.tipo);
                 const colabTipos = colabDocs.filter((d) => d.employee_id === emp.id && d.status === 'aprovado').map((d) => d.tipo);
                 const empTipos = rhTipos.concat(colabTipos);
@@ -521,6 +537,7 @@
                 (p) => `
             <div class="checklist-row">
                 <span class="checklist-row-name">${escapeHtml(p.emp.name)}</span>
+                <span class="checklist-row-type">${escapeHtml(RequisitosDocumentos.normalizeContractType(p.emp.contract_type))}</span>
                 ${p.missing.map((t) => `<button type="button" class="checklist-chip" data-click="openUploadModal" data-click-args="${dargs(p.emp.id, activeTab, t)}"><i class="fas fa-plus"></i> ${t}</button>`).join('')}
             </div>`
             )
@@ -534,18 +551,36 @@
             const info = getExpiryInfo(d.data_validade);
             if (info?.alert) {
                 const type = info.cls === 'badge--vencido' ? 'vencido' : 'avencer';
-                items.push({ type, docId: d.id, category: d.category || 'colaborador', label: `${d.name} — ${info.label.toLowerCase()}` });
+                items.push({
+                    type,
+                    docId: d.id,
+                    category: d.category || 'colaborador',
+                    label: `${d.name} — ${info.label.toLowerCase()}`,
+                    key: `${type}:${d.id}`,
+                });
             }
         });
         colabDocs
             .filter((d) => d.status === 'recusado' && d.is_current !== false)
             .forEach((d) => {
-                items.push({ type: 'recusado', docId: d.id, category: 'colaborador', label: `${d.name} foi recusado — aguardando reenvio` });
+                items.push({
+                    type: 'recusado',
+                    docId: d.id,
+                    category: 'colaborador',
+                    label: `${d.name} foi recusado — aguardando reenvio`,
+                    key: `recusado:${d.id}`,
+                });
             });
         rhDocs
             .filter((d) => d.requer_assinatura && !d.assinado_em && d.is_current !== false)
             .forEach((d) => {
-                items.push({ type: 'assinatura', docId: d.id, category: d.category, label: `${d.name} aguardando assinatura de ${empName(d.employee_id)}` });
+                items.push({
+                    type: 'assinatura',
+                    docId: d.id,
+                    category: d.category,
+                    label: `${d.name} aguardando assinatura de ${empName(d.employee_id)}`,
+                    key: `assinatura:${d.id}`,
+                });
             });
         return items;
     }
@@ -553,36 +588,69 @@
     function renderNotifPanel() {
         if (!notifBadge || !notifPanelBody) return;
         const items = buildNotifications();
-        const checklistCount = computeChecklistPending('admissional').length + computeChecklistPending('demissional').length;
-        const total = items.length + checklistCount;
+        const checklistEntries = ['admissional', 'demissional'].flatMap((cat) =>
+            computeChecklistPending(cat).map((p) => `${cat}:${p.emp.id}:${[...p.missing].sort().join(',')}`)
+        );
+        const checklistCount = checklistEntries.length;
 
-        notifBadge.textContent = total > 99 ? '99+' : String(total);
-        notifBadge.classList.toggle('hidden', total === 0);
+        const entries = [];
+        if (checklistCount) entries.push({ key: `checklist:${hashKey(checklistEntries.join('|'))}`, checklistCount });
+        items.slice(0, 25).forEach((it) => entries.push({ key: it.key, item: it }));
+        currentNotifKeys = new Set(entries.map((e) => e.key));
 
-        if (!total) {
+        const unread = entries.filter((e) => !notifRead.has(e.key)).length;
+        notifBadge.textContent = unread > 99 ? '99+' : String(unread);
+        notifBadge.classList.toggle('hidden', unread === 0);
+        document.getElementById('notif-mark-all')?.classList.toggle('hidden', unread === 0);
+
+        if (!entries.length) {
             notifPanelBody.innerHTML = `<div class="notif-empty"><i class="fas fa-circle-check"></i><p>Nenhuma pendência no momento</p></div>`;
             return;
         }
 
         const iconMap = { vencido: 'fa-triangle-exclamation', avencer: 'fa-clock', recusado: 'fa-times-circle', assinatura: 'fa-pen-nib' };
-        const rows = [];
-        if (checklistCount) {
-            rows.push(`<div class="notif-item" data-click="closeNotifPanel">
+        const readBtn = (
+            key,
+            isRead
+        ) => `<button type="button" class="notif-item-read-btn" data-click="toggleNotifRead" data-click-args="${dargs(key)}" data-click-stop
+                title="${isRead ? 'Marcar como não lida' : 'Marcar como lida'}" aria-label="${isRead ? 'Marcar como não lida' : 'Marcar como lida'}"><i class="fas ${isRead ? 'fa-rotate-left' : 'fa-check'}"></i></button>`;
+
+        const rows = [...entries]
+            .sort((a, b) => Number(notifRead.has(a.key)) - Number(notifRead.has(b.key)))
+            .map((e) => {
+                const isRead = notifRead.has(e.key);
+                const cls = `notif-item${isRead ? ' notif-item--read' : ''}`;
+                if (e.checklistCount) {
+                    return `<div class="${cls}" data-click="closeNotifPanel">
                 <div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-clipboard-list"></i></div>
                 <div class="notif-item-body">
-                    <span class="notif-item-title">${checklistCount} colaborador${checklistCount > 1 ? 'es' : ''} com documentos obrigatórios pendentes</span>
-                    <span class="notif-item-sub">Veja o checklist nas abas Admissional/Demissional</span>
+                    <span class="notif-item-title">${e.checklistCount} colaborador${e.checklistCount > 1 ? 'es' : ''} com documentos obrigatórios pendentes</span>
                 </div>
-            </div>`);
-        }
-        items.slice(0, 25).forEach((it) => {
-            rows.push(`<div class="notif-item" data-click="goToNotifItem" data-click-args="${dargs(it.docId, it.category)}">
+                ${readBtn(e.key, isRead)}
+            </div>`;
+                }
+                const it = e.item;
+                return `<div class="${cls}" data-click="goToNotifItem" data-click-args="${dargs(it.docId, it.category)}">
                 <div class="notif-item-icon notif-item-icon--${it.type}"><i class="fas ${iconMap[it.type]}"></i></div>
                 <div class="notif-item-body"><span class="notif-item-title">${escapeHtml(it.label)}</span></div>
-            </div>`);
-        });
+                ${readBtn(e.key, isRead)}
+            </div>`;
+            });
         notifPanelBody.innerHTML = rows.join('');
     }
+
+    window.toggleNotifRead = (key) => {
+        if (notifRead.has(key)) notifRead.delete(key);
+        else notifRead.add(key);
+        saveNotifRead();
+        renderNotifPanel();
+    };
+
+    window.markAllNotifsRead = () => {
+        currentNotifKeys.forEach((k) => notifRead.add(k));
+        saveNotifRead();
+        renderNotifPanel();
+    };
 
     window.closeNotifPanel = () => {
         notifPanel?.classList.add('hidden');
@@ -1145,12 +1213,12 @@
         document.body.style.overflow = '';
     };
 
-    auditFilterAction?.addEventListener('change', renderAuditLog);
+    createSelectField('audit-filter-action', renderAuditLog);
 
     function renderRequirementsGroup(category) {
         const container = document.getElementById(`requirements-${category}`);
         if (!container) return;
-        const items = requirements.filter((r) => r.category === category);
+        const items = RequisitosDocumentos.requirementsFor(requirements, category, currentRequirementsType());
         if (!items.length) {
             container.innerHTML = `<p class="requirements-empty">Nenhum tipo obrigatório cadastrado.</p>`;
             return;
@@ -1164,10 +1232,25 @@
             .join('');
     }
 
+    function currentRequirementsType() {
+        return RequisitosDocumentos.normalizeContractType(document.getElementById('requirements-contract-type')?.value);
+    }
+
     function renderRequirementsModal() {
+        const basis = document.getElementById('requirements-legal-basis');
+        if (basis) basis.textContent = RequisitosDocumentos.contractTypeInfo(currentRequirementsType()).base;
         renderRequirementsGroup('admissional');
         renderRequirementsGroup('demissional');
     }
+
+    const requirementsTypePopover = document.getElementById('requirements-contract-type-popover');
+    if (requirementsTypePopover) {
+        requirementsTypePopover.innerHTML = RequisitosDocumentos.CONTRACT_TYPES.map(
+            (t) => `<button type="button" class="select-option" role="option" data-value="${escapeHtml(t.value)}">${escapeHtml(t.label)}</button>`
+        ).join('');
+    }
+    const requirementsTypeField = createSelectField('requirements-contract-type', renderRequirementsModal);
+    requirementsTypeField?.setValue('CLT');
 
     window.openRequirementsModal = () => {
         document.getElementById('requirements-modal')?.classList.add('open');
@@ -1184,7 +1267,12 @@
         const input = document.getElementById(`requirements-add-${category}`);
         const tipo = input?.value.trim();
         if (!tipo) return;
-        const { data, error } = await sb.from('document_requirements').insert({ category, tipo, obrigatorio: true }).select().single();
+        const contractType = currentRequirementsType();
+        const { data, error } = await sb
+            .from('document_requirements')
+            .insert({ category, tipo, obrigatorio: true, contract_type: contractType })
+            .select()
+            .single();
         if (error) {
             showToast('Erro', 'Não foi possível adicionar — talvez esse tipo já esteja cadastrado.', 'error');
             return;
@@ -1194,7 +1282,11 @@
         renderRequirementsModal();
         renderChecklistBanner();
         renderNotifPanel();
-        showToast('Tipo adicionado', `"${tipo}" agora é obrigatório em ${category === 'admissional' ? 'Admissional' : 'Demissional'}.`, 'success');
+        showToast(
+            'Tipo adicionado',
+            `"${tipo}" agora é obrigatório em ${category === 'admissional' ? 'Admissional' : 'Demissional'} (${contractType}).`,
+            'success'
+        );
     };
 
     window.removeRequirement = async (id) => {
@@ -1234,28 +1326,209 @@
         showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
     };
 
-    function populateEmployeeSelect() {
-        const sel = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
-        if (!sel) return;
-        const isSelect = sel.tagName === 'SELECT';
-        if (isSelect) {
-            sel.innerHTML = '<option value="">Selecione o colaborador...</option>';
-            employees.forEach((e) => {
-                const opt = document.createElement('option');
-                opt.value = e.id;
-                opt.textContent = e.name;
-                sel.appendChild(opt);
-            });
+    // Só um popover (calendário ou lista de opções) fica aberto por vez.
+    let closeActivePopover = null;
+    function claimPopover(close) {
+        if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
+        closeActivePopover = close;
+    }
+    function releasePopover(close) {
+        if (closeActivePopover === close) closeActivePopover = null;
+    }
+
+    function createSelectField(id, onChange) {
+        const trigger = document.getElementById(`${id}-trigger`);
+        const popover = document.getElementById(`${id}-popover`);
+        const label = document.getElementById(`${id}-label`);
+        const hidden = document.getElementById(id);
+        if (!trigger || !popover || !label || !hidden) return null;
+
+        function open() {
+            claimPopover(close);
+            popover.classList.add('open');
+            trigger.classList.add('active');
+            trigger.setAttribute('aria-expanded', 'true');
+            document.addEventListener('click', onOutsideClick);
+            document.addEventListener('keydown', onEscape);
         }
+        function close() {
+            releasePopover(close);
+            popover.classList.remove('open');
+            trigger.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('keydown', onEscape);
+        }
+        function onOutsideClick(e) {
+            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+        }
+        function onEscape(e) {
+            if (e.key === 'Escape') close();
+        }
+
+        function setValue(value) {
+            const opts = Array.from(popover.querySelectorAll('.select-option'));
+            const opt = opts.find((o) => o.dataset.value === value);
+            hidden.value = opt ? opt.dataset.value : '';
+            label.textContent = opt ? opt.textContent : 'Selecione';
+            label.classList.toggle('select-placeholder', !opt);
+            opts.forEach((o) => o.classList.toggle('selected', o === opt));
+            close();
+            onChange?.();
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popover.classList.contains('open') ? close() : open();
+        });
+        popover.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const btn = e.target.closest('.select-option');
+            if (btn) setValue(btn.dataset.value);
+        });
+
+        return { setValue };
+    }
+
+    const employeeField = createSelectField('upload-employee-select', updateUploadBtnState);
+    const categoryField = createSelectField('upload-category', updateUploadBtnState);
+
+    function createValidadeCalendar() {
+        const trigger = document.getElementById('upload-validade-trigger');
+        const popover = document.getElementById('upload-validade-popover');
+        const textEl = document.getElementById('upload-validade-text');
+        const hidden = document.getElementById('upload-validade');
+        const titleEl = document.getElementById('upload-validade-title');
+        const gridEl = document.getElementById('upload-validade-grid');
+        const prevBtn = document.getElementById('upload-validade-prev');
+        const nextBtn = document.getElementById('upload-validade-next');
+        const footerEl = document.getElementById('upload-validade-footer');
+        const clearBtn = document.getElementById('upload-validade-clear');
+        if (!trigger || !popover || !textEl || !hidden || !gridEl) return null;
+
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const today = new Date();
+        let viewYear = today.getFullYear(),
+            viewMonth = today.getMonth();
+
+        function setValue(dateStr) {
+            hidden.value = dateStr || '';
+            if (dateStr) {
+                const [y, m, d] = dateStr.split('-');
+                textEl.textContent = `${d}/${m}/${y}`;
+            } else {
+                textEl.textContent = 'Selecione';
+            }
+            textEl.classList.toggle('select-placeholder', !dateStr);
+            footerEl?.classList.toggle('hidden', !dateStr);
+            close();
+        }
+
+        function render() {
+            titleEl.textContent = `${MESES_PT[viewMonth]} ${viewYear}`;
+            const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+            const cells = [];
+            for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+                cells.push({ day: d, muted: false, isToday });
+            }
+            let next = 1;
+            while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+            gridEl.innerHTML = cells
+                .map(
+                    (c) =>
+                        `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}" data-day="${c.day}">${c.day}</button>`
+                )
+                .join('');
+        }
+
+        function open() {
+            claimPopover(close);
+            const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
+            viewYear = selYear || today.getFullYear();
+            viewMonth = selMonth ? selMonth - 1 : today.getMonth();
+            render();
+            popover.classList.add('open');
+            trigger.classList.add('active');
+            trigger.setAttribute('aria-expanded', 'true');
+            document.addEventListener('click', onOutsideClick);
+            document.addEventListener('keydown', onEscape);
+        }
+        function close() {
+            releasePopover(close);
+            popover.classList.remove('open');
+            trigger.classList.remove('active');
+            trigger.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('keydown', onEscape);
+        }
+        function onOutsideClick(e) {
+            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+        }
+        function onEscape(e) {
+            if (e.key === 'Escape') close();
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            popover.classList.contains('open') ? close() : open();
+        });
+        popover.addEventListener('click', (e) => e.stopPropagation());
+        gridEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-day]');
+            if (!btn || btn.classList.contains('calendar-day--muted')) return;
+            setValue(`${viewYear}-${pad2(viewMonth + 1)}-${pad2(Number(btn.dataset.day))}`);
+        });
+        prevBtn?.addEventListener('click', () => {
+            viewMonth--;
+            if (viewMonth < 0) {
+                viewMonth = 11;
+                viewYear--;
+            }
+            render();
+        });
+        nextBtn?.addEventListener('click', () => {
+            viewMonth++;
+            if (viewMonth > 11) {
+                viewMonth = 0;
+                viewYear++;
+            }
+            render();
+        });
+        clearBtn?.addEventListener('click', () => setValue(''));
+
+        return { setValue };
+    }
+
+    const validadeField = createValidadeCalendar();
+
+    function updateUploadBtnState() {
+        const btn = document.getElementById('btn-submit-upload');
+        if (!btn) return;
+        const empId = document.getElementById('upload-employee-select')?.value;
+        const category = document.getElementById('upload-category')?.value;
+        btn.disabled = !(empId && category && selectedFiles.length > 0);
+    }
+
+    function populateEmployeeSelect() {
+        const popover = document.getElementById('upload-employee-select-popover');
+        if (!popover) return;
+        popover.innerHTML = employees
+            .map((e) => `<button type="button" class="select-option" role="option" data-value="${escapeHtml(String(e.id))}">${escapeHtml(e.name)}</button>`)
+            .join('');
     }
 
     window.openUploadModal = (employeeId, category, tipo) => {
         uploadModal?.classList.add('open');
         document.body.style.overflow = 'hidden';
         populateEmployeeSelect();
-        const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
-        if (employeeId && empEl) empEl.value = employeeId;
-        if (category && tipo) document.getElementById('upload-category').value = `${category}|${tipo}`;
+        employeeField?.setValue(employeeId ? String(employeeId) : '');
+        categoryField?.setValue(category && tipo ? `${category}|${tipo}` : '');
     };
     window.openReturnModal = (docId) => {
         const doc = colabDocs.find((d) => d.id === docId);
@@ -1274,10 +1547,9 @@
         document.getElementById('upload-return-hint')?.classList.add('hidden');
         uploadModal?.classList.remove('open');
         document.body.style.overflow = '';
-        const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
-        if (empEl) empEl.value = '';
-        document.getElementById('upload-category').value = '';
-        if (uploadValidade) uploadValidade.value = '';
+        employeeField?.setValue('');
+        categoryField?.setValue('');
+        validadeField?.setValue('');
         if (uploadLgpdConsent) uploadLgpdConsent.checked = false;
         clearFileInput();
     };
@@ -1304,6 +1576,7 @@
     });
 
     function renderSelectedFiles() {
+        updateUploadBtnState();
         if (!filesSelectedList) return;
         filesSelectedList.classList.toggle('hidden', selectedFiles.length === 0);
         dropZone?.classList.toggle('hidden', selectedFiles.length > 0);
@@ -1381,11 +1654,12 @@
                 return;
             }
 
-            const select = document.getElementById('upload-category');
-            const preferred = Array.from(select.options).find((o) => o.value === `${activeTab}|${found.tipo}`);
-            const anyMatch = preferred || Array.from(select.options).find((o) => o.value.endsWith(`|${found.tipo}`));
-            if (anyMatch && !select.value) {
-                select.value = anyMatch.value;
+            const categoryInput = document.getElementById('upload-category');
+            const options = Array.from(document.querySelectorAll('#upload-category-popover .select-option'));
+            const preferred = options.find((o) => o.dataset.value === `${activeTab}|${found.tipo}`);
+            const anyMatch = preferred || options.find((o) => o.dataset.value.endsWith(`|${found.tipo}`));
+            if (anyMatch && !categoryInput.value) {
+                categoryField?.setValue(anyMatch.dataset.value);
                 ocrHintText.textContent = `Tipo sugerido por OCR: "${found.tipo}" — confira antes de enviar.`;
             } else {
                 ocrHintText.textContent = `Tipo sugerido por OCR: "${found.tipo}" — selecione manualmente na lista acima.`;
@@ -1396,7 +1670,6 @@
     }
 
     window.submitUpload = async () => {
-        const empEl = document.getElementById('upload-employee-select') || document.getElementById('upload-employee');
         const categoryRaw = document.getElementById('upload-category').value;
         if (!categoryRaw) {
             showToast('Campo obrigatório', 'Selecione a categoria do arquivo.', 'warning');
@@ -1412,13 +1685,11 @@
         }
 
         const [category, tipo] = categoryRaw.split('|');
-        const empId = empEl?.tagName === 'SELECT' ? empEl.value || null : null;
-        const empInput = empEl?.tagName === 'INPUT' ? empEl.value.trim() : null;
-        const lookupEmp = empInput ? employees.find((e) => e.name.toLowerCase() === empInput.toLowerCase()) : null;
+        const empId = document.getElementById('upload-employee-select')?.value || null;
         const returning = returnForDocId ? colabDocs.find((d) => d.id === returnForDocId) : null;
-        const finalEmpId = returning?.employee_id || empId || lookupEmp?.id || null;
-        if (!finalEmpId && DELIVERY_TIPOS.includes(tipo)) {
-            showToast('Selecione o colaborador', 'Este documento é entregue ao colaborador, então é preciso escolher quem vai recebê-lo.', 'warning');
+        const finalEmpId = returning?.employee_id || empId || null;
+        if (!finalEmpId) {
+            showToast('Selecione o colaborador', 'Escolha o colaborador ao qual o documento pertence.', 'warning');
             return;
         }
 

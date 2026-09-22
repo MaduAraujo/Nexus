@@ -46,7 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const now = new Date();
     currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
     setupCustomMonthPicker();
-    setupAdjustDatePicker();
+    adjustDateField = createCalendarField('adjust-data', () => window.updateAdjustSubmitState?.());
+    adjustTipoField = createSelectField('adjust-tipo');
+    holidayDateField = createCalendarField('holiday-date');
+    createSelectField('holiday-abrangencia');
     setupAuditMonthPicker();
 
     await loadStaticComplianceData();
@@ -734,7 +737,7 @@ function renderDetailModal(emp, monthKey) {
         }
     }
 
-    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><select class="detail-month-select" data-change="changeDetailMonth" data-change-args="${dargs(emp.id, { $: 'this.value' })}">${monthOptions}</select></div>
+    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><div class="select-field detail-month-field"><button type="button" class="select-trigger" id="detail-month-trigger" aria-haspopup="listbox" aria-expanded="false"><span id="detail-month-label">${fmtMonthShort(monthKey)}</span><i class="fas fa-chevron-down select-trigger-arrow"></i></button><input type="hidden" id="detail-month" value="${monthKey}"><div class="select-popover" id="detail-month-popover" role="listbox">${monthOptions}</div></div></div>
     ${ledgerHTML}
     ${isPJ ? '' : '<div class="trend-section"><p class="detail-section-title"><i class="fas fa-chart-line"></i> Tendência do Saldo (6 meses)</p><div class="trend-chart-wrap"><canvas id="detail-trend-canvas"></canvas></div></div>'}
     <div class="detail-stats"><div class="stat-card-sm"><div class="stat-label-sm">Dias Registrados</div><div class="stat-value-sm">${diasCompletos}</div></div><div class="stat-card-sm"><div class="stat-label-sm">H. Trabalhadas</div><div class="stat-value-sm">${totalWorked ? minToStr(totalWorked) : '0h 00min'}</div></div><div class="stat-card-sm ${isPJ ? '' : extrasMin ? 'positivo' : ''}"><div class="stat-label-sm">H. Extras</div><div class="stat-value-sm">${isPJ ? '—' : extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</div></div><div class="stat-card-sm ${saldoCls}"><div class="stat-label-sm">Saldo Líquido</div><div class="stat-value-sm">${saldoLiquido === null ? '—' : formatSaldo(saldoLiquido)}</div></div></div>
@@ -759,6 +762,10 @@ function renderDetailModal(emp, monthKey) {
     }
     html += `</div>`;
     body.innerHTML = html;
+    createSelectField('detail-month', () => {
+        const picked = $('detail-month').value;
+        if (picked && picked !== monthKey) window.changeDetailMonth(emp.id, picked);
+    });
     if (!isPJ) renderSaldoTrendChart(emp);
 }
 
@@ -926,7 +933,9 @@ function buildMonthOptions(selected) {
         const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
         const val = `${d.getFullYear()}-${pad0(d.getMonth() + 1)}`;
         const lbl = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        opts.push(`<option value="${val}"${val === selected ? ' selected' : ''}>${lbl.charAt(0).toUpperCase() + lbl.slice(1)}</option>`);
+        opts.push(
+            `<button type="button" class="select-option${val === selected ? ' selected' : ''}" role="option" data-value="${val}" data-label="${fmtMonthShort(val)}">${lbl.charAt(0).toUpperCase() + lbl.slice(1)}</button>`
+        );
     }
     return opts.join('');
 }
@@ -941,7 +950,8 @@ window.openAdjustModal = function (empId) {
         const el = $(id);
         if (el) el.value = '';
     });
-    window.setAdjustDate?.(isoDate(new Date()));
+    adjustTipoField?.setValue('credito');
+    adjustDateField?.setValue(isoDate(new Date()));
     const al = $('adjust-alert');
     if (al) {
         al.className = 'modal-alert';
@@ -1260,11 +1270,193 @@ window.deleteAjuste = async function (empId, adjId) {
     }
 };
 
+// Só um popover (calendário ou lista de opções) fica aberto por vez.
+let closeActivePopover = null;
+function claimPopover(close) {
+    if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
+    closeActivePopover = close;
+}
+function releasePopover(close) {
+    if (closeActivePopover === close) closeActivePopover = null;
+}
+
+// Dropdown padronizado (mesmo padrão da tela de ponto do colaborador): botão + lista flutuante + input oculto com o valor.
+function createSelectField(id, onChange) {
+    const trigger = $(`${id}-trigger`);
+    const popover = $(`${id}-popover`);
+    const label = $(`${id}-label`);
+    const hidden = $(id);
+    if (!trigger || !popover || !label || !hidden) return null;
+
+    function open() {
+        claimPopover(close);
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        releasePopover(close);
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    function setValue(value) {
+        const opts = Array.from(popover.querySelectorAll('.select-option'));
+        const opt = opts.find((o) => o.dataset.value === value);
+        hidden.value = opt ? opt.dataset.value : '';
+        label.textContent = opt ? opt.dataset.label || opt.textContent : 'Selecione';
+        label.classList.toggle('select-placeholder', !opt);
+        opts.forEach((o) => o.classList.toggle('selected', o === opt));
+        close();
+        onChange?.();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    popover.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.target.closest('.select-option');
+        if (btn) setValue(btn.dataset.value);
+    });
+
+    return { setValue };
+}
+
+// Calendário padronizado (mesmo padrão da tela de ponto do colaborador). O valor fica em `${id}` no formato aaaa-mm-dd.
+function createCalendarField(id, onChange) {
+    const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const trigger = $(`${id}-trigger`);
+    const popover = $(`${id}-popover`);
+    const textEl = $(`${id}-text`);
+    const titleEl = $(`${id}-title`);
+    const gridEl = $(`${id}-grid`);
+    const prevBtn = $(`${id}-prev`);
+    const nextBtn = $(`${id}-next`);
+    const hidden = $(id);
+    if (!trigger || !popover || !textEl || !gridEl || !hidden) return null;
+
+    const today = new Date();
+    let viewYear = today.getFullYear(),
+        viewMonth = today.getMonth();
+
+    function setValue(dateStr) {
+        hidden.value = dateStr || '';
+        if (dateStr) {
+            const [y, m, d] = dateStr.split('-');
+            textEl.textContent = `${d}/${m}/${y}`;
+        } else {
+            textEl.textContent = 'Selecione';
+        }
+        textEl.classList.toggle('select-placeholder', !dateStr);
+        close();
+        onChange?.();
+    }
+
+    function render() {
+        titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
+        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+        const cells = [];
+        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+            cells.push({ day: d, muted: false, isToday });
+        }
+        let next = 1;
+        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
+
+        gridEl.innerHTML = cells
+            .map(
+                (c) =>
+                    `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}" data-day="${c.day}">${c.day}</button>`
+            )
+            .join('');
+    }
+
+    function open() {
+        claimPopover(close);
+        const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
+        viewYear = selYear || today.getFullYear();
+        viewMonth = selMonth ? selMonth - 1 : today.getMonth();
+        render();
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+        // Depois da animação de abertura, traz o calendário para a área visível se estiver mais abaixo (modais curtos).
+        setTimeout(() => {
+            if (popover.classList.contains('open')) popover.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }, 200);
+    }
+    function close() {
+        releasePopover(close);
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    popover.addEventListener('click', (e) => e.stopPropagation());
+    gridEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-day]');
+        if (!btn || btn.classList.contains('calendar-day--muted')) return;
+        setValue(`${viewYear}-${pad0(viewMonth + 1)}-${pad0(Number(btn.dataset.day))}`);
+    });
+    prevBtn?.addEventListener('click', () => {
+        viewMonth--;
+        if (viewMonth < 0) {
+            viewMonth = 11;
+            viewYear--;
+        }
+        render();
+    });
+    nextBtn?.addEventListener('click', () => {
+        viewMonth++;
+        if (viewMonth > 11) {
+            viewMonth = 0;
+            viewYear++;
+        }
+        render();
+    });
+
+    return { setValue };
+}
+
+let holidayDateField = null;
+let adjustDateField = null;
+let adjustTipoField = null;
+
 const HOLIDAY_ABR_LABEL = { nacional: 'Nacional', estadual: 'Estadual', municipal: 'Municipal', facultativo: 'Facultativo' };
 
 window.openHolidaysModal = function () {
-    const dt = $('holiday-date');
-    if (dt) dt.value = '';
+    holidayDateField?.setValue('');
     const nm = $('holiday-name');
     if (nm) nm.value = '';
     renderHolidaysList();
@@ -1304,7 +1496,7 @@ window.submitHoliday = async function () {
 
     holidaysMap[date] = data;
     renderHolidaysList();
-    $('holiday-date').value = '';
+    holidayDateField?.setValue('');
     $('holiday-name').value = '';
     showToast('Feriado adicionado.', 'success');
     allData = buildAllBalances(currentMonth);
@@ -1327,6 +1519,19 @@ window.deleteHoliday = async function (id) {
         const emp = allEmps.find((e) => e.id === detailEmpId);
         if (emp) renderDetailModal(emp, detailMonth);
     }
+};
+
+// Setas do campo numérico: substituem o spinner nativo do navegador e respeitam min/max/step do input.
+window.stepNumber = function (id, direction) {
+    const input = $(id);
+    if (!input) return;
+    const step = Number(input.step) || 1;
+    const min = input.min === '' ? -Infinity : Number(input.min);
+    const max = input.max === '' ? Infinity : Number(input.max);
+    const current = parseFloat(input.value);
+    const next = Number.isNaN(current) ? Math.max(min, 0) : current + direction * step;
+    input.value = Math.min(max, Math.max(min, next));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
 window.openSettingsModal = function () {
@@ -1857,125 +2062,6 @@ function setupAuditMonthPicker() {
     };
 }
 
-function setupAdjustDatePicker() {
-    const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-    const trigger = $('adjust-data-trigger');
-    const popover = $('adjust-data-popover');
-    const titleEl = $('adjust-data-title');
-    const gridEl = $('adjust-data-grid');
-    const prevBtn = $('adjust-data-prev');
-    const nextBtn = $('adjust-data-next');
-    const hidden = $('adjust-data');
-    const label = $('adjust-data-label');
-    if (!trigger || !popover) return;
-
-    const today = new Date();
-    let viewYear = today.getFullYear(),
-        viewMonth = today.getMonth();
-
-    function setValue(y, m, d) {
-        hidden.value = `${y}-${pad0(m + 1)}-${pad0(d)}`;
-        label.textContent = `${pad0(d)}/${pad0(m + 1)}/${y}`;
-        window.updateAdjustSubmitState?.();
-    }
-
-    function render() {
-        titleEl.textContent = `${MESES_LONG[viewMonth]} ${viewYear}`;
-
-        const startOffset = new Date(viewYear, viewMonth, 1).getDay();
-        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-        const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
-
-        const cells = [];
-        for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
-        for (let d = 1; d <= daysInMonth; d++) {
-            const isToday = d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
-            cells.push({ day: d, muted: false, isToday });
-        }
-        let next = 1;
-        while (cells.length % 7 !== 0) cells.push({ day: next++, muted: true });
-
-        gridEl.innerHTML = cells
-            .map(
-                (c) =>
-                    `<button type="button" class="calendar-day${c.muted ? ' calendar-day--muted' : ''}${c.isToday ? ' calendar-day--today' : ''}">${c.day}</button>`
-            )
-            .join('');
-
-        gridEl.querySelectorAll('.calendar-day:not(.calendar-day--muted)').forEach((el) => {
-            el.addEventListener('click', () => {
-                setValue(viewYear, viewMonth, parseInt(el.textContent, 10));
-                close();
-            });
-        });
-    }
-
-    function open() {
-        if (hidden.value) {
-            const [y, m] = hidden.value.split('-').map(Number);
-            viewYear = y;
-            viewMonth = m - 1;
-        }
-        render();
-        popover.classList.add('open');
-        trigger.classList.add('active');
-        document.addEventListener('click', onOutsideClick);
-        document.addEventListener('keydown', onEscape);
-    }
-
-    function close() {
-        popover.classList.remove('open');
-        trigger.classList.remove('active');
-        document.removeEventListener('click', onOutsideClick);
-        document.removeEventListener('keydown', onEscape);
-    }
-
-    function onOutsideClick(e) {
-        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
-    }
-    function onEscape(e) {
-        if (e.key === 'Escape') close();
-    }
-
-    trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        popover.classList.contains('open') ? close() : open();
-    });
-    prevBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        viewMonth--;
-        if (viewMonth < 0) {
-            viewMonth = 11;
-            viewYear--;
-        }
-        render();
-    });
-    nextBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        viewMonth++;
-        if (viewMonth > 11) {
-            viewMonth = 0;
-            viewYear++;
-        }
-        render();
-    });
-    popover.addEventListener('click', (e) => e.stopPropagation());
-
-    window.setAdjustDate = function (dateStr) {
-        if (!dateStr) {
-            hidden.value = '';
-            label.textContent = 'Selecione a data';
-            window.updateAdjustSubmitState?.();
-            return;
-        }
-        const [y, m, d] = dateStr.split('-').map(Number);
-        setValue(y, m - 1, d);
-        viewYear = y;
-        viewMonth = m - 1;
-    };
-}
-
 function setupSidebar() {
     const sidebar = $('sidebar'),
         toggle = $('sidebar-toggle'),
@@ -2077,6 +2163,14 @@ function fmtDate(key) {
     const [y, m, d] = key.split('-');
     return `${d}/${m}/${y}`;
 }
+// "2026-09" -> "Set/2026" (cabe em campos estreitos)
+function fmtMonthShort(key) {
+    if (!key) return '';
+    const [y, m] = key.split('-');
+    const mon = new Date(+y, +m - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return `${mon.charAt(0).toUpperCase() + mon.slice(1)}/${y}`;
+}
+
 function fmtMonthLabel(key) {
     if (!key) return '';
     const [y, m] = key.split('-');

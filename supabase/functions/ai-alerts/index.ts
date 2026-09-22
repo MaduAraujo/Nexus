@@ -103,7 +103,7 @@ serve(async (req) => {
     });
 
   try {
-    const { action, message, history } = await req.json();
+    const { action, message, history } = await req.json().catch(() => ({}) as Record<string, unknown>);
 
     const authHeader = req.headers.get("Authorization");
     const caller = createClient(

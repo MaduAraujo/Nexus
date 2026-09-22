@@ -211,50 +211,55 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label" for="add-employee">Colaborador</label>
-                <select id="add-employee" class="form-input" data-change="onAddEmployeeChange">
-                    <option value="">Selecione o colaborador...</option>
-                </select>
+                <label class="form-label" for="add-employee-trigger">Colaborador <span class="req">*</span></label>
+                <div class="select-field">
+                    <button type="button" class="select-trigger" id="add-employee-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="add-employee-label" class="select-placeholder">Selecione</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="add-employee">
+                    <div class="select-popover" id="add-employee-popover" role="listbox"></div>
+                </div>
                 <p class="add-emp-saldo-info hidden" id="add-emp-saldo-info"></p>
                 <p class="add-emp-ferias-info hidden" id="add-emp-ferias-info"></p>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label">Data de Início</label>
-                    <div class="date-field" id="add-start-field">
-                        <button type="button" class="date-field-trigger" id="add-start-trigger">
-                            <i class="fas fa-calendar-day"></i>
-                            <span id="add-start-text">Selecionar data</span>
+                    <label class="form-label" for="add-start-trigger">Data de Início <span class="req">*</span></label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="add-start-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="add-start-text" class="select-placeholder">Selecione</span>
                         </button>
+                        <input type="hidden" id="add-start" data-change="calcAddDays">
                         <div class="calendar-popover" id="add-start-popover">
                             <div class="calendar-header">
-                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                <span class="calendar-title"></span>
-                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                <button type="button" class="calendar-nav-btn" id="add-start-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="add-start-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="add-start-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
                             </div>
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                            <div class="calendar-grid"></div>
+                            <div class="calendar-grid" id="add-start-grid"></div>
                         </div>
-                        <input type="hidden" id="add-start" data-change="calcAddDays">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Data de Fim</label>
-                    <div class="date-field" id="add-end-field">
-                        <button type="button" class="date-field-trigger" id="add-end-trigger">
-                            <i class="fas fa-calendar-day"></i>
-                            <span id="add-end-text">Selecionar data</span>
+                    <label class="form-label" for="add-end-trigger">Data de Fim <span class="req">*</span></label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="add-end-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="add-end-text" class="select-placeholder">Selecione</span>
                         </button>
+                        <input type="hidden" id="add-end" data-change="calcAddDays">
                         <div class="calendar-popover" id="add-end-popover">
                             <div class="calendar-header">
-                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                <span class="calendar-title"></span>
-                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                <button type="button" class="calendar-nav-btn" id="add-end-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="add-end-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="add-end-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
                             </div>
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                            <div class="calendar-grid"></div>
+                            <div class="calendar-grid" id="add-end-grid"></div>
                         </div>
-                        <input type="hidden" id="add-end" data-change="calcAddDays">
                     </div>
                 </div>
             </div>
@@ -264,11 +269,18 @@
             </div>
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label" for="add-status">Status inicial</label>
-                    <select id="add-status" class="form-input">
-                        <option value="pendente">Pendente</option>
-                        <option value="aprovado">Aprovado</option>
-                    </select>
+                    <label class="form-label" for="add-status-trigger">Status inicial</label>
+                    <div class="select-field">
+                        <button type="button" class="select-trigger" id="add-status-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="add-status-label">Pendente</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="add-status" value="pendente">
+                        <div class="select-popover" id="add-status-popover" role="listbox">
+                            <button type="button" class="select-option selected" role="option" data-value="pendente">Pendente</button>
+                            <button type="button" class="select-option" role="option" data-value="aprovado">Aprovado</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label checkbox-label" style="margin-top:24px;">
@@ -279,19 +291,24 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label" for="add-substituto">Substituto / Cobertura <span class="label-optional">(opcional)</span></label>
-                <select id="add-substituto" class="form-input">
-                    <option value="">Nenhum</option>
-                </select>
+                <label class="form-label" for="add-substituto-trigger">Substituto</label>
+                <div class="select-field">
+                    <button type="button" class="select-trigger" id="add-substituto-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="add-substituto-label" class="select-placeholder">Selecione</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="add-substituto">
+                    <div class="select-popover" id="add-substituto-popover" role="listbox"></div>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label" for="add-obs">Observação</label>
-                <textarea id="add-obs" class="form-textarea" rows="2" placeholder="Observação interna..."></textarea>
+                <textarea id="add-obs" class="form-textarea" rows="3"></textarea>
             </div>
             <div class="modal-alert" id="add-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" data-click="submitAdd">
+            <button class="btn-submit" id="btn-add-submit" data-click="submitAdd" disabled>
                 Salvar
             </button>
         </div>
@@ -359,60 +376,67 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label" for="coletiva-dept">Departamento</label>
-                <select id="coletiva-dept" class="form-input">
-                    <option value="">Toda a empresa</option>
-                </select>
+                <label class="form-label" for="coletiva-dept-trigger">Departamento</label>
+                <div class="select-field">
+                    <button type="button" class="select-trigger" id="coletiva-dept-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="coletiva-dept-label">Toda a empresa</span>
+                        <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                    </button>
+                    <input type="hidden" id="coletiva-dept" value="">
+                    <div class="select-popover" id="coletiva-dept-popover" role="listbox">
+                        <button type="button" class="select-option selected" role="option" data-value="">Toda a empresa</button>
+                    </div>
+                </div>
             </div>
             <div class="form-row-2">
                 <div class="form-group">
-                    <label class="form-label">Data de Início</label>
-                    <div class="date-field" id="coletiva-start-field">
-                        <button type="button" class="date-field-trigger" id="coletiva-start-trigger">
-                            <i class="fas fa-calendar-day"></i>
-                            <span id="coletiva-start-text">Selecionar data</span>
+                    <label class="form-label" for="coletiva-start-trigger">Data de Início <span class="req">*</span></label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="coletiva-start-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="coletiva-start-text" class="select-placeholder">Selecione</span>
                         </button>
+                        <input type="hidden" id="coletiva-start" data-change="updateColetivaSubmitState">
                         <div class="calendar-popover" id="coletiva-start-popover">
                             <div class="calendar-header">
-                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                <span class="calendar-title"></span>
-                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                <button type="button" class="calendar-nav-btn" id="coletiva-start-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="coletiva-start-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="coletiva-start-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
                             </div>
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                            <div class="calendar-grid"></div>
+                            <div class="calendar-grid" id="coletiva-start-grid"></div>
                         </div>
-                        <input type="hidden" id="coletiva-start">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Data de Fim</label>
-                    <div class="date-field" id="coletiva-end-field">
-                        <button type="button" class="date-field-trigger" id="coletiva-end-trigger">
-                            <i class="fas fa-calendar-day"></i>
-                            <span id="coletiva-end-text">Selecionar data</span>
+                    <label class="form-label" for="coletiva-end-trigger">Data de Fim <span class="req">*</span></label>
+                    <div class="date-field">
+                        <button type="button" class="select-trigger date-trigger" id="coletiva-end-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="coletiva-end-text" class="select-placeholder">Selecione</span>
                         </button>
+                        <input type="hidden" id="coletiva-end" data-change="updateColetivaSubmitState">
                         <div class="calendar-popover" id="coletiva-end-popover">
                             <div class="calendar-header">
-                                <button type="button" class="calendar-nav-btn" data-nav="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                <span class="calendar-title"></span>
-                                <button type="button" class="calendar-nav-btn" data-nav="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                <button type="button" class="calendar-nav-btn" id="coletiva-end-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="coletiva-end-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="coletiva-end-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
                             </div>
                             <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                            <div class="calendar-grid"></div>
+                            <div class="calendar-grid" id="coletiva-end-grid"></div>
                         </div>
-                        <input type="hidden" id="coletiva-end">
                     </div>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label" for="coletiva-obs">Observação</label>
-                <textarea id="coletiva-obs" class="form-textarea" rows="2" placeholder="Ex: recesso coletivo de fim de ano..."></textarea>
+                <textarea id="coletiva-obs" class="form-textarea" rows="3"></textarea>
             </div>
             <p class="form-hint-block"><i class="fas fa-circle-info"></i> Colaboradores estagiários/aprendizes e quem já tiver férias no período são pulados automaticamente (art. 139 CLT).</p>
             <div class="modal-alert" id="coletiva-alert"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn-submit" data-click="submitColetiva">
+            <button class="btn-submit" id="btn-coletiva-submit" data-click="submitColetiva" disabled>
                 Conceder Férias
             </button>
         </div>

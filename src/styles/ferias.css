@@ -2434,42 +2434,179 @@ select.form-input {
     border: 1px solid #bbf7d0;
 }
 
-.date-field {
-    position: relative;
+.req {
+    color: var(--danger);
 }
 
-.date-field-trigger {
+.select-field {
+    position: relative;
+    width: 100%;
+}
+.select-trigger {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    height: 40px;
     width: 100%;
-    padding: 0 12px;
+    padding: 10px 12px;
     border: 1.5px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-input);
-    color: var(--text-primary);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
     font-size: 0.875rem;
     text-align: left;
-    transition:
-        border-color var(--transition),
-        background var(--transition);
-}
-.date-field-trigger i {
-    color: var(--text-tertiary);
-    font-size: 0.8rem;
-    flex-shrink: 0;
-}
-.date-field-trigger:hover {
-    border-color: var(--accent);
-}
-.date-field-trigger.active {
-    border-color: var(--accent);
-    background: var(--bg-card);
     color: var(--text-primary);
+    background: var(--bg-card);
+    cursor: pointer;
+    outline: none;
+    transition:
+        border-color 0.2s var(--ease),
+        background 0.2s var(--ease),
+        box-shadow 0.2s var(--ease);
 }
-.date-field-trigger.active i {
+.select-trigger:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+.select-trigger.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.select-trigger > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.select-placeholder {
+    color: var(--text-tertiary);
+}
+.date-trigger {
+    justify-content: flex-start;
+}
+.date-trigger i {
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+}
+.select-trigger-arrow {
+    color: var(--text-tertiary);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    transition:
+        transform 0.18s var(--ease),
+        color 0.18s var(--ease);
+}
+.select-trigger.active .select-trigger-arrow {
+    transform: rotate(180deg);
     color: var(--accent);
+}
+
+/* Popovers fechados não ocupam área rolável dentro do modal */
+.select-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    padding: 0 8px;
+    border-width: 0;
+    z-index: 950;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+    max-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transform: translateY(-8px) scale(0.96);
+    transform-origin: top left;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        max-height 0.18s var(--ease),
+        padding 0.18s var(--ease),
+        visibility 0.18s;
+}
+.select-popover.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    overflow-y: auto;
+    padding: 8px;
+    border-width: 1px;
+    max-height: 280px;
+    transform: translateY(0) scale(1);
+}
+.select-option {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition:
+        background 0.15s,
+        color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.select-option:hover {
+    background: var(--bg-page);
+}
+.select-option.selected {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* Calendário do modal de solicitação: abre abaixo do campo, recolhido quando fechado */
+#add-modal .date-field .calendar-popover,
+#coletiva-modal .date-field .calendar-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: auto;
+    margin-top: 12px;
+    width: 296px;
+    max-width: calc(100vw - 32px);
+    z-index: 950;
+    padding: 0 16px;
+    border-width: 0;
+    max-height: 0;
+    overflow: hidden;
+    transform-origin: top left;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        max-height 0.18s var(--ease),
+        padding 0.18s var(--ease),
+        visibility 0.18s;
+}
+#add-modal .date-field .calendar-popover.open,
+#coletiva-modal .date-field .calendar-popover.open {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 16px;
+    border-width: 1px;
+}
+#add-modal #add-end-popover,
+#coletiva-modal #coletiva-end-popover {
+    left: auto;
+    right: 0;
+    transform-origin: top right;
+}
+
+.date-field {
+    position: relative;
 }
 
 .calendar-popover {

@@ -277,6 +277,10 @@ body {
 }
 
 .notif-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 14px 18px;
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 0.85rem;
@@ -286,6 +290,21 @@ body {
     position: sticky;
     top: 0;
     background: var(--bg-card);
+}
+
+.notif-mark-all {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+}
+.notif-mark-all:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
 }
 
 .notif-panel-body {
@@ -362,9 +381,33 @@ body {
     line-height: 1.4;
 }
 
-.notif-item-sub {
-    font-size: 0.7rem;
+.notif-item-read-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--bg-card);
     color: var(--text-tertiary);
+    font-size: 0.68rem;
+    cursor: pointer;
+    transition:
+        background 0.15s var(--ease),
+        color 0.15s var(--ease),
+        border-color 0.15s var(--ease);
+}
+.notif-item-read-btn:hover {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.notif-item--read .notif-item-icon,
+.notif-item--read .notif-item-body {
+    opacity: 0.5;
 }
 
 .notif-empty {
@@ -583,6 +626,18 @@ body {
     flex-shrink: 0;
 }
 
+.checklist-row-type {
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #92400e;
+    background: rgba(217, 119, 6, 0.12);
+    border-radius: 50px;
+    padding: 2px 8px;
+}
+
 .checklist-chip {
     display: inline-flex;
     align-items: center;
@@ -605,7 +660,8 @@ body {
     transform: translateY(-1px);
 }
 
-:root[data-theme='dark'] .checklist-row-name {
+:root[data-theme='dark'] .checklist-row-name,
+:root[data-theme='dark'] .checklist-row-type {
     color: #fbbf24;
 }
 
@@ -1832,6 +1888,10 @@ body {
     gap: 6px;
 }
 
+.req {
+    color: var(--danger);
+}
+
 .label-optional {
     font-size: 0.7rem;
     font-weight: 400;
@@ -1869,6 +1929,148 @@ body {
 .form-group select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.select-field {
+    position: relative;
+    width: 100%;
+}
+.select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    text-align: left;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    cursor: pointer;
+    outline: none;
+    transition:
+        border-color 0.2s var(--ease),
+        background 0.2s var(--ease),
+        box-shadow 0.2s var(--ease);
+}
+.select-trigger:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+.select-trigger.active {
+    border-color: var(--accent);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.select-trigger > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.select-placeholder {
+    color: var(--text-tertiary);
+}
+.select-trigger-arrow {
+    color: var(--text-tertiary);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    transition:
+        transform 0.18s var(--ease),
+        color 0.18s var(--ease);
+}
+.select-trigger.active .select-trigger-arrow {
+    transform: rotate(180deg);
+    color: var(--accent);
+}
+
+.select-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    /* Fechado não ocupa área rolável dentro do modal */
+    padding: 0 8px;
+    border-width: 0;
+    z-index: 950;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+    max-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transform: translateY(-8px) scale(0.96);
+    transform-origin: top left;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        max-height 0.18s var(--ease),
+        padding 0.18s var(--ease),
+        visibility 0.18s;
+}
+.select-popover.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    overflow-y: auto;
+    padding: 8px;
+    border-width: 1px;
+    max-height: 280px;
+    transform: translateY(0) scale(1);
+}
+.select-option {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition:
+        background 0.15s,
+        color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.select-option:hover {
+    background: var(--bg-page);
+}
+.select-option.selected {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 700;
+}
+.select-group-label {
+    flex-shrink: 0;
+    padding: 10px 12px 4px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+.select-group-label:not(:first-child) {
+    margin-top: 4px;
+    border-top: 1px solid var(--border-light);
+}
+.select-empty {
+    padding: 10px 12px;
+    font-size: 0.84rem;
+    color: var(--text-tertiary);
 }
 
 .drop-zone {
@@ -1925,11 +2127,6 @@ body {
     color: var(--accent);
     font-weight: 600;
     text-decoration: underline;
-}
-
-.drop-zone-hint {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
 }
 
 .btn-camera {
@@ -2025,27 +2222,51 @@ body {
     line-height: 1.45;
 }
 
-.form-group input[type='date'] {
-    padding: 10px 13px;
-    border: 1.5px solid var(--border-light);
-    border-radius: 9px;
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    outline: none;
-    transition:
-        border-color 0.2s var(--ease),
-        box-shadow 0.2s var(--ease);
+.date-field {
+    position: relative;
     width: 100%;
-    font-family: 'DM Sans', sans-serif;
 }
-
-.form-group input[type='date']:hover {
-    border-color: #c7cee0;
+.date-trigger {
+    justify-content: flex-start;
 }
-.form-group input[type='date']:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+.date-trigger i {
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+}
+.date-field .calendar-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 12px;
+    max-width: calc(100vw - 32px);
+    z-index: 950;
+    /* Fechado não ocupa área rolável dentro do modal */
+    max-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    transition:
+        opacity 0.18s var(--ease),
+        transform 0.18s var(--ease),
+        max-height 0.18s var(--ease),
+        padding 0.18s var(--ease),
+        visibility 0.18s;
+}
+.date-field .calendar-popover.open {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    border-width: 1px;
+}
+.date-field .calendar-day--today {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+}
+.date-field .calendar-day--today:hover {
+    background: var(--accent-hover);
 }
 
 .lgpd-consent {
@@ -2126,10 +2347,6 @@ body {
 
 .modal-content--wide {
     max-width: 560px;
-}
-
-#audit-filter-action {
-    width: 100%;
 }
 
 #audit-log-list {
@@ -2377,6 +2594,12 @@ body {
 .btn-submit:active {
     transform: translateY(0);
     opacity: 1;
+}
+.btn-submit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .hidden {

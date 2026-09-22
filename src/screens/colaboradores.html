@@ -414,7 +414,7 @@
                                             <label for="raca-cor">Raça/Cor</label>
                                             <select id="raca-cor">
                                                 <option value="" disabled selected>Selecione</option>
-                                                <option value="Branca">Branca</option>
+                                                <option value="Branco">Branco</option>
                                                 <option value="Preta">Preta</option>
                                                 <option value="Parda">Parda</option>
                                                 <option value="Amarela">Amarela</option>
@@ -1195,10 +1195,17 @@
             <button class="close-modal" data-click="closeOrgChart" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="orgchart-filter-bar">
-            <label for="orgchart-dept-filter"><i class="fas fa-building"></i> Departamento</label>
-            <select id="orgchart-dept-filter" data-change="renderOrgChart">
-                <option value="">Todos</option>
-            </select>
+            <label for="orgchart-dept-filter-trigger"><i class="fas fa-building"></i> Departamento</label>
+            <div class="select-field orgchart-dept-field">
+                <button type="button" class="select-trigger" id="orgchart-dept-filter-trigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="orgchart-dept-filter-label">Todos</span>
+                    <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                </button>
+                <input type="hidden" id="orgchart-dept-filter" value="">
+                <div class="select-popover" id="orgchart-dept-filter-popover" role="listbox">
+                    <button type="button" class="select-option selected" role="option" data-value="">Todos</button>
+                </div>
+            </div>
         </div>
         <div class="modal-body" id="orgchart-container"></div>
     </div>
@@ -1267,6 +1274,7 @@
 <script src="../javascript/shared/files.js"></script>
 <script src="../javascript/shared/search.js"></script>
 <script src="../javascript/domain/clt-domain.js"></script>
+<script src="../javascript/domain/requisitos-documentos.js"></script>
 <script src="../javascript/colaboradores.js"></script>
 </body>
 </html>

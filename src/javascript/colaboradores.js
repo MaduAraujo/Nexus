@@ -34,7 +34,8 @@ function dbToEmployee(row) {
         qtdDependentes: row.qtd_dependentes,
         pcd: row.pcd ? 'sim' : 'nao',
         deficiencia: row.deficiencia,
-        racaCor: row.raca_cor,
+        // Cadastros antigos guardam "Branca"; o valor atual da lista é "Branco".
+        racaCor: row.raca_cor === 'Branca' ? 'Branco' : row.raca_cor,
         isProbation: row.is_probation ? 'sim' : 'nao',
         probationEndDate: row.probation_end_date,
         isAvisoPrevio: row.is_aviso_previo ? 'sim' : 'nao',
@@ -1610,13 +1611,73 @@ function renderOrgNode(node) {
     </li>`;
 }
 
+// Dropdown padronizado (mesmo padrão da tela de ponto do colaborador): botão + lista flutuante + input oculto com o valor.
+// setValue é silencioso (uso programático); só a escolha do usuário dispara onChange.
+function createSelectField(id, onChange) {
+    const trigger = document.getElementById(`${id}-trigger`);
+    const popover = document.getElementById(`${id}-popover`);
+    const label = document.getElementById(`${id}-label`);
+    const hidden = document.getElementById(id);
+    if (!trigger || !popover || !label || !hidden) return null;
+
+    function open() {
+        popover.classList.add('open');
+        trigger.classList.add('active');
+        trigger.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('keydown', onEscape);
+    }
+    function close() {
+        popover.classList.remove('open');
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutsideClick);
+        document.removeEventListener('keydown', onEscape);
+    }
+    function onOutsideClick(e) {
+        if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+    }
+    function onEscape(e) {
+        if (e.key === 'Escape') close();
+    }
+
+    function setValue(value) {
+        const opts = Array.from(popover.querySelectorAll('.select-option'));
+        const opt = opts.find((o) => o.dataset.value === String(value));
+        hidden.value = opt ? opt.dataset.value : '';
+        label.textContent = opt ? opt.textContent : 'Selecione';
+        label.classList.toggle('select-placeholder', !opt);
+        opts.forEach((o) => o.classList.toggle('selected', o === opt));
+        close();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.contains('open') ? close() : open();
+    });
+    popover.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btn = e.target.closest('.select-option');
+        if (!btn) return;
+        setValue(btn.dataset.value);
+        onChange?.();
+    });
+
+    return { setValue };
+}
+
+let orgDeptField = null;
+
 function populateOrgChartDeptFilter() {
-    const sel = document.getElementById('orgchart-dept-filter');
-    if (!sel) return;
-    const current = sel.value;
+    const popover = document.getElementById('orgchart-dept-filter-popover');
+    const hidden = document.getElementById('orgchart-dept-filter');
+    if (!popover || !hidden) return;
+    const current = hidden.value;
     const depts = [...new Set(employees.map((e) => e.dept).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    sel.innerHTML = '<option value="">Todos</option>' + depts.map((d) => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
-    sel.value = depts.includes(current) ? current : '';
+    popover.innerHTML =
+        '<button type="button" class="select-option" role="option" data-value="">Todos</button>' +
+        depts.map((d) => `<button type="button" class="select-option" role="option" data-value="${escHtml(d)}">${escHtml(d)}</button>`).join('');
+    orgDeptField?.setValue(depts.includes(current) ? current : '');
 }
 
 window.renderOrgChart = function () {
@@ -1888,13 +1949,26 @@ function regDocTypeIcon(tipo) {
     return REG_DOC_TYPE_ICONS[tipo] || 'fa-file-lines';
 }
 
+let admissionalReqs = [];
+
 async function fetchAdmissionalDocTypes() {
-    const { data, error } = await sb.from('document_requirements').select('tipo').eq('category', 'admissional').eq('obrigatorio', true).order('tipo');
+    const { data, error } = await sb
+        .from('document_requirements')
+        .select('tipo,category,contract_type')
+        .eq('category', 'admissional')
+        .eq('obrigatorio', true)
+        .order('tipo');
     if (error) {
         console.error('[Nexus] fetchAdmissionalDocTypes:', error);
         return;
     }
-    if (data?.length) admissionalDocTypes = data.map((r) => r.tipo);
+    admissionalReqs = data || [];
+}
+
+// Os documentos exigidos no cadastro dependem do tipo de contrato escolhido no formulário.
+function getAdmissionalDocTypes() {
+    if (!admissionalReqs.length) return admissionalDocTypes;
+    return RequisitosDocumentos.requiredTipos(admissionalReqs, 'admissional', document.getElementById('contract-type')?.value);
 }
 
 function computeRegDocRetentionDate(tipo) {
@@ -1913,7 +1987,7 @@ function renderRegDocList() {
     const list = document.getElementById('reg-doc-list');
     const consentWrap = document.getElementById('reg-doc-consent-wrap');
     if (!list) return;
-    const tipoOptions = [...admissionalDocTypes, 'Outros'];
+    const tipoOptions = [...getAdmissionalDocTypes(), 'Outros'];
     list.innerHTML = pendingRegDocs
         .map(
             (doc, i) => `
@@ -1924,7 +1998,7 @@ function renderRegDocList() {
                 <span class="reg-doc-item-size">${formatFileSize(doc.file.size)}</span>
             </div>
             <select class="reg-doc-item-tipo" data-change="updateRegDocTipo" data-change-args="${dargs(i, { $: 'this.value' })}" aria-label="Tipo do documento">
-                ${tipoOptions.map((t) => `<option value="${t}" ${doc.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
+                ${(tipoOptions.includes(doc.tipo) ? tipoOptions : [...tipoOptions, doc.tipo]).map((t) => `<option value="${t}" ${doc.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}
             </select>
             <button type="button" class="reg-doc-item-remove" data-click="removeRegDoc" data-click-args="${dargs(i)}" aria-label="Remover documento">
                 <i class="fas fa-times"></i>
@@ -1938,7 +2012,7 @@ function renderRegDocList() {
 function renderRegDocTypeList() {
     const list = document.getElementById('reg-doc-type-list');
     if (!list) return;
-    const types = [...admissionalDocTypes, 'Outros'];
+    const types = [...getAdmissionalDocTypes(), 'Outros'];
     list.innerHTML = types
         .map((tipo) => {
             const attached = pendingRegDocs.some((d) => d.tipo === tipo);
@@ -2814,10 +2888,15 @@ window.pesquisacep = async function (valor) {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    orgDeptField = createSelectField('orgchart-dept-filter', () => renderOrgChart());
     await loadRhSidebar();
     await fetchEmployees();
     await fetchExpiringDocuments();
     await fetchAdmissionalDocTypes();
+    document.getElementById('contract-type')?.addEventListener('change', () => {
+        renderRegDocTypeList();
+        renderRegDocList();
+    });
     populateDeptFilterOptions();
     renderTable(employees);
     renderAlertsBanner();

@@ -310,10 +310,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="rescisao-emp">Colaborador <span class="req">*</span></label>
-                    <select id="rescisao-emp" class="form-input" data-change="onRescisaoEmpChange">
-                        <option value="">Selecione</option>
-                    </select>
+                    <label class="form-label" for="rescisao-emp-trigger">Colaborador <span class="req">*</span></label>
+                    <div class="select-field" id="rescisao-emp-wrap">
+                        <button type="button" class="form-input date-field-trigger select-trigger" id="rescisao-emp-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="rescisao-emp-label" class="select-placeholder">Selecione</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="rescisao-emp">
+                        <div class="select-popover" id="rescisao-emp-popover" role="listbox"></div>
+                    </div>
                 </div>
 
                 <div class="form-row-2">
@@ -361,9 +366,9 @@
                 <div class="form-group">
                     <label class="form-label" for="rescisao-data-trigger">Data de Desligamento <span class="req">*</span></label>
                     <div class="date-field-wrap" id="rescisao-data-wrap">
-                        <button type="button" class="form-input date-field-trigger" id="rescisao-data-trigger">
-                            <i class="fas fa-calendar-day"></i>
-                            <span id="rescisao-data-label">Selecione a data</span>
+                        <button type="button" class="form-input date-field-trigger" id="rescisao-data-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="rescisao-data-label" class="select-placeholder">Selecione</span>
                         </button>
                         <input type="hidden" id="rescisao-data">
                         <div class="calendar-popover" id="rescisao-data-popover">

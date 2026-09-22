@@ -186,7 +186,8 @@ async function loadData() {
         gender: e.gender,
         salary: e.salary,
         pcd: e.pcd,
-        racaCor: e.raca_cor,
+        // Cadastros antigos guardam "Branca"; o valor atual da lista é "Branco".
+        racaCor: e.raca_cor === 'Branca' ? 'Branco' : e.raca_cor,
     }));
     vacations = (vacData || []).map((v) => ({
         id: v.id,
@@ -245,12 +246,10 @@ function updateMetrics() {
     setText('count-afastados', afastados);
 
     const admThisMonth = employees.filter((e) => e.admissionDate && new Date(e.admissionDate + 'T00:00:00') >= thisMonthStart).length;
-    const termThisMonth = employees.filter((e) => e.terminationDate && new Date(e.terminationDate + 'T00:00:00') >= thisMonthStart).length;
     const feriasThisMonth = vacations.filter((v) => v.status === 'aprovado' && v.startDate && new Date(v.startDate + 'T00:00:00') >= thisMonthStart).length;
 
     const deltaAtivosEl = document.getElementById('delta-ativos');
     const deltaFeriasEl = document.getElementById('delta-ferias');
-    const deltaInativosEl = document.getElementById('delta-inativos');
     if (deltaAtivosEl) {
         deltaAtivosEl.textContent = admThisMonth > 0 ? `+${admThisMonth} admissão(ões) este mês` : '';
         deltaAtivosEl.className = admThisMonth > 0 ? 'card-delta up' : 'card-delta';
@@ -258,10 +257,6 @@ function updateMetrics() {
     if (deltaFeriasEl) {
         deltaFeriasEl.textContent = feriasThisMonth > 0 ? `${feriasThisMonth} início(s) este mês` : '';
         deltaFeriasEl.className = 'card-delta';
-    }
-    if (deltaInativosEl) {
-        deltaInativosEl.textContent = termThisMonth > 0 ? `+${termThisMonth} desligamento(s) este mês` : '';
-        deltaInativosEl.className = termThisMonth > 0 ? 'card-delta down' : 'card-delta';
     }
 }
 
@@ -646,7 +641,7 @@ function updateGenderChart() {
 }
 
 const RACA_COLORS = {
-    Branca: PALETTE.sky,
+    Branco: PALETTE.sky,
     Preta: PALETTE.indigoDeep,
     Parda: PALETTE.amber,
     Amarela: PALETTE.teal,

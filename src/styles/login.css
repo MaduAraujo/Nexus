@@ -140,8 +140,14 @@ body {
 #form-login .form-subtitle {
     margin-bottom: 2.25rem;
 }
-#forgot-s1 .form-subtitle {
+#forgot-s1 .form-subtitle,
+#form-mfa .form-subtitle {
     margin-bottom: 1.75rem;
+}
+
+/* Mesmo respiro sob o logo da recuperação de senha, onde o indicador de etapas ocupa margem + 7px + margem acima do título. */
+#form-mfa .form-title {
+    margin-top: calc(1rem + 7px + 1.5rem);
 }
 
 .profile-grid {
@@ -1234,6 +1240,9 @@ body {
     }
     .forgot-steps {
         margin-bottom: 1.25rem;
+    }
+    #form-mfa .form-title {
+        margin-top: calc(1rem + 7px + 1.25rem);
     }
     .btn-submit {
         padding: 0.8rem;
