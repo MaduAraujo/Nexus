@@ -1,8 +1,14 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { isBusinessHours, nextBusinessHourStart } from "../_shared/quiet-hours.ts";
+import { isBusinessHours, nextBusinessHourStart } from "../_shared/quiet-hours.mjs";
+import { securityAlertBody, alertNotificationBody, isStalePushError } from "../_shared/push-format.mjs";
 import { corsHeadersFor } from "../_shared/cors.ts";
+
+const QUIET_HOURS = {
+  startHour: Number(Deno.env.get("QUIET_HOURS_START_HOUR") ?? "8"),
+  endHour: Number(Deno.env.get("QUIET_HOURS_END_HOUR") ?? "18"),
+};
 
 webpush.setVapidDetails(
   "mailto:suporte@nexus-nine-zeta.vercel.app",
@@ -14,14 +20,6 @@ const ALERT_TABLES: Record<string, { notifPrefKey: string; title: string; url: s
   compliance_alerts: { notifPrefKey: "compliance", title: "Alerta de compliance", url: "/src/screens/perfil-colaborador.html", columns: "employee_id, alertas, push_scheduled_at" },
   burnout_alerts: { notifPrefKey: "burnout", title: "Alerta de sobrecarga", url: "/src/screens/perfil-colaborador.html", columns: "employee_id, alertas, push_scheduled_at" },
   security_alerts: { notifPrefKey: "", title: "Alerta de segurança", url: "/src/screens/seguranca.html", columns: "kind, severity, push_scheduled_at" },
-};
-
-const SECURITY_PUSH_BODY: Record<string, string> = {
-  login_failures: "Várias tentativas de login falhas em uma conta.",
-  login_after_failures: "Login concluído logo depois de várias falhas.",
-  mass_export: "Volume incomum de exportações de dados.",
-  mass_download: "Volume incomum de downloads de arquivos.",
-  off_hours_access: "Acesso ao painel fora do horário comercial.",
 };
 
 serve(async (req) => {
@@ -57,24 +55,18 @@ serve(async (req) => {
     if (!alert) return json({ error: "Alerta não encontrado" }, 404);
 
     const now = new Date();
-    if (!isBusinessHours(now)) {
+    if (!isBusinessHours(now, QUIET_HOURS)) {
       if (!alert.push_scheduled_at || new Date(alert.push_scheduled_at) <= now) {
         await adminClient
           .from(table)
-          .update({ push_scheduled_at: nextBusinessHourStart(now).toISOString() })
+          .update({ push_scheduled_at: nextBusinessHourStart(now, QUIET_HOURS).toISOString() })
           .eq("id", id);
       }
       return json({ sent: 0, deferred: true });
     }
 
-    let bodyText: string;
-    if (table === "security_alerts") {
-      bodyText = SECURITY_PUSH_BODY[alert.kind as string] ?? "Comportamento incomum detectado.";
-    } else {
-      const alertas: { titulo?: string }[] = alert.alertas || [];
-      const first = alertas[0]?.titulo || cfg.title;
-      bodyText = alertas.length > 1 ? `${first} (+${alertas.length - 1})` : first;
-    }
+    const bodyText =
+      table === "security_alerts" ? securityAlertBody(alert.kind as string) : alertNotificationBody(alert.alertas, cfg.title);
     const payload = JSON.stringify({ title: cfg.title, body: bodyText, url: cfg.url });
 
     const { data: adminSubs } = await adminClient
@@ -108,8 +100,7 @@ serve(async (req) => {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
           sent++;
         } catch (err) {
-          const statusCode = (err as { statusCode?: number })?.statusCode;
-          if (statusCode === 404 || statusCode === 410) staleAdminIds.push(sub.id);
+          if (isStalePushError(err)) staleAdminIds.push(sub.id);
         }
       }),
       ...employeeSubs.map(async (sub) => {
@@ -117,8 +108,7 @@ serve(async (req) => {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
           sent++;
         } catch (err) {
-          const statusCode = (err as { statusCode?: number })?.statusCode;
-          if (statusCode === 404 || statusCode === 410) staleEmployeeIds.push(sub.id);
+          if (isStalePushError(err)) staleEmployeeIds.push(sub.id);
         }
       }),
     ]);

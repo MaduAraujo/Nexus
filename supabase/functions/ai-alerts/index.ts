@@ -2,75 +2,28 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
+import { shapeSnapshot, sevenDaysAgo } from "../_shared/ai-alerts-snapshot.mjs";
 
 async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: ReturnType<typeof createClient>, today: string) {
-  const d7 = new Date();
-  d7.setDate(d7.getDate() - 7);
-  const sevenDaysAgo = d7.toISOString().split("T")[0];
-
   const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
     admin.from("employees").select("id,name,dept,role,status,admission_date,contract_type").eq("status", "Ativo"),
     admin.from("vacations").select("id,employee_id,start_date,end_date,days,created_at,employees(name)").eq("status", "pendente").order("created_at"),
     admin.from("adjustment_requests").select("id,employee_id,date,tipo,justificativa,created_at,employees(name)").eq("status", "pendente").order("created_at"),
     admin.from("burnout_alerts").select("id,employee_id,date,alertas,created_at,employees(name)").eq("lido", false).order("created_at", { ascending: false }).limit(15),
     admin.from("documents").select("employee_id,name,created_at,employees(name)").eq("status", "pendente").eq("source", "colaborador"),
-    admin.from("time_records").select("employee_id,date,entrada").gte("date", sevenDaysAgo).lte("date", today),
+    admin.from("time_records").select("employee_id,date,entrada").gte("date", sevenDaysAgo(new Date(today))).lte("date", today),
     caller.from("ai_decision_memory_decrypted").select("action_type,description,created_at").order("created_at", { ascending: false }).limit(10),
   ]);
 
-  const employees: any[]         = r1.data ?? [];
-  const pendingVacations: any[]  = r2.data ?? [];
-  const pendingAdjustments: any[]= r3.data ?? [];
-  const burnoutAlerts: any[]     = r4.data ?? [];
-  const pendingDocs: any[]       = r5.data ?? [];
-  const recentRecords: any[]     = r6.data ?? [];
-  const decisions: any[]         = r7.data ?? [];
-
-  const presentIds = new Set(recentRecords.filter((r) => r.entrada).map((r) => r.employee_id));
-  const noRecentRecords = employees
-    .filter((e) => !presentIds.has(e.id))
-    .map((e) => ({ name: e.name, dept: e.dept ?? "N/A" }));
-
-  const now = Date.now();
-  const newHires = employees
-    .filter((e) => e.admission_date && now - new Date(e.admission_date + "T00:00:00").getTime() <= 90 * 86_400_000)
-    .map((e) => ({
-      name: e.name, dept: e.dept ?? "N/A",
-      days_at_company: Math.floor((now - new Date(e.admission_date + "T00:00:00").getTime()) / 86_400_000),
-    }));
-
-  return {
-    date: today,
-    active_employees: employees.length,
-    departments: [...new Set(employees.map((e: any) => e.dept).filter(Boolean))],
-    pending_vacations: pendingVacations.map((v) => ({
-      id: v.id,
-      employee: v.employees?.name ?? "N/A",
-      start: v.start_date, end: v.end_date, days: v.days,
-      waiting_days: Math.floor((now - new Date(v.created_at).getTime()) / 86_400_000),
-    })),
-    pending_adjustments: pendingAdjustments.map((a) => ({
-      id: a.id,
-      employee: a.employees?.name ?? "N/A",
-      date: a.date, type: a.tipo,
-      justification: String(a.justificativa ?? "").substring(0, 100),
-    })),
-    burnout_alerts: burnoutAlerts.map((b) => ({
-      id: b.id,
-      employee: b.employees?.name ?? "N/A",
-      date: b.date, alerts: b.alertas,
-    })),
-    pending_documents: pendingDocs.map((d) => ({
-      employee: d.employees?.name ?? "N/A", document: d.name,
-    })),
-    employees_no_records_last_7days: noRecentRecords,
-    new_hires_last_90days: newHires,
-    recent_decisions: decisions.map((d) => ({
-      action: d.action_type,
-      description: d.description,
-      date: new Date(d.created_at).toLocaleDateString("pt-BR"),
-    })),
-  };
+  return shapeSnapshot(today, {
+    employees: r1.data ?? [],
+    pendingVacations: r2.data ?? [],
+    pendingAdjustments: r3.data ?? [],
+    burnoutAlerts: r4.data ?? [],
+    pendingDocs: r5.data ?? [],
+    recentRecords: r6.data ?? [],
+    decisions: r7.data ?? [],
+  });
 }
 
 function buildSystem(snapshot: object, today: string): string {

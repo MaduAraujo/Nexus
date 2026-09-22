@@ -1,9 +1,15 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { isBusinessHours, nextBusinessHourStart } from "../_shared/quiet-hours.ts";
+import { isBusinessHours, nextBusinessHourStart } from "../_shared/quiet-hours.mjs";
+import { filterEmployeeIdsByPref, plainTextPreview, isStalePushError } from "../_shared/push-format.mjs";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
+
+const QUIET_HOURS = {
+  startHour: Number(Deno.env.get("QUIET_HOURS_START_HOUR") ?? "8"),
+  endHour: Number(Deno.env.get("QUIET_HOURS_END_HOUR") ?? "18"),
+};
 
 webpush.setVapidDetails(
   "mailto:suporte@nexus-nine-zeta.vercel.app",
@@ -84,11 +90,11 @@ serve(async (req) => {
     }
 
     const now = new Date();
-    if (!isBusinessHours(now)) {
+    if (!isBusinessHours(now, QUIET_HOURS)) {
       if (!message.scheduled_at || new Date(message.scheduled_at) <= now) {
         await adminClient
           .from("messages")
-          .update({ scheduled_at: nextBusinessHourStart(now).toISOString() })
+          .update({ scheduled_at: nextBusinessHourStart(now, QUIET_HOURS).toISOString() })
           .eq("id", message_id);
       }
       return new Response(JSON.stringify({ sent: 0, deferred: true }), {
@@ -101,9 +107,7 @@ serve(async (req) => {
     if (message.destino !== "Todos") employeeQuery = employeeQuery.eq("dept", message.destino);
     const { data: employees } = await employeeQuery;
 
-    const employeeIds = (employees ?? [])
-      .filter((e) => e.notif_prefs?.comunicados !== false)
-      .map((e) => e.id);
+    const employeeIds = filterEmployeeIdsByPref(employees, "comunicados");
 
     if (!employeeIds.length) {
       await adminClient.from("messages").update({ push_sent_at: now.toISOString() }).eq("id", message_id);
@@ -118,10 +122,9 @@ serve(async (req) => {
       .select("id, endpoint, p256dh, auth")
       .in("employee_id", employeeIds);
 
-    const plainText = message.texto.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const payload = JSON.stringify({
       title: `Novo comunicado (${message.categoria})`,
-      body: plainText.length > 140 ? `${plainText.slice(0, 140)}…` : plainText,
+      body: plainTextPreview(message.texto),
       url: "/src/screens/comunicados-colaborador.html",
     });
 
@@ -137,8 +140,7 @@ serve(async (req) => {
           );
           sent++;
         } catch (err) {
-          const statusCode = (err as { statusCode?: number })?.statusCode;
-          if (statusCode === 404 || statusCode === 410) staleIds.push(sub.id);
+          if (isStalePushError(err)) staleIds.push(sub.id);
         }
       })
     );

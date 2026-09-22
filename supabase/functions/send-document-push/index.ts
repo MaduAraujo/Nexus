@@ -1,9 +1,15 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { isBusinessHours } from "../_shared/quiet-hours.ts";
+import { isBusinessHours } from "../_shared/quiet-hours.mjs";
+import { isValidDocumentIds, groupDocumentsByEmployee, documentPushMessage, filterEmployeeIdsByPref, isStalePushError } from "../_shared/push-format.mjs";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
+
+const QUIET_HOURS = {
+  startHour: Number(Deno.env.get("QUIET_HOURS_START_HOUR") ?? "8"),
+  endHour: Number(Deno.env.get("QUIET_HOURS_END_HOUR") ?? "18"),
+};
 
 webpush.setVapidDetails(
   "mailto:suporte@nexus-nine-zeta.vercel.app",
@@ -12,7 +18,6 @@ webpush.setVapidDetails(
 );
 
 const MAX_DOCUMENTS = 50;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
@@ -24,7 +29,7 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const ids: string[] = Array.isArray(body?.document_ids) ? body.document_ids : [];
-    if (!ids.length || ids.length > MAX_DOCUMENTS || !ids.every((id) => typeof id === "string" && UUID_RE.test(id))) {
+    if (!isValidDocumentIds(ids, MAX_DOCUMENTS)) {
       return json({ error: "document_ids inválido" }, 400);
     }
 
@@ -42,7 +47,7 @@ serve(async (req) => {
     if (!mfaSatisfied(user, authHeader, true)) return json({ error: MFA_REQUIRED_MESSAGE }, 403);
 
     // Direito à desconexão: fora do horário comercial não há push; o aviso continua na tela inicial do colaborador.
-    if (!isBusinessHours(new Date())) return json({ sent: 0, skipped: "fora_do_horario" });
+    if (!isBusinessHours(new Date(), QUIET_HOURS)) return json({ sent: 0, skipped: "fora_do_horario" });
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -55,17 +60,11 @@ serve(async (req) => {
       .not("employee_id", "is", null);
     if (!docs?.length) return json({ sent: 0 });
 
-    const byEmployee = new Map<string, { tipos: string[]; toSign: number }>();
-    for (const d of docs) {
-      const entry = byEmployee.get(d.employee_id) ?? { tipos: [], toSign: 0 };
-      entry.tipos.push(d.tipo);
-      if (d.requer_assinatura) entry.toSign++;
-      byEmployee.set(d.employee_id, entry);
-    }
+    const byEmployee = groupDocumentsByEmployee(docs);
 
     const employeeIds = [...byEmployee.keys()];
     const { data: employees } = await adminClient.from("employees").select("id, notif_prefs").in("id", employeeIds);
-    const allowed = new Set((employees ?? []).filter((e) => e.notif_prefs?.documentos !== false).map((e) => e.id));
+    const allowed = new Set(filterEmployeeIdsByPref(employees, "documentos"));
     if (!allowed.size) return json({ sent: 0 });
 
     const { data: subs } = await adminClient
@@ -79,18 +78,12 @@ serve(async (req) => {
     await Promise.all(
       (subs ?? []).map(async (sub) => {
         const entry = byEmployee.get(sub.employee_id)!;
-        const n = entry.tipos.length;
-        const payload = JSON.stringify({
-          title: entry.toSign ? "Documento para assinar" : "Novo documento do RH",
-          body: n === 1 ? entry.tipos[0] : `${n} documentos: ${entry.tipos.slice(0, 3).join(", ")}${n > 3 ? "…" : ""}`,
-          url: "/src/screens/documentos-colaborador.html",
-        });
+        const payload = JSON.stringify({ ...documentPushMessage(entry), url: "/src/screens/documentos-colaborador.html" });
         try {
           await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
           sent++;
         } catch (err) {
-          const statusCode = (err as { statusCode?: number })?.statusCode;
-          if (statusCode === 404 || statusCode === 410) staleIds.push(sub.id);
+          if (isStalePushError(err)) staleIds.push(sub.id);
         }
       }),
     );
