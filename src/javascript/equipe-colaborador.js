@@ -371,3 +371,30 @@ function showToast(msg, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 4000);
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        loadTeam,
+        loadPendingVacations,
+        loadTeamBalances,
+        getJornadaMin,
+        calcWorkedMinEquipe,
+        minToStrEquipe,
+        saldoBadgeHtml,
+        getInitials,
+        escHtml,
+        fmtBR,
+        approveVacation: window.approveVacation,
+        confirmRejectVacation: window.confirmRejectVacation,
+        confirmEscalateToRh: window.confirmEscalateToRh,
+        __setStateForTest(next) {
+            if ('myEmployeeId' in next) myEmployeeId = next.myEmployeeId;
+            if ('myEmployee' in next) myEmployee = next.myEmployee;
+            if ('rejectingId' in next) rejectingId = next.rejectingId;
+            if ('escalatingId' in next) escalatingId = next.escalatingId;
+        },
+        __getStateForTest() {
+            return { teamMembers, pendingVacations, teamBalances };
+        },
+    };
+}

@@ -1,39 +1,55 @@
+function matchOne(row, op, col, val) {
+    switch (op) {
+        case 'eq':
+            return row[col] === val;
+        case 'neq':
+            return row[col] !== val;
+        case 'in':
+            return val.includes(row[col]);
+        case 'is':
+            return row[col] === val;
+        case 'gte':
+            return row[col] >= val;
+        case 'lte':
+            return row[col] <= val;
+        case 'lt':
+            return row[col] < val;
+        case 'gt':
+            return row[col] > val;
+        default:
+            return true;
+    }
+}
+
 function applyFilters(rows, filters) {
     return rows.filter((row) =>
-        filters.every((f) => {
-            switch (f.op) {
-                case 'eq':
-                    return row[f.col] === f.val;
-                case 'neq':
-                    return row[f.col] !== f.val;
-                case 'in':
-                    return f.val.includes(row[f.col]);
-                case 'is':
-                    return row[f.col] === f.val;
-                case 'gte':
-                    return row[f.col] >= f.val;
-                case 'lte':
-                    return row[f.col] <= f.val;
-                case 'lt':
-                    return row[f.col] < f.val;
-                case 'gt':
-                    return row[f.col] > f.val;
-                default:
-                    return true;
-            }
-        })
+        filters.every((f) => (f.op === 'or' ? f.clauses.some((c) => matchOne(row, c.op, c.col, c.val)) : matchOne(row, f.op, f.col, f.val)))
     );
+}
+
+// Parser mínimo do formato do PostgREST usado em sb.from(t).or('col.eq.val,col2.eq.val2') — só cobre
+// o operador `eq`, que é o único que o front-end deste projeto usa em `.or(...)`.
+function parseOrClause(orString) {
+    return orString.split(',').map((clause) => {
+        const [col, op, ...rest] = clause.split('.');
+        return { col, op, val: rest.join('.') };
+    });
 }
 
 const MFA_OK = { currentLevel: 'aal2', nextLevel: 'aal2' };
 
 function createMockSupabase(tables = {}, { user = null, authError = null, mfaLevel = MFA_OK, mfaFactors = [], mfaError = null } = {}) {
     const mfaCalls = [];
+    const upsertCalls = [];
     function builder(table) {
         const filters = [];
         let single = false;
         let orderBy = null;
         let limitN = null;
+        let pendingUpsert = null;
+        let pendingUpdate = null;
+        let pendingInsert = null;
+        let idSeq = 0;
 
         const api = {
             select() {
@@ -41,6 +57,26 @@ function createMockSupabase(tables = {}, { user = null, authError = null, mfaLev
             },
             eq(col, val) {
                 filters.push({ op: 'eq', col, val });
+                return api;
+            },
+            or(orString) {
+                filters.push({ op: 'or', clauses: parseOrClause(orString) });
+                return api;
+            },
+            // Simplificado: não respeita onConflict de verdade, só junta as linhas novas às existentes
+            // (por índice de `id`, se houver) e registra a chamada para o teste inspecionar.
+            upsert(rows, opts) {
+                pendingUpsert = { rows: Array.isArray(rows) ? rows : [rows], opts };
+                return api;
+            },
+            // update(patch): aplicado às linhas que já baterem com os filtros (eq/in/...) acumulados
+            // até aqui — encadeie os filtros antes do .then()/await, como no código real.
+            update(patch) {
+                pendingUpdate = patch;
+                return api;
+            },
+            insert(rows) {
+                pendingInsert = Array.isArray(rows) ? rows : [rows];
                 return api;
             },
             neq(col, val) {
@@ -85,7 +121,32 @@ function createMockSupabase(tables = {}, { user = null, authError = null, mfaLev
             },
             then(resolve, reject) {
                 try {
-                    let rows = applyFilters(tables[table] || [], filters);
+                    if (pendingUpsert) {
+                        upsertCalls.push({ table, ...pendingUpsert });
+                        const conflictCols = (pendingUpsert.opts?.onConflict || '').split(',').filter(Boolean);
+                        const existing = tables[table] || (tables[table] = []);
+                        for (const row of pendingUpsert.rows) {
+                            const match = conflictCols.length ? existing.find((r) => conflictCols.every((c) => r[c] === row[c])) : undefined;
+                            if (match) Object.assign(match, row);
+                            else existing.push({ ...row });
+                        }
+                        return resolve({ data: pendingUpsert.rows, error: null });
+                    }
+                    let rows;
+                    if (pendingUpdate) {
+                        const existing = tables[table] || [];
+                        rows = applyFilters(existing, filters);
+                        rows.forEach((row) => Object.assign(row, pendingUpdate));
+                    } else if (pendingInsert) {
+                        const existing = tables[table] || (tables[table] = []);
+                        rows = pendingInsert.map((row) => {
+                            const created = { id: `mock-id-${++idSeq}`, ...row };
+                            existing.push(created);
+                            return created;
+                        });
+                    } else {
+                        rows = applyFilters(tables[table] || [], filters);
+                    }
                     if (orderBy) {
                         const { col, ascending } = orderBy;
                         rows = [...rows].sort((a, b) => {
@@ -143,7 +204,22 @@ function createMockSupabase(tables = {}, { user = null, authError = null, mfaLev
                 },
             },
         },
+        // Sem Realtime de verdade aqui: o front chama sb.channel(...).on(...).subscribe() para reagir
+        // a mudanças ao vivo, mas nenhum teste precisa disparar esse evento — só que a chamada encadeada
+        // não quebre.
+        channel() {
+            const chan = {
+                on() {
+                    return chan;
+                },
+                subscribe() {
+                    return chan;
+                },
+            };
+            return chan;
+        },
         mfaCalls,
+        upsertCalls,
     };
 }
 

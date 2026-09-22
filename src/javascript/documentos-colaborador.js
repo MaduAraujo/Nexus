@@ -1,32 +1,122 @@
+const RETENTION_YEARS = {
+    'Contrato de Trabalho': 30,
+    'Termo de Rescisão': 30,
+    Homologação: 30,
+    'Guia FGTS': 30,
+    'Carteira de Trabalho': 30,
+    'Exame Admissional': 20,
+    'Exame Demissional': 20,
+    'Termo de Compromisso de Estágio': 30,
+    'Plano de Atividades de Estágio': 30,
+    'Aviso Prévio': 5,
+    RG: 5,
+    CPF: 5,
+    'Comprovante de Residência': 5,
+};
+const DEFAULT_RETENTION_YEARS = 5;
+function computeRetentionDate(tipo) {
+    const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + years);
+    return d.toISOString().slice(0, 10);
+}
+
+// Documentos que o RH preenche/assina e devolve ao colaborador (mesmos nomes da lista RETURN_TIPOS em arquivos.js).
+const RETURN_TIPOS = [
+    'Termo de Compromisso de Estágio',
+    'Plano de Atividades de Estágio',
+    'Relatório de Atividades de Estágio',
+    'Termo de Vale-Transporte',
+    'Ficha de Salário-Família',
+    'Termo de Dependentes para o Imposto de Renda',
+];
+const SELF_UPLOAD_TIPOS = [
+    'RG',
+    'CPF',
+    'Comprovante de Residência',
+    'Carteira de Trabalho',
+    'Diploma',
+    'Certificado',
+    'Exame Médico',
+    'Outros',
+    'Comprovante de Matrícula e Frequência',
+    ...RETURN_TIPOS,
+];
+
+function getIconInfo(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf') return { cls: 'pdf', fa: 'fa-file-pdf' };
+    if (['doc', 'docx'].includes(ext)) return { cls: 'doc', fa: 'fa-file-word' };
+    if (['jpg', 'jpeg', 'png'].includes(ext)) return { cls: 'img', fa: 'fa-file-image' };
+    return { cls: 'other', fa: 'fa-file' };
+}
+
+const statusMap = {
+    pendente: { cls: 'pendente', label: 'Pendente', icon: 'fa-clock' },
+    aprovado: { cls: 'aprovado', label: 'Aprovado', icon: 'fa-check-circle' },
+    recusado: { cls: 'recusado', label: 'Recusado', icon: 'fa-times-circle' },
+};
+
+// Quais tipos obrigatórios ainda faltam, e quais deles o colaborador pode enviar sozinho (o resto
+// espera o RH). `haveTipos` já vem filtrado para o que conta como "documento presente" (ver renderPendingDocsBanner).
+function missingRequiredTipos(requiredTipos, haveTipos) {
+    return requiredTipos.filter((t) => !haveTipos.includes(t));
+}
+
+let myEmployeeId = null;
+let emp = null;
+let user = null;
+let myDocs = [];
+let allMyDocs = [];
+let requiredTipos = [];
+let selectedFile = null;
+let selectedId = null;
+
+async function refreshDocs() {
+    const { data } = await sb.from('documents').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false });
+    allMyDocs = data || [];
+    myDocs = allMyDocs.filter((d) => d.is_current !== false);
+    try {
+        localStorage.setItem(`nexus:docs-seen:${myEmployeeId}`, new Date().toISOString());
+    } catch {
+        /* localStorage indisponível (ex.: modo privado) — não é crítico, só evita o badge "novo" */
+    }
+}
+
+async function loadRequirements() {
+    const { data } = await sb.from('document_requirements').select('tipo,category,contract_type').eq('category', 'admissional').eq('obrigatorio', true);
+    requiredTipos = RequisitosDocumentos.requiredTipos(data, 'admissional', emp?.contract_type);
+}
+
+async function logAudit(action, doc) {
+    await sb.from('document_audit_log').insert({
+        document_id: doc.id || null,
+        document_name: doc.name,
+        employee_id: myEmployeeId,
+        action,
+        actor_id: user.id,
+        actor_name: emp?.name || 'Colaborador',
+        actor_profile: 'colaborador',
+        details: { email: user.email },
+    });
+}
+
+// Documento do colaborador que o RH já preencheu, assinou e devolveu: existe uma versão do RH, do mesmo tipo, criada depois.
+function statusOf(doc) {
+    const returned =
+        doc.source === 'colaborador' &&
+        RETURN_TIPOS.includes(doc.tipo) &&
+        myDocs.some((r) => r.source === 'Administrador' && r.tipo === doc.tipo && r.created_at > doc.created_at);
+    if (returned) return { cls: 'aprovado', label: 'Devolvido pelo RH', icon: 'fa-reply' };
+    return statusMap[doc.status] || statusMap.pendente;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', 'name,contract_type');
     if (!auth) return;
-    const myEmployeeId = auth.profile.employee_id;
-    const emp = auth.employee;
-    const user = auth.user;
-
-    const RETENTION_YEARS = {
-        'Contrato de Trabalho': 30,
-        'Termo de Rescisão': 30,
-        Homologação: 30,
-        'Guia FGTS': 30,
-        'Carteira de Trabalho': 30,
-        'Exame Admissional': 20,
-        'Exame Demissional': 20,
-        'Termo de Compromisso de Estágio': 30,
-        'Plano de Atividades de Estágio': 30,
-        'Aviso Prévio': 5,
-        RG: 5,
-        CPF: 5,
-        'Comprovante de Residência': 5,
-    };
-    const DEFAULT_RETENTION_YEARS = 5;
-    function computeRetentionDate(tipo) {
-        const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
-        const d = new Date();
-        d.setFullYear(d.getFullYear() + years);
-        return d.toISOString().slice(0, 10);
-    }
+    myEmployeeId = auth.profile.employee_id;
+    emp = auth.employee;
+    user = auth.user;
 
     const docList = document.getElementById('doc-list');
     const docCountBadge = document.getElementById('doc-count-badge');
@@ -41,53 +131,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mobileSelectText = document.getElementById('doc-select-mobile-text');
     const mobileSelectPopover = document.getElementById('doc-select-mobile-popover');
 
-    let myDocs = [];
-    let allMyDocs = [];
-    let requiredTipos = [];
-    let selectedFile = null;
-    let selectedId = null;
-
-    // Documentos que o RH preenche/assina e devolve ao colaborador (mesmos nomes da lista RETURN_TIPOS em arquivos.js).
-    const RETURN_TIPOS = [
-        'Termo de Compromisso de Estágio',
-        'Plano de Atividades de Estágio',
-        'Relatório de Atividades de Estágio',
-        'Termo de Vale-Transporte',
-        'Ficha de Salário-Família',
-        'Termo de Dependentes para o Imposto de Renda',
-    ];
-    const SELF_UPLOAD_TIPOS = [
-        'RG',
-        'CPF',
-        'Comprovante de Residência',
-        'Carteira de Trabalho',
-        'Diploma',
-        'Certificado',
-        'Exame Médico',
-        'Outros',
-        'Comprovante de Matrícula e Frequência',
-        ...RETURN_TIPOS,
-    ];
-
-    async function refreshDocs() {
-        const { data } = await sb.from('documents').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false });
-        allMyDocs = data || [];
-        myDocs = allMyDocs.filter((d) => d.is_current !== false);
-        try {
-            localStorage.setItem(`nexus:docs-seen:${myEmployeeId}`, new Date().toISOString());
-        } catch {}
-    }
-
-    async function loadRequirements() {
-        const { data } = await sb.from('document_requirements').select('tipo,category,contract_type').eq('category', 'admissional').eq('obrigatorio', true);
-        requiredTipos = RequisitosDocumentos.requiredTipos(data, 'admissional', emp?.contract_type);
-    }
-
     function renderPendingDocsBanner() {
         const banner = document.getElementById('pending-docs-banner');
         if (!banner) return;
         const haveTipos = myDocs.filter((d) => d.source === 'Administrador' || d.status === 'aprovado').map((d) => d.tipo);
-        const missing = requiredTipos.filter((t) => !haveTipos.includes(t));
+        const missing = missingRequiredTipos(requiredTipos, haveTipos);
         if (!missing.length) {
             banner.classList.add('hidden');
             return;
@@ -110,43 +158,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         openUploadModal();
         window.setUploadTipo?.(tipo);
     };
-
-    async function logAudit(action, doc) {
-        await sb.from('document_audit_log').insert({
-            document_id: doc.id || null,
-            document_name: doc.name,
-            employee_id: myEmployeeId,
-            action,
-            actor_id: user.id,
-            actor_name: emp?.name || 'Colaborador',
-            actor_profile: 'colaborador',
-            details: { email: user.email },
-        });
-    }
-
-    function getIconInfo(name) {
-        const ext = (name || '').split('.').pop().toLowerCase();
-        if (ext === 'pdf') return { cls: 'pdf', fa: 'fa-file-pdf' };
-        if (['doc', 'docx'].includes(ext)) return { cls: 'doc', fa: 'fa-file-word' };
-        if (['jpg', 'jpeg', 'png'].includes(ext)) return { cls: 'img', fa: 'fa-file-image' };
-        return { cls: 'other', fa: 'fa-file' };
-    }
-
-    const statusMap = {
-        pendente: { cls: 'pendente', label: 'Pendente', icon: 'fa-clock' },
-        aprovado: { cls: 'aprovado', label: 'Aprovado', icon: 'fa-check-circle' },
-        recusado: { cls: 'recusado', label: 'Recusado', icon: 'fa-times-circle' },
-    };
-
-    // Documento do colaborador que o RH já preencheu, assinou e devolveu: existe uma versão do RH, do mesmo tipo, criada depois.
-    function statusOf(doc) {
-        const returned =
-            doc.source === 'colaborador' &&
-            RETURN_TIPOS.includes(doc.tipo) &&
-            myDocs.some((r) => r.source === 'Administrador' && r.tipo === doc.tipo && r.created_at > doc.created_at);
-        if (returned) return { cls: 'aprovado', label: 'Devolvido pelo RH', icon: 'fa-reply' };
-        return statusMap[doc.status] || statusMap.pendente;
-    }
 
     function renderList() {
         renderPendingDocsBanner();
@@ -625,3 +636,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([refreshDocs(), loadRequirements()]);
     renderList();
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        computeRetentionDate,
+        getIconInfo,
+        statusOf,
+        missingRequiredTipos,
+        refreshDocs,
+        loadRequirements,
+        logAudit,
+        __setStateForTest(next) {
+            if ('myEmployeeId' in next) myEmployeeId = next.myEmployeeId;
+            if ('emp' in next) emp = next.emp;
+            if ('user' in next) user = next.user;
+            if ('myDocs' in next) myDocs = next.myDocs;
+        },
+        __getStateForTest() {
+            return { myDocs, allMyDocs, requiredTipos };
+        },
+    };
+}

@@ -1,52 +1,93 @@
+const DEST_ICON_MAP = {
+    Todos: { icon: 'fa-globe', cls: 'dest--todos' },
+    TI: { icon: 'fa-code', cls: 'dest--ti' },
+    RH: { icon: 'fa-user-tie', cls: 'dest--rh' },
+    Financeiro: { icon: 'fa-dollar-sign', cls: 'dest--fin' },
+    Marketing: { icon: 'fa-ad', cls: 'dest--mkt' },
+    Jurídico: { icon: 'fa-gavel', cls: 'dest--jur' },
+    Administrativo: { icon: 'fa-building', cls: 'dest--adm' },
+};
+
+const CATEGORIA_INFO = {
+    Urgente: { icon: 'fa-triangle-exclamation', cls: 'cat--urgente' },
+    Institucional: { icon: 'fa-building-columns', cls: 'cat--institucional' },
+    Benefícios: { icon: 'fa-gift', cls: 'cat--beneficios' },
+    Evento: { icon: 'fa-star', cls: 'cat--evento' },
+    Política: { icon: 'fa-scale-balanced', cls: 'cat--politica' },
+};
+
+const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const timeAgo = (iso) => {
+    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diff < 60) return 'agora mesmo';
+    if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
+    if (diff < 172800) return 'ontem';
+    return fmtDate(iso);
+};
+
+const fmtDateTime = (iso) => {
+    const d = new Date(iso);
+    const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${fmtDate(iso)} às ${time}`;
+};
+
+const PREVIEW_LEN = 220;
+
+let myEmployeeId = null;
+let myDept = '';
+let filtroAtivo = 'todos-vis';
+let allMsgs = [];
+let lidos = new Set();
+
+async function loadData() {
+    const orFilter = myDept ? `destino.eq.Todos,destino.eq.${myDept}` : 'destino.eq.Todos';
+    const [{ data: msgs }, { data: reads }] = await Promise.all([
+        sb.from('messages').select('*').or(orFilter).order('created_at', { ascending: false }),
+        sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
+    ]);
+    allMsgs = msgs || [];
+    lidos = new Set((reads || []).map((r) => r.message_id));
+}
+
+async function marcarLido(msgId) {
+    if (lidos.has(msgId)) return;
+    lidos.add(msgId);
+    await sb.from('message_reads').upsert({ message_id: msgId, employee_id: myEmployeeId }, { onConflict: 'message_id,employee_id' });
+}
+
+async function marcarTodosLidos() {
+    const naoLidos = allMsgs.filter((m) => !lidos.has(m.id));
+    if (!naoLidos.length) return;
+    naoLidos.forEach((m) => lidos.add(m.id));
+    await sb.from('message_reads').upsert(
+        naoLidos.map((m) => ({ message_id: m.id, employee_id: myEmployeeId })),
+        { onConflict: 'message_id,employee_id' }
+    );
+}
+
+// Mesmo filtro (aba "não lidos" + busca) que render() aplica antes de desenhar a lista — extraído
+// para ser testável sem DOM: busca casa com o texto simples do comunicado (sem tags) ou o destino.
+function filterMsgs(msgs, lidosSet, filtro, query) {
+    const q = (query || '').toLowerCase().trim();
+    let filtered = filtro === 'nao-lidos' ? msgs.filter((m) => !lidosSet.has(m.id)) : msgs;
+    if (q) filtered = filtered.filter((m) => comunicadoPlainText(m.texto).toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
+    return filtered;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', 'id,name,role,dept,avatar_color,avatar_url');
     if (!auth) return;
     const employee = auth.employee;
-    const myEmployeeId = employee.id;
-    const myDept = employee.dept || '';
+    myEmployeeId = employee.id;
+    myDept = employee.dept || '';
 
     window.logout = async () => {
         await sb.auth.signOut();
         window.location.href = '../screens/login.html';
     };
-
-    const DEST_ICON_MAP = {
-        Todos: { icon: 'fa-globe', cls: 'dest--todos' },
-        TI: { icon: 'fa-code', cls: 'dest--ti' },
-        RH: { icon: 'fa-user-tie', cls: 'dest--rh' },
-        Financeiro: { icon: 'fa-dollar-sign', cls: 'dest--fin' },
-        Marketing: { icon: 'fa-ad', cls: 'dest--mkt' },
-        Jurídico: { icon: 'fa-gavel', cls: 'dest--jur' },
-        Administrativo: { icon: 'fa-building', cls: 'dest--adm' },
-    };
-
-    const CATEGORIA_INFO = {
-        Urgente: { icon: 'fa-triangle-exclamation', cls: 'cat--urgente' },
-        Institucional: { icon: 'fa-building-columns', cls: 'cat--institucional' },
-        Benefícios: { icon: 'fa-gift', cls: 'cat--beneficios' },
-        Evento: { icon: 'fa-star', cls: 'cat--evento' },
-        Política: { icon: 'fa-scale-balanced', cls: 'cat--politica' },
-    };
-
-    const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
-    const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const timeAgo = (iso) => {
-        const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-        if (diff < 60) return 'agora mesmo';
-        if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
-        if (diff < 86400) return `há ${Math.floor(diff / 3600)}h`;
-        if (diff < 172800) return 'ontem';
-        return fmtDate(iso);
-    };
-
-    const fmtDateTime = (iso) => {
-        const d = new Date(iso);
-        const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        return `${fmtDate(iso)} às ${time}`;
-    };
-
-    const PREVIEW_LEN = 220;
 
     const searchInput = document.getElementById('search-input');
     const searchClear = document.getElementById('search-clear');
@@ -54,35 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const unreadBadge = document.getElementById('unread-badge');
     const unreadCount = document.getElementById('unread-count');
     const btnMarcarTodos = document.getElementById('btn-marcar-todos');
-    let filtroAtivo = 'todos-vis';
-    let allMsgs = [];
-    let lidos = new Set();
-
-    async function loadData() {
-        const orFilter = myDept ? `destino.eq.Todos,destino.eq.${myDept}` : 'destino.eq.Todos';
-        const [{ data: msgs }, { data: reads }] = await Promise.all([
-            sb.from('messages').select('*').or(orFilter).order('created_at', { ascending: false }),
-            sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
-        ]);
-        allMsgs = msgs || [];
-        lidos = new Set((reads || []).map((r) => r.message_id));
-    }
-
-    async function marcarLido(msgId) {
-        if (lidos.has(msgId)) return;
-        lidos.add(msgId);
-        await sb.from('message_reads').upsert({ message_id: msgId, employee_id: myEmployeeId }, { onConflict: 'message_id,employee_id' });
-    }
-
-    async function marcarTodosLidos() {
-        const naoLidos = allMsgs.filter((m) => !lidos.has(m.id));
-        if (!naoLidos.length) return;
-        naoLidos.forEach((m) => lidos.add(m.id));
-        await sb.from('message_reads').upsert(
-            naoLidos.map((m) => ({ message_id: m.id, employee_id: myEmployeeId })),
-            { onConflict: 'message_id,employee_id' }
-        );
-    }
 
     const msgModal = document.getElementById('msg-modal');
 
@@ -140,8 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         btnMarcarTodos?.classList.toggle('hidden', naoLidosCount === 0);
 
-        let filtered = filtroAtivo === 'nao-lidos' ? allMsgs.filter((m) => !lidos.has(m.id)) : allMsgs;
-        if (q) filtered = filtered.filter((m) => comunicadoPlainText(m.texto).toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
+        const filtered = filterMsgs(allMsgs, lidos, filtroAtivo, q);
 
         if (!filtered.length) {
             lista.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>${q || filtroAtivo === 'nao-lidos' ? 'Nenhum resultado encontrado' : 'Nenhum comunicado disponível'}</p><span>${q ? `Nenhum resultado para "${escHTML(q)}"` : filtroAtivo === 'nao-lidos' ? 'Todos os comunicados já foram lidos.' : 'Quando o RH enviar comunicados, eles aparecerão aqui.'}</span></div>`;
@@ -231,3 +242,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
     render();
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        loadData,
+        marcarLido,
+        marcarTodosLidos,
+        filterMsgs,
+        escHTML,
+        fmtDate,
+        timeAgo,
+        fmtDateTime,
+        __setStateForTest(next) {
+            if ('myEmployeeId' in next) myEmployeeId = next.myEmployeeId;
+            if ('myDept' in next) myDept = next.myDept;
+        },
+        __getStateForTest() {
+            return { allMsgs, lidos };
+        },
+    };
+}

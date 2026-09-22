@@ -1,4 +1,68 @@
-﻿document.addEventListener('DOMContentLoaded', async () => {
+﻿// Lógica pura, sem DOM — extraída para module scope para ser testável sem simular a tela inteira
+// (editor rich-text, popovers posicionados por layout, calendário). Comportamento idêntico ao que
+// estava embutido nos handlers abaixo; só a fonte mudou de lugar.
+const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+const fmtDateTime = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const isLive = (m) => !m.scheduled_at || new Date(m.scheduled_at) <= new Date();
+const fmtSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
+const fileIcon = (type) => (type === 'application/pdf' ? 'fa-file-pdf' : type.startsWith('image/') ? 'fa-file-image' : 'fa-file');
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 5;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+
+// Mesmas três regras que os dois formulários de anexo (novo comunicado e edição) aplicam ao escolher
+// arquivos: limite de quantidade, tipo permitido e tamanho máximo. `existingCount` é quanto já está
+// selecionado (para não passar de MAX_FILES somando com o que for escolhido agora).
+function pickValidFiles(fileList, existingCount) {
+    const picked = [];
+    for (const file of fileList) {
+        if (existingCount + picked.length >= MAX_FILES) break;
+        if (!ALLOWED_TYPES.includes(file.type)) continue;
+        if (file.size > MAX_FILE_SIZE) continue;
+        picked.push(file);
+    }
+    return picked;
+}
+
+// Mesmo filtro (destino + categoria + busca) que a tabela/cards de histórico aplicam antes de desenhar
+// a lista.
+function filterMessages(dbMensagens, histFilter, histCatFilter, searchQuery) {
+    let msgs = histFilter === 'todos' ? dbMensagens : dbMensagens.filter((m) => m.destino === histFilter);
+    if (histCatFilter !== 'todas') msgs = msgs.filter((m) => m.categoria === histCatFilter);
+    if (searchQuery)
+        msgs = msgs.filter((m) => comunicadoPlainText(m.texto).toLowerCase().includes(searchQuery) || m.destino.toLowerCase().includes(searchQuery));
+    return msgs;
+}
+
+// Taxa de leitura geral e por departamento: quantos colaboradores ativos do(s) destino(s) das
+// mensagens relevantes já leram. `reads` é o resultado de message_reads com o employee embutido
+// (`{ read_at, employees: { dept, ... } }`).
+function computeEngagementStats(relevantMsgs, employees, reads) {
+    const deptTotals = {};
+    relevantMsgs.forEach((m) => {
+        employees
+            .filter((e) => e.status === 'Ativo' && (m.destino === 'Todos' || e.dept === m.destino))
+            .forEach((e) => {
+                const dept = e.dept || 'Sem departamento';
+                deptTotals[dept] = (deptTotals[dept] || 0) + 1;
+            });
+    });
+    const deptReads = {};
+    reads.forEach((r) => {
+        const dept = r.employees?.dept || 'Sem departamento';
+        if (dept in deptTotals) deptReads[dept] = (deptReads[dept] || 0) + 1;
+    });
+
+    const totalRecipients = Object.values(deptTotals).reduce((sum, n) => sum + n, 0);
+    const totalReads = reads.length;
+    const overallRate = totalRecipients ? Math.round((totalReads / totalRecipients) * 100) : 0;
+
+    return { deptTotals, deptReads, totalRecipients, totalReads, overallRate };
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const topbarMenuBtn = document.getElementById('topbar-menu-btn');
@@ -93,12 +157,6 @@
     };
     const deptLabel = (dept) => DEPT_LABELS[dept] || dept || 'Sem departamento';
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-    const MAX_FILES = 5;
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-    const fmtSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
-    const fileIcon = (type) => (type === 'application/pdf' ? 'fa-file-pdf' : type.startsWith('image/') ? 'fa-file-image' : 'fa-file');
-
     function renderAttachChips() {
         if (!attachChips) return;
         attachChips.innerHTML = stagedFiles
@@ -117,12 +175,7 @@
     attachBtn?.addEventListener('click', () => attachInput?.click());
 
     attachInput?.addEventListener('change', () => {
-        for (const file of attachInput.files) {
-            if (stagedFiles.length >= MAX_FILES) break;
-            if (!ALLOWED_TYPES.includes(file.type)) continue;
-            if (file.size > MAX_FILE_SIZE) continue;
-            stagedFiles.push(file);
-        }
+        stagedFiles.push(...pickValidFiles(attachInput.files, stagedFiles.length));
         attachInput.value = '';
         renderAttachChips();
     });
@@ -721,8 +774,6 @@
         updateStats();
     }
 
-    const isLive = (m) => !m.scheduled_at || new Date(m.scheduled_at) <= new Date();
-
     function updateStats() {
         const liveMsgs = dbMensagens.filter(isLive);
         const total = liveMsgs.length;
@@ -735,9 +786,6 @@
         if (elReads) elReads.textContent = reads;
         if (elUnread) elUnread.textContent = unread;
     }
-
-    const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR');
 
     const isMobile = () => window.innerWidth <= 768;
     const openSide = () => {
@@ -870,13 +918,7 @@
         renderizarMensagens();
     });
 
-    const filteredMsgs = () => {
-        let msgs = histFilter === 'todos' ? dbMensagens : dbMensagens.filter((m) => m.destino === histFilter);
-        if (histCatFilter !== 'todas') msgs = msgs.filter((m) => m.categoria === histCatFilter);
-        if (searchQuery)
-            msgs = msgs.filter((m) => comunicadoPlainText(m.texto).toLowerCase().includes(searchQuery) || m.destino.toLowerCase().includes(searchQuery));
-        return msgs;
-    };
+    const filteredMsgs = () => filterMessages(dbMensagens, histFilter, histCatFilter, searchQuery);
 
     function renderizarMensagens() {
         renderizarTabela();
@@ -885,8 +927,6 @@
 
     const emptyTableRow = `<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><span>Nenhum comunicado encontrado.</span></div></td></tr>`;
     const emptyCardsHtml = `<div class="empty-state"><i class="fas fa-inbox"></i><span>Nenhum comunicado encontrado.</span></div>`;
-
-    const fmtDateTime = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
     function scheduledBadge(m) {
         if (isLive(m)) return '';
@@ -1131,25 +1171,7 @@
         if (requestId !== engagementRequestId) return;
 
         const rows = data || [];
-
-        const deptTotals = {};
-        relevantMsgs.forEach((m) => {
-            dbEmployees
-                .filter((e) => e.status === 'Ativo' && (m.destino === 'Todos' || e.dept === m.destino))
-                .forEach((e) => {
-                    const dept = e.dept || 'Sem departamento';
-                    deptTotals[dept] = (deptTotals[dept] || 0) + 1;
-                });
-        });
-        const deptReads = {};
-        rows.forEach((r) => {
-            const dept = r.employees?.dept || 'Sem departamento';
-            if (dept in deptTotals) deptReads[dept] = (deptReads[dept] || 0) + 1;
-        });
-
-        const totalRecipients = Object.values(deptTotals).reduce((sum, n) => sum + n, 0);
-        const totalReads = rows.length;
-        const overallRate = totalRecipients ? Math.round((totalReads / totalRecipients) * 100) : 0;
+        const { deptTotals, deptReads, totalRecipients, totalReads, overallRate } = computeEngagementStats(relevantMsgs, dbEmployees, rows);
 
         if (engagementSummary)
             engagementSummary.innerHTML = `
@@ -1273,12 +1295,7 @@
     editAttachBtn?.addEventListener('click', () => editAttachInput?.click());
 
     editAttachInput?.addEventListener('change', () => {
-        for (const file of editAttachInput.files) {
-            if (editKeptAttachments.length + editStagedFiles.length >= MAX_FILES) break;
-            if (!ALLOWED_TYPES.includes(file.type)) continue;
-            if (file.size > MAX_FILE_SIZE) continue;
-            editStagedFiles.push(file);
-        }
+        editStagedFiles.push(...pickValidFiles(editAttachInput.files, editKeptAttachments.length + editStagedFiles.length));
         editAttachInput.value = '';
         renderEditAttachChips();
     });
@@ -1532,3 +1549,17 @@
     await loadTemplates();
     tryRestoreDraft();
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        escHTML,
+        fmtDate,
+        fmtDateTime,
+        isLive,
+        fmtSize,
+        fileIcon,
+        pickValidFiles,
+        filterMessages,
+        computeEngagementStats,
+    };
+}
