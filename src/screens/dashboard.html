@@ -173,12 +173,6 @@
                             </div>
                             <div class="equity-body" id="equity-pcd-body">—</div>
                         </div>
-                        <div class="card equity-card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-scale-balanced"></i> Equidade Salarial por Raça/Cor</h3>
-                            </div>
-                            <div class="equity-body" id="equity-race-body">—</div>
-                        </div>
                         <div class="card chart-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-people-group"></i> Representatividade por Raça/Cor</h3>
@@ -198,14 +192,14 @@
                         </button>
                     </div>
                     <div class="block-grid block-grid--dev" id="dev-section-grid">
-                        <div class="card empty-card">
-                            <div class="empty-card-graphic empty-card-graphic--bars">
-                                <span style="--h:30%"></span><span style="--h:50%"></span><span style="--h:40%"></span><span style="--h:65%"></span><span style="--h:48%"></span><span style="--h:58%"></span>
+                        <div class="card empty-card kpi-dev-card">
+                            <div class="empty-card-graphic empty-card-graphic--bars kpi-dev-graphic" id="training-hours-graphic">
+                                <span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span>
                             </div>
                             <div class="empty-card-icon"><i class="fas fa-chalkboard-user"></i></div>
                             <h4 class="empty-card-title">Horas de Treinamento</h4>
-                            <p class="empty-card-text">Média de horas de treinamento por colaborador.</p>
-                            <span class="empty-card-badge">Em breve</span>
+                            <p class="kpi-dev-value" id="training-hours-value">—</p>
+                            <p class="empty-card-text" id="training-hours-text">Média de horas de treinamento concluído por colaborador ativo.</p>
                         </div>
                         <div class="card empty-card">
                             <div class="empty-card-graphic empty-card-graphic--line"></div>
@@ -214,14 +208,14 @@
                             <p class="empty-card-text">Resultado consolidado dos ciclos de avaliação.</p>
                             <span class="empty-card-badge">Em breve</span>
                         </div>
-                        <div class="card empty-card">
-                            <div class="empty-card-graphic empty-card-graphic--bars">
-                                <span style="--h:55%"></span><span style="--h:42%"></span><span style="--h:68%"></span><span style="--h:35%"></span><span style="--h:78%"></span><span style="--h:60%"></span>
+                        <div class="card empty-card kpi-dev-card">
+                            <div class="empty-card-graphic empty-card-graphic--bars kpi-dev-graphic" id="promotion-rate-graphic">
+                                <span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span><span style="--h:6%"></span>
                             </div>
                             <div class="empty-card-icon"><i class="fas fa-arrow-trend-up"></i></div>
                             <h4 class="empty-card-title">Taxa de Promoção</h4>
-                            <p class="empty-card-text">Percentual de colaboradores promovidos no período.</p>
-                            <span class="empty-card-badge">Em breve</span>
+                            <p class="kpi-dev-value" id="promotion-rate-value">—</p>
+                            <p class="empty-card-text" id="promotion-rate-text">Percentual de colaboradores promovidos nos últimos 12 meses.</p>
                         </div>
                     </div>
                 </section>

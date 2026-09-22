@@ -297,7 +297,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (descEl) descEl.textContent = count > 0 ? `${count} férias pendente${count > 1 ? 's' : ''}` : 'Aprovar férias';
     }
 
-    // Aviso passivo de documentos entregues pelo RH: fica na tela, sem push, para respeitar o direito à desconexão.
     async function loadDocsAlert() {
         const alertEl = document.getElementById('docs-alert');
         if (!alertEl) return;

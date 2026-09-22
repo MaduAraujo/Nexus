@@ -1,7 +1,4 @@
-﻿// Lógica pura, sem DOM — extraída para module scope para ser testável sem simular a tela inteira
-// (editor rich-text, popovers posicionados por layout, calendário). Comportamento idêntico ao que
-// estava embutido nos handlers abaixo; só a fonte mudou de lugar.
-const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+﻿const escHTML = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR');
 const fmtDateTime = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const isLive = (m) => !m.scheduled_at || new Date(m.scheduled_at) <= new Date();
@@ -12,9 +9,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 5;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
 
-// Mesmas três regras que os dois formulários de anexo (novo comunicado e edição) aplicam ao escolher
-// arquivos: limite de quantidade, tipo permitido e tamanho máximo. `existingCount` é quanto já está
-// selecionado (para não passar de MAX_FILES somando com o que for escolhido agora).
 function pickValidFiles(fileList, existingCount) {
     const picked = [];
     for (const file of fileList) {
@@ -26,8 +20,6 @@ function pickValidFiles(fileList, existingCount) {
     return picked;
 }
 
-// Mesmo filtro (destino + categoria + busca) que a tabela/cards de histórico aplicam antes de desenhar
-// a lista.
 function filterMessages(dbMensagens, histFilter, histCatFilter, searchQuery) {
     let msgs = histFilter === 'todos' ? dbMensagens : dbMensagens.filter((m) => m.destino === histFilter);
     if (histCatFilter !== 'todas') msgs = msgs.filter((m) => m.categoria === histCatFilter);
@@ -36,9 +28,6 @@ function filterMessages(dbMensagens, histFilter, histCatFilter, searchQuery) {
     return msgs;
 }
 
-// Taxa de leitura geral e por departamento: quantos colaboradores ativos do(s) destino(s) das
-// mensagens relevantes já leram. `reads` é o resultado de message_reads com o employee embutido
-// (`{ read_at, employees: { dept, ... } }`).
 function computeEngagementStats(relevantMsgs, employees, reads) {
     const deptTotals = {};
     relevantMsgs.forEach((m) => {

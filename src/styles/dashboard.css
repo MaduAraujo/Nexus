@@ -661,14 +661,10 @@ ul {
 }
 
 .block-grid--equity {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
 }
 
-.chart-card {
-    flex-direction: column;
-    align-items: stretch;
-}
-
+.chart-card,
 .equity-card {
     flex-direction: column;
     align-items: stretch;
@@ -676,7 +672,10 @@ ul {
 
 .equity-body {
     display: flex;
+    flex: 1;
     flex-direction: column;
+    justify-content: center;
+    min-height: 220px;
     gap: 14px;
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -893,6 +892,22 @@ ul {
     font-size: 0.78rem;
     color: var(--text-muted);
     max-width: 220px;
+}
+
+.kpi-dev-card {
+    justify-content: center;
+}
+.kpi-dev-graphic {
+    filter: none;
+    opacity: 0.85;
+}
+.kpi-dev-value {
+    position: relative;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 2px 0 2px;
 }
 
 .empty-card-badge {

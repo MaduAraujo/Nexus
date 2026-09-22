@@ -31,8 +31,6 @@ window.NexusFiles = (function () {
     const SESSION_ERROR = { message: 'Sessão expirada. Entre novamente.', status: 401 };
     const NETWORK_ERROR = { message: 'Erro de conexão. Verifique sua internet e tente novamente.', status: 0 };
 
-    // getSession() devolve o token guardado no navegador sem perguntar ao servidor: se a sessão foi encerrada em outro
-    // lugar (logout global), o token ainda parece válido e a função responde 401. Aí tenta renovar uma vez; se não der, pede novo login.
     async function authedFetch(url, init, extraHeaders) {
         const headers = await authHeaders(extraHeaders);
         if (!headers) return { session: false };
@@ -111,7 +109,6 @@ window.NexusFiles = (function () {
         return { error: null };
     }
 
-    // O Storage recusa chaves com acento, espaço e símbolos; o nome original continua na coluna `name` do documento.
     function safeName(name) {
         const cleaned = String(name || '')
             .normalize('NFD')

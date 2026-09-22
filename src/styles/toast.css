@@ -1,5 +1,3 @@
-/* Toast padrão do Nexus — usado por todas as telas. Referência visual: Meu Perfil > Preferências de notificação. */
-
 :root {
     --toast-bg: #ffffff;
     --toast-border: #e5e7eb;

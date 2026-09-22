@@ -1246,8 +1246,8 @@ function renderRescisaoResult(r) {
         </div>`;
 }
 
-// Só um popover (calendário ou lista de opções) fica aberto por vez.
 let closeActivePopover = null;
+
 function claimPopover(close) {
     if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
     closeActivePopover = close;

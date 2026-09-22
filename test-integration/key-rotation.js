@@ -15,7 +15,6 @@ const ROTATION_KEYS = ['data_encryption_key_v2', 'data_encryption_key_v3', 'data
 
 async function cleanKeys(db) {
     await db.query('DELETE FROM nexus_key_store WHERE name = ANY($1)', [ROTATION_KEYS]);
-    // Com o Vault presente, nexus_key_generate grava lá e não em nexus_key_store: sem isto o teste só passa na primeira execução.
     const { rows } = await db.query("SELECT to_regclass('vault.secrets') AS t");
     if (rows[0].t) await db.query('DELETE FROM vault.secrets WHERE name = ANY($1)', [ROTATION_KEYS]);
 }
@@ -214,8 +213,6 @@ describe('Rotação da chave de cifragem de colunas (migration 067)', () => {
             const { rows } = await db.query('SELECT telefone, salary FROM employees_decrypted WHERE id = $1', [E1]);
             assert.equal(rows[0].telefone, '11 91111-1111');
             assert.equal(Number(rows[0].salary), 7000.5);
-            // withUser desfaz a transação no fim: o texto cifrado precisa ser conferido aqui dentro,
-            // na mesma transação da edição (lido depois, em outra conexão, seria o valor antigo).
             const raw = await db.query('SELECT telefone, salary FROM employees WHERE id = $1', [E1]);
             assert.ok(raw.rows[0].telefone.startsWith('nexus:enc2:v2:'));
             assert.ok(raw.rows[0].salary.startsWith('nexus:enc1:'));

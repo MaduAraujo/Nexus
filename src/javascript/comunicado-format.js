@@ -51,7 +51,6 @@
         stripAllAttributes(node);
     }
 
-    // O HTML é lido em um documento inerte (DOMParser): imagens não carregam e onerror/onload não disparam antes da limpeza.
     window.sanitizeComunicadoHTML = function (html) {
         const container = new DOMParser().parseFromString(String(html || ''), 'text/html').body;
         Array.from(container.childNodes).forEach(cleanNode);

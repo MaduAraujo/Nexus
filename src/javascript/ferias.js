@@ -824,7 +824,6 @@ window.closeAddModal = function () {
     editingId = null;
 };
 
-// Salvar só habilita com os campos obrigatórios (colaborador, data de início e data de fim) preenchidos.
 function updateAddSubmitState() {
     const btn = document.getElementById('btn-add-submit');
     if (!btn) return;
@@ -951,7 +950,6 @@ window.submitAdd = async function () {
     closeAddModal();
 };
 
-// Só um popover (calendário ou lista de opções) fica aberto por vez.
 let closeActivePopover = null;
 function claimPopover(close) {
     if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
@@ -961,9 +959,8 @@ function releasePopover(close) {
     if (closeActivePopover === close) closeActivePopover = null;
 }
 
-// Dropdown padronizado (mesmo padrão da tela do colaborador): botão + lista flutuante + input oculto com o valor.
-// setValue(valor) é silencioso (uso programático); só a escolha do usuário dispara onChange.
 const selectFields = {};
+
 function createSelectField(id, onChange) {
     const trigger = document.getElementById(`${id}-trigger`);
     const popover = document.getElementById(`${id}-popover`);
@@ -1024,9 +1021,8 @@ function setSelectValue(id, value) {
     selectFields[id]?.setValue(value);
 }
 
-// Calendário padronizado (mesmo padrão da tela do colaborador). O valor fica no input oculto em aaaa-mm-dd
-// e a escolha do usuário dispara "change" nele (é isso que recalcula os dias).
 const calendarFields = {};
+
 function createCalendarField(id) {
     const trigger = document.getElementById(`${id}-trigger`);
     const popover = document.getElementById(`${id}-popover`);
@@ -1090,7 +1086,6 @@ function createCalendarField(id) {
         trigger.setAttribute('aria-expanded', 'true');
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        // Depois da animação de abertura, traz o calendário para a área visível se estiver mais abaixo.
         setTimeout(() => {
             if (popover.classList.contains('open')) popover.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 200);
@@ -1193,7 +1188,6 @@ function populateColetivaDeptSelect() {
         depts.map((d) => `<button type="button" class="select-option" role="option" data-value="${escHtml(d)}">${escHtml(d)}</button>`).join('');
 }
 
-// Conceder Férias só habilita com o período (data de início e data de fim) preenchido.
 window.updateColetivaSubmitState = function () {
     const btn = document.getElementById('btn-coletiva-submit');
     if (!btn) return;

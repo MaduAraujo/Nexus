@@ -77,6 +77,150 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modal-performance">
+        <div class="modal-content modal-content--md">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Avaliação de Desempenho</h3>
+                <button class="modal-close" data-click="closePerformanceModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="performance-emp-name" id="performance-emp-name">—</p>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-star"></i> Ciclos de avaliação</p>
+                    <button type="button" class="btn-primary btn-primary--sm" data-click="openReviewFormModal">
+                        <i class="fas fa-plus"></i> Nova Avaliação
+                    </button>
+                </div>
+                <div id="performance-reviews-list" class="performance-list"></div>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-bullseye"></i> Metas de desenvolvimento (PDI)</p>
+                </div>
+                <div id="performance-goals-list" class="performance-list"></div>
+                <div class="pdi-goal-add">
+                    <input type="text" id="pdi-goal-title" placeholder="Nova meta de desenvolvimento...">
+                    <div class="date-field" id="pdi-goal-due-field">
+                        <button type="button" class="date-trigger" id="pdi-goal-due-trigger" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="pdi-goal-due-text" class="date-trigger-placeholder">Prazo</span>
+                        </button>
+                        <input type="hidden" id="pdi-goal-due">
+                        <div class="calendar-popover" id="pdi-goal-due-popover">
+                            <div class="calendar-header">
+                                <button type="button" class="calendar-nav-btn" id="pdi-goal-due-prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                <span class="calendar-title" id="pdi-goal-due-title">—</span>
+                                <button type="button" class="calendar-nav-btn" id="pdi-goal-due-next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                            <div class="calendar-grid" id="pdi-goal-due-grid"></div>
+                        </div>
+                    </div>
+                    <button type="button" data-click="addPdiGoal" aria-label="Adicionar meta"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-performance-review-form">
+        <div class="modal-content modal-content--md">
+            <div class="modal-header">
+                <h3><i class="fas fa-star"></i> Nova Avaliação</h3>
+                <button class="modal-close" data-click="closeReviewFormModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Ciclo <span class="req">*</span></label>
+                    <input type="text" id="review-cycle" placeholder="Ex.: 1º Semestre 2026">
+                    <span class="field-error" id="err-review-cycle"></span>
+                </div>
+                <div class="form-group">
+                    <label>Avaliação geral <span class="req">*</span></label>
+                    <div class="rating-widget" id="rating-overall" data-rating="0"></div>
+                </div>
+                <div id="rating-competencies"></div>
+                <div class="form-group">
+                    <label>Comentário</label>
+                    <textarea id="review-comment" rows="3" placeholder="Pontos fortes, oportunidades de melhoria..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" data-click="submitReview" data-click-args='["rascunho"]'>Salvar rascunho</button>
+                <button class="btn-primary" data-click="submitReview" data-click-args='["concluida"]'><i class="fas fa-check"></i> Concluir Avaliação</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-trainings">
+        <div class="modal-content modal-content--md">
+            <div class="modal-header">
+                <h3><i class="fas fa-graduation-cap"></i> Treinamentos</h3>
+                <button class="modal-close" data-click="closeTrainingsModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="performance-emp-name" id="trainings-emp-name">—</p>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-list-check"></i> Registros</p>
+                </div>
+                <div id="trainings-list" class="performance-list"></div>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-plus"></i> Atribuir treinamento</p>
+                </div>
+                <div class="tr-assign">
+                    <div class="select-field tr-assign-catalog">
+                        <button type="button" class="select-trigger" id="tr-assign-catalog-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span id="tr-assign-catalog-label" class="select-placeholder">Catálogo</span>
+                            <i class="fas fa-chevron-down select-trigger-arrow"></i>
+                        </button>
+                        <input type="hidden" id="tr-assign-catalog">
+                        <div class="select-popover" id="tr-assign-catalog-popover" role="listbox"></div>
+                    </div>
+                    <input type="text" id="tr-assign-title" placeholder="Ou digite o título do treinamento...">
+                    <input type="text" id="tr-assign-hours" placeholder="Carga (h)">
+                    <button type="button" data-click="assignTraining"><i class="fas fa-plus"></i> Atribuir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-disciplinary">
+        <div class="modal-content modal-content--md">
+            <div class="modal-header">
+                <h3><i class="fas fa-gavel"></i> Processos Disciplinares</h3>
+                <button class="modal-close" data-click="closeDisciplinaryModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="performance-emp-name" id="disciplinary-emp-name">—</p>
+                <p class="disciplinary-readonly-hint"><i class="fas fa-eye"></i> Só o RH registra medidas disciplinares. Esta tela é só de consulta.</p>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-list-check"></i> Histórico</p>
+                </div>
+                <div id="disciplinary-list" class="performance-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-medical-leaves">
+        <div class="modal-content modal-content--md">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-medical"></i> Atestados e Afastamentos</h3>
+                <button class="modal-close" data-click="closeMedicalLeavesModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="performance-emp-name" id="ml-emp-name">—</p>
+                <p class="disciplinary-readonly-hint"><i class="fas fa-eye"></i> Só período e status — detalhes médicos e o atestado em si ficam só com o RH e o colaborador.</p>
+
+                <div class="performance-section-row">
+                    <p class="performance-section-title"><i class="fas fa-list-check"></i> Histórico</p>
+                </div>
+                <div id="medical-leaves-list" class="performance-list"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="modal-reject-vacation">
         <div class="modal-content">
             <div class="modal-header">

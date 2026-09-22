@@ -68,8 +68,6 @@ async function marcarTodosLidos() {
     );
 }
 
-// Mesmo filtro (aba "não lidos" + busca) que render() aplica antes de desenhar a lista — extraído
-// para ser testável sem DOM: busca casa com o texto simples do comunicado (sem tags) ou o destino.
 function filterMsgs(msgs, lidosSet, filtro, query) {
     const q = (query || '').toLowerCase().trim();
     let filtered = filtro === 'nao-lidos' ? msgs.filter((m) => !lidosSet.has(m.id)) : msgs;

@@ -1,9 +1,5 @@
-// Checklist de documentos obrigatórios por tipo de contratação. Cada regime tem exigências legais próprias
-// (CLT, Lei 11.788/2008 do estágio, contrato de aprendizagem, etc.), então o checklist não pode ser único.
 const RequisitosDocumentos = {
     DEFAULT_CONTRACT_TYPE: 'CLT',
-
-    // `base` resume o fundamento legal exibido no modal do RH.
     CONTRACT_TYPES: [
         {
             value: 'CLT',
@@ -32,7 +28,6 @@ const RequisitosDocumentos = {
         },
     ],
 
-    // Aceita o valor como está no banco ('estagio', 'Estágio', 'clt', ...) e devolve o valor canônico da lista.
     normalizeContractType(raw) {
         const key = String(raw ?? '')
             .trim()
@@ -48,7 +43,6 @@ const RequisitosDocumentos = {
         return this.CONTRACT_TYPES.find((t) => t.value === value);
     },
 
-    // Linhas sem contract_type (criadas antes da separação por regime) valem para CLT.
     requirementsFor(requirements, category, contractType) {
         const wanted = this.normalizeContractType(contractType);
         return (requirements || []).filter((r) => r.category === category && this.normalizeContractType(r.contract_type) === wanted);

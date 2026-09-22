@@ -2155,6 +2155,8 @@ window.toggleForm = function () {
         resetConditionalFields();
         populateManagerSelect(null);
         resetRegDocs();
+        populateRoleDropdown('role-popover', '');
+        roleField?.setValue('');
     } else {
         formContainer?.classList.add('hidden');
         listSection?.classList.remove('hidden');
@@ -2411,6 +2413,897 @@ window.handleEditFromDrawer = function () {
     if (id) editEmployee(id);
 };
 
+// A promoção é um atalho focado (cargo + tipo de contrato + salário) para a mesma trilha de auditoria que
+// "Editar Dados" já grava em employee_audit — o RH também pode promover pela edição completa; aqui só fica mais
+// rápido e com motivo. Exige que o cargo e/ou o tipo de contrato mudem (ex.: estagiário efetivado em CLT): é o
+// que a tela chama de "promoção" e o que a Taxa de Promoção do dashboard mede.
+window.handlePromoteEmployee = function () {
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+
+    const infoEl = document.getElementById('promote-current-info');
+    if (infoEl) infoEl.textContent = `Atual: ${emp.role || '—'} · ${emp.contractType || '—'} · ${formatCurrency(emp.salary)}`;
+
+    const contractInput = document.getElementById('promote-contract-type');
+    const salaryInput = document.getElementById('promote-salary');
+    const motivoInput = document.getElementById('promote-motivo');
+    populateRoleDropdown('promote-role-popover', emp.role || '');
+    promoteRoleField?.setValue(emp.role || '');
+    if (contractInput) contractInput.value = emp.contractType || 'CLT';
+    if (salaryInput) {
+        const salaryRaw = emp.salary || 0;
+        salaryInput.value =
+            'R$ ' +
+            salaryRaw
+                .toFixed(2)
+                .replace('.', ',')
+                .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    if (motivoInput) motivoInput.value = '';
+    window.updatePromoteBtnState();
+
+    document.getElementById('promote-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('promote-role-trigger')?.focus(), 50);
+};
+
+window.closePromoteModal = function () {
+    document.getElementById('promote-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.updatePromoteBtnState = function () {
+    const btn = document.getElementById('btn-promote-submit');
+    if (!btn) return;
+    const emp = employees.find((e) => e.id === currentEmployeeId);
+    if (!emp) {
+        btn.disabled = true;
+        return;
+    }
+    const newRole = document.getElementById('promote-role')?.value.trim() || '';
+    const newContractType = document.getElementById('promote-contract-type')?.value || '';
+    const newSalaryCents = Number((document.getElementById('promote-salary')?.value || '').replace(/\D/g, ''));
+    const roleChanged = newRole && newRole !== (emp.role || '');
+    const contractChanged = newContractType && newContractType !== (emp.contractType || '');
+    btn.disabled = !((roleChanged || contractChanged) && newSalaryCents > 0);
+};
+
+window.submitPromotion = async function () {
+    const btn = document.getElementById('btn-promote-submit');
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp || !id) return;
+
+    const newRole = document.getElementById('promote-role').value.trim();
+    const newContractType = document.getElementById('promote-contract-type').value;
+    const newSalary = Number(document.getElementById('promote-salary').value.replace(/\D/g, '')) / 100;
+    const motivo = document.getElementById('promote-motivo').value.trim();
+
+    const roleChanged = newRole && newRole !== (emp.role || '');
+    const contractChanged = newContractType && newContractType !== (emp.contractType || '');
+
+    if (!newRole || !newContractType || !(newSalary > 0) || !(roleChanged || contractChanged)) {
+        showToast('Campos obrigatórios', 'Informe cargo, tipo de contrato e salário — pelo menos cargo ou tipo de contrato precisa mudar.', 'warning');
+        return;
+    }
+
+    const changes = [];
+    if (roleChanged) changes.push({ field: 'role', label: 'Cargo', oldValue: emp.role || '—', newValue: newRole });
+    if (contractChanged) {
+        changes.push({ field: 'contractType', label: 'Tipo de Contrato', oldValue: emp.contractType || '—', newValue: newContractType });
+    }
+    if (Number(newSalary.toFixed(2)) !== Number((emp.salary || 0).toFixed(2))) {
+        changes.push({
+            field: 'salary',
+            label: 'Salário',
+            oldValue: `R$ ${Number(emp.salary || 0).toFixed(2)}`,
+            newValue: `R$ ${newSalary.toFixed(2)}`,
+        });
+    }
+    if (motivo) changes.push({ field: 'motivo', label: 'Motivo da Promoção', oldValue: '—', newValue: motivo });
+
+    if (btn) btn.disabled = true;
+    try {
+        const { error } = await sb.from('employees').update({ role: newRole, contract_type: newContractType, salary: newSalary }).eq('id', id);
+        if (error) throw error;
+        await logEmployeeEdit(id, emp.name, changes);
+
+        const idx = employees.findIndex((e) => e.id === id);
+        if (idx !== -1) employees[idx] = { ...employees[idx], role: newRole, contractType: newContractType, salary: newSalary };
+
+        const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+        applyStatusFilter(activeFilter);
+        renderStatsRow();
+        window.openDrawer(id);
+
+        window.closePromoteModal();
+        const summary =
+            roleChanged && contractChanged
+                ? `agora é ${newRole} (${newContractType})`
+                : roleChanged
+                  ? `agora é ${newRole}`
+                  : `agora está em ${newContractType}`;
+        showToast('Colaborador Promovido!', `${emp.name} ${summary}.`, 'success');
+    } catch (err) {
+        console.error('[Nexus] submitPromotion:', err);
+        showToast('Erro!', 'Não foi possível registrar a promoção. Tente novamente.', 'error');
+        if (btn) btn.disabled = false;
+    }
+};
+
+// --- Trilha de Carreira / Cargos e Salários ---
+// `employees.role` continua TEXT (sem FK) — o catálogo só alimenta as opções do campo, não restringe o
+// banco. Colaborador/gestor leem via job_titles_public() (sem faixa salarial); só RH lê a tabela completa.
+
+let jobTitles = []; // linha completa (RH), usada só no modal "Catálogo de Cargos"
+let jobTitlesPublic = []; // título/trilha/nível, usado para montar os dropdowns de Cargo
+let roleField = null;
+let promoteRoleField = null;
+
+async function fetchJobTitlesPublic() {
+    const { data } = await sb.rpc('job_titles_public');
+    jobTitlesPublic = data || [];
+}
+
+// `currentValue` garante que o cargo já salvo no colaborador continue selecionável mesmo se não estiver
+// (mais) no catálogo — sem isso, editar um colaborador cujo cargo é "customizado" apagaria o campo.
+function populateRoleDropdown(popoverId, currentValue) {
+    const popover = document.getElementById(popoverId);
+    if (!popover) return;
+    const titles = jobTitlesPublic.map((t) => t.title);
+    const extra = currentValue && !titles.includes(currentValue) ? [currentValue] : [];
+    popover.innerHTML = [...extra, ...titles]
+        .map((t) => `<button type="button" class="select-option" role="option" data-value="${escapeHtml(t)}">${escapeHtml(t)}</button>`)
+        .join('');
+}
+
+async function fetchJobTitlesFull() {
+    const { data } = await sb.from('job_titles').select('*').order('track', { ascending: true, nullsFirst: false }).order('level').order('title');
+    jobTitles = data || [];
+}
+
+function renderJobTitlesList() {
+    const wrap = document.getElementById('job-titles-list');
+    if (!wrap) return;
+    if (!jobTitles.length) {
+        wrap.innerHTML = `<p class="onb-empty">Nenhum cargo cadastrado ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = jobTitles
+        .map((t) => {
+            const range =
+                t.salary_min || t.salary_max
+                    ? `${t.salary_min ? formatCurrency(t.salary_min) : '—'} a ${t.salary_max ? formatCurrency(t.salary_max) : '—'}`
+                    : 'Faixa salarial não definida';
+            const meta = [t.track, t.level].filter(Boolean).join(' · ') || 'Sem trilha/nível definido';
+            const inactiveBadge = t.active ? '' : `<span class="jt-inactive-badge">Inativo</span>`;
+            return `<div class="onb-chip">
+                <div class="onb-chip-body">
+                    <div class="onb-chip-title">${escapeHtml(t.title)}${inactiveBadge}</div>
+                    <div class="onb-chip-desc">${escapeHtml(meta)} · ${escapeHtml(range)}</div>
+                </div>
+                <button type="button" data-click="toggleJobTitleActive" data-click-args="${dargs(t.id, t.active)}" title="${t.active ? 'Desativar' : 'Ativar'}" aria-label="${t.active ? 'Desativar' : 'Ativar'}">
+                    <i class="fas ${t.active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                </button>
+                <button type="button" data-click="deleteJobTitle" data-click-args="${dargs(t.id)}" title="Excluir" aria-label="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        })
+        .join('');
+}
+
+window.openJobTitlesModal = async function () {
+    document.getElementById('job-titles-list').innerHTML = `<p class="onb-empty">Carregando…</p>`;
+    document.getElementById('job-titles-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    await fetchJobTitlesFull();
+    renderJobTitlesList();
+};
+
+window.closeJobTitlesModal = function () {
+    document.getElementById('job-titles-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+    ['jt-add-title', 'jt-add-track', 'jt-add-level', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+};
+
+window.addJobTitle = async function () {
+    const title = document.getElementById('jt-add-title')?.value.trim();
+    if (!title) {
+        showToast('Campo obrigatório', 'Informe o nome do cargo.', 'warning');
+        return;
+    }
+    const track = document.getElementById('jt-add-track')?.value.trim() || null;
+    const level = document.getElementById('jt-add-level')?.value.trim() || null;
+    const parseSalary = (id) => {
+        const raw = document.getElementById(id)?.value.replace(/\D/g, '') || '';
+        return raw ? Number(raw) / 100 : null;
+    };
+    const salaryMin = parseSalary('jt-add-salary-min');
+    const salaryMax = parseSalary('jt-add-salary-max');
+    if (salaryMin !== null && salaryMax !== null && salaryMax < salaryMin) {
+        showToast('Faixa inválida', 'O salário máximo precisa ser maior ou igual ao mínimo.', 'warning');
+        return;
+    }
+
+    const { error } = await sb.from('job_titles').insert({ title, track, level, salary_min: salaryMin, salary_max: salaryMax });
+    if (error) {
+        showToast('Erro!', error.code === '23505' ? 'Já existe um cargo com esse nome.' : 'Não foi possível adicionar o cargo.', 'error');
+        return;
+    }
+    ['jt-add-title', 'jt-add-track', 'jt-add-level', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    await fetchJobTitlesFull();
+    renderJobTitlesList();
+    await fetchJobTitlesPublic();
+    showToast('Cargo Adicionado!', `"${title}" agora está disponível no catálogo.`, 'success');
+};
+
+window.toggleJobTitleActive = async function (id, currentActive) {
+    const { error } = await sb.from('job_titles').update({ active: !currentActive }).eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível atualizar o cargo.', 'error');
+        return;
+    }
+    await fetchJobTitlesFull();
+    renderJobTitlesList();
+    await fetchJobTitlesPublic();
+};
+
+window.deleteJobTitle = async function (id) {
+    if (!confirmDelete()) return;
+    const { error } = await sb.from('job_titles').delete().eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível excluir o cargo.', 'error');
+        return;
+    }
+    await fetchJobTitlesFull();
+    renderJobTitlesList();
+    await fetchJobTitlesPublic();
+    showToast('Cargo Excluído!', 'O cargo foi removido do catálogo.', 'error');
+};
+
+// --- Treinamento e Desenvolvimento ---
+// Catálogo (job_titles-like) é RH-only para gerenciar; RH e gestor direto atribuem treinamento a
+// colaboradores (o gestor faz isso em equipe-colaborador.js, restrito a quem lidera). Colaborador também
+// pode autodeclarar um curso externo, que fica "aguardando_aprovacao" até o RH confirmar — ver migration 073.
+
+const TRAINING_STATUS_LABEL = {
+    pendente: 'Pendente',
+    em_andamento: 'Em andamento',
+    concluido: 'Concluído',
+    aguardando_aprovacao: 'Aguardando aprovação',
+    recusado: 'Recusado',
+    cancelado: 'Cancelado',
+};
+
+let trainingsCatalogFull = []; // RH: linha completa, usada no modal "Catálogo de Treinamentos"
+let trainingsCatalogPublic = []; // qualquer autenticado: título/categoria/horas ativos, para o dropdown de atribuição
+let trainingsEmployeeId = null;
+let employeeTrainings = [];
+let trAssignCatalogField = null;
+
+async function fetchTrainingsCatalogPublic() {
+    const { data } = await sb.from('trainings').select('id,title,category,duration_hours').eq('active', true).order('title');
+    trainingsCatalogPublic = data || [];
+}
+
+async function fetchTrainingsCatalogFull() {
+    const { data } = await sb.from('trainings').select('*').order('title');
+    trainingsCatalogFull = data || [];
+}
+
+function renderTrainingsCatalogList() {
+    const wrap = document.getElementById('trainings-catalog-list');
+    if (!wrap) return;
+    if (!trainingsCatalogFull.length) {
+        wrap.innerHTML = `<p class="onb-empty">Nenhum treinamento cadastrado ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = trainingsCatalogFull
+        .map((t) => {
+            const meta = [t.category, t.provider, t.duration_hours ? `${t.duration_hours}h` : null].filter(Boolean).join(' · ') || 'Sem detalhes definidos';
+            const inactiveBadge = t.active ? '' : `<span class="jt-inactive-badge">Inativo</span>`;
+            return `<div class="onb-chip">
+                <div class="onb-chip-body">
+                    <div class="onb-chip-title">${escapeHtml(t.title)}${inactiveBadge}</div>
+                    <div class="onb-chip-desc">${escapeHtml(meta)}</div>
+                </div>
+                <button type="button" data-click="toggleTrainingCatalogActive" data-click-args="${dargs(t.id, t.active)}" title="${t.active ? 'Desativar' : 'Ativar'}" aria-label="${t.active ? 'Desativar' : 'Ativar'}">
+                    <i class="fas ${t.active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                </button>
+                <button type="button" data-click="deleteTrainingCatalog" data-click-args="${dargs(t.id)}" title="Excluir" aria-label="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        })
+        .join('');
+}
+
+window.openTrainingsCatalogModal = async function () {
+    document.getElementById('trainings-catalog-list').innerHTML = `<p class="onb-empty">Carregando…</p>`;
+    document.getElementById('trainings-catalog-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    await fetchTrainingsCatalogFull();
+    renderTrainingsCatalogList();
+};
+
+window.closeTrainingsCatalogModal = function () {
+    document.getElementById('trainings-catalog-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+};
+
+window.addTrainingCatalog = async function () {
+    const title = document.getElementById('tc-add-title')?.value.trim();
+    if (!title) {
+        showToast('Campo obrigatório', 'Informe o nome do treinamento.', 'warning');
+        return;
+    }
+    const category = document.getElementById('tc-add-category')?.value.trim() || null;
+    const provider = document.getElementById('tc-add-provider')?.value.trim() || null;
+    const hoursRaw = document.getElementById('tc-add-hours')?.value.trim();
+    const hours = hoursRaw ? Number(hoursRaw.replace(',', '.')) : null;
+    if (hoursRaw && (Number.isNaN(hours) || hours < 0)) {
+        showToast('Valor inválido', 'Informe a carga horária em número de horas.', 'warning');
+        return;
+    }
+
+    const { error } = await sb.from('trainings').insert({ title, category, provider, duration_hours: hours });
+    if (error) {
+        showToast('Erro!', error.code === '23505' ? 'Já existe um treinamento com esse nome.' : 'Não foi possível adicionar o treinamento.', 'error');
+        return;
+    }
+    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    await fetchTrainingsCatalogFull();
+    renderTrainingsCatalogList();
+    await fetchTrainingsCatalogPublic();
+    showToast('Treinamento Adicionado!', `"${title}" agora está disponível no catálogo.`, 'success');
+};
+
+window.toggleTrainingCatalogActive = async function (id, currentActive) {
+    const { error } = await sb.from('trainings').update({ active: !currentActive }).eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível atualizar o treinamento.', 'error');
+        return;
+    }
+    await fetchTrainingsCatalogFull();
+    renderTrainingsCatalogList();
+    await fetchTrainingsCatalogPublic();
+};
+
+window.deleteTrainingCatalog = async function (id) {
+    if (!confirmDelete()) return;
+    const { error } = await sb.from('trainings').delete().eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível excluir o treinamento.', 'error');
+        return;
+    }
+    await fetchTrainingsCatalogFull();
+    renderTrainingsCatalogList();
+    await fetchTrainingsCatalogPublic();
+    showToast('Treinamento Excluído!', 'O treinamento foi removido do catálogo.', 'error');
+};
+
+async function fetchEmployeeTrainings(employeeId) {
+    const { data } = await sb
+        .from('employee_trainings')
+        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,notes,assigned_by_name,created_at')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false });
+    employeeTrainings = data || [];
+}
+
+function renderTrainingsList() {
+    const wrap = document.getElementById('trainings-list');
+    if (!wrap) return;
+    if (!employeeTrainings.length) {
+        wrap.innerHTML = `<p class="performance-empty">Nenhum treinamento registrado ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = employeeTrainings
+        .map((t) => {
+            const label = TRAINING_STATUS_LABEL[t.status] || t.status;
+            const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
+            if (t.certificate_url) bits.push(`<a href="${escapeHtml(t.certificate_url)}" target="_blank" rel="noopener">Certificado</a>`);
+            let actions = '';
+            if (t.status === 'aguardando_aprovacao') {
+                actions = `<button type="button" class="training-action-btn training-action-btn--approve" data-click="approveTraining" data-click-args="${dargs(t.id)}">Aprovar</button>
+                    <button type="button" class="training-action-btn training-action-btn--reject" data-click="rejectTraining" data-click-args="${dargs(t.id)}">Recusar</button>`;
+            } else if (t.status === 'pendente' || t.status === 'em_andamento') {
+                actions = `<button type="button" class="training-action-btn training-action-btn--complete" data-click="completeTraining" data-click-args="${dargs(t.id)}">Concluir</button>`;
+            }
+            return `<div class="training-item">
+                <div class="training-info">
+                    <span class="training-title">${escapeHtml(t.title)}</span>
+                    <span class="training-meta">${bits.join(' · ') || '—'}</span>
+                </div>
+                <span class="goal-status-badge goal-status-badge--${t.status}">${label}</span>
+                ${actions}
+            </div>`;
+        })
+        .join('');
+}
+
+window.handleOpenTrainings = async function () {
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+
+    trainingsEmployeeId = id;
+    const nameEl = document.getElementById('trainings-emp-name');
+    if (nameEl) nameEl.textContent = emp.name;
+    document.getElementById('trainings-list').innerHTML = `<p class="performance-empty">Carregando…</p>`;
+    document.getElementById('tr-assign-title').value = '';
+    document.getElementById('tr-assign-hours').value = '';
+    trAssignCatalogField?.setValue('');
+    document.getElementById('trainings-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    const popover = document.getElementById('tr-assign-catalog-popover');
+    if (popover) {
+        popover.innerHTML = trainingsCatalogPublic
+            .map((t) => `<button type="button" class="select-option" role="option" data-value="${t.id}">${escapeHtml(t.title)}</button>`)
+            .join('');
+    }
+
+    await fetchEmployeeTrainings(id);
+    renderTrainingsList();
+};
+
+window.closeTrainingsModal = function () {
+    document.getElementById('trainings-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.assignTraining = async function () {
+    if (!trainingsEmployeeId) return;
+    const catalogId = document.getElementById('tr-assign-catalog')?.value || null;
+    const catalogEntry = catalogId ? trainingsCatalogPublic.find((t) => t.id === catalogId) : null;
+    const typedTitle = document.getElementById('tr-assign-title')?.value.trim();
+    const title = catalogEntry?.title || typedTitle;
+    if (!title) {
+        showToast('Campo obrigatório', 'Escolha um treinamento do catálogo ou digite o nome.', 'warning');
+        return;
+    }
+    const hoursRaw = document.getElementById('tr-assign-hours')?.value.trim();
+    const hours = hoursRaw ? Number(hoursRaw.replace(',', '.')) : catalogEntry?.duration_hours || null;
+
+    const { error } = await sb.from('employee_trainings').insert({
+        employee_id: trainingsEmployeeId,
+        training_id: catalogEntry?.id || null,
+        title,
+        category: catalogEntry?.category || null,
+        hours,
+        assigned_by_name: 'RH',
+    });
+    if (error) {
+        showToast('Erro!', 'Não foi possível atribuir o treinamento.', 'error');
+        return;
+    }
+    document.getElementById('tr-assign-title').value = '';
+    document.getElementById('tr-assign-hours').value = '';
+    trAssignCatalogField?.setValue('');
+    await fetchEmployeeTrainings(trainingsEmployeeId);
+    renderTrainingsList();
+    showToast('Treinamento Atribuído!', `"${title}" foi atribuído ao colaborador.`, 'success');
+};
+
+window.approveTraining = async function (id) {
+    const { error } = await sb
+        .from('employee_trainings')
+        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
+        .eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível aprovar o treinamento.', 'error');
+        return;
+    }
+    await fetchEmployeeTrainings(trainingsEmployeeId);
+    renderTrainingsList();
+    showToast('Treinamento Aprovado!', 'O curso autodeclarado foi confirmado.', 'success');
+};
+
+window.rejectTraining = async function (id) {
+    const { error } = await sb.from('employee_trainings').update({ status: 'recusado' }).eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível recusar o treinamento.', 'error');
+        return;
+    }
+    await fetchEmployeeTrainings(trainingsEmployeeId);
+    renderTrainingsList();
+    showToast('Treinamento Recusado!', 'O curso autodeclarado foi recusado.', 'info');
+};
+
+window.completeTraining = async function (id) {
+    const { error } = await sb
+        .from('employee_trainings')
+        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
+        .eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível concluir o treinamento.', 'error');
+        return;
+    }
+    await fetchEmployeeTrainings(trainingsEmployeeId);
+    renderTrainingsList();
+    showToast('Treinamento Concluído!', 'O registro foi marcado como concluído.', 'success');
+};
+
+// --- Processos Disciplinares ---
+// Só o RH registra (decisão confirmada: reduz risco jurídico, mantém um único ponto de registro oficial).
+// O gestor não tem escrita aqui — se precisar, usa o "Escalar ao RH" já existente na tela do time. O colaborador
+// só visualiza o próprio histórico e pode "dar ciência" (ver disciplinary_actions_ack_guard na migration 074).
+const DISCIPLINARY_TYPE_LABEL = { advertencia_verbal: 'Advertência Verbal', advertencia_escrita: 'Advertência Escrita', suspensao: 'Suspensão' };
+
+let disciplinaryEmployeeId = null;
+let disciplinaryActions = [];
+let daTypeField = null;
+
+async function fetchDisciplinaryActions(employeeId) {
+    const { data } = await sb
+        .from('disciplinary_actions')
+        .select('id,type,reason,description,suspension_days,occurred_at,created_by_name,acknowledged_at,created_at')
+        .eq('employee_id', employeeId)
+        .order('occurred_at', { ascending: false });
+    disciplinaryActions = data || [];
+}
+
+function renderDisciplinaryList() {
+    const wrap = document.getElementById('disciplinary-list');
+    if (!wrap) return;
+    if (!disciplinaryActions.length) {
+        wrap.innerHTML = `<p class="performance-empty">Nenhuma medida disciplinar registrada.</p>`;
+        return;
+    }
+    wrap.innerHTML = disciplinaryActions
+        .map((d) => {
+            const label = DISCIPLINARY_TYPE_LABEL[d.type] || d.type;
+            const bits = [formatDateBR(d.occurred_at), d.suspension_days ? `${d.suspension_days} dia${d.suspension_days > 1 ? 's' : ''}` : null].filter(
+                Boolean
+            );
+            const ack = d.acknowledged_at
+                ? `<span class="disciplinary-ack-badge disciplinary-ack-badge--done"><i class="fas fa-check"></i> Ciente em ${formatDateBR(d.acknowledged_at.slice(0, 10))}</span>`
+                : `<span class="disciplinary-ack-badge disciplinary-ack-badge--pending"><i class="fas fa-clock"></i> Aguardando ciência</span>`;
+            return `<div class="disciplinary-item">
+                <div class="disciplinary-info">
+                    <span class="disciplinary-title">${escapeHtml(d.reason)}</span>
+                    <span class="disciplinary-meta">${bits.join(' · ')}${d.description ? ' · ' + escapeHtml(d.description) : ''}</span>
+                </div>
+                <div class="disciplinary-badges">
+                    <span class="disciplinary-type-badge disciplinary-type-badge--${d.type}">${label}</span>
+                    ${ack}
+                </div>
+            </div>`;
+        })
+        .join('');
+}
+
+window.handleOpenDisciplinary = async function () {
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+
+    disciplinaryEmployeeId = id;
+    const nameEl = document.getElementById('disciplinary-emp-name');
+    if (nameEl) nameEl.textContent = emp.name;
+    document.getElementById('disciplinary-list').innerHTML = `<p class="performance-empty">Carregando…</p>`;
+    document.getElementById('da-reason').value = '';
+    document.getElementById('da-description').value = '';
+    document.getElementById('da-suspension-days').value = '';
+    document.getElementById('da-suspension-days').classList.add('hidden');
+    daTypeField?.setValue('');
+    setDateFieldValue(document.getElementById('da-occurred-date'), new Date().toISOString().slice(0, 10));
+    document.getElementById('disciplinary-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    await fetchDisciplinaryActions(id);
+    renderDisciplinaryList();
+};
+
+window.closeDisciplinaryModal = function () {
+    document.getElementById('disciplinary-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.addDisciplinaryAction = async function () {
+    if (!disciplinaryEmployeeId) return;
+    const type = document.getElementById('da-type')?.value;
+    if (!type) {
+        showToast('Campo obrigatório', 'Selecione o tipo da medida disciplinar.', 'warning');
+        return;
+    }
+    const reason = document.getElementById('da-reason')?.value.trim();
+    if (!reason) {
+        showToast('Campo obrigatório', 'Informe o motivo.', 'warning');
+        return;
+    }
+    let suspensionDays = null;
+    if (type === 'suspensao') {
+        const raw = document.getElementById('da-suspension-days')?.value.trim();
+        suspensionDays = raw ? Number(raw) : NaN;
+        if (!raw || !Number.isInteger(suspensionDays) || suspensionDays <= 0) {
+            showToast('Valor inválido', 'Informe a quantidade de dias de suspensão.', 'warning');
+            return;
+        }
+    }
+    const description = document.getElementById('da-description')?.value.trim() || null;
+    const occurredAt = getDateFieldValue('da-occurred-date') || new Date().toISOString().slice(0, 10);
+
+    const { error } = await sb.from('disciplinary_actions').insert({
+        employee_id: disciplinaryEmployeeId,
+        type,
+        reason,
+        description,
+        suspension_days: suspensionDays,
+        occurred_at: occurredAt,
+        created_by_name: 'RH',
+    });
+    if (error) {
+        showToast('Erro!', 'Não foi possível registrar a medida disciplinar.', 'error');
+        return;
+    }
+    document.getElementById('da-reason').value = '';
+    document.getElementById('da-description').value = '';
+    document.getElementById('da-suspension-days').value = '';
+    document.getElementById('da-suspension-days').classList.add('hidden');
+    daTypeField?.setValue('');
+    await fetchDisciplinaryActions(disciplinaryEmployeeId);
+    renderDisciplinaryList();
+    showToast(
+        'Medida Registrada!',
+        `"${DISCIPLINARY_TYPE_LABEL[type]}" foi registrada para ${employees.find((e) => e.id === disciplinaryEmployeeId)?.name || 'o colaborador'}.`,
+        'success'
+    );
+};
+
+// --- Atestados e Afastamentos Médicos ---
+// Só o colaborador autodeclara (upload do atestado + período, na tela dele); o RH só aprova/recusa aqui —
+// mesmo padrão dos treinamentos autodeclarados. Aprovar um atestado que cobre hoje já muda o status do
+// colaborador para "Afastado" automaticamente (trigger + job diário, ver migration 075) — não precisa fazer
+// isso manualmente pelo "Alterar Status".
+const LEAVE_STATUS_LABEL = { pendente: 'Pendente', aprovado: 'Aprovado', recusado: 'Recusado' };
+
+let medicalLeavesEmployeeId = null;
+let medicalLeaves = [];
+let rejectingLeaveId = null;
+
+async function fetchMedicalLeaves(employeeId) {
+    const { data } = await sb
+        .from('medical_leaves')
+        .select('id,start_date,end_date,days,doctor_name,doctor_crm,cid,storage_path,status,rejection_reason')
+        .eq('employee_id', employeeId)
+        .order('start_date', { ascending: false });
+    medicalLeaves = data || [];
+}
+
+function renderMedicalLeavesList() {
+    const wrap = document.getElementById('medical-leaves-list');
+    if (!wrap) return;
+    if (!medicalLeaves.length) {
+        wrap.innerHTML = `<p class="performance-empty">Nenhum atestado enviado ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = medicalLeaves
+        .map((l) => {
+            const label = LEAVE_STATUS_LABEL[l.status] || l.status;
+            const bits = [
+                `${formatDateBR(l.start_date)} → ${formatDateBR(l.end_date)}`,
+                `${l.days} dia${l.days > 1 ? 's' : ''}`,
+                l.doctor_name ? `Dr(a). ${l.doctor_name}` : null,
+                l.cid ? `CID ${l.cid}` : null,
+            ].filter(Boolean);
+            const attachBtn = l.storage_path
+                ? `<button type="button" class="training-action-btn" data-click="viewLeaveAttachment" data-click-args="${dargs(l.id)}"><i class="fas fa-paperclip"></i> Atestado</button>`
+                : '';
+            let actions = attachBtn;
+            if (l.status === 'pendente') {
+                actions += `<button type="button" class="training-action-btn training-action-btn--approve" data-click="approveLeave" data-click-args="${dargs(l.id)}">Aprovar</button>
+                    <button type="button" class="training-action-btn training-action-btn--reject" data-click="openRejectLeaveRow" data-click-args="${dargs(l.id)}">Recusar</button>`;
+            }
+            const rejection = l.status === 'recusado' && l.rejection_reason ? `<span class="leave-meta">Motivo: ${escapeHtml(l.rejection_reason)}</span>` : '';
+            return `<div class="leave-item">
+                <div class="leave-info">
+                    <span class="leave-title">${escapeHtml(bits[0])}</span>
+                    <span class="leave-meta">${bits.slice(1).map(escapeHtml).join(' · ')}</span>
+                    ${rejection}
+                </div>
+                <div class="leave-badges">
+                    <span class="leave-status-badge leave-status-badge--${l.status}">${label}</span>
+                </div>
+                <div class="leave-actions">${actions}</div>
+            </div>`;
+        })
+        .join('');
+}
+
+window.handleOpenMedicalLeaves = async function () {
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+
+    medicalLeavesEmployeeId = id;
+    const nameEl = document.getElementById('ml-emp-name');
+    if (nameEl) nameEl.textContent = emp.name;
+    document.getElementById('medical-leaves-list').innerHTML = `<p class="performance-empty">Carregando…</p>`;
+    document.getElementById('ml-reject-row')?.classList.add('hidden');
+    rejectingLeaveId = null;
+    document.getElementById('medical-leaves-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    await fetchMedicalLeaves(id);
+    renderMedicalLeavesList();
+};
+
+window.closeMedicalLeavesModal = function () {
+    document.getElementById('medical-leaves-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
+window.viewLeaveAttachment = async function (id) {
+    const leave = medicalLeaves.find((l) => l.id === id);
+    if (!leave?.storage_path) return;
+    await NexusFiles.open('documents', leave.storage_path, { name: 'Atestado' });
+};
+
+window.approveLeave = async function (id) {
+    const { error } = await sb
+        .from('medical_leaves')
+        .update({ status: 'aprovado', reviewed_by_name: 'RH', reviewed_at: new Date().toISOString() })
+        .eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível aprovar o atestado.', 'error');
+        return;
+    }
+    await fetchMedicalLeaves(medicalLeavesEmployeeId);
+    renderMedicalLeavesList();
+    showToast('Atestado Aprovado!', 'O afastamento foi confirmado.', 'success');
+};
+
+window.openRejectLeaveRow = function (id) {
+    rejectingLeaveId = id;
+    document.getElementById('ml-reject-reason').value = '';
+    document.getElementById('ml-reject-row')?.classList.remove('hidden');
+};
+
+window.cancelRejectLeave = function () {
+    rejectingLeaveId = null;
+    document.getElementById('ml-reject-row')?.classList.add('hidden');
+};
+
+window.confirmRejectLeave = async function () {
+    const reason = document.getElementById('ml-reject-reason')?.value.trim();
+    if (!reason) {
+        showToast('Campo obrigatório', 'Informe o motivo da recusa.', 'warning');
+        return;
+    }
+    const { error } = await sb
+        .from('medical_leaves')
+        .update({ status: 'recusado', rejection_reason: reason, reviewed_by_name: 'RH', reviewed_at: new Date().toISOString() })
+        .eq('id', rejectingLeaveId);
+    if (error) {
+        showToast('Erro!', 'Não foi possível recusar o atestado.', 'error');
+        return;
+    }
+    window.cancelRejectLeave();
+    await fetchMedicalLeaves(medicalLeavesEmployeeId);
+    renderMedicalLeavesList();
+    showToast('Atestado Recusado!', 'O colaborador poderá reenviar, se necessário.', 'info');
+};
+
+// --- Avaliação de Desempenho / PDI ---
+// Somente leitura para o RH: quem avalia e define metas é o gestor direto, pela tela "Minha Equipe"
+// (equipe-colaborador.js, restrito a quem lidera via manager_id). O RH acompanha qualquer colaborador
+// (RLS: is_rh() em SELECT) mas não cria nem edita avaliações/metas — ver migration 071.
+
+const GOAL_STATUS_LABEL = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
+
+let performanceEmployeeId = null;
+let performanceReviews = [];
+let performanceGoals = [];
+
+async function fetchPerformanceData(employeeId) {
+    const [{ data: reviews }, { data: goals }] = await Promise.all([
+        sb
+            .from('performance_reviews')
+            .select('id,cycle,status,overall_rating,manager_comment,created_at,completed_at')
+            .eq('employee_id', employeeId)
+            .order('created_at', { ascending: false }),
+        sb.from('pdi_goals').select('id,title,description,due_date,status,created_at').eq('employee_id', employeeId).order('created_at', { ascending: false }),
+    ]);
+    performanceReviews = reviews || [];
+    performanceGoals = goals || [];
+}
+
+function renderPerformanceReviews() {
+    const wrap = document.getElementById('performance-reviews-list');
+    if (!wrap) return;
+    if (!performanceReviews.length) {
+        wrap.innerHTML = `<p class="performance-empty">Nenhuma avaliação registrada ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = performanceReviews
+        .map((r) => {
+            const stars = r.overall_rating ? '★'.repeat(r.overall_rating) + '☆'.repeat(5 - r.overall_rating) : '—';
+            const statusLabel = r.status === 'concluida' ? 'Concluída' : 'Rascunho';
+            return `<div class="performance-review-item">
+                <div class="performance-review-info">
+                    <span class="performance-review-cycle">${escapeHtml(r.cycle)}</span>
+                    <span class="performance-review-meta">${stars} · ${formatDateBR(r.created_at.slice(0, 10))}</span>
+                </div>
+                <span class="review-status-badge review-status-badge--${r.status}">${statusLabel}</span>
+            </div>`;
+        })
+        .join('');
+}
+
+function renderPerformanceGoals() {
+    const wrap = document.getElementById('performance-goals-list');
+    if (!wrap) return;
+    if (!performanceGoals.length) {
+        wrap.innerHTML = `<p class="performance-empty">Nenhuma meta de desenvolvimento cadastrada.</p>`;
+        return;
+    }
+    wrap.innerHTML = performanceGoals
+        .map((g) => {
+            const label = GOAL_STATUS_LABEL[g.status] || g.status;
+            const due = g.due_date ? ` · prazo ${formatDateBR(g.due_date)}` : '';
+            return `<div class="pdi-goal-item">
+                <div class="pdi-goal-info">
+                    <span class="pdi-goal-title">${escapeHtml(g.title)}</span>
+                    <span class="pdi-goal-meta">${label}${due}</span>
+                </div>
+                <span class="goal-status-badge goal-status-badge--${g.status}">${label}</span>
+            </div>`;
+        })
+        .join('');
+}
+
+window.handleOpenPerformance = async function () {
+    const id = currentEmployeeId;
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    document.getElementById('drawer-dropdown')?.classList.remove('show');
+    backToMainMenu();
+
+    performanceEmployeeId = id;
+    const nameEl = document.getElementById('performance-emp-name');
+    if (nameEl) nameEl.textContent = emp.name;
+    const reviewsList = document.getElementById('performance-reviews-list');
+    if (reviewsList) reviewsList.innerHTML = `<p class="performance-empty">Carregando…</p>`;
+    const goalsList = document.getElementById('performance-goals-list');
+    if (goalsList) goalsList.innerHTML = '';
+    document.getElementById('performance-modal')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    await fetchPerformanceData(id);
+    renderPerformanceReviews();
+    renderPerformanceGoals();
+};
+
+window.closePerformanceModal = function () {
+    document.getElementById('performance-modal')?.classList.remove('open');
+    document.body.style.overflow = '';
+};
+
 window.editEmployee = function (id) {
     const emp = employees.find((e) => e.id === id);
     if (!emp) return;
@@ -2424,7 +3317,8 @@ window.editEmployee = function (id) {
     setFormHeader('fa-edit', 'Editar Colaborador');
     document.getElementById('employee-id').value = emp.id;
     document.getElementById('name').value = emp.name || '';
-    document.getElementById('role').value = emp.role || '';
+    populateRoleDropdown('role-popover', emp.role || '');
+    roleField?.setValue(emp.role || '');
     document.getElementById('cpf').value = emp.cpf || '';
     document.getElementById('email').value = emp.email || '';
     setDateFieldValue(document.getElementById('admission-date'), emp.admissionDate || '');
@@ -2821,7 +3715,7 @@ function setupCepListener() {
 }
 
 function setupSalaryMask() {
-    ['salary', 'rem-salario'].forEach((id) => {
+    ['salary', 'rem-salario', 'promote-salary', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
         const input = document.getElementById(id);
         if (!input) return;
         input.type = 'text';
@@ -2889,8 +3783,17 @@ window.pesquisacep = async function (valor) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     orgDeptField = createSelectField('orgchart-dept-filter', () => renderOrgChart());
+    roleField = createSelectField('role');
+    promoteRoleField = createSelectField('promote-role', updatePromoteBtnState);
+    trAssignCatalogField = createSelectField('tr-assign-catalog');
+    daTypeField = createSelectField('da-type', () => {
+        document.getElementById('da-suspension-days')?.classList.toggle('hidden', document.getElementById('da-type')?.value !== 'suspensao');
+    });
+    setupPdiGoalDatePicker();
     await loadRhSidebar();
     await fetchEmployees();
+    await fetchJobTitlesPublic();
+    await fetchTrainingsCatalogPublic();
     await fetchExpiringDocuments();
     await fetchAdmissionalDocTypes();
     document.getElementById('contract-type')?.addEventListener('change', () => {

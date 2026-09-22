@@ -21,7 +21,6 @@ function computeRetentionDate(tipo) {
     return d.toISOString().slice(0, 10);
 }
 
-// Documentos que o RH preenche/assina e devolve ao colaborador (mesmos nomes da lista RETURN_TIPOS em arquivos.js).
 const RETURN_TIPOS = [
     'Termo de Compromisso de Estágio',
     'Plano de Atividades de Estágio',
@@ -57,8 +56,6 @@ const statusMap = {
     recusado: { cls: 'recusado', label: 'Recusado', icon: 'fa-times-circle' },
 };
 
-// Quais tipos obrigatórios ainda faltam, e quais deles o colaborador pode enviar sozinho (o resto
-// espera o RH). `haveTipos` já vem filtrado para o que conta como "documento presente" (ver renderPendingDocsBanner).
 function missingRequiredTipos(requiredTipos, haveTipos) {
     return requiredTipos.filter((t) => !haveTipos.includes(t));
 }
@@ -78,9 +75,7 @@ async function refreshDocs() {
     myDocs = allMyDocs.filter((d) => d.is_current !== false);
     try {
         localStorage.setItem(`nexus:docs-seen:${myEmployeeId}`, new Date().toISOString());
-    } catch {
-        /* localStorage indisponível (ex.: modo privado) — não é crítico, só evita o badge "novo" */
-    }
+    } catch {}
 }
 
 async function loadRequirements() {
@@ -101,7 +96,6 @@ async function logAudit(action, doc) {
     });
 }
 
-// Documento do colaborador que o RH já preencheu, assinou e devolveu: existe uma versão do RH, do mesmo tipo, criada depois.
 function statusOf(doc) {
     const returned =
         doc.source === 'colaborador' &&

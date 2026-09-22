@@ -242,8 +242,6 @@ function showMfaStep(factorId, profile) {
     setTimeout(() => input?.focus(), 50);
 }
 
-// Alimenta os alertas de segurança (migration 066). Espera no máximo 1,5 s para não segurar o redirecionamento e ignora
-// qualquer erro: o login nunca depende disso.
 async function reportSecurity(rpcName, args) {
     try {
         await Promise.race([Promise.resolve(sb.rpc(rpcName, args)), new Promise((resolve) => setTimeout(resolve, 1500))]);

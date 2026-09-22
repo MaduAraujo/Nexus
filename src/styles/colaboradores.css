@@ -983,7 +983,8 @@ ul {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     padding: 11px 14px;
     border: 1.5px solid var(--border);
     border-radius: 9px;
@@ -999,17 +1000,28 @@ ul {
     font-size: max(16px, 0.875rem);
 }
 .form-group input:hover,
-.form-group select:hover {
+.form-group select:hover,
+.form-group textarea:hover {
     border-color: #c7cee0;
 }
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
     background: #fbfbff;
 }
-.form-group input::placeholder {
+.form-group input::placeholder,
+.form-group textarea::placeholder {
     color: var(--text-tertiary);
+}
+.form-group textarea {
+    resize: vertical;
+    min-height: 70px;
+    font-family: inherit;
+    line-height: 1.5;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .form-group select {
@@ -3048,6 +3060,66 @@ ul {
     opacity: 0.9;
 }
 
+.jt-inactive-badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-tertiary);
+    background: var(--bg-input);
+    border-radius: 50px;
+    padding: 1px 7px;
+    vertical-align: middle;
+}
+
+.jt-add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.jt-add-row {
+    display: flex;
+    gap: 8px;
+}
+.jt-add-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 9px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s var(--ease);
+}
+.jt-add-row input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.jt-add-row button {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 16px;
+    background: var(--accent-gradient);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.15s var(--ease);
+}
+.jt-add-row button:hover {
+    opacity: 0.9;
+}
+
 .orgchart-filter-bar {
     display: flex;
     align-items: center;
@@ -3127,7 +3199,6 @@ ul {
     color: var(--accent);
 }
 
-/* Popover fechado não ocupa área dentro do modal */
 .select-popover {
     position: absolute;
     top: 100%;
@@ -3456,7 +3527,15 @@ ul {
 #onboarding-tasks-modal.modal-overlay,
 #import-overlay.modal-overlay,
 #audit-history-modal.modal-overlay,
-#lgpd-modal.modal-overlay {
+#lgpd-modal.modal-overlay,
+#promote-modal.modal-overlay,
+#performance-modal.modal-overlay,
+#performance-review-form-modal.modal-overlay,
+#job-titles-modal.modal-overlay,
+#trainings-catalog-modal.modal-overlay,
+#trainings-modal.modal-overlay,
+#disciplinary-modal.modal-overlay,
+#medical-leaves-modal.modal-overlay {
     background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -3466,7 +3545,15 @@ ul {
 #onboarding-tasks-modal .modal-content,
 #import-overlay .modal-content,
 #audit-history-modal .modal-content,
-#lgpd-modal .modal-content {
+#lgpd-modal .modal-content,
+#promote-modal .modal-content,
+#performance-modal .modal-content,
+#performance-review-form-modal .modal-content,
+#job-titles-modal .modal-content,
+#trainings-catalog-modal .modal-content,
+#trainings-modal .modal-content,
+#disciplinary-modal .modal-content,
+#medical-leaves-modal .modal-content {
     border-radius: 16px;
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
 }
@@ -3478,7 +3565,15 @@ ul {
 #onboarding-tasks-modal .modal-header,
 #import-overlay .modal-header,
 #audit-history-modal .modal-header,
-#lgpd-modal .modal-header {
+#lgpd-modal .modal-header,
+#promote-modal .modal-header,
+#performance-modal .modal-header,
+#performance-review-form-modal .modal-header,
+#job-titles-modal .modal-header,
+#trainings-catalog-modal .modal-header,
+#trainings-modal .modal-header,
+#disciplinary-modal .modal-header,
+#medical-leaves-modal .modal-header {
     padding: 18px 22px;
     background: var(--bg-page);
     border-bottom: 1px solid var(--border-light);
@@ -3488,7 +3583,15 @@ ul {
 #onboarding-tasks-modal .modal-header-icon,
 #import-overlay .modal-header-icon,
 #audit-history-modal .modal-header-icon,
-#lgpd-modal .modal-header-icon {
+#lgpd-modal .modal-header-icon,
+#promote-modal .modal-header-icon,
+#performance-modal .modal-header-icon,
+#performance-review-form-modal .modal-header-icon,
+#job-titles-modal .modal-header-icon,
+#trainings-catalog-modal .modal-header-icon,
+#trainings-modal .modal-header-icon,
+#disciplinary-modal .modal-header-icon,
+#medical-leaves-modal .modal-header-icon {
     width: 36px;
     height: 36px;
     border-radius: 9px;
@@ -3499,7 +3602,15 @@ ul {
 #onboarding-tasks-modal .modal-title,
 #import-overlay .modal-title,
 #audit-history-modal .modal-title,
-#lgpd-modal .modal-title {
+#lgpd-modal .modal-title,
+#promote-modal .modal-title,
+#performance-modal .modal-title,
+#performance-review-form-modal .modal-title,
+#job-titles-modal .modal-title,
+#trainings-catalog-modal .modal-title,
+#trainings-modal .modal-title,
+#disciplinary-modal .modal-title,
+#medical-leaves-modal .modal-title {
     font-size: 0.97rem;
 }
 
@@ -3507,7 +3618,15 @@ ul {
 #onboarding-tasks-modal .close-modal,
 #import-overlay .close-modal,
 #audit-history-modal .close-modal,
-#lgpd-modal .close-modal {
+#lgpd-modal .close-modal,
+#promote-modal .close-modal,
+#performance-modal .close-modal,
+#performance-review-form-modal .close-modal,
+#job-titles-modal .close-modal,
+#trainings-catalog-modal .close-modal,
+#trainings-modal .close-modal,
+#disciplinary-modal .close-modal,
+#medical-leaves-modal .close-modal {
     width: 30px;
     height: 30px;
     border-radius: 8px;
@@ -3518,7 +3637,15 @@ ul {
 #onboarding-tasks-modal .close-modal:hover,
 #import-overlay .close-modal:hover,
 #audit-history-modal .close-modal:hover,
-#lgpd-modal .close-modal:hover {
+#lgpd-modal .close-modal:hover,
+#promote-modal .close-modal:hover,
+#performance-modal .close-modal:hover,
+#performance-review-form-modal .close-modal:hover,
+#job-titles-modal .close-modal:hover,
+#trainings-catalog-modal .close-modal:hover,
+#trainings-modal .close-modal:hover,
+#disciplinary-modal .close-modal:hover,
+#medical-leaves-modal .close-modal:hover {
     background: var(--danger-bg);
     color: var(--danger);
     border-color: var(--danger);
@@ -3528,17 +3655,392 @@ ul {
 #onboarding-tasks-modal .modal-body,
 #import-overlay .modal-body,
 #audit-history-modal .modal-body,
-#lgpd-modal .modal-body {
+#lgpd-modal .modal-body,
+#promote-modal .modal-body,
+#performance-modal .modal-body,
+#performance-review-form-modal .modal-body,
+#job-titles-modal .modal-body,
+#trainings-catalog-modal .modal-body,
+#trainings-modal .modal-body,
+#disciplinary-modal .modal-body,
+#medical-leaves-modal .modal-body {
     padding: 20px 22px;
 }
 #orgchart-modal .modal-body {
     overflow-x: hidden;
 }
 
-#import-overlay .modal-footer {
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+#import-overlay .modal-footer,
+#promote-modal .modal-footer,
+#performance-modal .modal-footer,
+#performance-review-form-modal .modal-footer {
     padding: 16px 22px;
     background: var(--bg-page);
     border-top: 1px solid var(--border-light);
+}
+
+.promote-current {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: -4px 0 4px;
+}
+
+.btn-secondary--sm {
+    padding: 6px 14px;
+    font-size: 0.78rem;
+}
+
+.performance-section-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+}
+.performance-section-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.performance-section-title i {
+    color: var(--accent);
+}
+.performance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.performance-empty {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    padding: 4px 2px;
+}
+.performance-review-item,
+.pdi-goal-item,
+.training-item,
+.disciplinary-item,
+.leave-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    background: var(--bg-input);
+}
+.performance-review-info,
+.pdi-goal-info,
+.training-info,
+.disciplinary-info,
+.leave-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.performance-review-cycle,
+.pdi-goal-title,
+.training-title,
+.disciplinary-title,
+.leave-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.performance-review-meta,
+.pdi-goal-meta,
+.training-meta,
+.disciplinary-meta,
+.leave-meta {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+}
+.training-meta a,
+.leave-meta a {
+    color: var(--accent);
+}
+.leave-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.leave-status-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.leave-status-badge--pendente {
+    background: var(--warning-bg);
+    color: #b45309;
+}
+.leave-status-badge--aprovado {
+    background: var(--success-bg);
+    color: #15803d;
+}
+.leave-status-badge--recusado {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.leave-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.disciplinary-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.disciplinary-type-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.disciplinary-type-badge--advertencia_verbal {
+    background: var(--warning-bg);
+    color: #b45309;
+}
+.disciplinary-type-badge--advertencia_escrita {
+    background: var(--accent-light);
+    color: var(--accent-hover);
+}
+.disciplinary-type-badge--suspensao {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.disciplinary-ack-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+.disciplinary-ack-badge--pending {
+    color: #b45309;
+}
+.disciplinary-ack-badge--done {
+    color: #15803d;
+}
+.review-status-badge,
+.goal-status-badge {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.review-status-badge--rascunho,
+.goal-status-badge--pendente {
+    background: var(--warning-bg);
+    color: #b45309;
+}
+.review-status-badge--concluida,
+.goal-status-badge--concluido {
+    background: var(--success-bg);
+    color: #15803d;
+}
+.goal-status-badge--em_andamento {
+    background: var(--accent-light);
+    color: var(--accent-hover);
+}
+.goal-status-badge--cancelado,
+.goal-status-badge--recusado {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+.goal-status-badge--aguardando_aprovacao {
+    background: var(--warning-bg);
+    color: #b45309;
+}
+.training-action-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+}
+.training-action-btn--approve:hover {
+    background: var(--success-bg);
+    color: #15803d;
+    border-color: #15803d;
+}
+.training-action-btn--reject:hover,
+.training-action-btn--cancel:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+.training-action-btn--complete:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.tr-assign {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.tr-assign-catalog {
+    width: 200px;
+    flex-shrink: 0;
+}
+.tr-assign input[type='text'] {
+    flex: 1;
+    min-width: 140px;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 9px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s var(--ease);
+}
+.tr-assign input[type='text']:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.tr-assign #tr-assign-hours {
+    flex: 0 1 110px;
+    min-width: 90px;
+}
+.tr-assign > button {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 16px;
+    height: 38px;
+    background: var(--accent-gradient);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.15s var(--ease);
+}
+.tr-assign > button:hover {
+    opacity: 0.9;
+}
+
+.disciplinary-add {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.disciplinary-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.disciplinary-add-row .select-field {
+    width: 190px;
+    flex-shrink: 0;
+}
+.disciplinary-add-row .date-field {
+    width: 190px;
+    flex-shrink: 0;
+}
+.disciplinary-add-row #da-suspension-days {
+    flex: 0 1 150px;
+    min-width: 120px;
+}
+.disciplinary-add input[type='text'],
+.disciplinary-add textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 9px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s var(--ease);
+}
+.disciplinary-add-row input[type='text'] {
+    height: 38px;
+}
+.disciplinary-add textarea {
+    resize: vertical;
+    min-height: 56px;
+}
+.disciplinary-add input:focus,
+.disciplinary-add textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.disciplinary-add > button {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 16px;
+    height: 38px;
+    background: var(--accent-gradient);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.15s var(--ease);
+}
+.disciplinary-add > button:hover {
+    opacity: 0.9;
+}
+
+.performance-readonly-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    background: var(--accent-light);
+    color: var(--accent-hover);
+    border-radius: 9px;
+    font-size: 0.8rem;
 }
 
 .hidden {

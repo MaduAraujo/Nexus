@@ -34,13 +34,11 @@ function nexusCreateClient(slot) {
     });
 }
 
-// eslint-disable-next-line no-unused-vars -- global usada em login.js
 function nexusUseProfileSession(profileType) {
     sb = nexusCreateClient(NEXUS_AUTH_SLOTS[profileType] || null);
     return sb;
 }
 
-// eslint-disable-next-line no-unused-vars -- global usada em perfil-colaborador.js
 async function nexusCheckPassword(email, password) {
     const probe = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { error } = await probe.auth.signInWithPassword({ email, password });

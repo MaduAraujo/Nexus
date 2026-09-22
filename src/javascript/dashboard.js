@@ -14,6 +14,8 @@ let employees = [];
 let vacations = [];
 let payslips = [];
 let bankAdjustments = [];
+let promotionEvents = []; 
+let completedTrainings = []; 
 let messages = [];
 let messageReads = [];
 
@@ -165,13 +167,27 @@ async function loadRhSidebar() {
 }
 
 async function loadData() {
-    const [{ data: empData }, { data: vacData }, { data: paySlipData }, { data: bankAdjData }, { data: msgData }, { data: readData }] = await Promise.all([
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+    const [
+        { data: empData },
+        { data: vacData },
+        { data: paySlipData },
+        { data: bankAdjData },
+        { data: msgData },
+        { data: readData },
+        { data: auditData },
+        { data: trainingData },
+    ] = await Promise.all([
         sb.from('employees_decrypted').select('id,name,dept,status,contract_type,admission_date,termination_date,email,birth_date,gender,salary,pcd,raca_cor'),
         sb.from('vacations').select('id,employee_id,start_date,end_date,status'),
         sb.from('payslips_decrypted').select('mes,total_proventos,salario_liquido'),
         sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null),
         sb.from('messages').select('id,texto,destino,categoria,created_at,scheduled_at'),
         sb.from('message_reads').select('message_id,employee_id,read_at'),
+        sb.from('employee_audit').select('employee_id,changes,created_at').gte('created_at', twelveMonthsAgo.toISOString()),
+        sb.from('employee_trainings').select('employee_id,hours,completion_date').eq('status', 'concluido'),
     ]);
     employees = (empData || []).map((e) => ({
         id: e.id,
@@ -186,7 +202,6 @@ async function loadData() {
         gender: e.gender,
         salary: e.salary,
         pcd: e.pcd,
-        // Cadastros antigos guardam "Branca"; o valor atual da lista é "Branco".
         racaCor: e.raca_cor === 'Branca' ? 'Branco' : e.raca_cor,
     }));
     vacations = (vacData || []).map((v) => ({
@@ -198,6 +213,8 @@ async function loadData() {
     }));
     payslips = paySlipData || [];
     bankAdjustments = bankAdjData || [];
+    promotionEvents = (auditData || []).filter((a) => (a.changes || []).some((c) => c.field === 'role' || c.field === 'contractType'));
+    completedTrainings = trainingData || [];
     messages = msgData || [];
     messageReads = readData || [];
 }
@@ -209,11 +226,12 @@ function refreshAll() {
     updateDepartmentChart();
     updateTurnoverRate();
     updateAbsenteeism();
+    updatePromotionRate();
+    updateTrainingHours();
     updateTenureChart();
     updateAgeChart();
     updateGenderChart();
     updateGenderEquity();
-    updateRaceEquity();
     updatePcdQuota();
     updateRaceChart();
     updatePayrollChart();
@@ -280,6 +298,93 @@ function updateTurnoverRate() {
     const rate = (desligamentos / employees.length) * 100;
     el.textContent = `${rate.toFixed(1)}%`;
     setKpiLevel(el, rate, [10, 20]);
+}
+
+function updatePromotionRate() {
+    const valueEl = document.getElementById('promotion-rate-value');
+    const textEl = document.getElementById('promotion-rate-text');
+    const graphic = document.getElementById('promotion-rate-graphic');
+    if (!valueEl) return;
+
+    const ativos = employees.filter((e) => e.status === 'Ativo');
+    if (!ativos.length) {
+        valueEl.textContent = '—';
+        if (textEl) textEl.textContent = 'Sem colaboradores ativos para calcular.';
+        return;
+    }
+    const ativosIds = new Set(ativos.map((e) => e.id));
+
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const promotedIds = new Set();
+    const monthlyCounts = new Array(6).fill(0);
+
+    promotionEvents.forEach((entry) => {
+        if (!ativosIds.has(entry.employee_id)) return;
+        promotedIds.add(entry.employee_id);
+        const when = new Date(entry.created_at);
+        const idx = (when.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (when.getMonth() - sixMonthsAgo.getMonth());
+        if (idx >= 0 && idx < 6) monthlyCounts[idx]++;
+    });
+
+    const rate = (promotedIds.size / ativos.length) * 100;
+    valueEl.textContent = `${rate.toFixed(1)}%`;
+    if (textEl) {
+        textEl.textContent = `${promotedIds.size} de ${ativos.length} colaborador${ativos.length > 1 ? 'es' : ''} promovido${promotedIds.size === 1 ? '' : 's'} nos últimos 12 meses.`;
+    }
+
+    if (graphic) {
+        const max = Math.max(1, ...monthlyCounts);
+        graphic.querySelectorAll('span').forEach((span, i) => {
+            span.style.setProperty('--h', `${Math.max(Math.round((monthlyCounts[i] / max) * 100), 6)}%`);
+        });
+    }
+}
+
+function updateTrainingHours() {
+    const valueEl = document.getElementById('training-hours-value');
+    const textEl = document.getElementById('training-hours-text');
+    const graphic = document.getElementById('training-hours-graphic');
+    if (!valueEl) return;
+
+    const ativos = employees.filter((e) => e.status === 'Ativo');
+    if (!ativos.length) {
+        valueEl.textContent = '—';
+        if (textEl) textEl.textContent = 'Sem colaboradores ativos para calcular.';
+        return;
+    }
+    const ativosIds = new Set(ativos.map((e) => e.id));
+
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const monthlyHours = new Array(6).fill(0);
+    let totalHours = 0;
+    const trainedIds = new Set();
+
+    completedTrainings.forEach((t) => {
+        if (!ativosIds.has(t.employee_id)) return;
+        const hours = Number(t.hours) || 0;
+        totalHours += hours;
+        trainedIds.add(t.employee_id);
+        if (t.completion_date) {
+            const when = new Date(t.completion_date + 'T00:00:00');
+            const idx = (when.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (when.getMonth() - sixMonthsAgo.getMonth());
+            if (idx >= 0 && idx < 6) monthlyHours[idx] += hours;
+        }
+    });
+
+    const avg = totalHours / ativos.length;
+    valueEl.textContent = `${avg.toFixed(1)}h`;
+    if (textEl) {
+        textEl.textContent = `${trainedIds.size} de ${ativos.length} colaborador${ativos.length > 1 ? 'es' : ''} com ao menos um treinamento concluído.`;
+    }
+
+    if (graphic) {
+        const max = Math.max(1, ...monthlyHours);
+        graphic.querySelectorAll('span').forEach((span, i) => {
+            span.style.setProperty('--h', `${Math.max(Math.round((monthlyHours[i] / max) * 100), 6)}%`);
+        });
+    }
 }
 
 async function updateAbsenteeism() {
@@ -687,43 +792,6 @@ function updateGenderEquity() {
         <div class="equity-stat">
             <span class="equity-stat-value equity-stat--${level}">${worstGap.gap.toFixed(1)}%</span>
             <span class="equity-stat-label">gap salarial: ${escHtml(highest)} ganha mais que ${escHtml(worstGap.g)}</span>
-        </div>
-        <div class="equity-breakdown">${breakdown}</div>`;
-}
-
-function updateRaceEquity() {
-    const body = document.getElementById('equity-race-body');
-    if (!body) return;
-    const withData = employees.filter((e) => e.status === 'Ativo' && e.racaCor && e.salary > 0);
-    const byRace = withData.reduce((acc, e) => {
-        (acc[e.racaCor] || (acc[e.racaCor] = [])).push(e.salary);
-        return acc;
-    }, {});
-    const avg = Object.fromEntries(Object.entries(byRace).map(([r, salaries]) => [r, salaries.reduce((s, v) => s + v, 0) / salaries.length]));
-    const races = Object.keys(avg);
-
-    if (races.length < 2) {
-        body.innerHTML = `<p class="equity-note">Dados insuficientes: é necessário salário e raça/cor cadastrados para ao menos dois grupos para calcular o gap salarial.</p>`;
-        return;
-    }
-
-    const highest = races.reduce((a, b) => (avg[a] >= avg[b] ? a : b));
-    const gaps = races.filter((r) => r !== highest).map((r) => ({ r, gap: ((avg[highest] - avg[r]) / avg[highest]) * 100 }));
-    const worstGap = gaps.reduce((a, b) => (a.gap >= b.gap ? a : b));
-    const level = worstGap.gap >= 15 ? 'bad' : worstGap.gap >= 5 ? 'warn' : 'good';
-
-    const breakdown = races
-        .sort((a, b) => avg[b] - avg[a])
-        .map(
-            (r) =>
-                `<div class="equity-breakdown-row"><span class="equity-dot" style="background:${RACA_COLORS[r] || PALETTE.slate}"></span>${escHtml(r)}<strong>${fmtBRL(avg[r])}</strong></div>`
-        )
-        .join('');
-
-    body.innerHTML = `
-        <div class="equity-stat">
-            <span class="equity-stat-value equity-stat--${level}">${worstGap.gap.toFixed(1)}%</span>
-            <span class="equity-stat-label">gap salarial: ${escHtml(highest)} ganha mais que ${escHtml(worstGap.r)}</span>
         </div>
         <div class="equity-breakdown">${breakdown}</div>`;
 }

@@ -1270,7 +1270,6 @@ window.deleteAjuste = async function (empId, adjId) {
     }
 };
 
-// Só um popover (calendário ou lista de opções) fica aberto por vez.
 let closeActivePopover = null;
 function claimPopover(close) {
     if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
@@ -1280,7 +1279,6 @@ function releasePopover(close) {
     if (closeActivePopover === close) closeActivePopover = null;
 }
 
-// Dropdown padronizado (mesmo padrão da tela de ponto do colaborador): botão + lista flutuante + input oculto com o valor.
 function createSelectField(id, onChange) {
     const trigger = $(`${id}-trigger`);
     const popover = $(`${id}-popover`);
@@ -1335,7 +1333,6 @@ function createSelectField(id, onChange) {
     return { setValue };
 }
 
-// Calendário padronizado (mesmo padrão da tela de ponto do colaborador). O valor fica em `${id}` no formato aaaa-mm-dd.
 function createCalendarField(id, onChange) {
     const MESES_LONG = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const trigger = $(`${id}-trigger`);
@@ -1399,7 +1396,6 @@ function createCalendarField(id, onChange) {
         trigger.setAttribute('aria-expanded', 'true');
         document.addEventListener('click', onOutsideClick);
         document.addEventListener('keydown', onEscape);
-        // Depois da animação de abertura, traz o calendário para a área visível se estiver mais abaixo (modais curtos).
         setTimeout(() => {
             if (popover.classList.contains('open')) popover.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 200);
@@ -1521,7 +1517,6 @@ window.deleteHoliday = async function (id) {
     }
 };
 
-// Setas do campo numérico: substituem o spinner nativo do navegador e respeitam min/max/step do input.
 window.stepNumber = function (id, direction) {
     const input = $(id);
     if (!input) return;
@@ -2163,7 +2158,6 @@ function fmtDate(key) {
     const [y, m, d] = key.split('-');
     return `${d}/${m}/${y}`;
 }
-// "2026-09" -> "Set/2026" (cabe em campos estreitos)
 function fmtMonthShort(key) {
     if (!key) return '';
     const [y, m] = key.split('-');

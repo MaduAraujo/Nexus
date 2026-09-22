@@ -1174,6 +1174,11 @@ body {
     --qc-to: #ef4444;
     --qc-shadow: rgba(239, 68, 68, 0.22);
 }
+.quick-card--teal {
+    --qc-from: #14b8a6;
+    --qc-to: #0d9488;
+    --qc-shadow: rgba(20, 184, 166, 0.28);
+}
 
 .quick-card:hover {
     transform: translateY(-3px);

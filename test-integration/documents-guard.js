@@ -114,7 +114,6 @@ describe('documents: colaborador não altera status/categoria/assinatura (UPDATE
 
     test('não consegue assinar por update direto (nem no documento do RH, nem no próprio)', async () => {
         await withUser({ sub: U_A }, async (db) => {
-            // Documento do RH: a política de UPDATE nem enxerga a linha.
             const { rowCount } = await db.query("UPDATE documents SET assinado_em = NOW(), assinado_por = 'eu' WHERE id = $1", [D_RH_SIGN]);
             assert.equal(rowCount, 0);
         });

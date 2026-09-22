@@ -65,7 +65,6 @@
     let auditLogEntries = [];
     let returnForDocId = null;
 
-    // "Lido" fica no navegador de quem marcou. A chave muda quando a situação muda (ex.: a vencer -> vencido), e aí volta a ser não lida.
     const NOTIF_READ_STORAGE_KEY = `nexus:arquivos-notif-read:${user.id}`;
     let currentNotifKeys = new Set();
     let notifRead = loadNotifRead();
@@ -112,7 +111,6 @@
     };
     const DEFAULT_RETENTION_YEARS = 5;
 
-    // Documentos que o RH entrega ao colaborador para formalizar a contratação e que ele precisa assinar (ciência/aceite).
     const ONBOARDING_TERMOS = [
         'Termo de Vale-Transporte',
         'Ficha de Salário-Família',
@@ -123,7 +121,6 @@
         'Termo de Entrega de EPI',
     ];
     const SIGNATURE_TIPOS = ['Contrato de Trabalho', 'Termo de Rescisão', 'Aviso Prévio', 'Homologação', ...ONBOARDING_TERMOS];
-    // Documentos que o colaborador envia, o RH preenche/assina e devolve. Nomes iguais aos da tela de envio do colaborador.
     const RETURN_TIPOS = [
         'Termo de Compromisso de Estágio',
         'Plano de Atividades de Estágio',
@@ -199,12 +196,10 @@
         populateDeptFilter();
     }
 
-    // Documento de colaborador aprovado deixa a caixa de entrada (aba Colaborador) e passa a constar em Admissional/Demissional.
     function isFiledColabDoc(d) {
         return d.source === 'colaborador' && d.status === 'aprovado' && (d.category === 'admissional' || d.category === 'demissional');
     }
 
-    // Documentos aprovados antes desta regra existir não têm categoria: classifica na hora e grava em segundo plano.
     const backfilling = new Set();
 
     function backfillCategory(doc) {
@@ -354,7 +349,6 @@
         return doc.version > 1 ? `<span class="badge badge--version" title="Substituiu uma versão anterior">v${doc.version}</span>` : '';
     }
 
-    // Versão preenchida/assinada que o RH devolveu para um documento enviado pelo colaborador.
     function returnedDoc(doc) {
         if (doc.source !== 'colaborador' || !RETURN_TIPOS.includes(doc.tipo)) return null;
         return (
@@ -1326,7 +1320,6 @@
         showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
     };
 
-    // Só um popover (calendário ou lista de opções) fica aberto por vez.
     let closeActivePopover = null;
     function claimPopover(close) {
         if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
@@ -1754,7 +1747,6 @@
 
         if (!successCount) return;
 
-        // Devolução: o documento do colaborador é aprovado junto e passa a constar em Admissional/Demissional.
         if (returning) await approveDocs([returning.id]);
 
         if (deliveredIds.length) {

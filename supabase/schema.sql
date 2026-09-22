@@ -1693,7 +1693,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio) VALUES
   ('demissional','Guia FGTS', true)
 ON CONFLICT (category, tipo, contract_type) DO NOTHING;
 
--- Base inicial dos demais regimes de contratação (ver migration 070).
 INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) VALUES
   -- Estágio (Lei 11.788/2008)
   ('admissional', 'RG',                                  true, 'Estágio'),
@@ -2892,18 +2891,6 @@ GRANT SELECT ON payslips_decrypted, anonymous_feedback_decrypted, ai_analysis_ca
                 ai_chat_history_decrypted, ai_decision_memory_decrypted, ai_decision_log_decrypted TO authenticated;
 
 
--- ---------------------------------------------------------------------------
--- 065: buckets de Storage cifrados (supabase/migrations/065_storage_encrypted_buckets.sql)
--- ---------------------------------------------------------------------------
--- Cifragem de arquivos do Storage (Edge Function nexus-files).
--- Os buckets documents, message-attachments e ponto-selfies passam a guardar só bytes cifrados, gravados como
--- application/octet-stream. Por isso a lista de tipos permitidos do Storage não serve mais (rejeitaria tudo): quem
--- valida tipo, conteúdo e tamanho, antes de cifrar, é a própria função (supabase/functions/_shared/files-core.mjs).
--- O limite de tamanho do bucket fica um pouco acima do limite da função (o arquivo cifrado tem ~50 bytes a mais).
---
--- avatars continua público e sem cifra (fotos de perfil são exibidas por URL pública).
--- Aplicar ANTES de rodar scripts/encrypt-existing-files.mjs (o backfill grava application/octet-stream).
-
 DO $$
 BEGIN
   IF to_regclass('storage.buckets') IS NULL THEN
@@ -3097,8 +3084,6 @@ BEGIN
 END;
 $$;
 
--- Insere o evento, mas para de gravar quando a mesma origem passa do teto por hora (a checagem de regra continua valendo
--- com o que já foi gravado). Protege a tabela de encher com chamadas repetidas.
 CREATE OR REPLACE FUNCTION security_insert_event(
   p_kind       TEXT,
   p_actor      UUID,
@@ -3176,7 +3161,6 @@ BEGIN
 END;
 $$;
 
--- Chamada pela tela de login (anon) quando o e-mail/senha é recusado.
 CREATE OR REPLACE FUNCTION report_login_failure(p_email TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -3192,7 +3176,6 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Teto global por hora: sem isso um script anônimo enche a tabela.
   IF (SELECT count(*) FROM security_events WHERE kind = 'login_failed' AND created_at > now() - interval '1 hour') >= 5000 THEN
     RETURN;
   END IF;
@@ -3207,7 +3190,6 @@ EXCEPTION WHEN others THEN
 END;
 $$;
 
--- Código do segundo fator errado (a senha já passou, então há sessão de aal1).
 CREATE OR REPLACE FUNCTION report_mfa_failure()
 RETURNS VOID
 LANGUAGE plpgsql
@@ -3225,7 +3207,6 @@ EXCEPTION WHEN others THEN
 END;
 $$;
 
--- p_kind = 'login' (login concluído, com MFA quando houver) ou 'session' (abertura de tela com sessão já existente).
 CREATE OR REPLACE FUNCTION record_access(p_kind TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -3300,7 +3281,6 @@ EXCEPTION WHEN others THEN
 END;
 $$;
 
--- p_source: identificador da tela/formato (ex.: 'colaboradores.xlsx'); p_rows: quantos registros saíram no arquivo.
 CREATE OR REPLACE FUNCTION report_data_export(p_source TEXT, p_rows INTEGER DEFAULT 0)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -3344,7 +3324,6 @@ EXCEPTION WHEN others THEN
 END;
 $$;
 
--- Chamada pela Edge Function nexus-files (com o JWT de quem baixou) a cada arquivo entregue.
 CREATE OR REPLACE FUNCTION report_file_download(p_bucket TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -3429,15 +3408,12 @@ GRANT EXECUTE ON FUNCTION report_data_export(TEXT, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION report_file_download(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION mark_security_alerts_read(UUID[]) TO authenticated;
 
--- Limpeza diária dos eventos antigos (os alertas ficam).
 DO $$
 BEGIN
   IF to_regnamespace('cron') IS NOT NULL THEN
     PERFORM cron.schedule('purge-security-events', '30 6 * * *', 'SELECT purge_security_events();');
   END IF;
 END $$;
-
--- Push dos alertas de segurança adiados para o horário comercial, junto com os demais.
 
 CREATE OR REPLACE FUNCTION dispatch_deferred_pushes()
 RETURNS VOID
@@ -3587,7 +3563,6 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 BEGIN
-  -- IF aninhado de propósito: numa condição única com AND, o Postgres analisaria a consulta ao Vault mesmo sem Vault.
   IF to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = p_name) THEN
       RETURN TRUE;
@@ -4045,9 +4020,6 @@ REVOKE ALL ON FUNCTION nexus_unwrap(TEXT, TEXT)                 FROM PUBLIC, ano
 REVOKE ALL ON FUNCTION nexus_blind_index(TEXT)                  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION employees_encrypt_sensitive()            FROM PUBLIC, anon, authenticated;
 
--- 2) Funções criadas no schema public ficam executáveis por PUBLIC (inclui anon) e a API as expõe em /rest/v1/rpc/.
---    As rotinas do pg_cron e o auxiliar de push rodavam para qualquer anônimo (disparar pushes, gerar alertas).
---    Agora só o banco as chama (o pg_cron roda como dono; funções SECURITY DEFINER também).
 DO $$
 DECLARE
   r RECORD;
@@ -4073,13 +4045,6 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', r.sig);
   END LOOP;
 END $$;
-
-
--- 069: colaborador não grava status/categoria/assinatura em documents
--- O colaborador podia gravar direto na tabela documents (a política só olha dono e origem, não colunas):
--- marcar o próprio documento como 'aprovado', trocar a categoria ou forjar a assinatura eletrônica.
--- Este trigger limita o que o papel `authenticated` (fora do RH) consegue gravar. RH, service_role e as funções
--- SECURITY DEFINER (sign_document) não passam por ele: nelas current_user é o dono da função, não `authenticated`.
 
 CREATE OR REPLACE FUNCTION documents_collaborator_guard()
 RETURNS TRIGGER
@@ -4124,3 +4089,435 @@ DROP TRIGGER IF EXISTS documents_collaborator_guard_trg ON documents;
 CREATE TRIGGER documents_collaborator_guard_trg
   BEFORE INSERT OR UPDATE ON documents
   FOR EACH ROW EXECUTE FUNCTION documents_collaborator_guard();
+
+CREATE TABLE IF NOT EXISTS performance_reviews (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  cycle           TEXT NOT NULL, -- ex.: "1º Semestre 2026" — texto livre, sem calendário fixo de ciclos
+  status          TEXT NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho', 'concluida')),
+  overall_rating  SMALLINT CHECK (overall_rating BETWEEN 1 AND 5),
+  manager_comment TEXT,
+  evaluator_name  TEXT, -- nome de quem avaliou (gestor ou RH) — sem FK: RH nem sempre tem linha em employees
+  evaluator_email TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  completed_at    TIMESTAMPTZ,
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS performance_reviews_emp_idx ON performance_reviews(employee_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS performance_review_competencies (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  review_id   UUID NOT NULL REFERENCES performance_reviews(id) ON DELETE CASCADE,
+  competency  TEXT NOT NULL,
+  rating      SMALLINT CHECK (rating BETWEEN 1 AND 5),
+  comment     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS performance_review_competencies_review_idx ON performance_review_competencies(review_id);
+
+CREATE TABLE IF NOT EXISTS pdi_goals (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id      UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  review_id        UUID REFERENCES performance_reviews(id) ON DELETE SET NULL, -- opcional: meta pode nascer fora de um ciclo
+  title            TEXT NOT NULL,
+  description      TEXT,
+  due_date         DATE,
+  status           TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'em_andamento', 'concluido', 'cancelado')),
+  created_by_name  TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS pdi_goals_emp_idx ON pdi_goals(employee_id, created_at DESC);
+
+CREATE TRIGGER performance_reviews_updated_at
+  BEFORE UPDATE ON performance_reviews
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER pdi_goals_updated_at
+  BEFORE UPDATE ON pdi_goals
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE OR REPLACE FUNCTION pdi_goals_self_update_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_editable CONSTANT TEXT[] := ARRAY['status', 'updated_at'];
+  v_is_manager BOOLEAN;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT EXISTS(
+    SELECT 1 FROM employees WHERE id = NEW.employee_id AND manager_id = my_employee_id()
+  ) INTO v_is_manager;
+  IF v_is_manager THEN
+    RETURN NEW;
+  END IF;
+
+  IF (to_jsonb(NEW) - v_editable) IS DISTINCT FROM (to_jsonb(OLD) - v_editable) THEN
+    RAISE EXCEPTION 'Você só pode atualizar o status da sua meta de desenvolvimento.'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION pdi_goals_self_update_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS pdi_goals_self_update_guard_trg ON pdi_goals;
+CREATE TRIGGER pdi_goals_self_update_guard_trg
+  BEFORE UPDATE ON pdi_goals
+  FOR EACH ROW EXECUTE FUNCTION pdi_goals_self_update_guard();
+
+ALTER TABLE performance_reviews             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE performance_review_competencies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pdi_goals                       ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "rh_performance_reviews_select" ON performance_reviews FOR SELECT USING (is_rh());
+CREATE POLICY "gestor_performance_reviews_team" ON performance_reviews FOR ALL
+  USING (employee_id IN (SELECT id FROM employees WHERE manager_id = my_employee_id()));
+CREATE POLICY "colabo_performance_reviews_own_select" ON performance_reviews FOR SELECT
+  USING (employee_id = my_employee_id() AND status = 'concluida');
+
+CREATE POLICY "rh_review_competencies_select" ON performance_review_competencies FOR SELECT USING (is_rh());
+CREATE POLICY "gestor_review_competencies_team" ON performance_review_competencies FOR ALL
+  USING (review_id IN (
+    SELECT pr.id FROM performance_reviews pr
+    JOIN employees e ON e.id = pr.employee_id
+    WHERE e.manager_id = my_employee_id()
+  ));
+CREATE POLICY "colabo_review_competencies_own_select" ON performance_review_competencies FOR SELECT
+  USING (review_id IN (
+    SELECT id FROM performance_reviews WHERE employee_id = my_employee_id() AND status = 'concluida'
+  ));
+
+CREATE POLICY "rh_pdi_goals_select" ON pdi_goals FOR SELECT USING (is_rh());
+CREATE POLICY "gestor_pdi_goals_team" ON pdi_goals FOR ALL
+  USING (employee_id IN (SELECT id FROM employees WHERE manager_id = my_employee_id()));
+CREATE POLICY "colabo_pdi_goals_own_select" ON pdi_goals FOR SELECT
+  USING (employee_id = my_employee_id());
+CREATE POLICY "colabo_pdi_goals_own_update" ON pdi_goals FOR UPDATE
+  USING (employee_id = my_employee_id())
+  WITH CHECK (employee_id = my_employee_id());
+
+CREATE TABLE IF NOT EXISTS job_titles (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  track        TEXT, -- trilha/área de carreira (ex.: "Recursos Humanos", "Tecnologia") — opcional, RH define
+  level        TEXT, -- nível dentro da trilha (ex.: "Júnior", "Pleno", "Sênior", "Especialista", "Gerência")
+  salary_min   NUMERIC(10,2),
+  salary_max   NUMERIC(10,2),
+  active       BOOLEAN NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (title),
+  CHECK (salary_min IS NULL OR salary_max IS NULL OR salary_max >= salary_min)
+);
+
+CREATE TRIGGER job_titles_updated_at
+  BEFORE UPDATE ON job_titles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE job_titles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "rh_job_titles_all" ON job_titles FOR ALL USING (is_rh());
+
+CREATE OR REPLACE FUNCTION job_titles_public()
+RETURNS TABLE (id UUID, title TEXT, track TEXT, level TEXT)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id, title, track, level
+  FROM job_titles
+  WHERE active = true
+  ORDER BY track NULLS LAST, level NULLS LAST, title;
+$$;
+
+GRANT EXECUTE ON FUNCTION job_titles_public() TO authenticated;
+
+-- Catálogo inicial genérico (níveis comuns, sem trilha/faixa salarial definida) — ponto de partida para o
+-- RH editar pelo modal "Catálogo de Cargos". NÃO foi derivado dos colaboradores reais desta empresa.
+INSERT INTO job_titles (title, level) VALUES
+  ('Estagiário', 'Estágio'),
+  ('Aprendiz', 'Aprendizagem'),
+  ('Assistente', 'Operacional'),
+  ('Analista Júnior', 'Júnior'),
+  ('Analista Pleno', 'Pleno'),
+  ('Analista Sênior', 'Sênior'),
+  ('Especialista', 'Especialista'),
+  ('Supervisor', 'Coordenação'),
+  ('Coordenador', 'Coordenação'),
+  ('Gerente', 'Gerência'),
+  ('Diretor', 'Diretoria')
+ON CONFLICT (title) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS trainings (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title          TEXT NOT NULL,
+  description    TEXT,
+  category       TEXT, -- ex.: "Compliance", "Técnico", "Liderança", "Idiomas"
+  provider       TEXT, -- ex.: "Interno", "Externo", nome da plataforma
+  duration_hours NUMERIC(6,2),
+  active         BOOLEAN NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (title)
+);
+
+CREATE TRIGGER trainings_updated_at
+  BEFORE UPDATE ON trainings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE trainings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "rh_trainings_all" ON trainings FOR ALL USING (is_rh());
+CREATE POLICY "authenticated_trainings_select" ON trainings FOR SELECT TO authenticated USING (active = true);
+
+CREATE TABLE IF NOT EXISTS employee_trainings (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id      UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  training_id      UUID REFERENCES trainings(id) ON DELETE SET NULL, -- opcional: registro pode ser livre, fora do catálogo
+  title            TEXT NOT NULL,
+  category         TEXT,
+  provider         TEXT,
+  hours            NUMERIC(6,2),
+  source           TEXT NOT NULL DEFAULT 'atribuido' CHECK (source IN ('atribuido', 'autodeclarado')),
+  status           TEXT NOT NULL DEFAULT 'pendente'
+                     CHECK (status IN ('pendente', 'em_andamento', 'concluido', 'aguardando_aprovacao', 'recusado', 'cancelado')),
+  completion_date  DATE,
+  certificate_url  TEXT,
+  notes            TEXT, -- ex.: motivo da recusa pelo RH
+  assigned_by_name TEXT, -- nome de quem atribuiu (RH ou gestor) — nulo quando autodeclarado
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (
+    (source = 'autodeclarado' AND status IN ('aguardando_aprovacao', 'concluido', 'recusado'))
+    OR (source = 'atribuido' AND status IN ('pendente', 'em_andamento', 'concluido', 'cancelado'))
+  )
+);
+
+CREATE INDEX IF NOT EXISTS employee_trainings_emp_idx ON employee_trainings(employee_id, created_at DESC);
+
+CREATE TRIGGER employee_trainings_updated_at
+  BEFORE UPDATE ON employee_trainings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE employee_trainings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "rh_employee_trainings_all" ON employee_trainings FOR ALL USING (is_rh());
+
+CREATE POLICY "gestor_employee_trainings_team" ON employee_trainings FOR ALL
+  USING (employee_id IN (SELECT id FROM employees WHERE manager_id = my_employee_id()));
+
+CREATE POLICY "colabo_employee_trainings_own_select" ON employee_trainings FOR SELECT
+  USING (employee_id = my_employee_id());
+
+CREATE POLICY "colabo_employee_trainings_self_report" ON employee_trainings FOR INSERT
+  WITH CHECK (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
+
+CREATE POLICY "colabo_employee_trainings_self_edit_pending" ON employee_trainings FOR UPDATE
+  USING (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao')
+  WITH CHECK (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
+
+CREATE POLICY "colabo_employee_trainings_self_withdraw_pending" ON employee_trainings FOR DELETE
+  USING (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
+
+CREATE TABLE IF NOT EXISTS disciplinary_actions (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id       UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  type              TEXT NOT NULL CHECK (type IN ('advertencia_verbal', 'advertencia_escrita', 'suspensao')),
+  reason            TEXT NOT NULL,
+  description       TEXT,
+  suspension_days   SMALLINT CHECK (suspension_days IS NULL OR suspension_days > 0),
+  occurred_at       DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_by_name   TEXT,
+  acknowledged_at   TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (type = 'suspensao' OR suspension_days IS NULL)
+);
+
+CREATE INDEX IF NOT EXISTS disciplinary_actions_emp_idx ON disciplinary_actions(employee_id, occurred_at DESC);
+
+CREATE TRIGGER disciplinary_actions_updated_at
+  BEFORE UPDATE ON disciplinary_actions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE OR REPLACE FUNCTION disciplinary_actions_ack_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_editable CONSTANT TEXT[] := ARRAY['acknowledged_at', 'updated_at'];
+BEGIN
+  IF auth.uid() IS NULL OR is_rh() THEN
+    RETURN NEW;
+  END IF;
+
+  IF (to_jsonb(NEW) - v_editable) IS DISTINCT FROM (to_jsonb(OLD) - v_editable) THEN
+    RAISE EXCEPTION 'Você só pode dar ciência desta medida disciplinar.'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION disciplinary_actions_ack_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS disciplinary_actions_ack_guard_trg ON disciplinary_actions;
+CREATE TRIGGER disciplinary_actions_ack_guard_trg
+  BEFORE UPDATE ON disciplinary_actions
+  FOR EACH ROW EXECUTE FUNCTION disciplinary_actions_ack_guard();
+
+ALTER TABLE disciplinary_actions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "rh_disciplinary_actions_all" ON disciplinary_actions FOR ALL USING (is_rh());
+
+CREATE POLICY "gestor_disciplinary_actions_team_select" ON disciplinary_actions FOR SELECT
+  USING (employee_id IN (SELECT id FROM employees WHERE manager_id = my_employee_id()));
+
+CREATE POLICY "colabo_disciplinary_actions_own_select" ON disciplinary_actions FOR SELECT
+  USING (employee_id = my_employee_id());
+
+CREATE POLICY "colabo_disciplinary_actions_own_ack" ON disciplinary_actions FOR UPDATE
+  USING (employee_id = my_employee_id() AND acknowledged_at IS NULL)
+  WITH CHECK (employee_id = my_employee_id());
+
+CREATE TABLE IF NOT EXISTS medical_leaves (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id       UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  start_date        DATE NOT NULL,
+  end_date          DATE NOT NULL,
+  days              INTEGER GENERATED ALWAYS AS (end_date - start_date + 1) STORED,
+  doctor_name       TEXT,
+  doctor_crm        TEXT,
+  cid               TEXT,
+  storage_path      TEXT,
+  status            TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'aprovado', 'recusado')),
+  rejection_reason  TEXT,
+  reviewed_by_name  TEXT,
+  reviewed_at       TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (end_date >= start_date)
+);
+
+CREATE INDEX IF NOT EXISTS medical_leaves_emp_idx ON medical_leaves(employee_id, start_date DESC);
+
+CREATE TRIGGER medical_leaves_updated_at
+  BEFORE UPDATE ON medical_leaves
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE medical_leaves ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "rh_medical_leaves_select" ON medical_leaves FOR SELECT USING (is_rh());
+CREATE POLICY "rh_medical_leaves_update" ON medical_leaves FOR UPDATE USING (is_rh()) WITH CHECK (is_rh());
+CREATE POLICY "rh_medical_leaves_delete" ON medical_leaves FOR DELETE USING (is_rh());
+
+CREATE POLICY "colabo_medical_leaves_own_select" ON medical_leaves FOR SELECT
+  USING (employee_id = my_employee_id());
+
+CREATE POLICY "colabo_medical_leaves_self_report" ON medical_leaves FOR INSERT
+  WITH CHECK (employee_id = my_employee_id() AND status = 'pendente');
+
+CREATE POLICY "colabo_medical_leaves_self_edit_pending" ON medical_leaves FOR UPDATE
+  USING (employee_id = my_employee_id() AND status = 'pendente')
+  WITH CHECK (employee_id = my_employee_id() AND status = 'pendente');
+
+CREATE POLICY "colabo_medical_leaves_self_withdraw_pending" ON medical_leaves FOR DELETE
+  USING (employee_id = my_employee_id() AND status = 'pendente');
+
+CREATE OR REPLACE FUNCTION medical_leaves_team()
+RETURNS TABLE (id UUID, employee_id UUID, start_date DATE, end_date DATE, days INTEGER, status TEXT)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT ml.id, ml.employee_id, ml.start_date, ml.end_date, ml.days, ml.status
+  FROM medical_leaves ml
+  JOIN employees e ON e.id = ml.employee_id
+  WHERE e.manager_id = my_employee_id()
+  ORDER BY ml.start_date DESC;
+$$;
+
+GRANT EXECUTE ON FUNCTION medical_leaves_team() TO authenticated;
+
+CREATE POLICY "colabo_storage_select_atestados" ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'documents' AND
+    EXISTS (
+      SELECT 1 FROM medical_leaves ml
+      WHERE ml.storage_path = storage.objects.name
+        AND ml.employee_id = my_employee_id()
+    )
+  );
+
+CREATE OR REPLACE FUNCTION medical_leaves_apply_status()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'aprovado' AND NEW.start_date <= CURRENT_DATE AND NEW.end_date >= CURRENT_DATE THEN
+    UPDATE employees SET status = 'Afastado' WHERE id = NEW.employee_id AND status = 'Ativo';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS medical_leaves_apply_status_trg ON medical_leaves;
+CREATE TRIGGER medical_leaves_apply_status_trg
+  AFTER INSERT OR UPDATE ON medical_leaves
+  FOR EACH ROW EXECUTE FUNCTION medical_leaves_apply_status();
+
+CREATE OR REPLACE FUNCTION sync_medical_leave_statuses()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE employees e
+  SET status = 'Afastado'
+  WHERE e.status = 'Ativo'
+    AND EXISTS (
+      SELECT 1 FROM medical_leaves ml
+      WHERE ml.employee_id = e.id AND ml.status = 'aprovado'
+        AND ml.start_date <= CURRENT_DATE AND ml.end_date >= CURRENT_DATE
+    );
+
+  UPDATE employees e
+  SET status = 'Ativo'
+  WHERE e.status = 'Afastado'
+    AND EXISTS (
+      SELECT 1 FROM medical_leaves ml
+      WHERE ml.employee_id = e.id AND ml.status = 'aprovado' AND ml.end_date < CURRENT_DATE
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM medical_leaves ml2
+      WHERE ml2.employee_id = e.id AND ml2.status = 'aprovado'
+        AND ml2.start_date <= CURRENT_DATE AND ml2.end_date >= CURRENT_DATE
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM vacations v
+      WHERE v.employee_id = e.id AND v.status = 'aprovado'
+        AND v.start_date <= CURRENT_DATE AND v.end_date >= CURRENT_DATE
+    );
+END;
+$$;
+
+SELECT cron.schedule(
+  'sync-medical-leave-statuses-daily',
+  '5 3 * * *',
+  $$SELECT sync_medical_leave_statuses();$$
+);
