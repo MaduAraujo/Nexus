@@ -27,6 +27,9 @@
                     </a>
                 </div>
                 <div class="topbar-right">
+                    <button class="btn-topbar-icon" id="btn-open-decimo-terceiro" title="13º Salário" aria-label="13º Salário" data-click="openDecimoTerceiroModal">
+                        <i class="fas fa-gift"></i>
+                    </button>
                     <button class="btn-topbar-icon" id="btn-open-rescisao" title="Simulador de Rescisão" aria-label="Simulador de Rescisão" data-click="openRescisaoModal">
                         <i class="fas fa-right-from-bracket"></i>
                     </button>
@@ -399,6 +402,56 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="decimo-terceiro-modal">
+        <div class="modal-card modal-card--lg">
+            <div class="modal-head">
+                <h3 class="modal-title"><i class="fas fa-gift"></i> 13º Salário</h3>
+                <button class="modal-close" data-click="closeModal" data-click-args='["decimo-terceiro-modal"]'><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert info">
+                    <i class="fas fa-circle-info"></i>
+                    Proporcional aos meses trabalhados no ano (regra dos 15 dias). PJ e Estágio não entram — não têm direito ao 13º.
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label" for="dt-ano">Ano <span class="req">*</span></label>
+                        <input type="text" class="form-input" id="dt-ano" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Parcela <span class="req">*</span></label>
+                        <div class="type-toggle" id="dt-parcela-toggle">
+                            <button type="button" class="type-toggle-card active" data-parcela="1">
+                                <div class="type-toggle-body">
+                                    <span class="type-toggle-title">1ª Parcela</span>
+                                    <span class="type-toggle-sub">Sem desconto</span>
+                                </div>
+                            </button>
+                            <button type="button" class="type-toggle-card" data-parcela="2">
+                                <div class="type-toggle-body">
+                                    <span class="type-toggle-title">2ª Parcela</span>
+                                    <span class="type-toggle-sub">Com INSS/IRRF</span>
+                                </div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="dt-parcela" value="1">
+                    </div>
+                </div>
+
+                <button type="button" class="btn-secondary" data-click="calcularDecimoTerceiroModal"><i class="fas fa-calculator"></i> Calcular</button>
+
+                <div class="modal-alert error hidden" id="dt-error"></div>
+                <div id="dt-result" class="hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary hidden" id="btn-gerar-decimo-terceiro" data-click="gerarDecimoTerceiro" disabled>
+                    <i class="fas fa-check"></i> Gerar Holerites
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
@@ -415,6 +468,7 @@
     <script src="../javascript/domain/tabelas-fiscais.js"></script>
     <script src="../javascript/domain/clt-domain.js"></script>
     <script src="../javascript/domain/calculo-rescisao.js"></script>
+    <script src="../javascript/domain/eventos-folha.js"></script>
     <script src="../javascript/pagamentos.js"></script>
 </body>
 </html>

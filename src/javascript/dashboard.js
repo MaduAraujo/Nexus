@@ -14,8 +14,8 @@ let employees = [];
 let vacations = [];
 let payslips = [];
 let bankAdjustments = [];
-let promotionEvents = []; 
-let completedTrainings = []; 
+let promotionEvents = [];
+let completedTrainings = [];
 let messages = [];
 let messageReads = [];
 

@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupRescisaoDatePicker();
         setupRescisaoEmpSelect();
         setupRescisaoTipoToggle();
+        setupDecimoTerceiroToggle();
 
         const now = new Date();
         currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
@@ -929,6 +930,162 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
 function nextMonthKey(monthKey) {
     return CLTDomain.nextMonthKey(monthKey);
 }
+
+let lastDecimoTerceiroCalc = null;
+
+function setupDecimoTerceiroToggle() {
+    const toggle = document.getElementById('dt-parcela-toggle');
+    const hidden = document.getElementById('dt-parcela');
+    if (!toggle || !hidden) return;
+    toggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('.type-toggle-card');
+        if (!btn) return;
+        hidden.value = btn.dataset.parcela;
+        toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c === btn));
+    });
+}
+
+window.openDecimoTerceiroModal = function () {
+    document.getElementById('dt-ano').value = String(new Date().getFullYear());
+    document.getElementById('dt-parcela').value = '1';
+    document.querySelectorAll('#dt-parcela-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.parcela === '1'));
+    const errEl = document.getElementById('dt-error');
+    if (errEl) {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+    }
+    document.getElementById('dt-result').innerHTML = '';
+    document.getElementById('dt-result').classList.add('hidden');
+    document.getElementById('btn-gerar-decimo-terceiro').classList.add('hidden');
+    document.getElementById('btn-gerar-decimo-terceiro').disabled = true;
+    lastDecimoTerceiroCalc = null;
+    openModal('decimo-terceiro-modal');
+};
+
+window.calcularDecimoTerceiroModal = function () {
+    const errEl = document.getElementById('dt-error');
+    const resultEl = document.getElementById('dt-result');
+    const genBtn = document.getElementById('btn-gerar-decimo-terceiro');
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    resultEl.classList.add('hidden');
+    genBtn.classList.add('hidden');
+    genBtn.disabled = true;
+    lastDecimoTerceiroCalc = null;
+
+    const ano = parseInt(document.getElementById('dt-ano')?.value, 10);
+    const parcela = parseInt(document.getElementById('dt-parcela')?.value, 10);
+    if (!ano || ano < 2000 || ano > 2100) {
+        errEl.textContent = 'Informe um ano válido.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const elegiveis = employees.filter((e) => e.admissionDate && window.EventosFolha.isElegivel13(e.contractType) && Number(e.salary) > 0);
+    if (!elegiveis.length) {
+        errEl.textContent = 'Nenhum colaborador elegível ao 13º encontrado (PJ e Estágio não entram).';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const rows = elegiveis
+        .map((emp) => {
+            const { avos, valorIntegral } = window.EventosFolha.calcDecimoTerceiroIntegral({
+                salario: Number(emp.salary),
+                admissaoISO: emp.admissionDate,
+                anoBase: ano,
+            });
+            if (avos <= 0 || valorIntegral <= 0) return null;
+            const { valor: valorParcela } = window.EventosFolha.calcParcela13({ valorIntegral, parcela });
+            let inss = 0,
+                irrf = 0;
+            if (parcela === 2) {
+                inss = calcINSS(valorIntegral);
+                irrf = calcIRRF(valorIntegral - inss);
+            }
+            const liquido = +(valorParcela - inss - irrf).toFixed(2);
+            return { emp, avos, valorIntegral, valorParcela, inss, irrf, liquido };
+        })
+        .filter(Boolean);
+
+    if (!rows.length) {
+        errEl.textContent = 'Nenhum colaborador tem meses suficientes de trabalho neste ano.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    const totalLiquido = +rows.reduce((s, r) => s + r.liquido, 0).toFixed(2);
+    resultEl.innerHTML = `
+        <div class="dt-summary">
+            <div><span>Colaboradores</span><strong>${rows.length}</strong></div>
+            <div><span>Total líquido</span><strong>${fmtCurrency(totalLiquido)}</strong></div>
+        </div>
+        <div class="dt-list">
+            ${rows
+                .map(
+                    (r) => `<div class="dt-row">
+                <span class="dt-row-name">${escapeHtml(r.emp.name)}</span>
+                <span class="dt-row-avos">${r.avos}/12</span>
+                <span class="dt-row-value">${fmtCurrency(r.liquido)}</span>
+            </div>`
+                )
+                .join('')}
+        </div>`;
+    resultEl.classList.remove('hidden');
+    genBtn.classList.remove('hidden');
+    genBtn.disabled = false;
+    lastDecimoTerceiroCalc = { ano, parcela, rows };
+};
+
+window.gerarDecimoTerceiro = async function () {
+    if (!lastDecimoTerceiroCalc) return;
+    const { ano, parcela, rows } = lastDecimoTerceiroCalc;
+    const btn = document.getElementById('btn-gerar-decimo-terceiro');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando…';
+    }
+
+    const mes = `${ano}-13-${parcela}`;
+    const descricaoParcela = parcela === 1 ? '1ª Parcela' : '2ª Parcela';
+    const slipsData = rows.map((r) => {
+        const proventos = [
+            { cod: parcela === 1 ? '030' : '031', descricao: `13º Salário (${descricaoParcela})`, referencia: `${r.avos}/12`, valor: r.valorParcela },
+        ];
+        const descontos = [];
+        if (r.inss > 0) descontos.push({ cod: '901', descricao: 'INSS sobre 13º', referencia: 'Tabela', valor: r.inss });
+        if (r.irrf > 0) descontos.push({ cod: '902', descricao: 'IRRF sobre 13º', referencia: 'Tabela', valor: r.irrf });
+        return {
+            employee_id: r.emp.id,
+            mes,
+            mes_formatado: `13º Salário — ${descricaoParcela} ${ano}`,
+            competencia: `13/${ano}`,
+            proventos,
+            descontos,
+            total_proventos: r.valorParcela,
+            total_descontos: +(r.inss + r.irrf).toFixed(2),
+            salario_liquido: r.liquido,
+            status: 'publicado',
+            created_by: rhUser?.id,
+        };
+    });
+
+    const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
+    if (error) {
+        showToast(`Erro ao gerar 13º: ${error.message}`, 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Gerar Holerites';
+        }
+        return;
+    }
+    showToast(`13º Salário (${descricaoParcela}) gerado para ${rows.length} colaborador${rows.length === 1 ? '' : 'es'}.`, 'success');
+    closeModal('decimo-terceiro-modal');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Gerar Holerites';
+    }
+};
 
 window.openRescisaoModal = function () {
     window.setRescisaoEmpOptions?.(employees);

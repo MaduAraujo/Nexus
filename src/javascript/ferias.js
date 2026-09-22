@@ -37,6 +37,7 @@ function dbToEmp(row) {
         status: row.status,
         avatarUrl: row.avatar_url,
         avatarColor: row.avatar_color,
+        salary: row.salary,
     };
 }
 
@@ -48,7 +49,7 @@ function isEstagioOuAprendiz(emp) {
 async function fetchData() {
     const [{ data: vData }, { data: eData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
-        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color'),
+        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color,salary'),
     ]);
     vacations = (vData || []).map(dbToVacation);
     employees = (eData || []).map(dbToEmp);
@@ -350,6 +351,7 @@ window.bulkApprove = async function () {
         v.status = 'aprovado';
         v.approvedAt = nowIso;
     });
+    await Promise.all(targets.map((v) => gerarEventoAdiantamentoFerias(v)));
     selectedIds.clear();
     await autoExpireVacations();
     loadKPIs();
@@ -587,6 +589,67 @@ function checkDeptConflict(vacation) {
     return conflicts.length > 0 ? { dept, count: conflicts.length, names: conflicts.map((v) => getEmployee(v.employeeId)?.name || '?') } : null;
 }
 
+const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+// Gera o evento "Adiantamento de Férias" (dias de gozo + 1/3 constitucional, e abono pecuniário se houver)
+// no holerite do mês de início da folga, para qualquer férias aprovada — individual ou coletiva. PJ não
+// entra (sem remuneração de férias nesses moldes). Se já existir holerite daquele mês (gerado pela folha
+// mensal em pagamentos.js), soma o evento nos proventos existentes em vez de sobrescrever; se ainda não
+// existir, cria um holerite só com esse evento. Não reaproveita `.upsert()` porque precisa mesclar o JSON
+// de proventos, não substituir a linha inteira.
+async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
+    const emp = getEmployee(employeeId);
+    if (!emp || emp.contractType === 'pj' || !emp.salary) return;
+
+    const { ferias, tercoFerias, abonoPecuniario, tercoAbono, total } = window.EventosFolha.calcAdiantamentoFerias({
+        salario: Number(emp.salary),
+        dias: days,
+        abono: !!abono,
+    });
+    if (total <= 0) return;
+
+    const novosProventos = [
+        { cod: '040', descricao: 'Adiantamento de Férias', referencia: `${days} dias`, valor: ferias },
+        { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: tercoFerias },
+    ];
+    if (abonoPecuniario > 0) {
+        novosProventos.push({ cod: '042', descricao: 'Abono Pecuniário (venda de férias)', referencia: '10 dias', valor: abonoPecuniario });
+        novosProventos.push({ cod: '043', descricao: '1/3 sobre Abono Pecuniário', referencia: '—', valor: tercoAbono });
+    }
+
+    const mes = startDate.slice(0, 7);
+    const [year, monthNum] = mes.split('-');
+    const month = parseInt(monthNum, 10);
+
+    const { data: existing } = await sb.from('payslips').select('id,proventos,total_descontos').eq('employee_id', employeeId).eq('mes', mes).maybeSingle();
+
+    if (existing) {
+        if ((existing.proventos || []).some((p) => p.cod === '040')) return; // já gerado antes, não duplica
+        const proventos = [...(existing.proventos || []), ...novosProventos];
+        const totalProventos = +proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
+        const totalDescontos = +(existing.total_descontos || 0);
+        await sb
+            .from('payslips')
+            .update({ proventos, total_proventos: totalProventos, salario_liquido: +(totalProventos - totalDescontos).toFixed(2) })
+            .eq('id', existing.id);
+        return;
+    }
+
+    const totalProventos = +novosProventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
+    await sb.from('payslips').insert({
+        employee_id: employeeId,
+        mes,
+        mes_formatado: `${MESES_FOLHA[month - 1]} ${year}`,
+        competencia: `${String(month).padStart(2, '0')}/${year}`,
+        proventos: novosProventos,
+        descontos: [],
+        total_proventos: totalProventos,
+        total_descontos: 0,
+        salario_liquido: totalProventos,
+        status: 'publicado',
+    });
+}
+
 window.approveRequest = async function (id) {
     const vac = vacations.find((v) => v.id === id);
     if (!vac) return;
@@ -608,6 +671,7 @@ window.approveRequest = async function (id) {
     }
     vac.status = 'aprovado';
     vac.approvedAt = new Date().toISOString();
+    await gerarEventoAdiantamentoFerias(vac);
     await autoExpireVacations();
     loadKPIs();
     renderTable();
@@ -1275,8 +1339,10 @@ window.submitColetiva = async function () {
         showAlert('coletiva-alert', 'Erro ao registrar férias coletivas. Tente novamente.', 'error');
         return;
     }
-    (data || []).forEach((row) => vacations.unshift(dbToVacation(row)));
+    const inserted = (data || []).map(dbToVacation);
+    inserted.forEach((v) => vacations.unshift(v));
 
+    await Promise.all(inserted.map((v) => gerarEventoAdiantamentoFerias(v)));
     await autoExpireVacations();
     loadKPIs();
     renderTable();
