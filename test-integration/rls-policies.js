@@ -328,7 +328,7 @@ describe('sign_document / sign_payslip — dono tem que ser o próprio colaborad
     });
 
     test('o próprio colaborador continua conseguindo assinar (não foi uma correção excessiva)', async () => {
-        await withUser({ sub: U_A }, async (db) => {
+        await withUser({ sub: U_A, commit: true }, async (db) => {
             await db.query('SELECT sign_document($1, $2)', [DOC_A, 'Colaborador A Fixture']);
         });
         await withServiceRole(async (db) => {

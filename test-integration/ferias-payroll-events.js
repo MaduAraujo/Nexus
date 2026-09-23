@@ -103,7 +103,7 @@ describe('apply_ferias_payroll_event', () => {
         await Promise.all([aplicar(), aplicar()]);
         const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-08']));
         assert.equal(rows.length, 1);
-        assert.equal(rows[0].proventos.length, 2); 
+        assert.equal(rows[0].proventos.length, 2);
     });
 });
 
