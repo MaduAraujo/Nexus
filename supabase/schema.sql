@@ -2488,6 +2488,7 @@ CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
+SET search_path = public
 AS $$
 BEGIN
   IF p_value IS NULL OR p_value LIKE 'nexus:enc1:%' THEN
@@ -2504,6 +2505,7 @@ CREATE OR REPLACE FUNCTION nexus_norm_json(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
+SET search_path = public
 AS $$
 BEGIN
   IF p_value IS NULL OR p_value LIKE 'nexus:enc1:%' THEN
@@ -2976,9 +2978,7 @@ ALTER TABLE security_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_rules  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_alerts ENABLE ROW LEVEL SECURITY;
 
--- Eventos: só as funções abaixo (dono da tabela) leem e gravam; nada pela API.
 REVOKE ALL ON security_events FROM PUBLIC, anon, authenticated;
--- Regras e alertas: o RH só lê. Marcar como lido é pela função mark_security_alerts_read; ninguém apaga nem edita alerta pela API.
 REVOKE ALL ON security_rules  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON security_alerts FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON security_rules  TO authenticated;
@@ -3002,7 +3002,6 @@ BEGIN
   END LOOP;
 END $$;
 
--- IP de quem chamou (cabeçalho que o gateway do Supabase põe na requisição). Só aceita caracteres de IP.
 CREATE OR REPLACE FUNCTION security_request_ip()
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -3038,8 +3037,6 @@ AS $$
   LEFT JOIN employees e ON e.id = p.employee_id;
 $$;
 
--- Grava o alerta, no máximo um por (tipo, alvo) dentro do período de espera da regra. Nunca deixa uma falha de push
--- (ou de qualquer parte daqui) quebrar a operação que gerou o evento.
 CREATE OR REPLACE FUNCTION security_raise_alert(
   p_rule        security_rules,
   p_subject_key TEXT,
@@ -3529,6 +3526,7 @@ CREATE OR REPLACE FUNCTION nexus_key_name(p_purpose TEXT, p_kid TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
+SET search_path = public
 AS $$
 DECLARE
   v_base TEXT := CASE p_purpose WHEN 'encryption' THEN 'data_encryption_key' WHEN 'hmac' THEN 'data_hmac_key' END;
@@ -3574,6 +3572,7 @@ CREATE OR REPLACE FUNCTION nexus_is_cipher(p_value TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public
 AS $$
   SELECT p_value LIKE 'nexus:enc1:%' OR p_value LIKE 'nexus:enc2:%';
 $$;
@@ -3582,6 +3581,7 @@ CREATE OR REPLACE FUNCTION nexus_cipher_kid(p_value TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public
 AS $$
   SELECT CASE
            WHEN p_value LIKE 'nexus:enc1:%' THEN 'v1'
@@ -3593,6 +3593,7 @@ CREATE OR REPLACE FUNCTION nexus_cipher_prefix(p_kid TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public
 AS $$
   SELECT CASE WHEN p_kid = 'v1' THEN 'nexus:enc1:' ELSE 'nexus:enc2:' || p_kid || ':' END;
 $$;
@@ -3719,6 +3720,7 @@ CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
+SET search_path = public
 AS $$
 BEGIN
   IF p_value IS NULL OR nexus_is_cipher(p_value) THEN
@@ -3735,6 +3737,7 @@ CREATE OR REPLACE FUNCTION nexus_norm_json(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
+SET search_path = public
 AS $$
 BEGIN
   IF p_value IS NULL OR nexus_is_cipher(p_value) THEN
@@ -3806,6 +3809,7 @@ CREATE OR REPLACE FUNCTION nexus_encrypted_columns()
 RETURNS TABLE (tbl TEXT, col TEXT, ctx TEXT)
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public
 AS $$
   SELECT * FROM (VALUES
     ('employees', 'cpf',                $q$'emp:' || t.id::text$q$),
@@ -4031,7 +4035,6 @@ BEGIN
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', r.sig);
   END LOOP;
 
-  -- 3) Funções de uso logado: tiram o anônimo e mantêm o usuário autenticado (todas checam o usuário por dentro).
   FOR r IN
     SELECT p.oid::regprocedure AS sig
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -4057,7 +4060,6 @@ BEGIN
   END IF;
 
   IF TG_OP = 'INSERT' THEN
-    -- O anexo de banco de horas é o único envio do colaborador que já nasce aprovado e com categoria própria.
     v_banco_horas := NEW.category = 'banco_horas' AND NEW.tipo = 'Atestado/Comprovante';
 
     IF NEW.requer_assinatura IS TRUE OR NEW.assinado_em IS NOT NULL OR NEW.assinado_por IS NOT NULL THEN
@@ -4072,7 +4074,6 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- UPDATE: a única alteração legítima do colaborador é marcar a versão anterior como não atual ao reenviar.
   IF (to_jsonb(NEW) - 'is_current') IS DISTINCT FROM (to_jsonb(OLD) - 'is_current') THEN
     RAISE EXCEPTION 'Você só pode substituir a versão do seu documento. Status, categoria e assinatura são geridos pelo RH.' USING ERRCODE = '42501';
   END IF;
@@ -4241,8 +4242,6 @@ $$;
 REVOKE ALL ON FUNCTION job_titles_public() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION job_titles_public() TO authenticated, service_role;
 
--- Catálogo inicial genérico (níveis comuns, sem trilha/faixa salarial definida) — ponto de partida para o
--- RH editar pelo modal "Catálogo de Cargos". NÃO foi derivado dos colaboradores reais desta empresa.
 INSERT INTO job_titles (title, level) VALUES
   ('Estagiário', 'Estágio'),
   ('Aprendiz', 'Aprendizagem'),
