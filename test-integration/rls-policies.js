@@ -204,8 +204,8 @@ describe('RLS: leitura sem login (migration 068)', () => {
     });
 });
 
-describe('Funções expostas pela API (migration 068)', () => {
-    const doBanco = ['generate_compliance_alerts', 'dispatch_deferred_pushes', 'notify_alert_push'];
+describe('Funções expostas pela API (migration 068, estendida na 077)', () => {
+    const doBanco = ['generate_compliance_alerts', 'dispatch_deferred_pushes', 'notify_alert_push', 'sync_medical_leave_statuses'];
     const doUsuarioLogado = [
         'report_daily_overtime_alert',
         'approve_bank_request',
@@ -216,6 +216,7 @@ describe('Funções expostas pela API (migration 068)', () => {
         'get_or_create_dm',
         'anonymize_employee',
         'colleague_directory',
+        'job_titles_public',
     ];
 
     const pode = async (db, papel, nomes) =>
@@ -264,6 +265,76 @@ describe('Funções expostas pela API (migration 068)', () => {
                 "SELECT has_function_privilege('postgres', 'public.generate_compliance_alerts()'::regprocedure, 'EXECUTE') AS pode"
             );
             assert.equal(rows[0].pode, true);
+        });
+    });
+});
+
+// Regressão de um bug real encontrado em 2026-09-23: `IF v_employee_id IS NULL OR v_employee_id <>
+// my_employee_id() THEN` vira NULL (não TRUE) quando my_employee_id() é NULL — que é exatamente o
+// caso de uma conta do RH (profile 'Administrador', não 'colaborador'), que TEM EXECUTE nestas
+// funções por design da migration 068. `IF NULL THEN` no PL/pgSQL não dispara a exceção, deixando
+// a checagem de dono passar batido. Migration 077 trocou `<>` por `IS DISTINCT FROM`.
+describe('sign_document / sign_payslip — dono tem que ser o próprio colaborador (migration 077)', () => {
+    const DOC_A = '00000000-0000-4000-b000-000000000001';
+    const SLIP_A = '00000000-0000-4000-b000-000000000002';
+
+    before(async () => {
+        await withServiceRole(async (db) => {
+            await db.query(
+                `INSERT INTO documents (id, name, employee_id, tipo, source, requer_assinatura)
+                 VALUES ($1, 'Termo Fixture', $2, 'Termo de Compromisso de Estágio', 'Administrador', true)
+                 ON CONFLICT (id) DO NOTHING`,
+                [DOC_A, E_A]
+            );
+            await db.query(
+                `INSERT INTO payslips (id, employee_id, mes, proventos, descontos)
+                 VALUES ($1, $2, '2026-99-fixture', '[]'::jsonb, '[]'::jsonb)
+                 ON CONFLICT (id) DO NOTHING`,
+                [SLIP_A, E_A]
+            );
+        });
+    });
+
+    after(async () => {
+        await withServiceRole((db) => db.query('DELETE FROM documents WHERE id = $1', [DOC_A]));
+        // payslip removido pelo teste que efetivamente assina, ou aqui se nenhum assinou.
+        await withServiceRole((db) => db.query('DELETE FROM payslips WHERE id = $1', [SLIP_A]));
+    });
+
+    test('RH (my_employee_id() é NULL) NÃO consegue assinar documento de outro colaborador', async () => {
+        await withUser({ sub: U_RH }, async (db) => {
+            await assert.rejects(() => db.query('SELECT sign_document($1, $2)', [DOC_A, 'RH tentando assinar']), /não pertence ao colaborador/);
+        });
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query('SELECT assinado_em FROM documents WHERE id = $1', [DOC_A]);
+            assert.equal(rows[0].assinado_em, null, 'não deveria ter sido assinado pelo RH');
+        });
+    });
+
+    test('RH (my_employee_id() é NULL) NÃO consegue assinar holerite de outro colaborador', async () => {
+        await withUser({ sub: U_RH }, async (db) => {
+            await assert.rejects(() => db.query('SELECT sign_payslip($1, $2)', [SLIP_A, 'RH tentando assinar']), /não pertence ao colaborador/);
+        });
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query('SELECT assinado_em FROM payslips WHERE id = $1', [SLIP_A]);
+            assert.equal(rows[0].assinado_em, null, 'não deveria ter sido assinado pelo RH');
+        });
+    });
+
+    test('outro colaborador (não o dono) também não consegue assinar', async () => {
+        await withUser({ sub: U_B }, async (db) => {
+            await assert.rejects(() => db.query('SELECT sign_document($1, $2)', [DOC_A, 'Colaborador B tentando assinar']), /não pertence ao colaborador/);
+        });
+    });
+
+    test('o próprio colaborador continua conseguindo assinar (não foi uma correção excessiva)', async () => {
+        await withUser({ sub: U_A }, async (db) => {
+            await db.query('SELECT sign_document($1, $2)', [DOC_A, 'Colaborador A Fixture']);
+        });
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query('SELECT assinado_em, assinado_por FROM documents WHERE id = $1', [DOC_A]);
+            assert.ok(rows[0].assinado_em);
+            assert.equal(rows[0].assinado_por, 'Colaborador A Fixture');
         });
     });
 });

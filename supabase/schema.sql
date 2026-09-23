@@ -959,7 +959,7 @@ RETURNS TABLE (
 ) AS $$
   SELECT id, name, dept, role, avatar_color, avatar_url
   FROM employees
-  WHERE status = 'Ativo';
+  WHERE status = 'Ativo' AND auth.uid() IS NOT NULL;
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION colleague_directory() TO authenticated;
@@ -1069,7 +1069,7 @@ BEGIN
     INTO v_employee_id, v_requer_assinatura, v_assinado_em
     FROM documents WHERE id = p_document_id;
 
-  IF v_employee_id IS NULL OR v_employee_id <> my_employee_id() THEN
+  IF v_employee_id IS NULL OR v_employee_id IS DISTINCT FROM my_employee_id() THEN
     RAISE EXCEPTION 'Documento não encontrado ou não pertence ao colaborador autenticado';
   END IF;
   IF NOT v_requer_assinatura THEN
@@ -1103,7 +1103,7 @@ BEGIN
     INTO v_employee_id, v_assinado_em
     FROM payslips WHERE id = p_payslip_id;
 
-  IF v_employee_id IS NULL OR v_employee_id <> my_employee_id() THEN
+  IF v_employee_id IS NULL OR v_employee_id IS DISTINCT FROM my_employee_id() THEN
     RAISE EXCEPTION 'Holerite não encontrado ou não pertence ao colaborador autenticado';
   END IF;
   IF v_assinado_em IS NOT NULL THEN
@@ -2989,8 +2989,6 @@ DROP POLICY IF EXISTS "rh_security_alerts_select" ON security_alerts;
 CREATE POLICY "rh_security_rules_select"  ON security_rules  FOR SELECT USING (is_rh());
 CREATE POLICY "rh_security_alerts_select" ON security_alerts FOR SELECT USING (is_rh());
 
--- Política mfa_required (migration 063) nas tabelas novas. Se a 063 ainda não foi aplicada, esta migration não depende dela:
--- o laço da 063 cobre toda tabela com RLS existente na hora em que rodar, inclusive estas.
 DO $$
 DECLARE
   t TEXT;
@@ -4236,11 +4234,12 @@ SET search_path = public
 AS $$
   SELECT id, title, track, level
   FROM job_titles
-  WHERE active = true
+  WHERE active = true AND auth.uid() IS NOT NULL
   ORDER BY track NULLS LAST, level NULLS LAST, title;
 $$;
 
-GRANT EXECUTE ON FUNCTION job_titles_public() TO authenticated;
+REVOKE ALL ON FUNCTION job_titles_public() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION job_titles_public() TO authenticated, service_role;
 
 -- Catálogo inicial genérico (níveis comuns, sem trilha/faixa salarial definida) — ponto de partida para o
 -- RH editar pelo modal "Catálogo de Cargos". NÃO foi derivado dos colaboradores reais desta empresa.
@@ -4515,6 +4514,8 @@ BEGIN
     );
 END;
 $$;
+
+REVOKE ALL ON FUNCTION sync_medical_leave_statuses() FROM PUBLIC, anon, authenticated;
 
 SELECT cron.schedule(
   'sync-medical-leave-statuses-daily',
