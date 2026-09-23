@@ -2781,7 +2781,7 @@ window.deleteTrainingCatalog = async function (id) {
 async function fetchEmployeeTrainings(employeeId) {
     const { data } = await sb
         .from('employee_trainings')
-        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,notes,assigned_by_name,created_at')
+        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,certificate_path,notes,assigned_by_name,created_at')
         .eq('employee_id', employeeId)
         .order('created_at', { ascending: false });
     employeeTrainings = data || [];
@@ -2799,12 +2799,14 @@ function renderTrainingsList() {
             const label = TRAINING_STATUS_LABEL[t.status] || t.status;
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
             if (t.certificate_url) bits.push(`<a href="${escapeHtml(t.certificate_url)}" target="_blank" rel="noopener">Certificado</a>`);
-            let actions = '';
+            let actions = t.certificate_path
+                ? `<button type="button" class="training-action-btn" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado</button>`
+                : '';
             if (t.status === 'aguardando_aprovacao') {
-                actions = `<button type="button" class="training-action-btn training-action-btn--approve" data-click="approveTraining" data-click-args="${dargs(t.id)}">Aprovar</button>
+                actions += `<button type="button" class="training-action-btn training-action-btn--approve" data-click="approveTraining" data-click-args="${dargs(t.id)}">Aprovar</button>
                     <button type="button" class="training-action-btn training-action-btn--reject" data-click="rejectTraining" data-click-args="${dargs(t.id)}">Recusar</button>`;
             } else if (t.status === 'pendente' || t.status === 'em_andamento') {
-                actions = `<button type="button" class="training-action-btn training-action-btn--complete" data-click="completeTraining" data-click-args="${dargs(t.id)}">Concluir</button>`;
+                actions += `<button type="button" class="training-action-btn training-action-btn--complete" data-click="completeTraining" data-click-args="${dargs(t.id)}">Concluir</button>`;
             }
             return `<div class="training-item">
                 <div class="training-info">
@@ -3126,6 +3128,13 @@ window.handleOpenMedicalLeaves = async function () {
 window.closeMedicalLeavesModal = function () {
     document.getElementById('medical-leaves-modal')?.classList.remove('open');
     document.body.style.overflow = '';
+};
+
+window.viewTrainingCertificate = async function (id) {
+    const training = employeeTrainings.find((t) => t.id === id);
+    if (!training?.certificate_path) return;
+    const { error } = await NexusFiles.open('documents', training.certificate_path, { name: 'Certificado' });
+    if (error) showToast('Não foi possível abrir o certificado.', 'error');
 };
 
 window.viewLeaveAttachment = async function (id) {

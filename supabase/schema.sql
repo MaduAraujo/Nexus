@@ -4290,6 +4290,7 @@ CREATE TABLE IF NOT EXISTS employee_trainings (
                      CHECK (status IN ('pendente', 'em_andamento', 'concluido', 'aguardando_aprovacao', 'recusado', 'cancelado')),
   completion_date  DATE,
   certificate_url  TEXT,
+  certificate_path TEXT,
   notes            TEXT, -- ex.: motivo da recusa pelo RH
   assigned_by_name TEXT, -- nome de quem atribuiu (RH ou gestor) — nulo quando autodeclarado
   created_at       TIMESTAMPTZ DEFAULT NOW(),
@@ -4317,11 +4318,17 @@ CREATE POLICY "colabo_employee_trainings_own_select" ON employee_trainings FOR S
   USING (employee_id = my_employee_id());
 
 CREATE POLICY "colabo_employee_trainings_self_report" ON employee_trainings FOR INSERT
-  WITH CHECK (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
+  WITH CHECK (
+    employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao'
+    AND certificate_path IS NOT NULL AND split_part(certificate_path, '/', 1) = my_employee_id()::TEXT
+  );
 
 CREATE POLICY "colabo_employee_trainings_self_edit_pending" ON employee_trainings FOR UPDATE
   USING (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao')
-  WITH CHECK (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
+  WITH CHECK (
+    employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao'
+    AND (certificate_path IS NULL OR split_part(certificate_path, '/', 1) = my_employee_id()::TEXT)
+  );
 
 CREATE POLICY "colabo_employee_trainings_self_withdraw_pending" ON employee_trainings FOR DELETE
   USING (employee_id = my_employee_id() AND source = 'autodeclarado' AND status = 'aguardando_aprovacao');
@@ -4428,7 +4435,10 @@ CREATE POLICY "colabo_medical_leaves_own_select" ON medical_leaves FOR SELECT
   USING (employee_id = my_employee_id());
 
 CREATE POLICY "colabo_medical_leaves_self_report" ON medical_leaves FOR INSERT
-  WITH CHECK (employee_id = my_employee_id() AND status = 'pendente');
+  WITH CHECK (
+    employee_id = my_employee_id() AND status = 'pendente'
+    AND storage_path IS NOT NULL AND split_part(storage_path, '/', 1) = my_employee_id()::TEXT
+  );
 
 CREATE POLICY "colabo_medical_leaves_self_edit_pending" ON medical_leaves FOR UPDATE
   USING (employee_id = my_employee_id() AND status = 'pendente')
@@ -5116,3 +5126,13 @@ $$;
 
 REVOKE ALL ON FUNCTION e2e_channel_member_keys(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION e2e_channel_member_keys(UUID) TO authenticated;
+
+CREATE POLICY "colabo_storage_select_certificados" ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'documents' AND
+    EXISTS (
+      SELECT 1 FROM employee_trainings et
+      WHERE et.certificate_path = storage.objects.name
+        AND et.employee_id = my_employee_id()
+    )
+  );

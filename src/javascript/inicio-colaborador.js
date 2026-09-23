@@ -127,7 +127,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const welcomeAvatar = document.getElementById('welcome-avatar');
         const welcomeGreeting = document.getElementById('welcome-greeting');
         const welcomeName = document.getElementById('welcome-name');
-        const welcomeMeta = document.getElementById('welcome-meta');
         const welcomeStatus = document.getElementById('welcome-status');
         const welcomeBadge = document.getElementById('welcome-badge');
 
@@ -143,7 +142,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (welcomeGreeting) welcomeGreeting.textContent = greeting + ',';
         if (welcomeName) welcomeName.textContent = e.name || '—';
-        if (welcomeMeta) welcomeMeta.textContent = `${e.role || '—'} · ${e.dept || '—'}`;
         if (welcomeStatus) welcomeStatus.textContent = e.status || 'Ativo';
 
         if (welcomeBadge) {

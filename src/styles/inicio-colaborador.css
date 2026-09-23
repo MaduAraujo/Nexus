@@ -732,12 +732,6 @@ body {
     line-height: 1.1;
 }
 
-.welcome-meta {
-    font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 4px;
-}
-
 .welcome-right {
     display: flex;
     flex-direction: column;
@@ -1500,9 +1494,6 @@ body {
     }
     .welcome-name {
         font-size: 1rem;
-    }
-    .welcome-meta {
-        font-size: 0.74rem;
     }
 
     .info-grid {

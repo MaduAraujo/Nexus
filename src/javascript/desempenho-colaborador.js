@@ -45,7 +45,7 @@ function careerLevelRank(level) {
 function buildCareerTrackGroups(titles, currentRole) {
     const groups = new Map();
     for (const t of titles) {
-        const key = t.track || 'Geral';
+        const key = t.track || '';
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(t);
     }
@@ -79,7 +79,7 @@ function renderCareerTrack() {
                 )
                 .join('');
             return `<div class="career-track-group">
-                <p class="career-track-name">${escapeHtml(track)}</p>
+                ${track ? `<p class="career-track-name">${escapeHtml(track)}</p>` : ''}
                 ${rowsHtml}
             </div>`;
         })
@@ -139,7 +139,7 @@ function renderReviews() {
     const wrap = document.getElementById('reviews-list');
     if (!wrap) return;
     if (!reviews.length) {
-        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-star"></i><p>Nenhuma avaliação concluída ainda.</p></div>`;
+        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-star"></i><p>Nenhuma avaliação.</p></div>`;
         return;
     }
     wrap.innerHTML = reviews
@@ -178,7 +178,7 @@ function renderGoals() {
     const wrap = document.getElementById('goals-list');
     if (!wrap) return;
     if (!goals.length) {
-        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-bullseye"></i><p>Nenhuma meta de desenvolvimento cadastrada ainda.</p></div>`;
+        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-bullseye"></i><p>Nenhuma meta cadastrada.</p></div>`;
         return;
     }
     wrap.innerHTML = goals
@@ -231,7 +231,7 @@ let trainings = [];
 async function loadTrainings() {
     const { data } = await sb
         .from('employee_trainings')
-        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,created_at')
+        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,certificate_path,created_at')
         .eq('employee_id', myEmployeeId)
         .order('created_at', { ascending: false });
     trainings = data || [];
@@ -249,6 +249,10 @@ function renderTrainings() {
             const label = TRAINING_STATUS_LABEL[t.status] || t.status;
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
             if (t.certificate_url) bits.push(`<a href="${escapeHtml(t.certificate_url)}" target="_blank" rel="noopener">Certificado</a>`);
+            if (t.certificate_path)
+                bits.push(
+                    `<button type="button" class="training-cert-link" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado anexado</button>`
+                );
             const withdrawBtn =
                 t.source === 'autodeclarado' && t.status === 'aguardando_aprovacao'
                     ? `<button type="button" class="training-withdraw-btn" data-click="withdrawTraining" data-click-args="${dargs(t.id)}">Retirar</button>`
@@ -266,6 +270,17 @@ function renderTrainings() {
 }
 
 window.selfReportTraining = async function () {
+    const button = document.getElementById('tr-self-submit');
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
+    try {
+        await selfReportTrainingSubmit();
+    } finally {
+        refreshSubmitButtons();
+    }
+};
+
+async function selfReportTrainingSubmit() {
     const title = document.getElementById('tr-self-title')?.value.trim();
     if (!title) {
         showToast('Informe o nome do curso.', 'error');
@@ -278,33 +293,117 @@ window.selfReportTraining = async function () {
         return;
     }
     const certificateUrl = document.getElementById('tr-self-cert')?.value.trim() || null;
+    const file = document.getElementById('tr-self-file')?.files?.[0] || null;
+    if (!file) {
+        showToast('Anexe o certificado (imagem ou PDF).', 'error');
+        return;
+    }
+    if (!isValidAttachment(file, 'certificado')) return;
+
+    const certificatePath = `${myEmployeeId}/certificados/${Date.now()}_${NexusFiles.safeName(file.name)}`;
+    const { error: uploadError } = await NexusFiles.upload('documents', certificatePath, file, { contentType: file.type, employeeId: myEmployeeId });
+    if (uploadError) {
+        showToast('Não foi possível enviar o certificado.', 'error');
+        return;
+    }
 
     const { error } = await sb.from('employee_trainings').insert({
         employee_id: myEmployeeId,
         title,
         hours,
         certificate_url: certificateUrl,
+        certificate_path: certificatePath,
         source: 'autodeclarado',
         status: 'aguardando_aprovacao',
     });
     if (error) {
+        await sb.storage.from('documents').remove([certificatePath]);
         showToast('Não foi possível registrar o curso.', 'error');
         return;
     }
     document.getElementById('tr-self-title').value = '';
     document.getElementById('tr-self-hours').value = '';
     document.getElementById('tr-self-cert').value = '';
+    clearFilePicker('tr-self-file');
     await loadTrainings();
     renderTrainings();
     showToast('Curso enviado para aprovação do RH!', 'success');
+}
+
+const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+const FILE_PICKERS = {
+    'tr-self-file': { label: 'Anexar certificado *', hint: 'Imagem ou PDF, até 10 MB', kind: 'certificado' },
+    'ml-file': { label: 'Anexar atestado *', hint: 'Imagem ou PDF, até 10 MB', kind: 'atestado' },
+};
+
+function isValidAttachment(file, kind) {
+    if (!ATTACHMENT_TYPES.includes(file.type)) {
+        showToast(`Envie o ${kind} em imagem (JPG, PNG, WEBP) ou PDF.`, 'error');
+        return false;
+    }
+    if (file.size > ATTACHMENT_MAX_BYTES) {
+        showToast(`O ${kind} deve ter no máximo 10 MB.`, 'error');
+        return false;
+    }
+    return true;
+}
+
+function pickFile(id) {
+    const file = document.getElementById(id)?.files?.[0];
+    if (!file || !isValidAttachment(file, FILE_PICKERS[id].kind)) return clearFilePicker(id);
+    const sizeKb = file.size / 1024;
+    const size = sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(sizeKb))} KB`;
+    document.getElementById(`${id}-name`).textContent = file.name;
+    document.getElementById(`${id}-hint`).textContent = `${file.type === 'application/pdf' ? 'PDF' : 'Imagem'} · ${size}`;
+    document.getElementById(`${id}-box`)?.classList.add('has-file');
+    document.getElementById(`${id}-clear`)?.classList.remove('hidden');
+    refreshSubmitButtons();
+}
+
+function clearFilePicker(id) {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+    document.getElementById(`${id}-name`).textContent = FILE_PICKERS[id].label;
+    document.getElementById(`${id}-hint`).textContent = FILE_PICKERS[id].hint;
+    document.getElementById(`${id}-box`)?.classList.remove('has-file');
+    document.getElementById(`${id}-clear`)?.classList.add('hidden');
+    refreshSubmitButtons();
+}
+
+function hasFile(id) {
+    return Boolean(document.getElementById(id)?.files?.length);
+}
+
+function refreshSubmitButtons() {
+    const trainingBtn = document.getElementById('tr-self-submit');
+    if (trainingBtn) trainingBtn.disabled = !(document.getElementById('tr-self-title')?.value.trim() && hasFile('tr-self-file'));
+    const leaveBtn = document.getElementById('ml-submit');
+    if (leaveBtn) leaveBtn.disabled = !(getDateFieldValue('ml-start-date') && getDateFieldValue('ml-end-date') && hasFile('ml-file'));
+}
+window.refreshSubmitButtons = refreshSubmitButtons;
+
+window.pickTrainingFile = () => pickFile('tr-self-file');
+window.clearTrainingFile = () => clearFilePicker('tr-self-file');
+window.pickLeaveFile = () => pickFile('ml-file');
+window.clearLeaveFile = () => clearFilePicker('ml-file');
+
+window.viewTrainingCertificate = async function (id) {
+    const training = trainings.find((t) => t.id === id);
+    if (!training?.certificate_path) return;
+    const { error } = await NexusFiles.open('documents', training.certificate_path, { name: 'Certificado' });
+    if (error) showToast('Não foi possível abrir o certificado.', 'error');
 };
 
 window.withdrawTraining = async function (id) {
+    const training = trainings.find((t) => t.id === id);
     const { error } = await sb.from('employee_trainings').delete().eq('id', id);
     if (error) {
         showToast('Não foi possível retirar o registro.', 'error');
         return;
     }
+    if (training?.certificate_path) await sb.storage.from('documents').remove([training.certificate_path]);
     await loadTrainings();
     renderTrainings();
     showToast('Registro retirado.', 'success');
@@ -366,12 +465,13 @@ const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'J
 function setDateFieldValue(input, iso) {
     if (!input) return;
     input.dataset.value = iso || '';
-    if (!iso) {
+    if (iso) {
+        const [y, m, d] = iso.split('-');
+        input.value = `${d}/${m}/${y}`;
+    } else {
         input.value = '';
-        return;
     }
-    const [y, m, d] = iso.split('-');
-    input.value = `${d}/${m}/${y}`;
+    refreshSubmitButtons();
 }
 
 function getDateFieldValue(id) {
@@ -503,7 +603,7 @@ function renderMedicalLeaves() {
     const wrap = document.getElementById('medical-leaves-list');
     if (!wrap) return;
     if (!medicalLeaves.length) {
-        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-file-medical"></i><p>Nenhum atestado enviado ainda.</p></div>`;
+        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-file-medical"></i><p>Nenhum atestado enviado.</p></div>`;
         return;
     }
     wrap.innerHTML = medicalLeaves
@@ -532,6 +632,17 @@ function renderMedicalLeaves() {
 }
 
 window.selfReportLeave = async function () {
+    const button = document.getElementById('ml-submit');
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
+    try {
+        await selfReportLeaveSubmit();
+    } finally {
+        refreshSubmitButtons();
+    }
+};
+
+async function selfReportLeaveSubmit() {
     const startDate = getDateFieldValue('ml-start-date');
     const endDate = getDateFieldValue('ml-end-date');
     if (!startDate || !endDate) {
@@ -546,15 +657,17 @@ window.selfReportLeave = async function () {
     const cid = document.getElementById('ml-cid')?.value.trim() || null;
     const fileInput = document.getElementById('ml-file');
     const file = fileInput?.files?.[0] || null;
+    if (!file) {
+        showToast('Anexe o atestado (imagem ou PDF).', 'error');
+        return;
+    }
+    if (!isValidAttachment(file, 'atestado')) return;
 
-    let storagePath = null;
-    if (file) {
-        storagePath = `${myEmployeeId}/atestados/${Date.now()}_${NexusFiles.safeName(file.name)}`;
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type, employeeId: myEmployeeId });
-        if (uploadError) {
-            showToast('Não foi possível enviar o anexo.', 'error');
-            return;
-        }
+    const storagePath = `${myEmployeeId}/atestados/${Date.now()}_${NexusFiles.safeName(file.name)}`;
+    const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type, employeeId: myEmployeeId });
+    if (uploadError) {
+        showToast('Não foi possível enviar o anexo.', 'error');
+        return;
     }
 
     const { error } = await sb.from('medical_leaves').insert({
@@ -566,7 +679,7 @@ window.selfReportLeave = async function () {
         storage_path: storagePath,
     });
     if (error) {
-        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
+        await sb.storage.from('documents').remove([storagePath]);
         showToast('Não foi possível enviar o atestado.', 'error');
         return;
     }
@@ -575,11 +688,11 @@ window.selfReportLeave = async function () {
     setDateFieldValue(document.getElementById('ml-end-date'), '');
     document.getElementById('ml-doctor-name').value = '';
     document.getElementById('ml-cid').value = '';
-    if (fileInput) fileInput.value = '';
+    clearFilePicker('ml-file');
     await loadMedicalLeaves();
     renderMedicalLeaves();
     showToast('Atestado enviado para aprovação do RH!', 'success');
-};
+}
 
 window.withdrawLeave = async function (id) {
     const leave = medicalLeaves.find((l) => l.id === id);

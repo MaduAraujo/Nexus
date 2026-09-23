@@ -153,23 +153,6 @@ body {
     color: var(--text-muted);
 }
 
-.privacy-note {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    background: var(--bg-page);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-top: 10px;
-}
-.privacy-note i {
-    color: var(--accent);
-    flex-shrink: 0;
-}
-
 .team-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -182,6 +165,7 @@ body {
     box-shadow: var(--shadow-sm);
     padding: 16px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
 }
@@ -200,6 +184,7 @@ body {
     background-position: center;
 }
 .team-card-body {
+    flex: 1;
     min-width: 0;
 }
 .team-card-name {
@@ -242,13 +227,13 @@ body {
     color: #991b1b;
 }
 
-.team-card-side {
-    margin-left: auto;
-    flex-shrink: 0;
+.team-card-actions {
+    flex-basis: 100%;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    justify-content: center;
     gap: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
 }
 .team-card-saldo {
     display: block;

@@ -54,12 +54,33 @@ describe('RLS: medical_leaves — autodeclaração (só o colaborador)', () => {
     test('colaborador autodeclara um atestado, ficando pendente de aprovação', async () => {
         await withUser({ sub: U_SUB }, async (db) => {
             const { rows } = await db.query(
-                `INSERT INTO medical_leaves (employee_id, start_date, end_date, doctor_name, cid) VALUES ($1, CURRENT_DATE, CURRENT_DATE + 2, 'Dra. Ana', 'J11') RETURNING id, status, days`,
-                [E_SUB]
+                `INSERT INTO medical_leaves (employee_id, start_date, end_date, doctor_name, cid, storage_path) VALUES ($1, CURRENT_DATE, CURRENT_DATE + 2, 'Dra. Ana', 'J11', $2) RETURNING id, status, days`,
+                [E_SUB, `${E_SUB}/atestados/atestado.pdf`]
             );
             assert.equal(rows.length, 1);
             assert.equal(rows[0].status, 'pendente');
             assert.equal(rows[0].days, 3);
+        });
+    });
+
+    test('colaborador não consegue enviar atestado sem anexo', async () => {
+        await withUser({ sub: U_SUB }, async (db) => {
+            await assert.rejects(
+                db.query(`INSERT INTO medical_leaves (employee_id, start_date, end_date) VALUES ($1, CURRENT_DATE, CURRENT_DATE)`, [E_SUB]),
+                FORBIDDEN
+            );
+        });
+    });
+
+    test('colaborador não consegue apontar o anexo para um arquivo da pasta de outro colaborador', async () => {
+        await withUser({ sub: U_SUB }, async (db) => {
+            await assert.rejects(
+                db.query(`INSERT INTO medical_leaves (employee_id, start_date, end_date, storage_path) VALUES ($1, CURRENT_DATE, CURRENT_DATE, $2)`, [
+                    E_SUB,
+                    `${E_OUT}/atestados/alheio.pdf`,
+                ]),
+                FORBIDDEN
+            );
         });
     });
 

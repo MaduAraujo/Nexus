@@ -171,12 +171,38 @@ describe('RLS: employee_trainings — visibilidade e autodeclaração do colabor
     test('colaborador autodeclara um curso externo, ficando pendente de aprovação', async () => {
         await withUser({ sub: U_SUB }, async (db) => {
             const { rows } = await db.query(
-                `INSERT INTO employee_trainings (employee_id, title, hours, source, status, certificate_url)
-                 VALUES ($1, 'Curso Externo de Excel', 8, 'autodeclarado', 'aguardando_aprovacao', 'https://exemplo.com/cert.pdf') RETURNING id, status`,
-                [E_SUB]
+                `INSERT INTO employee_trainings (employee_id, title, hours, source, status, certificate_url, certificate_path)
+                 VALUES ($1, 'Curso Externo de Excel', 8, 'autodeclarado', 'aguardando_aprovacao', 'https://exemplo.com/cert.pdf', $2) RETURNING id, status`,
+                [E_SUB, `${E_SUB}/certificados/excel.pdf`]
             );
             assert.equal(rows.length, 1);
             assert.equal(rows[0].status, 'aguardando_aprovacao');
+        });
+    });
+
+    test('colaborador não consegue autodeclarar um curso sem anexar o certificado', async () => {
+        await withUser({ sub: U_SUB }, async (db) => {
+            await assert.rejects(
+                db.query(
+                    `INSERT INTO employee_trainings (employee_id, title, source, status, certificate_url)
+                     VALUES ($1, 'Sem Anexo', 'autodeclarado', 'aguardando_aprovacao', 'https://exemplo.com/cert.pdf')`,
+                    [E_SUB]
+                ),
+                FORBIDDEN
+            );
+        });
+    });
+
+    test('colaborador não consegue apontar o certificado para um arquivo da pasta de outro colaborador', async () => {
+        await withUser({ sub: U_SUB }, async (db) => {
+            await assert.rejects(
+                db.query(
+                    `INSERT INTO employee_trainings (employee_id, title, source, status, certificate_path)
+                     VALUES ($1, 'Anexo Alheio', 'autodeclarado', 'aguardando_aprovacao', $2)`,
+                    [E_SUB, `${E_OUT}/certificados/alheio.pdf`]
+                ),
+                FORBIDDEN
+            );
         });
     });
 

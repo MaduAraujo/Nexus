@@ -171,7 +171,6 @@ function avatarAttrs(m) {
 function renderTeamGrid() {
     const grid = $('team-grid');
     if (!grid) return;
-    $('team-count-label').textContent = `${teamMembers.length} colaborador${teamMembers.length > 1 ? 'es' : ''}`;
 
     const badgeMap = { Ativo: 'ativo', Férias: 'ferias', Inativo: 'inativo' };
     grid.innerHTML = teamMembers
@@ -184,8 +183,8 @@ function renderTeamGrid() {
                 <p class="team-card-meta">${escHtml(m.role || '—')} · ${escHtml(m.dept || '—')}</p>
                 ${saldoBadgeHtml(m.id)}
             </div>
-            <div class="team-card-side">
-                <span class="team-card-badge team-card-badge--${badgeMap[m.status] || 'ativo'}">${escHtml(m.status || 'Ativo')}</span>
+            <span class="team-card-badge team-card-badge--${badgeMap[m.status] || 'ativo'}">${escHtml(m.status || 'Ativo')}</span>
+            <div class="team-card-actions">
                 <button class="team-card-evaluate" data-click="openPerformanceModal" data-click-args="${dargs(m.id)}" title="Avaliação de desempenho de ${escHtml(m.name)}">
                     <i class="fas fa-chart-line"></i>
                 </button>
@@ -217,7 +216,6 @@ function renderPendingList() {
             <div class="empty-state">
                 <i class="fas fa-circle-check"></i>
                 <p>Nenhuma solicitação pendente</p>
-                <span>As férias do seu time aprovadas ou recusadas pelo RH também aparecem aqui até você decidir.</span>
             </div>`;
         return;
     }

@@ -19,15 +19,15 @@ describe('buildCareerTrackGroups', () => {
         { title: 'Gerente de Tecnologia', level: 'Gerência', track: 'Tecnologia' },
     ];
 
-    test('agrupa por trilha; quem não tem trilha definida vira "Geral"', () => {
+    test('agrupa por trilha; quem não tem trilha definida fica num grupo sem nome', () => {
         const groups = desempenho.buildCareerTrackGroups(catalogo, null);
         const byTrack = Object.fromEntries(groups.map((g) => [g.track, g.rows.length]));
-        assert.deepEqual(byTrack, { Geral: 3, Tecnologia: 2 });
+        assert.deepEqual(byTrack, { '': 3, Tecnologia: 2 });
     });
 
     test('dentro de cada trilha, ordena por senioridade (não alfabético)', () => {
         const groups = desempenho.buildCareerTrackGroups(catalogo, null);
-        const geral = groups.find((g) => g.track === 'Geral');
+        const geral = groups.find((g) => g.track === '');
         assert.deepEqual(
             geral.rows.map((r) => r.title),
             ['Analista Júnior', 'Analista Pleno', 'Analista Sênior']
@@ -37,7 +37,7 @@ describe('buildCareerTrackGroups', () => {
     test('nível fora da lista conhecida vai para o final do grupo, em ordem alfabética', () => {
         const comNivelCustom = [...catalogo, { title: 'Consultor Externo', level: 'Consultoria', track: null }];
         const groups = desempenho.buildCareerTrackGroups(comNivelCustom, null);
-        const geral = groups.find((g) => g.track === 'Geral');
+        const geral = groups.find((g) => g.track === '');
         assert.deepEqual(
             geral.rows.map((r) => r.title),
             ['Analista Júnior', 'Analista Pleno', 'Analista Sênior', 'Consultor Externo']

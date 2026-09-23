@@ -22,7 +22,6 @@
             <a href="../screens/inicio-colaborador.html" class="btn-back" aria-label="Voltar">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
-            <span class="topbar-title"><i class="fas fa-chart-line"></i> Meu Desempenho</span>
         </div>
     </header>
 
@@ -36,79 +35,128 @@
 
             <div>
                 <h2 class="section-title"><i class="fas fa-star"></i> Minhas Avaliações</h2>
-                <p class="section-desc">Avaliações de desempenho já concluídas pelo seu gestor ou pelo RH.</p>
                 <div id="reviews-list" class="performance-list"></div>
             </div>
 
             <div>
                 <h2 class="section-title"><i class="fas fa-bullseye"></i> Metas de Desenvolvimento (PDI)</h2>
-                <p class="section-desc">Você pode avançar o status das suas metas. O conteúdo é definido pelo seu gestor ou pelo RH.</p>
                 <div id="goals-list" class="performance-list"></div>
             </div>
 
             <div>
                 <h2 class="section-title"><i class="fas fa-graduation-cap"></i> Treinamentos</h2>
-                <p class="section-desc">Treinamentos atribuídos pelo RH/gestor e cursos que você mesmo concluiu. Um curso autodeclarado fica pendente até o RH confirmar.</p>
                 <div id="trainings-list" class="performance-list"></div>
 
                 <div class="training-selfreport-form">
-                    <p class="training-selfreport-title">Registrar curso concluído por conta própria</p>
-                    <input type="text" id="tr-self-title" placeholder="Nome do curso *">
-                    <div class="training-selfreport-row">
-                        <input type="text" id="tr-self-hours" placeholder="Carga (h)">
-                        <input type="text" id="tr-self-cert" placeholder="Link do certificado (opcional)">
+                    <div class="training-selfreport-header">
+                        <span class="training-selfreport-icon"><i class="fas fa-award"></i></span>
+                        <div>
+                            <p class="training-selfreport-title">Registrar curso concluído por conta própria</p>
+                            <p class="training-selfreport-subtitle">O RH confirma antes de entrar no seu histórico.</p>
+                        </div>
                     </div>
-                    <button type="button" data-click="selfReportTraining"><i class="fas fa-plus"></i> Enviar para aprovação</button>
+                    <label class="training-selfreport-field">
+                        <span>Nome do curso *</span>
+                        <span class="training-selfreport-input"><i class="fas fa-book-open"></i><input type="text" id="tr-self-title" placeholder="Ex.: Excel Avançado" data-input="refreshSubmitButtons"></span>
+                    </label>
+                    <div class="training-selfreport-row">
+                        <label class="training-selfreport-field training-selfreport-field--hours">
+                            <span>Carga horária</span>
+                            <span class="training-selfreport-input"><i class="fas fa-clock"></i><input type="text" id="tr-self-hours" inputmode="numeric" placeholder="Horas"></span>
+                        </label>
+                        <label class="training-selfreport-field">
+                            <span>Certificado</span>
+                            <span class="training-selfreport-input"><i class="fas fa-link"></i><input type="text" id="tr-self-cert" placeholder="Link (opcional)"></span>
+                        </label>
+                    </div>
+                    <div class="training-selfreport-file" id="tr-self-file-box">
+                        <label class="training-selfreport-file-pick" for="tr-self-file">
+                            <input type="file" id="tr-self-file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" data-change="pickTrainingFile">
+                            <span class="training-selfreport-file-icon"><i class="fas fa-cloud-arrow-up"></i></span>
+                            <span class="training-selfreport-file-text">
+                                <strong id="tr-self-file-name">Anexar certificado *</strong>
+                                <small id="tr-self-file-hint">Imagem ou PDF, até 10 MB</small>
+                            </span>
+                        </label>
+                        <button type="button" class="training-selfreport-file-clear hidden" id="tr-self-file-clear" data-click="clearTrainingFile" aria-label="Remover anexo"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <button type="button" id="tr-self-submit" data-click="selfReportTraining" disabled>Enviar</button>
                 </div>
             </div>
 
             <div>
                 <h2 class="section-title"><i class="fas fa-gavel"></i> Processos Disciplinares</h2>
-                <p class="section-desc">Medidas disciplinares registradas pelo RH. Ao tomar conhecimento, dê ciência — fica registrado a data.</p>
                 <div id="disciplinary-list" class="performance-list"></div>
             </div>
 
             <div>
                 <h2 class="section-title"><i class="fas fa-file-medical"></i> Atestados e Afastamentos</h2>
-                <p class="section-desc">Envie o atestado para o RH confirmar. Só o RH e você veem o anexo e o CID; seu gestor só vê o período.</p>
                 <div id="medical-leaves-list" class="performance-list"></div>
 
-                <div class="leave-selfreport-form">
-                    <p class="training-selfreport-title">Enviar novo atestado</p>
-                    <div class="leave-selfreport-row">
-                        <div class="date-field" id="ml-start-field">
-                            <input type="text" id="ml-start-date" class="date-input" placeholder="Início *" readonly>
-                            <i class="fas fa-calendar-day date-field-icon"></i>
-                            <div class="calendar-popover">
-                                <div class="calendar-header">
-                                    <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                    <span class="calendar-title" data-cal-title>—</span>
-                                    <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                <div class="training-selfreport-form">
+                    <div class="training-selfreport-header">
+                        <span class="training-selfreport-icon"><i class="fas fa-notes-medical"></i></span>
+                        <div>
+                            <p class="training-selfreport-title">Enviar novo atestado</p>
+                            <p class="training-selfreport-subtitle">Só você e o RH veem o anexo e o CID.</p>
+                        </div>
+                    </div>
+                    <div class="training-selfreport-row">
+                        <div class="training-selfreport-field">
+                            <span>Início *</span>
+                            <div class="date-field" id="ml-start-field">
+                                <input type="text" id="ml-start-date" class="date-input" placeholder="dd/mm/aaaa" readonly aria-label="Início">
+                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                <div class="calendar-popover">
+                                    <div class="calendar-header">
+                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                        <span class="calendar-title" data-cal-title>—</span>
+                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                    </div>
+                                    <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                                    <div class="calendar-grid" data-cal-grid></div>
                                 </div>
-                                <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                                <div class="calendar-grid" data-cal-grid></div>
                             </div>
                         </div>
-                        <div class="date-field" id="ml-end-field">
-                            <input type="text" id="ml-end-date" class="date-input" placeholder="Fim *" readonly>
-                            <i class="fas fa-calendar-day date-field-icon"></i>
-                            <div class="calendar-popover">
-                                <div class="calendar-header">
-                                    <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
-                                    <span class="calendar-title" data-cal-title>—</span>
-                                    <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                        <div class="training-selfreport-field">
+                            <span>Fim *</span>
+                            <div class="date-field" id="ml-end-field">
+                                <input type="text" id="ml-end-date" class="date-input" placeholder="dd/mm/aaaa" readonly aria-label="Fim">
+                                <i class="fas fa-calendar-day date-field-icon"></i>
+                                <div class="calendar-popover">
+                                    <div class="calendar-header">
+                                        <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+                                        <span class="calendar-title" data-cal-title>—</span>
+                                        <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+                                    </div>
+                                    <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+                                    <div class="calendar-grid" data-cal-grid></div>
                                 </div>
-                                <div class="calendar-weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-                                <div class="calendar-grid" data-cal-grid></div>
                             </div>
                         </div>
                     </div>
-                    <div class="leave-selfreport-row">
-                        <input type="text" id="ml-doctor-name" placeholder="Nome do médico (opcional)">
-                        <input type="text" id="ml-cid" placeholder="CID (opcional)">
+                    <div class="training-selfreport-row">
+                        <label class="training-selfreport-field">
+                            <span>Médico</span>
+                            <span class="training-selfreport-input"><i class="fas fa-user-doctor"></i><input type="text" id="ml-doctor-name" placeholder="Nome (opcional)"></span>
+                        </label>
+                        <label class="training-selfreport-field training-selfreport-field--hours">
+                            <span>CID</span>
+                            <span class="training-selfreport-input"><i class="fas fa-hashtag"></i><input type="text" id="ml-cid" placeholder="Opcional"></span>
+                        </label>
                     </div>
-                    <input type="file" id="ml-file" accept="image/*,.pdf">
-                    <button type="button" data-click="selfReportLeave"><i class="fas fa-plus"></i> Enviar para aprovação</button>
+                    <div class="training-selfreport-file" id="ml-file-box">
+                        <label class="training-selfreport-file-pick" for="ml-file">
+                            <input type="file" id="ml-file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" data-change="pickLeaveFile">
+                            <span class="training-selfreport-file-icon"><i class="fas fa-cloud-arrow-up"></i></span>
+                            <span class="training-selfreport-file-text">
+                                <strong id="ml-file-name">Anexar atestado *</strong>
+                                <small id="ml-file-hint">Imagem ou PDF, até 10 MB</small>
+                            </span>
+                        </label>
+                        <button type="button" class="training-selfreport-file-clear hidden" id="ml-file-clear" data-click="clearLeaveFile" aria-label="Remover anexo"><i class="fas fa-xmark"></i></button>
+                    </div>
+                    <button type="button" id="ml-submit" data-click="selfReportLeave" disabled>Enviar</button>
                 </div>
             </div>
         </div>
