@@ -341,3 +341,33 @@ html {
         order: 3;
     }
 }
+
+.e2e-status {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-main);
+}
+
+.e2e-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.e2e-status-ok {
+    color: var(--success, #10b981);
+    font-weight: 600;
+}
+
+.e2e-status-warn {
+    color: var(--warning, #f59e0b);
+    font-weight: 600;
+}
+
+.e2e-progress {
+    color: var(--text-muted);
+}

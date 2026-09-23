@@ -1,4 +1,4 @@
-const { test, describe, beforeEach } = require('node:test');
+const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 global.window = global;
@@ -232,5 +232,129 @@ describe('NexusFiles.open', () => {
         assert.equal(error.status, 403);
         assert.equal(tab.closed, true);
         assert.equal(tab.location.href, '');
+    });
+});
+
+describe('ponta a ponta (NexusE2E presente)', () => {
+    const E2E = require('../src/javascript/shared/e2e-crypto.js');
+    let storage;
+    let rpcs;
+    let me;
+    let org;
+
+    async function identity() {
+        const id = await E2E.generateIdentity();
+        return { publicJwk: id.publicJwk, fingerprint: await E2E.fingerprint(id.publicJwk), privateKey: await E2E.importPrivate(id.pkcs8) };
+    }
+
+    beforeEach(async () => {
+        me = await identity();
+        org = await identity();
+        storage = new Map();
+        rpcs = [];
+        global.sb.storage = {
+            from: (bucket) => ({
+                upload: async (path, blob, opts) => {
+                    storage.set(`${bucket}/${path}`, { bytes: new Uint8Array(await blob.arrayBuffer()), opts });
+                    return { error: null };
+                },
+                download: async (path) => {
+                    const obj = storage.get(`${bucket}/${path}`);
+                    return obj ? { data: new Blob([obj.bytes]), error: null } : { data: null, error: { message: 'not found' } };
+                },
+            }),
+        };
+        global.sb.rpc = async (name, args) => {
+            rpcs.push([name, args]);
+            return { data: null, error: null };
+        };
+        global.window.NexusE2E = {
+            isEncryptedFile: E2E.isEncryptedFile,
+            fileRecipients: E2E.fileRecipients,
+            recipientsFor: async (employeeId) => (employeeId === 'sem-chave' ? null : [me, org]),
+            encryptFile: async (bytes, opts) => (opts.employeeId === 'sem-chave' ? null : E2E.encryptFile(bytes, { ...opts, recipients: [me, org] })),
+            encryptFileFor: (bytes, opts) => E2E.encryptFile(bytes, opts),
+            decryptFile: (bytes, { bucket, path }) => E2E.decryptFile(bytes, { bucket, path, identities: [me] }),
+        };
+    });
+
+    afterEach(() => {
+        delete global.window.NexusE2E;
+    });
+
+    const LEGACY = new Uint8Array([0x4e, 0x58, 0x46, 0x32, 1, 2, 3]);
+    const sealFor = (recipients, path, text) =>
+        E2E.encryptFile(new TextEncoder().encode(text), { bucket: 'documents', path, mime: 'application/pdf', recipients });
+
+    test('documento é cifrado no navegador e vai direto ao Storage, sem passar pela nexus-files', async () => {
+        const pdf = new Blob(['%PDF-1.7 RG 12.345.678-9'], { type: 'application/pdf' });
+        const { error } = await NexusFiles.upload('documents', 'e1/rg.pdf', pdf, { employeeId: 'e1' });
+        assert.equal(error, null);
+        assert.equal(fetchCalls.length, 0);
+        const stored = storage.get('documents/e1/rg.pdf');
+        assert.equal(E2E.isEncryptedFile(stored.bytes), true);
+        assert.ok(!Buffer.from(stored.bytes).toString('latin1').includes('12.345.678'));
+        assert.equal(stored.opts.contentType, 'application/octet-stream');
+    });
+
+    test('sem as chaves do colaborador, cai na cifragem do servidor (nexus-files)', async () => {
+        await NexusFiles.upload('documents', 'e1/rg.pdf', new Blob(['x']), { employeeId: 'sem-chave' });
+        assert.equal(fetchCalls.length, 1);
+        assert.equal(storage.size, 0);
+    });
+
+    test('anexos de comunicado (bucket fora do escopo) continuam pela nexus-files', async () => {
+        await NexusFiles.upload('message-attachments', 'm/a.pdf', new Blob(['x']), { employeeId: 'e1' });
+        assert.equal(fetchCalls.length, 1);
+    });
+
+    test('abrir um arquivo E2E decifra no navegador e registra o download para os alertas', async () => {
+        await NexusFiles.upload('documents', 'e1/rg.pdf', new Blob(['%PDF-1.7 conteúdo'], { type: 'application/pdf' }), { employeeId: 'e1' });
+        const { blob, error } = await NexusFiles.download('documents', 'e1/rg.pdf');
+        assert.equal(error, null);
+        assert.equal(blob.type, 'application/pdf');
+        assert.equal(await blob.text(), '%PDF-1.7 conteúdo');
+        assert.deepEqual(rpcs, [['report_file_download', { p_bucket: 'documents' }]]);
+        assert.equal(fetchCalls.length, 0);
+    });
+
+    test('arquivo que diz ser PDF mas não é abre como download, não inline', async () => {
+        await NexusFiles.upload('documents', 'e1/x.pdf', new Blob(['<html>não sou pdf</html>'], { type: 'application/pdf' }), { employeeId: 'e1' });
+        const { blob } = await NexusFiles.download('documents', 'e1/x.pdf');
+        assert.equal(blob.type, 'application/octet-stream');
+    });
+
+    test('arquivo E2E que não abre com as chaves deste acesso dá erro claro', async () => {
+        const outro = await identity();
+        storage.set('documents/e1/y.pdf', { bytes: await sealFor([outro], 'e1/y.pdf', 'x') });
+        const { blob, error } = await NexusFiles.download('documents', 'e1/y.pdf');
+        assert.equal(blob, null);
+        assert.equal(error.status, 403);
+        assert.match(error.message, /ponta a ponta/);
+    });
+
+    test('arquivo antigo (cifrado pelo servidor) continua abrindo pela nexus-files', async () => {
+        storage.set('documents/e1/antigo.pdf', { bytes: LEGACY });
+        fetchImpl = async () => response({ body: new Uint8Array([7, 7]), type: 'application/pdf' });
+        const { blob } = await NexusFiles.download('documents', 'e1/antigo.pdf');
+        assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), new Uint8Array([7, 7]));
+        assert.equal(fetchCalls.length, 1);
+    });
+
+    test('migração: arquivo antigo vira E2E e é conferido; rodar de novo não regrava', async () => {
+        storage.set('documents/e1/antigo.pdf', { bytes: LEGACY });
+        fetchImpl = async () => response({ body: new TextEncoder().encode('%PDF-1.4 antigo'), type: 'application/pdf' });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/antigo.pdf', 'e1'), 'migrated');
+        const opened = await E2E.decryptFile(storage.get('documents/e1/antigo.pdf').bytes, { bucket: 'documents', path: 'e1/antigo.pdf', identities: [org] });
+        assert.equal(new TextDecoder().decode(opened.bytes), '%PDF-1.4 antigo');
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/antigo.pdf', 'e1'), 'already');
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/antigo.pdf', 'sem-chave'), 'no-keys');
+    });
+
+    test('migração recompartilha arquivo E2E cujo colaborador trocou de chave', async () => {
+        const velho = await identity();
+        storage.set('documents/e1/z.pdf', { bytes: await sealFor([velho, me], 'e1/z.pdf', '%PDF z') });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/z.pdf', 'e1'), 'repaired');
+        assert.deepEqual(E2E.fileRecipients(storage.get('documents/e1/z.pdf').bytes).sort(), [me.fingerprint, org.fingerprint].sort());
     });
 });

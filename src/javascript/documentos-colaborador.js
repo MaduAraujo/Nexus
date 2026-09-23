@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const st = statusOf(d);
                 const date = new Date(d.created_at).toLocaleDateString('pt-BR');
                 return `
-                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" style="animation-delay:${Math.min(i * 0.04, 0.4)}s" data-click="selectDocById" data-click-args="${dargs(d.id)}">
+                <div class="doc-card-item${d.id === selectedId ? ' active' : ''}" data-delay="${Math.min(i * 0.04, 0.4)}" data-click="selectDocById" data-click-args="${dargs(d.id)}">
                     <div class="doc-card-icon doc-card-icon--${cls}">
                         <i class="fas ${fa}"></i>
                     </div>
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const statusEl = document.getElementById('detail-status');
         if (statusEl) {
-            statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:700;background:${st.cls === 'aprovado' ? '#dcfce7' : st.cls === 'recusado' ? '#fee2e2' : '#fef3c7'};color:${st.cls === 'aprovado' ? '#065f46' : st.cls === 'recusado' ? '#991b1b' : '#92400e'}"><i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}</span>`;
+            statusEl.innerHTML = `<span class="detail-status-pill detail-status-pill--${st.cls === 'aprovado' || st.cls === 'recusado' ? st.cls : 'pendente'}"><i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}</span>`;
         }
 
         const signArea = document.getElementById('assinatura-area');
@@ -532,7 +532,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const existingCurrent = myDocs.find((d) => d.source === 'colaborador' && d.tipo === tipo);
 
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, selectedFile, { contentType: selectedFile.type });
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, selectedFile, {
+            contentType: selectedFile.type,
+            employeeId: myEmployeeId,
+        });
         if (uploadError) {
             showToast('Erro ao enviar o arquivo.', uploadError.message, 'error');
             return;

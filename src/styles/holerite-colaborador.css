@@ -1382,10 +1382,6 @@ body {
 }
 
 .informe-print-doc {
-    /* .payslip-doc aplica um fade-in de 0.3s; como este documento fica "hidden" até o instante
-       de imprimir, remover o "hidden" reinicia a animação e a impressão captura o documento
-       ainda com opacidade baixa (parecendo em branco). Ele nunca é visto na tela, então não
-       precisa da animação. */
     animation: none;
 }
 
@@ -1539,4 +1535,22 @@ body {
     body.printing-informe .informe-print-doc {
         display: block !important;
     }
+}
+
+.doc-tables--single {
+    grid-template-columns: 1fr;
+}
+
+.slip-list-empty {
+    padding: 20px;
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.doc-table tbody td.td-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.82rem;
 }

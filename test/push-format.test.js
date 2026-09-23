@@ -1,9 +1,6 @@
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 
-// Lógica pura extraída das três Edge Functions de push (send-alert-push, send-document-push,
-// send-push) para _shared/push-format.mjs, seguindo o mesmo padrão de files-core.mjs: título/corpo
-// da notificação, filtro por preferência do colaborador e detecção de inscrição morta.
 let pf;
 
 before(async () => {
@@ -132,7 +129,7 @@ describe('filterEmployeeIdsByPref', () => {
             [
                 { id: 'e1', notif_prefs: { comunicados: false } },
                 { id: 'e2', notif_prefs: { comunicados: true } },
-                { id: 'e3', notif_prefs: { documentos: false } }, // outra categoria desativada não afeta
+                { id: 'e3', notif_prefs: { documentos: false } },
             ],
             'comunicados'
         );
@@ -153,7 +150,7 @@ describe('plainTextPreview', () => {
     test('trunca em 140 caracteres por padrão, com reticências', () => {
         const longo = 'a'.repeat(200);
         const out = pf.plainTextPreview(longo);
-        assert.equal(out.length, 141); // 140 + reticência
+        assert.equal(out.length, 141);
         assert.ok(out.endsWith('…'));
     });
 

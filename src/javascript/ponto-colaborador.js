@@ -505,7 +505,7 @@ window.renderHistorico = function () {
     tbody.innerHTML = dias
         .map(([key, rec]) => {
             if (isFalta(rec))
-                return `<tr class="row-falta"><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td colspan="4" style="color:var(--text-tertiary);font-style:italic;font-size:.8rem">Sem registros</td><td>—</td><td>—</td><td><span class="badge badge-falta">Falta</span></td></tr>`;
+                return `<tr class="row-falta"><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td colspan="4" class="td-no-records">Sem registros</td><td>—</td><td>—</td><td><span class="badge badge-falta">Falta</span></td></tr>`;
             const worked = calcWorkedMin(rec),
                 saldo = calcSaldoMin(rec);
             const workedStr = rec.saida ? minToStr(worked) : '—';
@@ -785,7 +785,7 @@ window.enviarBankRequest = async function () {
         anexoName = null;
     if (file) {
         const storagePath = `${myEmployeeId}/banco-horas/${Date.now()}_${file.name}`;
-        const { error: upErr } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type });
+        const { error: upErr } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type, employeeId: myEmployeeId });
         if (upErr) {
             showToast('Erro ao enviar o anexo.', 'error');
             return;
@@ -1477,7 +1477,10 @@ async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificati
         let selfiePath = null;
         if (selfie) {
             selfiePath = `${myEmployeeId}/${date}_${step}_${Date.now()}.jpg`;
-            const { error: upErr } = await NexusFiles.upload('ponto-selfies', selfiePath, dataUrlToBlob(selfie), { contentType: 'image/jpeg' });
+            const { error: upErr } = await NexusFiles.upload('ponto-selfies', selfiePath, dataUrlToBlob(selfie), {
+                contentType: 'image/jpeg',
+                employeeId: myEmployeeId,
+            });
             if (upErr) return false;
         }
         const { data: upserted, error } = await sb
@@ -1686,19 +1689,19 @@ function setupClockDial() {
         const outerPos = clockPolarXY(CLOCK_OUTER_NUM_R, i);
         hourNumbersEl.insertAdjacentHTML(
             'beforeend',
-            `<div class="clock-number" data-value="${outerVal}" style="left:${outerPos.x}px;top:${outerPos.y}px;">${pad0(outerVal)}</div>`
+            `<div class="clock-number" data-value="${outerVal}" data-x="${outerPos.x}" data-y="${outerPos.y}">${pad0(outerVal)}</div>`
         );
         const innerVal = i === 0 ? 12 : i + 12;
         const innerPos = clockPolarXY(CLOCK_INNER_NUM_R, i);
         hourNumbersEl.insertAdjacentHTML(
             'beforeend',
-            `<div class="clock-number clock-number--inner" data-value="${innerVal}" style="left:${innerPos.x}px;top:${innerPos.y}px;">${pad0(innerVal)}</div>`
+            `<div class="clock-number clock-number--inner" data-value="${innerVal}" data-x="${innerPos.x}" data-y="${innerPos.y}">${pad0(innerVal)}</div>`
         );
         const minVal = i * 5;
         const minPos = clockPolarXY(CLOCK_OUTER_NUM_R, i);
         minNumbersEl.insertAdjacentHTML(
             'beforeend',
-            `<div class="clock-number" data-value="${minVal}" style="left:${minPos.x}px;top:${minPos.y}px;">${pad0(minVal)}</div>`
+            `<div class="clock-number" data-value="${minVal}" data-x="${minPos.x}" data-y="${minPos.y}">${pad0(minVal)}</div>`
         );
     }
 

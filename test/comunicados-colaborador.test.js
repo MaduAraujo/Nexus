@@ -3,16 +3,9 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { createMockSupabase } = require('../test-support/mock-supabase');
 
-// comunicados-colaborador.js roda tudo dentro de um único listener de DOMContentLoaded — para poder
-// testar loadData/marcarLido/marcarTodosLidos/filterMsgs sem depender de tela real, o módulo foi
-// ajustado para expor esse estado e essas funções por module.exports (mesmo padrão de
-// ponto-colaborador.js), mantendo o comportamento em produção idêntico.
 let comunicados;
 
 before(() => {
-    // comunicado-format.js precisa de um DOM real (DOMParser) para sanitizar de verdade — sobe via
-    // jsdom só para extrair as duas funções, depois de copiadas para o `global` do Node (de onde o
-    // identificador solto `comunicadoPlainText` em comunicados-colaborador.js é resolvido).
     const dom = new JSDOM('<!doctype html><div></div>');
     global.window = dom.window;
     global.document = dom.window.document;
@@ -22,10 +15,6 @@ before(() => {
     global.comunicadoPlainText = dom.window.comunicadoPlainText;
     global.sanitizeComunicadoHTML = dom.window.sanitizeComunicadoHTML;
 
-    // comunicados-colaborador.js registra document.addEventListener('DOMContentLoaded', ...) ao ser
-    // carregado — um jsdom de verdade dispararia esse evento sozinho e o handler chamaria
-    // NexusAuth.requireProfile (indefinido aqui). Troca-se document por um stub inerte antes do
-    // require, igual ao padrão já usado em ponto-colaborador-flow.test.js.
     global.document = { addEventListener: () => {} };
     comunicados = require('../src/javascript/comunicados-colaborador.js');
 });

@@ -40,7 +40,7 @@ describe('cifragem de arquivos (AES-256-GCM)', () => {
 
     test('salt e iv são aleatórios a cada arquivo (nunca repetem)', async () => {
         const mime = 'application/pdf';
-        const saltAt = 4 + 1 + mime.length;
+        const saltAt = 4 + 1 + 'v1'.length + 1 + mime.length;
         const ivAt = saltAt + 16;
         const a = await lib.encryptFile(KEY, { ...ctx, mime, bytes: PLAIN });
         const b = await lib.encryptFile(KEY, { ...ctx, mime, bytes: PLAIN });
@@ -51,7 +51,7 @@ describe('cifragem de arquivos (AES-256-GCM)', () => {
     test('tamanho = cabeçalho + conteúdo + 16 bytes de autenticação', async () => {
         const mime = 'application/pdf';
         const sealed = await lib.encryptFile(KEY, { ...ctx, mime, bytes: PLAIN });
-        assert.equal(sealed.length, 4 + 1 + mime.length + 16 + 12 + PLAIN.length + 16);
+        assert.equal(sealed.length, 4 + 1 + 'v1'.length + 1 + mime.length + 16 + 12 + PLAIN.length + 16);
     });
 
     test('arquivo vazio também cifra e decifra', async () => {
@@ -99,5 +99,91 @@ describe('cifragem de arquivos (AES-256-GCM)', () => {
     test('tipo vazio ou longo demais é recusado ao cifrar', async () => {
         await assert.rejects(lib.encryptFile(KEY, { ...ctx, mime: '', bytes: PLAIN }));
         await assert.rejects(lib.encryptFile(KEY, { ...ctx, mime: 'a/' + 'b'.repeat(120), bytes: PLAIN }));
+    });
+});
+
+async function legacyV1(masterBase64, { bucket, path, mime, bytes }) {
+    const te = new TextEncoder();
+    const salt = crypto.randomBytes(16);
+    const iv = crypto.randomBytes(12);
+    const material = await crypto.subtle.importKey('raw', Buffer.from(masterBase64, 'base64'), 'HKDF', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+        { name: 'HKDF', hash: 'SHA-256', salt, info: te.encode('nexus-file-v1') },
+        material,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+    );
+    const mimeBytes = te.encode(mime);
+    const aad = Buffer.concat([te.encode(`${bucket}/${path}`), Buffer.from([0]), mimeBytes]);
+    const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aad }, key, bytes));
+    return new Uint8Array(Buffer.concat([Buffer.from('NXF1'), Buffer.from([mimeBytes.length]), mimeBytes, salt, iv, sealed]));
+}
+
+describe('rotação da chave de arquivos', () => {
+    const RING_V2 = { active: 'v2', keys: { v1: KEY, v2: OTHER_KEY } };
+
+    test('arquivo novo leva o identificador da chave ativa no cabeçalho', async () => {
+        const sealed = await lib.encryptFile(RING_V2, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        assert.equal(Buffer.from(sealed.slice(0, 4)).toString(), 'NXF2');
+        assert.equal(lib.fileKeyId(sealed), 'v2');
+        assert.equal(lib.fileKeyId(await lib.encryptFile(KEY, { ...ctx, mime: 'application/pdf', bytes: PLAIN })), 'v1');
+        assert.equal(lib.fileKeyId(PLAIN), null);
+    });
+
+    test('depois da troca, arquivos da chave antiga continuam abrindo e os novos usam a nova', async () => {
+        const antigo = await lib.encryptFile(KEY, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        const novo = await lib.encryptFile(RING_V2, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        assert.deepEqual((await lib.decryptFile(RING_V2, { ...ctx, bytes: antigo })).bytes, PLAIN);
+        assert.deepEqual((await lib.decryptFile(RING_V2, { ...ctx, bytes: novo })).bytes, PLAIN);
+    });
+
+    test('arquivo no formato antigo NXF1 (sem identificador) abre com a chave v1', async () => {
+        const legado = await legacyV1(KEY, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        assert.equal(lib.isEncrypted(legado), true);
+        assert.equal(lib.fileKeyId(legado), 'v1');
+        const opened = await lib.decryptFile(RING_V2, { ...ctx, bytes: legado });
+        assert.equal(opened.mime, 'application/pdf');
+        assert.deepEqual(opened.bytes, PLAIN);
+    });
+
+    test('sem a chave antiga no chaveiro, o erro diz qual chave falta', async () => {
+        const antigo = await lib.encryptFile(KEY, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        await assert.rejects(
+            lib.decryptFile({ active: 'v2', keys: { v2: OTHER_KEY } }, { ...ctx, bytes: antigo }),
+            /chave de arquivos "v1" não está configurada/
+        );
+    });
+
+    test('trocar o identificador da chave no cabeçalho faz a decifragem falhar', async () => {
+        const sealed = await lib.encryptFile({ active: 'v1', keys: { v1: KEY, v2: KEY } }, { ...ctx, mime: 'application/pdf', bytes: PLAIN });
+        const tampered = fresh(sealed);
+        tampered[6] = '2'.charCodeAt(0);
+        assert.equal(lib.fileKeyId(tampered), 'v2');
+        await assert.rejects(lib.decryptFile({ active: 'v1', keys: { v1: KEY, v2: KEY } }, { ...ctx, bytes: tampered }));
+    });
+
+    test('keyringFromEnv: sem variáveis novas, a chave atual vira v1 (nada muda para quem já usa)', () => {
+        const env = { FILES_ENCRYPTION_KEY: KEY };
+        assert.deepEqual(
+            lib.keyringFromEnv((n) => env[n]),
+            { active: 'v1', keys: { v1: KEY } }
+        );
+    });
+
+    test('keyringFromEnv: chave nova ativa + antigas só para leitura', () => {
+        const env = { FILES_ENCRYPTION_KEY: OTHER_KEY, FILES_ENCRYPTION_KEY_ID: 'v2', FILES_ENCRYPTION_OLD_KEYS: ` v1:${KEY} ` };
+        assert.deepEqual(
+            lib.keyringFromEnv((n) => env[n]),
+            RING_V2
+        );
+    });
+
+    test('keyringFromEnv: recusa configuração errada antes de tocar em qualquer arquivo', () => {
+        assert.throws(() => lib.keyringFromEnv(() => undefined), /FILES_ENCRYPTION_KEY não configurada/);
+        const env = (over) => (n) => ({ FILES_ENCRYPTION_KEY: KEY, ...over })[n];
+        assert.throws(() => lib.keyringFromEnv(env({ FILES_ENCRYPTION_KEY_ID: 'V 2' })), /FILES_ENCRYPTION_KEY_ID/);
+        assert.throws(() => lib.keyringFromEnv(env({ FILES_ENCRYPTION_OLD_KEYS: KEY })), /FILES_ENCRYPTION_OLD_KEYS/);
+        assert.throws(() => lib.keyringFromEnv(env({ FILES_ENCRYPTION_OLD_KEYS: 'v0:curta' })), /32 bytes|base64/);
     });
 });

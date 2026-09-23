@@ -1,7 +1,3 @@
-// Lógica pura compartilhada pelas três Edge Functions de push (send-alert-push, send-document-push,
-// send-push): texto/título da notificação, quem deve recebê-la e quando uma inscrição está morta.
-// Sem chamadas de rede nem Deno.* — só transformação de dados, testável a partir do Node.
-
 export const SECURITY_PUSH_BODY = {
     login_failures: 'Várias tentativas de login falhas em uma conta.',
     login_after_failures: 'Login concluído logo depois de várias falhas.',
@@ -14,16 +10,12 @@ export function securityAlertBody(kind) {
     return SECURITY_PUSH_BODY[kind] ?? 'Comportamento incomum detectado.';
 }
 
-// compliance_alerts/burnout_alerts guardam uma lista de alertas (`alertas: [{titulo, ...}]`); o corpo
-// do push mostra o primeiro título e, se houver mais de um, quantos ficaram de fora.
 export function alertNotificationBody(alertas, fallbackTitle) {
     const list = alertas || [];
     const first = list[0]?.titulo || fallbackTitle;
     return list.length > 1 ? `${first} (+${list.length - 1})` : first;
 }
 
-// web-push sinaliza inscrição morta (usuário revogou a permissão, trocou de navegador etc.) com 404
-// ou 410 — é quando vale remover do banco em vez de tentar de novo.
 export function isStalePushError(err) {
     const statusCode = err?.statusCode;
     return statusCode === 404 || statusCode === 410;
@@ -35,8 +27,6 @@ export function isValidDocumentIds(ids, maxCount) {
     return Array.isArray(ids) && ids.length > 0 && ids.length <= maxCount && ids.every((id) => typeof id === 'string' && UUID_RE.test(id));
 }
 
-// Agrupa documentos por colaborador: quantos tipos e quantos ainda precisam de assinatura — é o que
-// decide o título/corpo do push (ver documentPushMessage).
 export function groupDocumentsByEmployee(docs) {
     const byEmployee = new Map();
     for (const d of docs) {
@@ -56,13 +46,10 @@ export function documentPushMessage(entry) {
     };
 }
 
-// Cada colaborador escolhe quais tipos de notificação recebe (notif_prefs); ausência de preferência
-// (undefined) é tratada como permitido — só `false` explícito bloqueia.
 export function filterEmployeeIdsByPref(employees, prefKey) {
     return (employees ?? []).filter((e) => e.notif_prefs?.[prefKey] !== false).map((e) => e.id);
 }
 
-// Comunicados são HTML sanitizado; o push mostra só o texto, cortado em maxLen caracteres.
 export function plainTextPreview(html, maxLen = 140) {
     const plain = String(html ?? '')
         .replace(/<[^>]+>/g, ' ')

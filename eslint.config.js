@@ -34,7 +34,6 @@ module.exports = [
         },
     },
     {
-        // page.evaluate() callbacks run in the browser, not Node.
         files: ['test-support/pwa-audit.js'],
         languageOptions: {
             ecmaVersion: 2022,

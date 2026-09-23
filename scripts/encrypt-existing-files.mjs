@@ -1,10 +1,10 @@
 import { pathToFileURL } from 'node:url';
-import { decryptFile, encryptFile, isEncrypted } from '../supabase/functions/_shared/file-crypto.mjs';
+import { decryptFile, encryptFile, isEncrypted, keyringFromEnv } from '../supabase/functions/_shared/file-crypto.mjs';
 import { BUCKETS, INLINE_TYPES, matchesSignature, safeMime } from '../supabase/functions/_shared/files-core.mjs';
 
 const PAGE = 100;
 
-async function* walk(storage, bucket, prefix = '') {
+export async function* walk(storage, bucket, prefix = '') {
     let offset = 0;
     for (;;) {
         const { data, error } = await storage.from(bucket).list(prefix, { limit: PAGE, offset, sortBy: { column: 'name', order: 'asc' } });
@@ -45,7 +45,9 @@ export async function encryptExistingFiles({ client, key, buckets = Object.keys(
                 if (INLINE_TYPES.includes(mime) && !matchesSignature(mime, original)) mime = 'application/octet-stream';
 
                 const sealed = await encryptFile(key, { bucket, path: file.path, mime, bytes: original });
-                const { error: uploadError } = await client.storage.from(bucket).upload(file.path, sealed, { contentType: 'application/octet-stream', upsert: true });
+                const { error: uploadError } = await client.storage
+                    .from(bucket)
+                    .upload(file.path, sealed, { contentType: 'application/octet-stream', upsert: true });
                 if (uploadError) throw new Error(uploadError.message);
 
                 const check = await client.storage.from(bucket).download(file.path);
@@ -64,19 +66,28 @@ export async function encryptExistingFiles({ client, key, buckets = Object.keys(
         }
     }
 
-    log(`\n${dryRun ? 'Simulação: ' : ''}${totals.encrypted} ${dryRun ? 'seriam cifrados' : 'cifrados'}, ${totals.skipped} já estavam cifrados, ${totals.failed} falhas.`);
+    log(
+        `\n${dryRun ? 'Simulação: ' : ''}${totals.encrypted} ${dryRun ? 'seriam cifrados' : 'cifrados'}, ${totals.skipped} já estavam cifrados, ${totals.failed} falhas.`
+    );
     return totals;
 }
 
 async function main() {
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FILES_ENCRYPTION_KEY } = process.env;
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !FILES_ENCRYPTION_KEY) {
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         console.error('Defina SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e FILES_ENCRYPTION_KEY (veja o cabeçalho deste arquivo).');
+        process.exit(2);
+    }
+    let key;
+    try {
+        key = keyringFromEnv((name) => process.env[name]);
+    } catch (e) {
+        console.error(e.message);
         process.exit(2);
     }
     const { createClient } = await import('@supabase/supabase-js');
     const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-    const totals = await encryptExistingFiles({ client, key: FILES_ENCRYPTION_KEY, dryRun: process.argv.includes('--dry-run') });
+    const totals = await encryptExistingFiles({ client, key, dryRun: process.argv.includes('--dry-run') });
     process.exit(totals.failed ? 1 : 0);
 }
 

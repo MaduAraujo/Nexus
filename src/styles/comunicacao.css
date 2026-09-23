@@ -3022,3 +3022,12 @@ body {
         font-size: 0.95rem;
     }
 }
+
+.main-wrapper.main-wrapper--full {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+.muted-dash {
+    opacity: 0.4;
+}

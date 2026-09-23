@@ -1,9 +1,3 @@
-// Direito à desconexão: fora do horário comercial (padrão 8h–18h, dias úteis, fuso de São Paulo),
-// pushes não são enviados na hora — ficam agendados para o próximo início de expediente. Sem
-// referência a Deno.* aqui de propósito: quem chama (a Edge Function) lê as envs
-// QUIET_HOURS_START_HOUR/QUIET_HOURS_END_HOUR e passa como `config`, o que também deixa este arquivo
-// importável e testável a partir do Node (mesmo padrão de files-core.mjs).
-
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 18;
 const BR_OFFSET_MS = 3 * 60 * 60 * 1000;

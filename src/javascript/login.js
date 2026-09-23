@@ -12,6 +12,7 @@ let _firstAccessSession = null;
 let _faDebounce = null;
 let _isPasswordRecovery = false;
 let _mfaPending = null;
+let _loginPassword = null;
 
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
@@ -231,16 +232,46 @@ async function pendingMfaFactorId(profileType) {
 }
 
 function showMfaStep(factorId, profile) {
-    _mfaPending = { factorId, profile };
+    _mfaPending = { factorId, profile, recovery: false };
     setLoginLoading(false);
     document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
     document.getElementById('form-mfa')?.classList.add('active');
     setNavBack(true, cancelMfa);
+    setMfaRecoveryMode(false);
+}
+
+function setMfaRecoveryMode(on) {
+    if (_mfaPending) _mfaPending.recovery = on;
     const input = document.getElementById('mfa-code');
-    if (input) input.value = '';
+    const subtitle = document.getElementById('mfa-subtitle');
+    const label = document.getElementById('mfa-code-label');
+    const toggle = document.getElementById('mfa-recovery-toggle');
+    const btnText = document.getElementById('btn-mfa-text');
+    if (subtitle) {
+        subtitle.textContent = on
+            ? 'Digite um dos códigos de recuperação que você guardou ao ativar a verificação. O app autenticador será desvinculado.'
+            : 'Digite o código de 6 dígitos do seu app autenticador.';
+    }
+    if (label) label.textContent = on ? 'Código de recuperação' : 'Código';
+    if (toggle) toggle.textContent = on ? 'Usar o código do app autenticador' : 'Perdeu o celular? Usar código de recuperação';
+    if (btnText) btnText.textContent = on ? 'Usar código de recuperação' : 'Verificar';
+    if (input) {
+        input.value = '';
+        input.inputMode = on ? 'text' : 'numeric';
+        input.maxLength = on ? 11 : 7;
+        input.placeholder = on ? 'XXXXX-XXXXX' : '000000';
+        input.autocomplete = on ? 'off' : 'one-time-code';
+        if (on) input.removeAttribute('pattern');
+        else input.setAttribute('pattern', '[0-9]*');
+    }
     updateMfaBtnState();
     setTimeout(() => input?.focus(), 50);
 }
+
+window.toggleMfaRecovery = function () {
+    if (!_mfaPending) return;
+    setMfaRecoveryMode(!_mfaPending.recovery);
+};
 
 async function reportSecurity(rpcName, args) {
     try {
@@ -248,7 +279,35 @@ async function reportSecurity(rpcName, args) {
     } catch {}
 }
 
+async function setupEndToEnd(profile) {
+    const password = _loginPassword;
+    _loginPassword = null;
+    if (!password || !window.NexusE2E) return;
+    const isAdmin = profile.profile === 'Administrador';
+    try {
+        const result = await NexusE2E.afterLogin({ password, isAdmin });
+        if (result.status === 'created') await NexusE2EUI.showRecoveryKey(result.recoveryKey);
+        while (result.status === 'needs-recovery') {
+            const choice = await NexusE2EUI.promptRecovery(NexusE2ECrypto.isValidRecoveryKey);
+            if (choice.action === 'reset') {
+                await NexusE2EUI.showRecoveryKey(await NexusE2E.resetIdentity({ password, isAdmin }));
+                break;
+            }
+            try {
+                await NexusE2E.recover({ recoveryKey: choice.key, password, isAdmin });
+                break;
+            } catch {
+                showToast('Chave de recuperação incorreta. Confira e tente de novo.', 'error');
+            }
+        }
+    } catch (err) {
+        console.error('[Nexus] criptografia de ponta a ponta:', err);
+        showToast('Não foi possível preparar a criptografia de ponta a ponta. Ela será pedida de novo ao abrir conversas ou documentos.', 'error');
+    }
+}
+
 async function finishLogin(profile) {
+    await setupEndToEnd(profile);
     await reportSecurity('record_access', { p_kind: 'login' });
     if (profile.profile === 'colaborador' && profile.employee_id) {
         await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
@@ -261,7 +320,8 @@ window.updateMfaBtnState = function () {
     const code = document.getElementById('mfa-code')?.value || '';
     const err = document.getElementById('mfa-code-err');
     if (err) err.textContent = '';
-    if (btn) btn.disabled = !NexusMfa.isValidCode(code);
+    const valid = _mfaPending?.recovery ? NexusMfa.isValidRecoveryCode(code) : NexusMfa.isValidCode(code);
+    if (btn) btn.disabled = !valid;
 };
 
 function setMfaLoading(on) {
@@ -277,6 +337,10 @@ window.submitMfaCode = async function () {
     if (!_mfaPending || document.getElementById('btn-mfa')?.disabled) return;
     const code = document.getElementById('mfa-code')?.value || '';
     setMfaLoading(true);
+    if (_mfaPending.recovery) {
+        await submitRecoveryCode(code);
+        return;
+    }
     try {
         const { error } = await NexusMfa.verify(sb, _mfaPending.factorId, code);
         if (error) {
@@ -294,8 +358,43 @@ window.submitMfaCode = async function () {
     }
 };
 
+async function submitRecoveryCode(code) {
+    const showError = (text) => {
+        setMfaLoading(false);
+        const err = document.getElementById('mfa-code-err');
+        if (err) err.textContent = text;
+        document.getElementById('mfa-code')?.select();
+    };
+    try {
+        const { error } = await NexusMfa.recover(sb, code);
+        if (error) {
+            showError(
+                error.status === 429
+                    ? 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
+                    : error.status === 400
+                      ? 'Código de recuperação inválido ou já usado.'
+                      : 'Não foi possível usar o código agora. Tente de novo.'
+            );
+            return;
+        }
+        const { error: refreshError } = await sb.auth.refreshSession();
+        if (refreshError) {
+            await sb.auth.signOut({ scope: 'local' });
+            goToProfileSelection();
+            showToast('App autenticador desvinculado. Entre de novo com sua senha.', 'success');
+            return;
+        }
+        showToast('App autenticador desvinculado. Cadastre o novo celular na tela de segurança.', 'success');
+        await finishLogin(_mfaPending.profile);
+    } catch {
+        setMfaLoading(false);
+        showToast('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
+    }
+}
+
 window.cancelMfa = async function () {
     _mfaPending = null;
+    _loginPassword = null;
     await sb.auth.signOut({ scope: 'local' });
     goToProfileSelection();
 };
@@ -326,6 +425,7 @@ window.handleLogin = async function () {
             email: emailInput,
             password: passInput,
         });
+        _loginPassword = error ? null : passInput;
 
         if (error) {
             setLoginLoading(false);

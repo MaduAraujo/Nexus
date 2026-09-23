@@ -191,7 +191,7 @@ async function loadData() {
         sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null),
         sb.from('messages').select('id,texto,destino,categoria,created_at,scheduled_at'),
         sb.from('message_reads').select('message_id,employee_id,read_at'),
-        sb.from('employee_audit').select('employee_id,changes,created_at').gte('created_at', twelveMonthsAgo.toISOString()),
+        sb.from('employee_audit_decrypted').select('employee_id,changes,created_at').gte('created_at', twelveMonthsAgo.toISOString()),
         sb.from('employee_trainings').select('employee_id,hours,completion_date').eq('status', 'concluido'),
         sb.from('performance_reviews').select('employee_id,overall_rating,completed_at').eq('status', 'concluida'),
     ]);
@@ -834,7 +834,7 @@ function updateGenderEquity() {
         .sort((a, b) => avg[b] - avg[a])
         .map(
             (g) =>
-                `<div class="equity-breakdown-row"><span class="equity-dot" style="background:${colorMap[g] || PALETTE.slate}"></span>${escHtml(g)}<strong>${fmtBRL(avg[g])}</strong></div>`
+                `<div class="equity-breakdown-row"><span class="equity-dot" data-bg="${escHtml(colorMap[g] || PALETTE.slate)}"></span>${escHtml(g)}<strong>${fmtBRL(avg[g])}</strong></div>`
         )
         .join('');
 
@@ -1370,7 +1370,7 @@ function updateLowAdoptionList() {
                     <span class="engagement-row-meta">${escHtml(m.destino)} · ${new Date(m.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
                 <div class="engagement-row-rate">
-                    <div class="engagement-bar"><div class="engagement-bar-fill engagement-bar--${level}" style="width:${Math.max(m.rate, 3).toFixed(0)}%"></div></div>
+                    <div class="engagement-bar"><div class="engagement-bar-fill engagement-bar--${level}" data-w="${Math.max(m.rate, 3).toFixed(0)}"></div></div>
                     <span class="engagement-rate-value engagement-rate--${level}">${m.rate.toFixed(0)}%</span>
                 </div>
             </div>`;

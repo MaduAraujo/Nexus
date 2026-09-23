@@ -1,8 +1,9 @@
-const CACHE_VERSION = 'nexus-v6';
+const CACHE_VERSION = 'nexus-v7';
 const PRECACHE_URLS = [
     '/index.html',
     '/manifest.json',
     '/src/styles/index.css',
+    '/src/styles/pwa.css',
     '/src/javascript/index.js',
     '/src/javascript/shared/theme.js',
     '/src/javascript/shared/launch-route.js',

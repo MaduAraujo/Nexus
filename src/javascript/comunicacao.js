@@ -924,7 +924,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function attachBadge(m) {
         const anexos = m.anexos || [];
-        if (!anexos.length) return '<span style="opacity:.4">—</span>';
+        if (!anexos.length) return '<span class="muted-dash">—</span>';
         return `<button type="button" class="attach-badge" data-id="${m.id}"><i class="fas fa-paperclip"></i> ${anexos.length}</button>`;
     }
 
@@ -1182,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="engagement-dept-name">${escHTML(deptLabel(dept))}</span>
                     <span class="engagement-dept-count">${read}/${total}<span class="engagement-dept-pct"> · ${pct}%</span></span>
                 </div>
-                <div class="engagement-dept-bar"><div class="engagement-dept-bar-fill" style="width:${pct}%"></div></div>
+                <div class="engagement-dept-bar"><div class="engagement-dept-bar-fill" data-w="${pct}"></div></div>
             </div>`;
                       })
                       .join('')
@@ -1200,8 +1200,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                               .map((w) => w[0]?.toUpperCase() || '')
                               .join('');
                           const avatar = emp?.avatar_url
-                              ? `<span class="reads-popover-avatar" style="background-image:url('${escapeHtml(emp.avatar_url)}')"></span>`
-                              : `<span class="reads-popover-avatar" style="background:${emp?.avatar_color || '#6366f1'}">${initials}</span>`;
+                              ? `<span class="reads-popover-avatar" data-bg-img="${escapeHtml(emp.avatar_url)}"></span>`
+                              : `<span class="reads-popover-avatar" data-bg="${escapeHtml(emp?.avatar_color || '#6366f1')}">${initials}</span>`;
                           return `<div class="reads-popover-item">
                 ${avatar}
                 <div class="reads-popover-info">

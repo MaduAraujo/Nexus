@@ -2,12 +2,6 @@ const { test, describe, before, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMockSupabase } = require('../test-support/mock-supabase');
 
-// documentos-colaborador.js roda quase tudo dentro de um único DOMContentLoaded. Como comunicacao.js,
-// as funções que só disparam depois de mexer no DOM (upload, assinatura, exclusão) não foram tocadas
-// — dependem de elementos de formulário capturados uma vez e chamam renderList()/closeModal() por
-// dentro, então hoistá-las também exigiria a mesma cirurgia de alto risco evitada em comunicacao.js.
-// O que já era lógica pura ou só tocava o Supabase (retenção LGPD, ícone por extensão, status do
-// documento, filtro de pendências, carregar/gravar dados) ganhou module.exports.
 let documentos;
 
 before(() => {

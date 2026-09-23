@@ -96,3 +96,43 @@ describe('CSP: data-click/change/input/keydown/keyup apontam para funções glob
         });
     }
 });
+
+describe('CSP: sem unsafe-inline em style-src', () => {
+    test('vercel.json não libera estilo inline', () => {
+        const config = JSON.parse(read(path.join(ROOT, 'vercel.json')));
+        const csp = config.headers.flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy').value;
+        const styleSrc = csp
+            .split(';')
+            .map((d) => d.trim())
+            .find((d) => d.startsWith('style-src '));
+        assert.ok(styleSrc, 'style-src ausente');
+        assert.doesNotMatch(styleSrc, /'unsafe-inline'|'unsafe-hashes'/);
+    });
+
+    test('nenhum HTML ou template JS usa atributo style=, bloco <style> ou setAttribute("style")', () => {
+        const problemas = [];
+        for (const file of [...htmlFiles, ...jsFiles]) {
+            read(file)
+                .split(/\r?\n/)
+                .forEach((line, i) => {
+                    const where = `${rel(file)}:${i + 1}`;
+                    if (/(^|[\s"'`<])style\s*=\s*["'`$]/i.test(line)) problemas.push(`${where}  style=: ${line.trim().slice(0, 100)}`);
+                    if (/<style[\s>]/i.test(line) || /createElement\(\s*['"]style['"]\s*\)/.test(line)) problemas.push(`${where}  <style>`);
+                    if (/setAttribute\(\s*['"]style['"]/.test(line)) problemas.push(`${where}  setAttribute('style')`);
+                });
+        }
+        assert.deepEqual(
+            problemas,
+            [],
+            `Use uma classe CSS, ou data-bg/data-color/data-w/data-x/data-y/data-delay/data-bg-img/data-hide (src/javascript/shared/dynamic-style.js):\n${problemas.join('\n')}`
+        );
+    });
+
+    test('toda tela com events.js também carrega dynamic-style.js e dynamic-style.css (senão data-hide/data-bg não funcionam)', () => {
+        const faltando = htmlFiles
+            .filter((f) => read(f).includes('shared/events.js'))
+            .filter((f) => !read(f).includes('shared/dynamic-style.js') || !read(f).includes('styles/dynamic-style.css'))
+            .map(rel);
+        assert.deepEqual(faltando, []);
+    });
+});

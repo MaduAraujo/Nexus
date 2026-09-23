@@ -167,7 +167,12 @@ async function logEmployeeEdit(empId, empName, changes) {
 }
 
 async function fetchEmployeeAudit(employeeId) {
-    const { data, error } = await sb.from('employee_audit').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await sb
+        .from('employee_audit_decrypted')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false })
+        .limit(50);
     if (error) {
         console.error('[Nexus] fetchEmployeeAudit:', error);
         return [];
@@ -214,7 +219,7 @@ function avatarHtml(emp, sizeClass) {
     if (emp.avatarUrl) {
         return `<img class="${sizeClass}-img" src="${escapeHtml(emp.avatarUrl)}" alt="${escHtml(emp.name)}">`;
     }
-    return `<div class="${sizeClass}" style="background:${emp.avatarColor || '#6366f1'}">${getInitials(emp.name)}</div>`;
+    return `<div class="${sizeClass}" data-bg="${escHtml(emp.avatarColor || '#6366f1')}">${getInitials(emp.name)}</div>`;
 }
 
 function getRandomAvatarColor() {
@@ -801,15 +806,9 @@ function exportEmployeesPDF() {
     </tr>`
         )
         .join('');
+    const cssHref = new URL('../styles/colaboradores-print.css', window.location.href).href;
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Colaboradores</title>
-        <style>
-            body{font-family:Arial,sans-serif;padding:32px;color:#111;}
-            h1{font-size:18px;margin-bottom:2px;} .sub{color:#555;font-size:12.5px;margin-bottom:18px;}
-            table{width:100%;border-collapse:collapse;font-size:11px;}
-            th,td{padding:6px 8px;border-bottom:1px solid #ddd;text-align:left;}
-            th{background:#f3f4f6;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:#555;}
-            @media print { body{padding:0;} }
-        </style></head><body>
+        <link rel="stylesheet" href="${cssHref}"></head><body>
         <h1>Nexus RH — Colaboradores</h1>
         <p class="sub">Exportado em ${hoje} · ${rows.length} colaborador${rows.length === 1 ? '' : 'es'}</p>
         <table>
@@ -1295,7 +1294,7 @@ window.showStatusSubmenu = function () {
     } else if (emp.status === 'Afastado') {
         dynamicOptions.innerHTML = `<a href="#" data-click="updateStatus" data-click-args="[&quot;Ativo&quot;]"><i class="fas fa-check"></i> Voltar do Afastamento</a>`;
     } else if (emp.status === 'Inativo') {
-        dynamicOptions.innerHTML = `<p style="padding:10px 16px;font-size:12px;color:#999;margin:0;">Status Inativo é permanente.</p>`;
+        dynamicOptions.innerHTML = `<p class="status-locked-note">Status Inativo é permanente.</p>`;
     }
     document.getElementById('main-menu-options')?.classList.add('hidden');
     document.getElementById('status-submenu-options')?.classList.remove('hidden');
@@ -1609,8 +1608,6 @@ function renderOrgNode(node) {
     </li>`;
 }
 
-// Dropdown padronizado (mesmo padrão da tela de ponto do colaborador): botão + lista flutuante + input oculto com o valor.
-// setValue é silencioso (uso programático); só a escolha do usuário dispara onChange.
 function createSelectField(id, onChange) {
     const trigger = document.getElementById(`${id}-trigger`);
     const popover = document.getElementById(`${id}-popover`);
@@ -2075,7 +2072,7 @@ async function uploadPendingRegDocs(employeeId) {
 
     for (const doc of pendingRegDocs) {
         const storagePath = `rh/${Date.now()}_${doc.file.name.replace(/\s/g, '_')}`;
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, doc.file);
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, doc.file, { employeeId });
         if (uploadError) continue;
 
         const { error: docError } = await sb.from('documents').insert({

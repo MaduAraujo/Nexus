@@ -379,6 +379,12 @@
             showToast('Erro ao alterar senha. Tente novamente.', 'error');
             return;
         }
+        try {
+            await NexusE2E.rewrapPassword(curr, np);
+        } catch (err) {
+            console.error('[Nexus] rewrapPassword:', err);
+            showToast('Senha alterada, mas as chaves de ponta a ponta continuam na senha antiga: no próximo acesso, use sua chave de recuperação.', 'warning');
+        }
 
         ['curr-pass', 'new-pass-profile', 'confirm-pass-profile'].forEach((id) => {
             const el = document.getElementById(id);
@@ -487,7 +493,7 @@
         const badge = document.getElementById('profile-status-badge');
         if (badge) {
             const sc = myEmployee.status === 'Ativo' ? '#4ade80' : myEmployee.status === 'Férias' ? '#facc15' : '#f87171';
-            badge.innerHTML = `<i class="fas fa-circle" style="color:${sc}"></i> ${myEmployee.status || 'Ativo'}`;
+            badge.innerHTML = `<i class="fas fa-circle" data-color="${escapeHtml(sc)}"></i> ${escapeHtml(myEmployee.status || 'Ativo')}`;
         }
 
         setEl('view-name', myEmployee.name);

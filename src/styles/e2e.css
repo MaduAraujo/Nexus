@@ -1,0 +1,124 @@
+.e2e-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.e2e-dialog {
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 22px;
+    border-radius: 14px;
+    background: #fff;
+    color: #1f2937;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.e2e-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.e2e-text {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+.e2e-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+}
+
+.e2e-input:focus {
+    outline: 2px solid #6366f1;
+    outline-offset: 1px;
+}
+
+.e2e-recovery {
+    display: block;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f0f2f8;
+    border: 1px solid #e5e7eb;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+    word-break: break-all;
+    user-select: all;
+}
+
+.e2e-error {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.85rem;
+}
+
+.e2e-error[hidden] {
+    display: none;
+}
+
+.e2e-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.e2e-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.e2e-actions.e2e-actions--start {
+    justify-content: flex-start;
+}
+
+.e2e-btn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #1f2937;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.e2e-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.e2e-btn.e2e-btn--primary {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #fff;
+}
+
+.e2e-btn.e2e-btn--danger {
+    border-color: #ef4444;
+    color: #ef4444;
+}

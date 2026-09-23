@@ -11,6 +11,7 @@
         <script src="../javascript/shared/theme.js"></script>
         <title>Central de Alertas</title>
         <link rel="stylesheet" href="../styles/fonts.css" />
+        <link rel="stylesheet" href="../styles/dynamic-style.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
         <link rel="stylesheet" href="../styles/btn-back.css" />
         <link rel="stylesheet" href="../styles/alertas.css" />
@@ -58,12 +59,12 @@
                             <button class="panel-tab" data-tab="gestores"><i class="fas fa-user-tie"></i> Gestores</button>
                         </div>
                         <div class="panel-header-right" id="alerts-header-right">
-                            <div class="health-score-wrap" id="health-score-wrap" style="display: none">
+                            <div class="health-score-wrap" id="health-score-wrap" data-hide>
                                 <span class="health-score-label">Saúde RH</span>
                                 <span class="health-score-value" id="health-score-value">—</span>
                             </div>
                             <div class="severity-counts" id="severity-counts"></div>
-                            <button class="btn-dismiss-all" id="btn-dismiss-all" style="display: none">Limpar</button>
+                            <button class="btn-dismiss-all" id="btn-dismiss-all" data-hide>Limpar</button>
                         </div>
                     </div>
                     <div class="panel-body" id="alerts-body">
@@ -73,7 +74,7 @@
                             <p class="empty-desc">Clique em "Analisar Agora" para gerar alertas inteligentes.</p>
                         </div>
                     </div>
-                    <div class="panel-body" id="history-body" style="display: none">
+                    <div class="panel-body" id="history-body" data-hide>
                         <div class="trend-chart-wrap">
                             <p class="trend-chart-title"><i class="fas fa-chart-line"></i> Tendência — Score de Saúde</p>
                             <div class="trend-chart-container">
@@ -84,7 +85,7 @@
                             <p class="history-empty">Nenhuma análise registrada ainda.</p>
                         </div>
                     </div>
-                    <div class="panel-body" id="risco-body" style="display: none">
+                    <div class="panel-body" id="risco-body" data-hide>
                         <div class="summary-banner">
                             <i class="fas fa-diagram-project"></i>
                             <span
@@ -94,7 +95,7 @@
                         </div>
                         <div id="risco-list"></div>
                     </div>
-                    <div class="panel-body" id="juridico-body" style="display: none">
+                    <div class="panel-body" id="juridico-body" data-hide>
                         <div class="summary-banner">
                             <i class="fas fa-scale-balanced"></i>
                             <span
@@ -102,17 +103,17 @@
                                 intervalo intrajornada não cumprido e padrão de rejeição de justificativas de ponto.</span
                             >
                         </div>
-                        <div class="emp-chips" id="juridico-summary" style="margin-bottom: 12px"></div>
+                        <div class="emp-chips emp-chips--spaced" id="juridico-summary"></div>
                         <div id="juridico-list"></div>
                     </div>
-                    <div class="panel-body" id="compliance-body" style="display: none">
+                    <div class="panel-body" id="compliance-body" data-hide>
                         <div class="summary-banner">
                             <i class="fas fa-clipboard-check"></i>
                             <span>Agrega 3 prazos legais: documentos vencendo, férias fora do período concessivo e fim de período de experiência.</span>
                         </div>
                         <div id="compliance-list"></div>
                     </div>
-                    <div class="panel-body" id="comunidade-body" style="display: none">
+                    <div class="panel-body" id="comunidade-body" data-hide>
                         <div class="summary-banner">
                             <i class="fas fa-comments"></i>
                             <span>Moderação do mural de reconhecimento e triagem do feedback anônimo.</span>
@@ -132,7 +133,7 @@
                             <div id="comunidade-feedback-list"></div>
                         </div>
                     </div>
-                    <div class="panel-body" id="gestores-body" style="display: none">
+                    <div class="panel-body" id="gestores-body" data-hide>
                         <div class="summary-banner">
                             <i class="fas fa-user-tie"></i>
                             <span
@@ -197,8 +198,12 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" integrity="sha384-948ahk4ZmxYVYOc+rxN1H2gM1EJ2Duhp7uHtZ4WSLkV4Vtx5MUqnV+l7u9B+jFv+" crossorigin="anonymous"></script>
         <script src="../javascript/shared/events.js"></script>
+        <script src="../javascript/shared/dynamic-style.js"></script>
         <script src="../javascript/shared/html.js"></script>
         <script src="../javascript/shared/supabase-client.js"></script>
+        <script src="../javascript/shared/e2e-crypto.js"></script>
+        <script src="../javascript/shared/e2e-ui.js"></script>
+        <script src="../javascript/shared/e2e.js"></script>
         <script src="../javascript/shared/mfa.js"></script>
         <script src="../javascript/shared/auth.js"></script>
         <script src="../javascript/shared/search.js"></script>

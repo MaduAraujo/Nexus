@@ -2,11 +2,6 @@ const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-// comunicacao.js (tela do RH para escrever/gerenciar comunicados) é quase toda editor rich-text,
-// popovers posicionados por layout e um calendário próprio — DOM-dependente demais para valer a pena
-// simular inteira. Só a lógica sem efeito colateral foi extraída para module.exports (escHTML,
-// formatação de data/tamanho, isLive, filtro de mensagens, validação de anexos e o cálculo de
-// engajamento por departamento); é isso que este teste cobre.
 let comunicacao;
 
 before(() => {
@@ -137,13 +132,13 @@ describe('computeEngagementStats (taxa de leitura geral e por departamento)', ()
         { id: 'e1', status: 'Ativo', dept: 'TI' },
         { id: 'e2', status: 'Ativo', dept: 'TI' },
         { id: 'e3', status: 'Ativo', dept: 'RH' },
-        { id: 'e4', status: 'Inativo', dept: 'TI' }, // não conta: inativo
+        { id: 'e4', status: 'Inativo', dept: 'TI' },
     ];
 
     test('mensagem para "Todos": destinatários são todos os ativos, independente de departamento', () => {
         const msgs = [{ id: 'm1', destino: 'Todos' }];
         const { totalRecipients } = comunicacao.computeEngagementStats(msgs, employees, []);
-        assert.equal(totalRecipients, 3); // e1, e2, e3 (e4 é inativo)
+        assert.equal(totalRecipients, 3);
     });
 
     test('mensagem para um departamento: só os ativos daquele departamento contam', () => {
@@ -160,7 +155,7 @@ describe('computeEngagementStats (taxa de leitura geral e por departamento)', ()
         assert.deepEqual(stats.deptReads, { TI: 1, RH: 1 });
         assert.equal(stats.totalReads, 2);
         assert.equal(stats.totalRecipients, 3);
-        assert.equal(stats.overallRate, 67); // 2/3 = 66.67% -> arredonda para 67
+        assert.equal(stats.overallRate, 67);
     });
 
     test('leitura de departamento que não era destinatário (ex.: ex-funcionário mudou de setor) não aparece', () => {
@@ -181,6 +176,6 @@ describe('computeEngagementStats (taxa de leitura geral e por departamento)', ()
             { id: 'm2', destino: 'RH' },
         ];
         const { totalRecipients } = comunicacao.computeEngagementStats(msgs, employees, []);
-        assert.equal(totalRecipients, 3); // 2 de TI + 1 de RH
+        assert.equal(totalRecipients, 3);
     });
 });

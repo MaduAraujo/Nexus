@@ -2504,7 +2504,6 @@ select.form-input {
     color: var(--accent);
 }
 
-/* Popovers fechados não ocupam área rolável dentro do modal */
 .select-popover {
     position: absolute;
     top: 100%;
@@ -2573,7 +2572,6 @@ select.form-input {
     font-weight: 700;
 }
 
-/* Calendário do modal de solicitação: abre abaixo do campo, recolhido quando fechado */
 #add-modal .date-field .calendar-popover,
 #coletiva-modal .date-field .calendar-popover {
     position: absolute;
@@ -3089,4 +3087,31 @@ select.form-input {
     .modal-content {
         border-radius: 14px;
     }
+}
+
+.required-mark {
+    color: #ef4444;
+}
+
+.checkbox-label--spaced {
+    margin-top: 24px;
+}
+
+.form-group--tight {
+    margin-bottom: 10px;
+}
+
+.form-label--tight {
+    margin-bottom: 6px;
+}
+
+.reason-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.main-wrapper.main-wrapper--full {
+    margin-left: 0 !important;
+    width: 100% !important;
 }

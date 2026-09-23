@@ -10,6 +10,7 @@
     <script src="/src/javascript/shared/pwa-register.js"></script>
     <title>Login</title>
     <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="../styles/dynamic-style.css" />
     <link rel="stylesheet" href="../styles/login.css">
     <link rel="stylesheet" href="../styles/toast.css">
 </head>
@@ -17,7 +18,7 @@
 <div class="card">
     <div class="panel-right">
         <div class="logo-row">
-            <button class="back-btn" id="nav-back-btn" aria-label="Voltar" style="display:none;">
+            <button class="back-btn" id="nav-back-btn" aria-label="Voltar" data-hide>
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
             <div class="logo-name">Ne<span class="x">x</span>us</div>
@@ -144,10 +145,10 @@
 
         <div id="form-mfa" class="form-section">
             <p class="form-title">Verificação em duas etapas</p>
-            <p class="form-subtitle">Digite o código de 6 dígitos do seu app autenticador.</p>
+            <p class="form-subtitle" id="mfa-subtitle">Digite o código de 6 dígitos do seu app autenticador.</p>
 
             <div class="field">
-                <label for="mfa-code">Código</label>
+                <label for="mfa-code" id="mfa-code-label">Código</label>
                 <div class="field-input-wrap">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -164,6 +165,9 @@
                 <span id="btn-mfa-text">Verificar</span>
                 <div class="spinner" id="spinner-mfa"></div>
             </button>
+            <div class="forgot-link-row">
+                <button type="button" class="link-btn" id="mfa-recovery-toggle" data-click="toggleMfaRecovery">Perdeu o celular? Usar código de recuperação</button>
+            </div>
             <div class="forgot-link-row">
                 <button type="button" class="link-btn" data-click="cancelMfa">Entrar com outra conta</button>
             </div>
@@ -326,13 +330,19 @@
     </div>
 </div>
 
+<p class="privacy-link"><a href="./privacidade.html">Política de Privacidade</a></p>
+
 <div id="toast-container" class="toast-container"></div>
 
 <script src="../javascript/shared/login-hash.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="../javascript/shared/events.js"></script>
+<script src="../javascript/shared/dynamic-style.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/e2e-crypto.js"></script>
+<script src="../javascript/shared/e2e-ui.js"></script>
+<script src="../javascript/shared/e2e.js"></script>
 <script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/login.js"></script>
 </body>

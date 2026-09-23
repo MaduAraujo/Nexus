@@ -196,3 +196,22 @@ tr:last-child td {
         padding: 16px;
     }
 }
+
+th.num {
+    text-align: right;
+}
+
+td.num {
+    text-align: right;
+    font-weight: 700;
+}
+
+td.num.neg {
+    color: #b91c1c;
+}
+
+td.empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 12px;
+}

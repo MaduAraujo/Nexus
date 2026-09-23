@@ -565,8 +565,8 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp, ini, color) {
-    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
-    return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
+    if (emp.avatarUrl) return `<div class="emp-avatar" data-bg-img="${escapeHtml(emp.avatarUrl)}"></div>`;
+    return `<div class="emp-avatar" data-bg="${esc(color)}">${ini}</div>`;
 }
 
 function buildRow(d) {
@@ -584,7 +584,7 @@ function buildRow(d) {
     }
     const extrasCls = extrasMin > 0 ? 'extras' : 'zero',
         faltasCls = faltaMin > 0 ? 'faltas' : 'zero';
-    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escapeHtml(emp.name)}</p><p class="emp-dept">${escapeHtml(emp.dept) || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" data-click="openDetailModal" data-click-args="${dargs(emp.id)}" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" data-click="openAdjustModal" data-click-args="${dargs(emp.id)}" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square" style="opacity:.35"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
+    return `<tr><td><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escapeHtml(emp.name)}</p><p class="emp-dept">${escapeHtml(emp.dept) || '—'}</p></div></div></td><td>${ctStr}</td><td>${jStr}</td><td>${diasCompletos}</td><td><span class="td-hours ${extrasCls}">${extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</span></td><td><span class="td-hours ${faltasCls}">${faltaMin ? '-' + minToStr(faltaMin) : '0h 00min'}</span></td><td>${saldoHTML}</td><td><div class="compliance-cell">${buildComplianceBadges(d)}</div></td><td><div class="actions-cell"><button class="btn-icon btn-icon--view" data-click="openDetailModal" data-click-args="${dargs(emp.id)}" title="Ver detalhes"><i class="fas fa-eye"></i></button><button class="btn-icon btn-icon--adjust" data-click="openAdjustModal" data-click-args="${dargs(emp.id)}" title="Lançar ajuste">${isPJ ? '<i class="fas fa-pen-to-square icon-disabled"></i>' : '<i class="fas fa-pen-to-square"></i>'}</button></div></td></tr>`;
 }
 
 const FILTER_LABELS_BH = {
@@ -737,7 +737,7 @@ function renderDetailModal(emp, monthKey) {
         }
     }
 
-    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase" style="margin-right:3px;color:var(--accent)"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock" style="margin-right:3px;color:var(--accent)"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><div class="select-field detail-month-field"><button type="button" class="select-trigger" id="detail-month-trigger" aria-haspopup="listbox" aria-expanded="false"><span id="detail-month-label">${fmtMonthShort(monthKey)}</span><i class="fas fa-chevron-down select-trigger-arrow"></i></button><input type="hidden" id="detail-month" value="${monthKey}"><div class="select-popover" id="detail-month-popover" role="listbox">${monthOptions}</div></div></div>
+    let html = `<div class="detail-emp-header"><div class="detail-emp-info"><p class="detail-emp-name">${escapeHtml(emp.name)}</p><p class="detail-emp-meta"><span><i class="fas fa-building meta-icon"></i>${escapeHtml(emp.dept) || '—'}</span><span><i class="fas fa-briefcase meta-icon"></i>${escapeHtml(emp.role) || '—'}</span><span><i class="fas fa-clock meta-icon"></i>${isPJ ? 'PJ — sem jornada fixa' : `Jornada ${jornadaLabel(emp, jornadaMin)}`}</span></p></div><div class="select-field detail-month-field"><button type="button" class="select-trigger" id="detail-month-trigger" aria-haspopup="listbox" aria-expanded="false"><span id="detail-month-label">${fmtMonthShort(monthKey)}</span><i class="fas fa-chevron-down select-trigger-arrow"></i></button><input type="hidden" id="detail-month" value="${monthKey}"><div class="select-popover" id="detail-month-popover" role="listbox">${monthOptions}</div></div></div>
     ${ledgerHTML}
     ${isPJ ? '' : '<div class="trend-section"><p class="detail-section-title"><i class="fas fa-chart-line"></i> Tendência do Saldo (6 meses)</p><div class="trend-chart-wrap"><canvas id="detail-trend-canvas"></canvas></div></div>'}
     <div class="detail-stats"><div class="stat-card-sm"><div class="stat-label-sm">Dias Registrados</div><div class="stat-value-sm">${diasCompletos}</div></div><div class="stat-card-sm"><div class="stat-label-sm">H. Trabalhadas</div><div class="stat-value-sm">${totalWorked ? minToStr(totalWorked) : '0h 00min'}</div></div><div class="stat-card-sm ${isPJ ? '' : extrasMin ? 'positivo' : ''}"><div class="stat-label-sm">H. Extras</div><div class="stat-value-sm">${isPJ ? '—' : extrasMin ? '+' + minToStr(extrasMin) : '0h 00min'}</div></div><div class="stat-card-sm ${saldoCls}"><div class="stat-label-sm">Saldo Líquido</div><div class="stat-value-sm">${saldoLiquido === null ? '—' : formatSaldo(saldoLiquido)}</div></div></div>
@@ -749,7 +749,7 @@ function renderDetailModal(emp, monthKey) {
         html += `<div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>Data</th><th>Entrada</th><th>Saída Alm.</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${monthRecs.map(([key, rec]) => buildDayRow(key, rec, jornadaMin, isPJ, emp.id)).join('')}</tbody></table></div>`;
     }
 
-    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title" style="margin-bottom:0"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" data-click="openAdjustModalFromDetail" data-click-args="${dargs(emp.id)}" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
+    html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title detail-section-title--flush"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" data-click="openAdjustModalFromDetail" data-click-args="${dargs(emp.id)}" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
     if (!monthAjustes.length) {
         html += `<p class="no-ajustes">Nenhum ajuste manual para este período.</p>`;
     } else {
@@ -877,7 +877,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
         if (ferias) badge = `<span class="badge-sm badge-sm-ferias">Férias</span>`;
         else if (holiday) badge = `<span class="badge-sm badge-sm-feriado" title="${escapeHtml(holiday.name)}">Feriado</span>`;
         else badge = `<span class="badge-sm badge-sm-falta">Falta</span>`;
-        return `<tr><td class="dt-date">${d}/${m}/${y}<span class="dt-diaSem">${diaSem}</span></td><td colspan="4" style="color:var(--text-tertiary);font-style:italic;font-size:.8rem">Sem registros</td><td>—</td><td class="dt-saldo zero">—</td><td>${badge}</td></tr>`;
+        return `<tr><td class="dt-date">${d}/${m}/${y}<span class="dt-diaSem">${diaSem}</span></td><td colspan="4" class="td-no-records">Sem registros</td><td>—</td><td class="dt-saldo zero">—</td><td>${badge}</td></tr>`;
     }
     const worked = calcWorkedMin(rec),
         workedStr = rec.saida ? minToStr(worked) : '—';
@@ -1470,7 +1470,7 @@ function renderHolidaysList() {
     wrap.innerHTML = list
         .map(
             ([date, h]) =>
-                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor" style="font-size:13px">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" data-click="deleteHoliday" data-click-args="${dargs(h.id)}" title="Excluir"><i class="fas fa-trash"></i></button></div>`
+                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor ajuste-valor--date">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" data-click="deleteHoliday" data-click-args="${dargs(h.id)}" title="Excluir"><i class="fas fa-trash"></i></button></div>`
         )
         .join('');
 }
@@ -1777,11 +1777,11 @@ function buildAuditRow(e) {
     let valorHTML = '—';
     if (e.tipo === 'ponto' && e.valor_registrado) {
         const dt = new Date(e.valor_registrado);
-        valorHTML = `<span style="font-weight:600">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}</span>`;
+        valorHTML = `<span class="log-value">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}</span>`;
     } else if (e.tipo === 'ajuste_banco' && e.minutos) {
         const sign = e.acao === 'credito' ? '+' : '-';
-        const cls = e.acao === 'credito' ? 'color:#16a34a' : 'color:#dc2626';
-        valorHTML = `<span style="font-weight:700;${cls}">${sign}${minToStr(e.minutos)}</span>`;
+        const cls = e.acao === 'credito' ? 'log-value--credit' : 'log-value--debit';
+        valorHTML = `<span class="log-value log-value--strong ${cls}">${sign}${minToStr(e.minutos)}</span>`;
     }
     const tipoBadge =
         e.tipo === 'ponto' ? `<span class="audit-badge audit-badge--ponto">Ponto</span>` : `<span class="audit-badge audit-badge--banco">Banco</span>`;
@@ -1789,7 +1789,7 @@ function buildAuditRow(e) {
         e.operator_profile === 'Administrador'
             ? `<span class="audit-badge audit-badge--rh">RH</span>`
             : `<span class="audit-badge audit-badge--colab">Colaborador</span>`;
-    return `<tr><td style="white-space:nowrap;font-size:12.5px">${tsStr}</td><td><div class="emp-cell"><div><p class="emp-name" style="font-size:12.5px">${esc(empName)}</p><p class="emp-dept">${esc(empDept)}</p></div></div></td><td>${tipoBadge}</td><td style="font-size:13px;font-weight:500">${acaoLabel}</td><td>${valorHTML}</td><td style="font-size:12.5px">${esc(e.operator_name || e.operator_email) || '—'} ${perfilBadge}</td><td style="font-size:12px;color:var(--text-secondary);max-width:180px">${esc(e.justificativa) || '—'}</td></tr>`;
+    return `<tr><td class="log-ts">${tsStr}</td><td><div class="emp-cell"><div><p class="emp-name emp-name--sm">${esc(empName)}</p><p class="emp-dept">${esc(empDept)}</p></div></div></td><td>${tipoBadge}</td><td class="log-action">${acaoLabel}</td><td>${valorHTML}</td><td class="log-operator">${esc(e.operator_name || e.operator_email) || '—'} ${perfilBadge}</td><td class="log-just">${esc(e.justificativa) || '—'}</td></tr>`;
 }
 
 function setupRealtimeSync() {

@@ -1,10 +1,6 @@
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 
-// shapeSnapshot é o que vira o contexto do assistente de IA do RH (ai-alerts): funcionários sem
-// registro de ponto recente, admissões novas, férias/ajustes/documentos pendentes com "há quantos
-// dias esperando". Extraído de gatherSnapshot para _shared/ai-alerts-snapshot.mjs (mesmo padrão de
-// files-core.mjs) — `now` é injetável para os cálculos de dias darem resultado determinístico aqui.
 let shapeSnapshot, sevenDaysAgo;
 const NOW = new Date('2026-06-15T12:00:00Z').getTime();
 

@@ -1312,3 +1312,35 @@ body {
         max-width: 95%;
     }
 }
+
+.ch-empty-text {
+    color: rgba(156, 163, 175, 0.8);
+}
+
+.list-loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-tertiary);
+    font-size: 0.82rem;
+}
+
+i.agent-icon {
+    font-size: 0.72rem;
+}
+
+.msg-author.msg-author--agent {
+    color: var(--accent-hr);
+}
+
+.msg-author.msg-author--analyst {
+    color: var(--success);
+}
+
+.msg-header.msg-header--mine {
+    justify-content: flex-end;
+}
+
+i.system-icon {
+    margin-right: 5px;
+    color: var(--success);
+}

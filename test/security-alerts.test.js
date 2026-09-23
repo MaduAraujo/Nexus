@@ -90,6 +90,7 @@ describe('tela Segurança: texto das regras', () => {
             ruleSummary({ kind: 'off_hours_access', params: { start_hour: 8, end_hour: 18, weekdays_only: true, profiles: ['Administrador'] } }),
             'fora de 8h–18h, dias úteis (Administrador)'
         );
+        assert.match(ruleSummary({ kind: 'mfa_recovery_used' }), /código de recuperação/);
     });
 
     test('formatWhen usa tempo relativo na primeira hora e ignora datas inválidas', () => {

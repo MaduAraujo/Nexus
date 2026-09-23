@@ -110,7 +110,6 @@ describe('RLS: time_records', () => {
 
     test('colaborador consegue bater o próprio ponto dentro da janela permitida (hoje)', async () => {
         await withUser({ sub: U_A }, async (db) => {
-            // A policy (migration 036) usa a data de São Paulo; CURRENT_DATE seria UTC no CI.
             const { rows } = await db.query(
                 "INSERT INTO time_records (employee_id, date) VALUES ($1, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date) RETURNING id",
                 [E_A]
@@ -269,11 +268,6 @@ describe('Funções expostas pela API (migration 068, estendida na 077)', () => 
     });
 });
 
-// Regressão de um bug real encontrado em 2026-09-23: `IF v_employee_id IS NULL OR v_employee_id <>
-// my_employee_id() THEN` vira NULL (não TRUE) quando my_employee_id() é NULL — que é exatamente o
-// caso de uma conta do RH (profile 'Administrador', não 'colaborador'), que TEM EXECUTE nestas
-// funções por design da migration 068. `IF NULL THEN` no PL/pgSQL não dispara a exceção, deixando
-// a checagem de dono passar batido. Migration 077 trocou `<>` por `IS DISTINCT FROM`.
 describe('sign_document / sign_payslip — dono tem que ser o próprio colaborador (migration 077)', () => {
     const DOC_A = '00000000-0000-4000-b000-000000000001';
     const SLIP_A = '00000000-0000-4000-b000-000000000002';
@@ -297,7 +291,6 @@ describe('sign_document / sign_payslip — dono tem que ser o próprio colaborad
 
     after(async () => {
         await withServiceRole((db) => db.query('DELETE FROM documents WHERE id = $1', [DOC_A]));
-        // payslip removido pelo teste que efetivamente assina, ou aqui se nenhum assinou.
         await withServiceRole((db) => db.query('DELETE FROM payslips WHERE id = $1', [SLIP_A]));
     });
 

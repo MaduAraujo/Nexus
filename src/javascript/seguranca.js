@@ -4,6 +4,7 @@ const RULE_LABEL = {
     mass_export: 'Exportações em massa',
     mass_download: 'Downloads em massa',
     off_hours_access: 'Acesso fora do horário',
+    mfa_recovery_used: 'Código de recuperação do MFA usado',
 };
 
 const SEVERITY_LABEL = { critical: 'Crítico', warning: 'Atenção', info: 'Info' };
@@ -14,6 +15,7 @@ const RULE_ICON = {
     mass_export: 'fa-file-export',
     mass_download: 'fa-download',
     off_hours_access: 'fa-moon',
+    mfa_recovery_used: 'fa-life-ring',
 };
 
 function ruleSummary(rule) {
@@ -33,6 +35,8 @@ function ruleSummary(rule) {
             const days = p.weekdays_only === false ? 'todos os dias' : 'dias úteis';
             return `fora de ${p.start_hour ?? 8}h–${p.end_hour ?? 18}h, ${days} (${(p.profiles || []).join(', ') || 'todos os perfis'})`;
         }
+        case 'mfa_recovery_used':
+            return 'sempre que alguém entra com um código de recuperação no lugar do app autenticador';
         default:
             return '';
     }
@@ -117,6 +121,93 @@ async function loadSecurityAlerts() {
     if (!rulesRes.error) renderRules(rulesBox, rulesRes.data || []);
 }
 
+const SELFIE_COLUMNS = ['entrada_selfie_path', 'saida_almoco_selfie_path', 'retorno_almoco_selfie_path', 'saida_selfie_path'];
+
+async function filesToProtect() {
+    const [docs, leaves, records] = await Promise.all([
+        sb.from('documents').select('employee_id, storage_path').not('storage_path', 'is', null),
+        sb.from('medical_leaves').select('employee_id, storage_path').not('storage_path', 'is', null),
+        sb.from('time_records').select(`employee_id, ${SELFIE_COLUMNS.join(', ')}`),
+    ]);
+    const items = new Map();
+    for (const d of [...(docs.data || []), ...(leaves.data || [])])
+        items.set(`documents/${d.storage_path}`, { bucket: 'documents', path: d.storage_path, employeeId: d.employee_id });
+    for (const r of records.data || []) {
+        for (const col of SELFIE_COLUMNS)
+            if (r[col]) items.set(`ponto-selfies/${r[col]}`, { bucket: 'ponto-selfies', path: r[col], employeeId: r.employee_id });
+    }
+    return [...items.values()];
+}
+
+const MIGRATION_LABEL = {
+    migrated: 'migrados',
+    repaired: 'recompartilhados com chave nova',
+    already: 'já estavam protegidos',
+    'no-keys': 'aguardam o primeiro acesso do colaborador',
+    missing: 'não encontrados no Storage',
+    failed: 'falharam',
+};
+
+async function migrateFiles(box, btn) {
+    btn.disabled = true;
+    const progress = el('p', 'e2e-progress', 'Levantando arquivos…');
+    box.append(progress);
+    const items = await filesToProtect();
+    const totals = {};
+    for (const [i, item] of items.entries()) {
+        progress.textContent = `Protegendo ${i + 1} de ${items.length}…`;
+        const result = await NexusFiles.migrateToEndToEnd(item.bucket, item.path, item.employeeId).catch(() => 'failed');
+        totals[result] = (totals[result] || 0) + 1;
+    }
+    const summary = Object.entries(totals)
+        .map(([k, n]) => `${n} ${MIGRATION_LABEL[k] || k}`)
+        .join(' · ');
+    progress.textContent = items.length ? `Concluído: ${summary}.` : 'Nenhum arquivo para proteger.';
+    btn.disabled = false;
+}
+
+async function renderEndToEnd() {
+    const box = document.getElementById('e2e-card');
+    if (!box) return;
+    box.replaceChildren(el('p', 'e2e-progress', 'Verificando chaves…'));
+    const identity = await NexusE2E.ensureUnlocked();
+    const state = await NexusE2E.status();
+    box.replaceChildren();
+
+    if (!state.registered) {
+        box.append(
+            el('p', 'e2e-status-warn', 'Suas chaves de ponta a ponta ainda não foram criadas. Com a verificação em duas etapas ativa, saia e entre de novo.')
+        );
+        return;
+    }
+    if (!identity) {
+        const unlock = el('button', 'sec-btn', 'Desbloquear');
+        unlock.type = 'button';
+        unlock.addEventListener('click', renderEndToEnd);
+        const row = el('div', 'e2e-status-row');
+        row.append(el('span', 'e2e-status-warn', 'Chaves de ponta a ponta bloqueadas neste navegador.'), unlock);
+        box.append(row);
+        return;
+    }
+    if (!state.org) {
+        box.append(
+            el('p', 'e2e-status-warn', 'Esta conta ainda não recebeu a chave do RH. Peça a outro administrador que abra esta tela para liberar o acesso.')
+        );
+        return;
+    }
+
+    const granted = await NexusE2E.grantPendingAdmins().catch(() => 0);
+    box.append(el('p', 'e2e-status-ok', 'Chaves ativas: você e o RH abrem os arquivos protegidos.'));
+    if (granted) box.append(el('p', null, `${granted} administrador(es) receberam acesso à chave do RH agora.`));
+
+    const migrate = el('button', 'sec-btn', 'Proteger arquivos antigos');
+    migrate.type = 'button';
+    migrate.addEventListener('click', () => migrateFiles(box, migrate));
+    const row = el('div', 'e2e-status-row');
+    row.append(el('span', null, 'Arquivos enviados antes da criptografia de ponta a ponta continuam com a cifragem do servidor até serem migrados.'), migrate);
+    box.append(row);
+}
+
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', async () => {
         const auth = await NexusAuth.requireProfile('Administrador', undefined, { allowMfaSetup: true });
@@ -128,6 +219,7 @@ if (typeof document !== 'undefined') {
         });
 
         loadSecurityAlerts();
+        renderEndToEnd();
     });
 }
 

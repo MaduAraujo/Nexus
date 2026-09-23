@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { BUCKETS, handleDownload, handleUpload } from "../_shared/files-core.mjs";
+import { keyringFromEnv } from "../_shared/file-crypto.mjs";
 
 const MAX_BODY_BYTES = Math.max(...Object.values(BUCKETS).map((b: { maxBytes: number }) => b.maxBytes));
 
@@ -13,9 +14,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const key = Deno.env.get("FILES_ENCRYPTION_KEY");
-    if (!key) {
-      console.error("FILES_ENCRYPTION_KEY não configurada");
+    let key;
+    try {
+      key = keyringFromEnv((name: string) => Deno.env.get(name));
+    } catch (e) {
+      console.error("nexus-files:", e instanceof Error ? e.message : e);
       return json(500, { error: "Cifragem de arquivos não configurada" });
     }
 

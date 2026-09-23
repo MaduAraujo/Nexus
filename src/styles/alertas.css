@@ -2300,7 +2300,6 @@ ul {
         height: 55vh;
     }
     .panel-tabs {
-        /* Toque não tem :hover — mantém o indicador de rolagem sempre visível (fraco) em vez de depender de hover pra aparecer. */
         scrollbar-color: #cbd5e1 transparent;
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
         mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
@@ -2366,4 +2365,22 @@ ul {
         font-size: 0.7rem;
         padding: 4px 8px;
     }
+}
+
+.emp-chips--spaced {
+    margin-bottom: 12px;
+}
+
+.loading-state.loading-state--compact {
+    padding: 20px;
+}
+
+.sev-badge.sev-badge--ok {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.history-empty-note {
+    font-size: 0.75rem;
+    color: #94a3b8;
 }

@@ -60,7 +60,7 @@ function renderMonthList() {
     if (badge) badge.textContent = holerites.length;
     list.innerHTML = '';
     if (!holerites.length) {
-        list.innerHTML = `<div style="padding:20px;font-size:.84rem;color:var(--text-muted);text-align:center;">Nenhum holerite disponível.</div>`;
+        list.innerHTML = `<div class="slip-list-empty">Nenhum holerite disponível.</div>`;
         return;
     }
     holerites.forEach((h, i) => {
@@ -174,7 +174,7 @@ function renderPayslip(h) {
     const provTbody = document.getElementById('proventos-tbody');
     if (provTbody)
         provTbody.innerHTML = !proventos.length
-            ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum provento</td></tr>`
+            ? `<tr><td colspan="4" class="td-empty">Nenhum provento</td></tr>`
             : proventos
                   .map(
                       (p) =>
@@ -185,7 +185,7 @@ function renderPayslip(h) {
     const descTbody = document.getElementById('descontos-tbody');
     if (descTbody)
         descTbody.innerHTML = !descontos.length
-            ? `<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;">Nenhum desconto</td></tr>`
+            ? `<tr><td colspan="4" class="td-empty">Nenhum desconto</td></tr>`
             : descontos
                   .map(
                       (d) =>
@@ -209,16 +209,16 @@ window.closePrintOrientationModal = function () {
     document.body.style.overflow = '';
 };
 
+let printOrientationSheet = null;
+
 window.printPayslipWithOrientation = function (orientation) {
-    if (!currentId) return;
+    if (!currentId || !['portrait', 'landscape'].includes(orientation)) return;
     closePrintOrientationModal();
-    let styleEl = document.getElementById('print-orientation-style');
-    if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.id = 'print-orientation-style';
-        document.head.appendChild(styleEl);
+    if (!printOrientationSheet) {
+        printOrientationSheet = new CSSStyleSheet();
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, printOrientationSheet];
     }
-    styleEl.textContent = `@page { size: ${orientation}; }`;
+    printOrientationSheet.replaceSync(`@page { size: ${orientation}; }`);
     window.print();
 };
 

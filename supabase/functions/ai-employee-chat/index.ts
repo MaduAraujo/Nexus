@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { getJornadaMin, calcBancoHorasLedger, calcFeriasSnapshot } from "../_shared/employee-financial-snapshot.mjs";
+import { createPseudonymizer, createSseUnmaskStream } from "../_shared/pseudonymize.mjs";
 
 async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([
@@ -24,9 +25,10 @@ async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, e
   const ferias = calcFeriasSnapshot(emp, vacRes.data ?? []);
 
   return {
+    nome_real: emp.name as string,
     hoje: new Date().toISOString().slice(0, 10),
     colaborador: {
-      nome: emp.name, cargo: emp.role, departamento: emp.dept,
+      nome: "[P1]", cargo: emp.role, departamento: emp.dept,
       admissao: emp.admission_date, tipo_contrato: emp.contract_type,
       jornada_diaria_minutos: jornadaMin,
     },
@@ -45,8 +47,10 @@ async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, e
   };
 }
 
-function buildSystem(snapshot: object, employeeName: string): string {
-  return `Você é o Agente de Atendimento RH do sistema Nexus, conversando diretamente com ${employeeName}, um colaborador (não é RH, não tem acesso a dados de outros colaboradores).
+function buildSystem(snapshot: object): string {
+  return `Você é o Agente de Atendimento RH do sistema Nexus, conversando diretamente com um colaborador (não é RH, não tem acesso a dados de outros colaboradores).
+
+PRIVACIDADE: o colaborador aparece pelo pseudônimo [P1]. Se for chamá-lo pelo nome, escreva exatamente [P1], com os colchetes — o sistema troca pelo nome real antes de exibir. Nunca tente adivinhar o nome.
 
 DADOS REAIS DESTE COLABORADOR (${new Date().toISOString().slice(0, 10)}):
 ${JSON.stringify(snapshot, null, 2)}
@@ -94,9 +98,14 @@ serve(async (req) => {
     const snapshot = await gatherEmployeeSnapshot(caller, profile.employee_id);
     if (!snapshot) return json({ error: "Colaborador não encontrado" }, 404);
 
-    const system = buildSystem(snapshot, snapshot.colaborador.nome || "colaborador");
+    const { nome_real, ...groqSnapshot } = snapshot;
+    const ps = createPseudonymizer([{ id: profile.employee_id, name: nome_real }]);
+    const system = buildSystem(groqSnapshot);
     const messages = [...(history ?? []), { role: "user", content: message }];
-    const groqMessages = [{ role: "system", content: system }, ...messages];
+    const groqMessages = [
+      { role: "system", content: system },
+      ...messages.map((m: { role: string; content: unknown }) => ({ role: m.role, content: ps.mask(String(m.content ?? "")) })),
+    ];
 
     const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -105,7 +114,7 @@ serve(async (req) => {
     });
     if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
 
-    return new Response(groqResp.body, {
+    return new Response(groqResp.body!.pipeThrough(createSseUnmaskStream(ps.unmask)), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
   } catch (e) {

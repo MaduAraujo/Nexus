@@ -139,6 +139,63 @@ describe('MFA aplicado no banco (migration 063)', () => {
         });
     });
 
+    test('RPC SECURITY DEFINER não contorna o MFA do RH: só com a senha (aal1), is_rh() é falso e anonymize_employee é recusada', async () => {
+        await withUser({ sub: U_ADMIN_MFA, aal: 'aal1' }, async (db) => {
+            const { rows } = await db.query('SELECT public.is_rh() AS rh');
+            assert.equal(rows[0].rh, false);
+            await assert.rejects(() => db.query("SELECT anonymize_employee($1, 'x', 'x@test.local')", [E_COLAB]));
+        });
+        await withServiceRole(async (db) => {
+            const { rows } = await db.query('SELECT name FROM employees_decrypted WHERE id = $1', [E_COLAB]);
+            assert.equal(rows[0].name, 'Colab sem MFA');
+        });
+    });
+
+    test('Administrador sem fator cadastrado também não é RH para as RPCs', async () => {
+        await withUser({ sub: U_ADMIN, aal: 'aal1' }, async (db) => {
+            const { rows } = await db.query('SELECT public.is_rh() AS rh');
+            assert.equal(rows[0].rh, false);
+        });
+    });
+
+    test('Administrador com o código (aal2) segue sendo RH', async () => {
+        await withUser({ sub: U_ADMIN_MFA, aal: 'aal2' }, async (db) => {
+            const { rows } = await db.query('SELECT public.is_rh() AS rh');
+            assert.equal(rows[0].rh, true);
+        });
+    });
+
+    test('nexus_decrypt_ctx não decifra para o RH em aal1, mesmo com o texto cifrado em mãos', async () => {
+        const cipher = await withServiceRole((db) => db.query('SELECT cpf FROM employees WHERE id = $1', [E_COLAB]).then((r) => r.rows[0].cpf));
+        await withUser({ sub: U_ADMIN_MFA, aal: 'aal1' }, async (db) => {
+            const { rows } = await db.query('SELECT public.nexus_decrypt_ctx($1, $2) AS v', [`emp:${E_COLAB}`, cipher]);
+            assert.equal(rows[0].v, null);
+        });
+        await withUser({ sub: U_ADMIN_MFA, aal: 'aal2' }, async (db) => {
+            const { rows } = await db.query('SELECT public.nexus_decrypt_ctx($1, $2) AS v', [`emp:${E_COLAB}`, cipher]);
+            assert.notEqual(rows[0].v, null);
+        });
+    });
+
+    test('colaborador com MFA ativo e só a senha (aal1) não é reconhecido pelas RPCs (ponto, assinatura, DM)', async () => {
+        await withUser({ sub: U_COLAB_MFA, aal: 'aal1' }, async (db) => {
+            const { rows } = await db.query('SELECT public.my_employee_id() AS id');
+            assert.equal(rows[0].id, null);
+            await assert.rejects(() => db.query("SELECT punch_time_record(current_date, 'entrada')"), /não é um colaborador/);
+        });
+        await withUser({ sub: U_COLAB_MFA, aal: 'aal2' }, async (db) => {
+            const { rows } = await db.query('SELECT public.my_employee_id() AS id');
+            assert.equal(rows[0].id, E_COLAB_MFA);
+        });
+    });
+
+    test('colaborador sem MFA (aal1) continua reconhecido pelas RPCs', async () => {
+        await withUser({ sub: U_COLAB, aal: 'aal1' }, async (db) => {
+            const { rows } = await db.query('SELECT public.my_employee_id() AS id');
+            assert.equal(rows[0].id, E_COLAB);
+        });
+    });
+
     test('anon não executa mfa_ok()', async () => {
         await withServiceRole(async (db) => {
             const { rows } = await db.query("SELECT has_function_privilege('anon', 'public.mfa_ok()', 'EXECUTE') AS anon");

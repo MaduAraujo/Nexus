@@ -163,9 +163,9 @@ async function loadPendingVacations() {
     pendingVacations = data || [];
 }
 
-function avatarStyle(m) {
-    if (m.avatar_url) return `background:url(${m.avatar_url}) center/cover`;
-    return `background:${m.avatar_color || '#6366f1'}`;
+function avatarAttrs(m) {
+    if (m.avatar_url) return `data-bg-img="${escHtml(m.avatar_url)}"`;
+    return `data-bg="${escHtml(m.avatar_color || '#6366f1')}"`;
 }
 
 function renderTeamGrid() {
@@ -178,7 +178,7 @@ function renderTeamGrid() {
         .map(
             (m) => `
         <div class="team-card">
-            <div class="team-card-avatar" style="${avatarStyle(m)}">${m.avatar_url ? '' : escHtml(getInitials(m.name))}</div>
+            <div class="team-card-avatar" ${avatarAttrs(m)}>${m.avatar_url ? '' : escHtml(getInitials(m.name))}</div>
             <div class="team-card-body">
                 <p class="team-card-name">${escHtml(m.name)}</p>
                 <p class="team-card-meta">${escHtml(m.role || '—')} · ${escHtml(m.dept || '—')}</p>

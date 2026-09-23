@@ -1699,7 +1699,7 @@
             const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
             const storagePath = `rh/${Date.now()}_${NexusFiles.safeName(file.name)}`;
 
-            const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file);
+            const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file, { employeeId: finalEmpId });
             if (uploadError) {
                 showToast('Erro no upload', `Não foi possível enviar ${file.name}.`, 'error');
                 continue;

@@ -1,11 +1,6 @@
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 
-// Banco de horas e estimativa de férias usados pelo assistente de IA do colaborador
-// (ai-employee-chat), extraídos para _shared/employee-financial-snapshot.mjs. calcBancoHorasLedger é
-// a parte mais delicada: consome o saldo por competência em fila FIFO (mês mais antigo primeiro) para
-// decidir o que já venceu e o que vence nos próximos 30 dias — o tipo de cálculo que, se estiver
-// errado, gera divergência real de horas para o colaborador.
 let sfx;
 
 before(async () => {
@@ -42,10 +37,10 @@ describe('calcBancoHorasLedger', () => {
     });
 
     test('mês com saldo positivo: soma no total e cria um vencimento vencimentoMeses depois', () => {
-        const records = [{ date: '2026-01-05', entrada: '2026-01-05T08:00:00', saida: '2026-01-05T18:00:00' }]; // 10h trabalhadas, jornada 8h -> +120min
+        const records = [{ date: '2026-01-05', entrada: '2026-01-05T08:00:00', saida: '2026-01-05T18:00:00' }];
         const ledger = sfx.calcBancoHorasLedger(records, [], 480, 6, new Date('2026-02-01'));
         assert.equal(ledger.saldoMin, 120);
-        assert.equal(ledger.proximoVencimento, '2026-07-01'); // janeiro + 6 meses
+        assert.equal(ledger.proximoVencimento, '2026-07-01');
     });
 
     test('registro sem saída (dia em aberto) não entra no cálculo', () => {
@@ -69,25 +64,21 @@ describe('calcBancoHorasLedger', () => {
             { date: '2026-02-10', tipo: 'credito', minutos: 50 },
             { date: '2026-03-10', tipo: 'debito', minutos: 100 },
         ];
-        // saldoMin é a soma bruta (100 + 50 - 100 = 50), independente da ordem de consumo.
         const ledger = sfx.calcBancoHorasLedger([], adjustments, 480, 6, new Date('2026-04-01'));
         assert.equal(ledger.saldoMin, 50);
-        // Mas o débito consumiu inteiro o crédito de janeiro (mais antigo) antes de tocar o de fevereiro,
-        // então só os 50min de fevereiro continuam "vivos" esperando vencer.
-        assert.equal(ledger.minutosVencendo + ledger.minutosVencidos, 0); // nenhum dos dois perto do vencimento ainda
-        assert.equal(ledger.proximoVencimento, '2026-08-01'); // fevereiro + 6 meses (janeiro já foi todo consumido)
+        assert.equal(ledger.minutosVencendo + ledger.minutosVencidos, 0);
+        assert.equal(ledger.proximoVencimento, '2026-08-01');
     });
 
     test('crédito com vencimento no passado conta como minutosVencidos', () => {
         const adjustments = [{ date: '2026-01-10', tipo: 'credito', minutos: 100 }];
-        const ledger = sfx.calcBancoHorasLedger([], adjustments, 480, 1, new Date('2026-06-01')); // vence em 1 mês (fev), hoje é junho
+        const ledger = sfx.calcBancoHorasLedger([], adjustments, 480, 1, new Date('2026-06-01'));
         assert.equal(ledger.minutosVencidos, 100);
         assert.equal(ledger.minutosVencendo, 0);
     });
 
     test('crédito vencendo dentro de 30 dias conta em minutosVencendo, não em vencidos', () => {
         const adjustments = [{ date: '2026-01-01', tipo: 'credito', minutos: 100 }];
-        // vence em 2026-02-01 (1 mês depois); "hoje" 20 dias antes do vencimento
         const ledger = sfx.calcBancoHorasLedger([], adjustments, 480, 1, new Date('2026-01-12'));
         assert.equal(ledger.minutosVencendo, 100);
         assert.equal(ledger.minutosVencidos, 0);
@@ -139,7 +130,6 @@ describe('calcFeriasSnapshot', () => {
 
     test('abono pecuniário desconta 10 dias do que foi "tirado" (vendeu em vez de descansar)', () => {
         const snap = sfx.calcFeriasSnapshot({ admission_date: '2025-01-01' }, [{ status: 'aprovado', days: 30, abono: true }], new Date('2026-01-02'));
-        // tirou 30 dias mas 10 foram abono (vendidos) -> só 20 contam como usufruídos -> saldo 30-20=10
         assert.equal(snap.saldo_estimado_dias, 10);
     });
 

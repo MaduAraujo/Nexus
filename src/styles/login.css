@@ -145,7 +145,6 @@ body {
     margin-bottom: 1.75rem;
 }
 
-/* Mesmo respiro sob o logo da recuperação de senha, onde o indicador de etapas ocupa margem + 7px + margem acima do título. */
 #form-mfa .form-title {
     margin-top: calc(1rem + 7px + 1.5rem);
 }
@@ -1317,4 +1316,22 @@ body {
     .divider {
         margin: 0.75rem 0;
     }
+}
+
+.privacy-link {
+    position: fixed;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    text-align: center;
+    font-size: 12px;
+}
+
+.privacy-link a {
+    color: var(--text-muted);
+}
+
+.privacy-link a:hover {
+    color: var(--text);
 }

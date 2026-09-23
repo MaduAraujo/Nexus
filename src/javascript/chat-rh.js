@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         list.innerHTML = '';
 
         if (!filtered.length) {
-            list.innerHTML = `<li class="ch-loading"><span style="color:rgba(156,163,175,.8)">Nenhum ticket encontrado</span></li>`;
+            list.innerHTML = `<li class="ch-loading"><span class="ch-empty-text">Nenhum ticket encontrado</span></li>`;
             return;
         }
 
@@ -209,8 +209,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.dataset.ticketId = ticket.id;
 
         const avatarHtml = e.avatar_url
-            ? `<div class="ti-avatar" style="background:url(${escapeHtml(e.avatar_url)}) center/cover"></div>`
-            : `<div class="ti-avatar" style="background:${e.avatar_color || '#6366f1'}">${esc(initials(e.name))}</div>`;
+            ? `<div class="ti-avatar" data-bg-img="${escapeHtml(e.avatar_url)}"></div>`
+            : `<div class="ti-avatar" data-bg="${esc(e.avatar_color || '#6366f1')}">${esc(initials(e.name))}</div>`;
 
         const isNew = ticket.status === 'aguardando_rh' && currentTicketId !== ticket.id;
 
@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadTicketMessages(ticketId) {
         const list = $('messages-list');
         if (!list) return;
-        list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
+        list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: rows } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
 
@@ -395,11 +395,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         group.innerHTML = `
             <div class="msg-row">
                 <div class="msg-avatar bot-avatar" title="Agente RH (Bot)">
-                    <i class="fas fa-robot" style="font-size:.72rem"></i>
+                    <i class="fas fa-robot agent-icon"></i>
                 </div>
                 <div class="msg-content-wrap">
                     <div class="msg-header">
-                        <span class="msg-author" style="color:var(--accent-hr)">Agente RH (Bot)</span>
+                        <span class="msg-author msg-author--agent">Agente RH (Bot)</span>
                         <span class="msg-time">${fmtTime(msg.created_at)}</span>
                     </div>
                     <div class="msg-bubble">${formattedContent}</div>
@@ -414,8 +414,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const e = msg.employees || {};
 
         const avatarHtml = e.avatar_url
-            ? `<div class="msg-avatar" style="background:url(${escapeHtml(e.avatar_url)}) center/cover" title="${esc(e.name)}"></div>`
-            : `<div class="msg-avatar" style="background:${e.avatar_color || '#6366f1'}" title="${esc(e.name)}">${esc(initials(e.name))}</div>`;
+            ? `<div class="msg-avatar" data-bg-img="${escapeHtml(e.avatar_url)}" title="${esc(e.name)}"></div>`
+            : `<div class="msg-avatar" data-bg="${esc(e.avatar_color || '#6366f1')}" title="${esc(e.name)}">${esc(initials(e.name))}</div>`;
 
         const group = document.createElement('div');
         group.className = 'msg-group is-colab is-other';
@@ -446,16 +446,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? ''
             : `
             <div class="msg-avatar rh-avatar" title="Analista RH">
-                <i class="fas fa-user-tie" style="font-size:.72rem"></i>
+                <i class="fas fa-user-tie agent-icon"></i>
             </div>`;
 
         group.innerHTML = `
             <div class="msg-row">
                 ${avatarHtml}
                 <div class="msg-content-wrap">
-                    ${!isMine ? `<div class="msg-header"><span class="msg-author" style="color:var(--success)">Analista RH</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    ${!isMine ? `<div class="msg-header"><span class="msg-author msg-author--analyst">Analista RH</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
                     <div class="msg-bubble">${esc(msg.content)}</div>
-                    ${isMine ? `<div class="msg-header" style="justify-content:flex-end"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    ${isMine ? `<div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
                 </div>
             </div>`;
         list.appendChild(group);
@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!list) return;
         const group = document.createElement('div');
         group.className = 'msg-group is-system';
-        group.innerHTML = `<div class="msg-system"><i class="fas fa-info-circle" style="margin-right:5px;color:var(--success)"></i>${esc(content)}</div>`;
+        group.innerHTML = `<div class="msg-system"><i class="fas fa-info-circle system-icon"></i>${esc(content)}</div>`;
         list.appendChild(group);
     }
 

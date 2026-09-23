@@ -11,6 +11,7 @@
         <script src="../javascript/shared/theme.js"></script>
         <title>Colaboradores</title>
         <link rel="stylesheet" href="../styles/fonts.css" />
+        <link rel="stylesheet" href="../styles/dynamic-style.css" />
         <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -24,7 +25,7 @@
     </head>
     <body>
         <div class="layout">
-            <div class="main-wrapper" style="margin-left: 0; width: 100%">
+            <div class="main-wrapper main-wrapper--full">
                 <header class="topbar" id="page-topbar">
                     <div class="topbar-left">
                         <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar" data-click="handleBackClick" data-click-return>
@@ -253,7 +254,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div id="experiencia-details" class="conditional-field" style="display: none">
+                                        <div id="experiencia-details" class="conditional-field" data-hide>
                                             <div class="form-row">
                                                 <div class="form-group form-group--narrow">
                                                     <label for="probation-end-date">Fim do Período de Experiência</label>
@@ -289,7 +290,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div id="aviso-previo-details" class="conditional-field" style="display: none">
+                                        <div id="aviso-previo-details" class="conditional-field" data-hide>
                                             <div class="form-row">
                                                 <div class="form-group form-group--narrow">
                                                     <label for="aviso-previo-end-date">Fim do Aviso Prévio</label>
@@ -355,7 +356,7 @@
                                                     id="reg-doc-input"
                                                     multiple
                                                     accept=".pdf,.jpg,.jpeg,.png"
-                                                    style="display: none"
+                                                    data-hide
                                                     data-change="handleRegDocSelect"
                                                     data-change-args='[{"$":"event"}]'
                                                 />
@@ -696,7 +697,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div id="seguro-vida-details" class="conditional-field" style="display: none">
+                                                    <div id="seguro-vida-details" class="conditional-field" data-hide>
                                                         <div class="form-row">
                                                             <div class="form-group flex-2">
                                                                 <label for="seguradora">Nome da Seguradora</label>
@@ -715,7 +716,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div id="dependentes-details" class="conditional-field" style="display: none">
+                                                    <div id="dependentes-details" class="conditional-field" data-hide>
                                                         <div class="form-row">
                                                             <div class="form-group flex-1">
                                                                 <label for="qtd-dependentes">Quantidade de Dependentes</label>
@@ -734,7 +735,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div id="pcd-details" class="conditional-field" style="display: none">
+                                                    <div id="pcd-details" class="conditional-field" data-hide>
                                                         <div class="form-row">
                                                             <div class="form-group flex-2">
                                                                 <label for="tipo-deficiencia">Tipo de Deficiência</label>
@@ -753,7 +754,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div id="pensao-details" class="conditional-field" style="display: none">
+                                                    <div id="pensao-details" class="conditional-field" data-hide>
                                                         <div class="form-row">
                                                             <div class="form-group flex-1">
                                                                 <label>Tipo de Pensão</label>
@@ -778,7 +779,7 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div id="vale-transporte-details" class="conditional-field" style="display: none">
+                                                    <div id="vale-transporte-details" class="conditional-field" data-hide>
                                                         <div class="form-row">
                                                             <div class="form-group flex-1">
                                                                 <label for="valor-passagem">Valor Diário da Passagem (R$)</label>
@@ -842,7 +843,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div id="pix-details" class="conditional-field" style="display: none">
+                                            <div id="pix-details" class="conditional-field" data-hide>
                                                 <div class="form-row">
                                                     <div class="form-group flex-1">
                                                         <label for="tipo-chave-pix">Tipo de Chave Pix</label>
@@ -860,7 +861,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div id="conta-details" class="conditional-field" style="display: none">
+                                            <div id="conta-details" class="conditional-field" data-hide>
                                                 <div class="form-row">
                                                     <div class="form-group flex-1">
                                                         <label for="banco">Banco</label>
@@ -889,7 +890,7 @@
                                                         </select>
                                                     </div>
                                                 </div>
-                                                <div id="banco-outro-details" class="conditional-field" style="display: none">
+                                                <div id="banco-outro-details" class="conditional-field" data-hide>
                                                     <div class="form-row">
                                                         <div class="form-group flex-2">
                                                             <label for="banco-outro">Nome do Banco</label>
@@ -928,7 +929,7 @@
                                             <button type="button" class="btn-secondary" id="btn-prev-step" data-click="handleCancelOrBack">Cancelar</button>
                                             <div class="actions-right">
                                                 <button type="button" class="btn-primary" id="btn-next-step" data-click="handleNextStep">Continuar</button>
-                                                <button type="button" class="btn-primary" id="btn-save" style="display: none">Cadastrar</button>
+                                                <button type="button" class="btn-primary" id="btn-save" data-hide>Cadastrar</button>
                                             </div>
                                         </div>
                                     </div>
@@ -1639,8 +1640,12 @@
             crossorigin="anonymous"
         ></script>
         <script src="../javascript/shared/events.js"></script>
+        <script src="../javascript/shared/dynamic-style.js"></script>
         <script src="../javascript/shared/html.js"></script>
         <script src="../javascript/shared/supabase-client.js"></script>
+        <script src="../javascript/shared/e2e-crypto.js"></script>
+        <script src="../javascript/shared/e2e-ui.js"></script>
+        <script src="../javascript/shared/e2e.js"></script>
         <script src="../javascript/shared/mfa.js"></script>
         <script src="../javascript/shared/auth.js"></script>
         <script src="../javascript/shared/files.js"></script>

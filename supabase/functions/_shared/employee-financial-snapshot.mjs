@@ -1,10 +1,3 @@
-// Cálculos de banco de horas e férias usados pelo assistente de IA do colaborador (ai-employee-chat)
-// para responder com números reais em vez de estimativa alucinada. Puro — sem chamada de rede, sem
-// Deno.* — testável a partir do Node. `getJornadaMin`/`calcWorkedMin` duplicam de propósito a mesma
-// lógica de equipe-colaborador.js (getJornadaMin/calcWorkedMinEquipe): um lado é front-end (browser),
-// o outro Edge Function (Deno) — unificar exigiria um módulo importável nos dois runtimes, fora do
-// escopo desta extração.
-
 export function getJornadaMin(emp) {
     const tipo = String(emp?.contract_type || 'clt').toLowerCase();
     if (tipo === 'pj') return null;
@@ -30,9 +23,6 @@ export function calcWorkedMin(rec) {
     return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
 }
 
-// Banco de horas por competência (mês), consumindo o saldo mais antigo primeiro (FIFO) — é assim que
-// se decide quanto já venceu (passou do prazo sem ser compensado) e quanto vence nos próximos 30 dias.
-// `hoje` é injetável para o teste ser determinístico.
 export function calcBancoHorasLedger(records, adjustments, jornadaMin, vencimentoMeses, hoje = new Date()) {
     if (jornadaMin === null) return { saldoMin: 0, proximoVencimento: null, minutosVencendo: 0, minutosVencidos: 0 };
 
@@ -85,8 +75,6 @@ export function calcBancoHorasLedger(records, adjustments, jornadaMin, venciment
     return { saldoMin, proximoVencimento, minutosVencendo, minutosVencidos };
 }
 
-// Período aquisitivo de férias atual (CLT, art. 130): ciclo de 1 ano a partir da admissão, avançando
-// ano a ano até conter a data de hoje.
 export function calcAcquisitivePeriod(admDate, today) {
     const start = new Date(admDate);
     while (new Date(start.getFullYear() + 1, start.getMonth(), start.getDate()) <= today) {
@@ -100,9 +88,6 @@ export function monthsDiff(a, b) {
     return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 }
 
-// Estimativa simplificada de saldo de férias: 30 dias por período aquisitivo completo (12 meses),
-// menos os dias já usufruídos (abono pecuniário desconta 10 dias do total gozado). Não desconta faltas
-// injustificadas — por isso o assistente sempre avisa que é aproximado (ver buildSystem no index.ts).
 export function calcFeriasSnapshot(emp, vacations, today = new Date()) {
     if (!emp.admission_date) return null;
     const admDate = new Date(emp.admission_date + 'T00:00:00');

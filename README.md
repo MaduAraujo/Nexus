@@ -94,7 +94,7 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 ### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
 
-As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `send-push`, `send-alert-push` e `send-document-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
+As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `mfa-recover`, `send-push`, `send-alert-push` e `send-document-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
 
 ```bash
 npx supabase functions deploy
@@ -107,7 +107,21 @@ A `nexus-files` cifra e decifra os arquivos do Storage (documentos, anexos de po
 npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ```
 
-Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as sete aparecem. Uma função ausente responde 404 ao front.
+**Trocar a chave dos arquivos** (cada arquivo guarda no cabeçalho o identificador da chave que o cifrou; sem as variáveis abaixo a chave atual vale como `v1`):
+
+```bash
+# 1. chave nova ativa + a antiga só para leitura, e republique a nexus-files
+npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32) FILES_ENCRYPTION_KEY_ID=v2 FILES_ENCRYPTION_OLD_KEYS=v1:CHAVE_ANTIGA
+npx supabase functions deploy nexus-files
+# 2. recifre o que já está no Storage (mesmas três variáveis + SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente)
+node scripts/rotate-file-key.mjs --dry-run
+node scripts/rotate-file-key.mjs
+# 3. quando o script disser que nada depende mais da chave antiga, tire-a de FILES_ENCRYPTION_OLD_KEYS
+```
+
+A `mfa-recover` recebe o código de recuperação do MFA, confere no banco (uso único, até 5 tentativas a cada 15 min) e desvincula o app autenticador pela API de admin do Auth. Não precisa de segredo próprio.
+
+Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as oito aparecem. Uma função ausente responde 404 ao front.
 
 A function `send-push` envia notificações push (Web Push) quando o RH publica um comunicado imediato (não agendado). Ela precisa de um par de chaves VAPID como secret — gere o seu com `npx web-push generate-vapid-keys` e configure:
 
@@ -142,7 +156,7 @@ node test-support/static-server.js
 O projeto tem 3 camadas de teste automatizado (o número exato de casos muda a cada mudança; rode os comandos para ver):
 
 ```bash
-npm test               # unidade — folha/CLT/rescisão, criptografia de arquivos, MFA, guarda de XSS e de CSP, 260+ casos, sem dependências externas
+npm test               # unidade — folha/CLT/rescisão, criptografia e rotação de arquivos, MFA, guarda de XSS e de CSP, 540+ casos, sem dependências externas
 npm run lint            # ESLint
 npm run format:check    # Prettier
 ```
@@ -154,7 +168,7 @@ npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,e
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
 
-npm run test:integration   # RLS, criptografia de colunas, MFA, limite de chamadas, alertas de segurança e rotação de chaves (116 casos)
+npm run test:integration   # RLS, criptografia de colunas, MFA e códigos de recuperação, limite de chamadas, alertas de segurança e rotação de chaves (250 casos)
 
 npx playwright install --with-deps chromium
 npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
@@ -243,7 +257,7 @@ Como funciona:
 
 > ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
 
-**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a `068`. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
+**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a mais recente. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos; a 082 faz as funções de RPC exigirem o segundo fator de quem tem MFA; a 083 cifra o histórico de edição; a 084 cria os códigos de recuperação do MFA; a 085 cria as tabelas de chaves da criptografia de ponta a ponta; a 086 estende essas chaves aos canais de grupo. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
 
 **Regras para quem desenvolve:**
 
@@ -251,9 +265,22 @@ Como funciona:
 - Depois de **adicionar coluna** em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
 - Para cifrar **outra coluna**, siga o padrão de `employees_encrypt_sensitive()` na migration 059.
 
-**Também cifrados** (migrations 064 e 065): holerites (`payslips`), feedback anônimo, as tabelas de histórico, cache, memória e log da IA do RH, os indicadores `pcd` e `pensao_alimenticia`, e os arquivos dos buckets `documents`, `message-attachments` e `ponto-selfies` (AES-256-GCM pela Edge Function `nexus-files`, chave mestra no segredo `FILES_ENCRYPTION_KEY`). A leitura segue o mesmo padrão das views `*_decrypted`.
+**Também cifrados** (migrations 064, 065 e 083): holerites (`payslips`), o histórico de edição (`employee_audit.changes`, lido pela view `employee_audit_decrypted`), feedback anônimo, as tabelas de histórico, cache, memória e log da IA do RH, os indicadores `pcd` e `pensao_alimenticia`, e os arquivos dos buckets `documents`, `message-attachments` e `ponto-selfies` (AES-256-GCM pela Edge Function `nexus-files`, chave mestra no segredo `FILES_ENCRYPTION_KEY`). A leitura segue o mesmo padrão das views `*_decrypted`.
 
-**O que ainda NÃO é cifrado:** avatares (bucket público de propósito), o histórico de edição (`employee_audit.changes`) e o número de dependentes. Quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Não há criptografia ponta a ponta. A rotação das chaves de colunas existe (migration 067), mas é manual; a chave dos arquivos ainda não tem rotação.
+**O que ainda NÃO é cifrado:** avatares (bucket público de propósito) e o número de dependentes. Nos dados cifrados em repouso, quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Isso não vale para o que é cifrado de ponta a ponta (veja abaixo). A rotação das chaves existe para as colunas (migration 067) e para os arquivos (`scripts/rotate-file-key.mjs`, veja acima), as duas manuais.
+
+### Criptografia de ponta a ponta (migration 085)
+
+**O que é cifrado no navegador** (o servidor guarda só o conteúdo cifrado e nunca tem a chave): documentos do colaborador, atestados, anexos do banco de horas, selfies do ponto, as **mensagens diretas** e as mensagens dos **canais de grupo** do chat. Código em `src/javascript/shared/e2e-crypto.js` (WebCrypto), `e2e.js` (chaves e fluxos) e `e2e-ui.js` (janelas).
+
+- **Chaves por pessoa:** cada usuário tem um par ECDH P-256 gerado no navegador. A chave privada vai ao banco (`e2e_keys`) só embrulhada pela senha (PBKDF2-SHA256, 600 mil iterações) e por uma **chave de recuperação** de 160 bits mostrada uma única vez no primeiro login. Depois do login, ela fica no IndexedDB como chave não exportável e é apagada ao sair.
+- **Chave do RH:** um par da organização, entregue a cada administrador embrulhado com a chave pessoal dele (`e2e_org_key_grants`). Um administrador novo recebe acesso quando outro abre a tela Segurança.
+- **Arquivos:** AES-256-GCM com chave aleatória por arquivo, embrulhada para o colaborador dono e para a chave do RH, no próprio cabeçalho do arquivo (formato `NXE1`). O envio vai direto ao Storage, com o RLS de sempre. Arquivos antigos seguem abrindo pela `nexus-files`, e o botão **Proteger arquivos antigos** (tela Segurança) os converte.
+- **Mensagens diretas:** chave por conversa (`e2e_channel_keys`), embrulhada para os dois membros e versionada. Se um dos dois refaz as chaves, o outro recompartilha a conversa ao enviar a próxima mensagem.
+- **Canais de grupo** (migration 086): chave por canal, embrulhada para cada membro que já tem chaves e para a chave do RH (o RH mantém a leitura prevista na política de compliance). Quem sai do canal força uma versão nova da chave e não lê o que vem depois. Quem entra ou cria chaves depois recebe a chave quando qualquer membro abre o canal.
+- **Esqueceu a senha:** no login seguinte, a chave de recuperação reabre tudo e passa a valer a senha nova. Sem ela, a pessoa gera chaves novas: as conversas diretas antigas ficam ilegíveis, e os documentos voltam quando o RH usa "Proteger arquivos antigos".
+
+**Continua visível para o servidor:** metadados (nome, tipo e dono do documento; quem conversa com quem e quando), cadastro, holerites e tudo que o sistema precisa processar (IA, alertas, folha, dashboard), que seguem cifrados em repouso com a chave do Vault. **Limite de todo E2E na web:** quem controla a hospedagem do front poderia publicar um JavaScript alterado; SRI, CSP e a revisão do código publicado reduzem, mas não eliminam, esse risco.
 
 **Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
 
@@ -274,13 +301,16 @@ Como funciona:
 
 **Sem `'unsafe-inline'` em `script-src`:** o app não usa mais `onclick=`/`<script>` inline. Os manipuladores são atributos `data-click`, `data-change`, `data-input`, `data-keydown` e `data-keyup` (com `-args`, veja `src/javascript/shared/events.js`), ligados por listeners. Em templates JS use `data-click="fn" data-click-args="${dargs(id)}"`; nunca escreva `onclick=` (o teste `test/csp-inline.test.js` falha). O dispatcher só chama funções globais declaradas pelo app (não nativas), então markup injetado com `data-click="eval"` não executa código. Janelas de impressão usam `printWhenLoaded(win)` em vez de `<script>` inline.
 
-**Limites conhecidos:** `style-src` ainda tem `'unsafe-inline'` (atributos `style=` e `<style>` em vários templates), então injeção de CSS não é barrada. O CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Não há códigos de recuperação: se o RH perder o aparelho, só removendo o fator pelo painel do Supabase. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
+**Sem `'unsafe-inline'` em `style-src`:** nenhum HTML ou template usa `style=`, `<style>` ou `setAttribute('style')` (o mesmo teste falha). Estilo fixo vai para classe CSS. Valor dinâmico usa um atributo de lista fechada, aplicado por `src/javascript/shared/dynamic-style.js` via `el.style`: `data-bg`/`data-color` (só cor), `data-w` (largura em %), `data-x`/`data-y` (px), `data-delay` (s), `data-bg-img` (só `https:`, `blob:` ou `data:image`) e `data-hide` (começa escondido e depois se comporta como `style.display = 'none'`). Janelas de impressão usam um `.css` próprio via `<link>`, e a orientação do holerite usa uma folha construída (`adoptedStyleSheets`).
+
+**Limites conhecidos:** o CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Ao ativar, a pessoa recebe 10 códigos de recuperação (só o hash bcrypt fica no banco, migration 084). Se perder o celular, um código na tela de login desvincula o app e gera um alerta crítico para o RH; o RH então cadastra o celular novo na ativação obrigatória. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
 
 ---
 
 ## Privacidade (LGPD) e operação
 
 - **Backup e restauração:** o backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions. O relatório fica em `test-results/restore-drill/`.
+- **Retenção:** `purge_security_events()` apaga eventos de segurança com mais de 180 dias e `purge_expired_conversations()` (migration 081) apaga chat interno, histórico do assistente de IA do RH e conversas/chamados resolvidos 12 meses após a última mensagem; chamados em atendimento ficam até serem resolvidos. As duas rodam todo dia pelo pg_cron. A política pública fica em `src/screens/privacidade.html` (versão de demonstração com empresa fictícia).
 - **Acessos:** `scripts/ops/revisao-de-acessos.sql` lista quem tem acesso a quê.
 - O schema não vai ao ar: o `.vercelignore` o exclui da hospedagem.
 

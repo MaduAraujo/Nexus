@@ -36,7 +36,7 @@ window.NexusMfaSetup = (function () {
             }
             const nodes = [];
             if (flash) nodes.push(notice('success', flash));
-            if (verified.length) nodes.push(...activeView(verified[0]));
+            if (verified.length) nodes.push(...activeView(verified[0], await mfa.recoveryRemaining(client)));
             else nodes.push(...inactiveView());
             render(...nodes);
         }
@@ -52,13 +52,89 @@ window.NexusMfaSetup = (function () {
             ];
         }
 
-        function activeView(factor) {
+        function activeView(factor, remaining) {
             const row = el('div', 'mfa-row');
             row.append(
                 notice('success', 'Verificação em duas etapas ativada.'),
                 button('Desativar', 'mfa-btn mfa-btn--danger', () => disable(factor.id))
             );
-            return [row];
+            const recovery = el('div', 'mfa-row');
+            const label =
+                remaining === null
+                    ? 'Códigos de recuperação: não foi possível consultar.'
+                    : remaining > 0
+                      ? `Códigos de recuperação: ${remaining} disponíve${remaining === 1 ? 'l' : 'is'}.`
+                      : 'Você não tem códigos de recuperação. Gere agora para não perder o acesso se trocar de celular.';
+            recovery.append(
+                el('p', remaining === 0 ? 'mfa-notice mfa-notice--error' : 'mfa-muted', label),
+                button('Gerar novos códigos', 'mfa-btn', regenerate)
+            );
+            return [row, recovery];
+        }
+
+        async function regenerate() {
+            if (!window.confirm('Gerar novos códigos de recuperação? Os códigos antigos param de funcionar.')) return;
+            await issueRecoveryCodes(() => showStatus());
+        }
+
+        async function issueRecoveryCodes(after) {
+            render(el('p', 'mfa-muted', 'Gerando códigos de recuperação…'));
+            const { codes, error } = await mfa.generateRecoveryCodes(client);
+            if (error) {
+                await after();
+                container.prepend(
+                    notice('error', 'Não foi possível gerar os códigos de recuperação. Saia, entre de novo com o código do app e tente outra vez.')
+                );
+                return;
+            }
+            codesView(codes, after);
+        }
+
+        function codesView(codes, after) {
+            const text = [
+                'Nexus RH - códigos de recuperação da verificação em duas etapas',
+                `Gerados em ${new Date().toLocaleString('pt-BR')}`,
+                'Use um deles se perder o acesso ao app autenticador. Cada código funciona uma vez.',
+                '',
+                ...codes,
+                '',
+            ].join('\n');
+
+            const list = el('ol', 'mfa-codes');
+            for (const code of codes) list.append(el('li', null, code));
+
+            const copyBtn = button('Copiar', 'mfa-btn', async () => {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copyBtn.textContent = 'Copiado!';
+                } catch {
+                    copyBtn.textContent = 'Não foi possível copiar';
+                }
+            });
+            const downloadBtn = button('Baixar .txt', 'mfa-btn', () => {
+                const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+                const link = el('a');
+                link.href = url;
+                link.download = 'nexus-codigos-de-recuperacao.txt';
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+            const doneBtn = button('Já guardei os códigos', 'mfa-btn mfa-btn--primary', after);
+
+            const actions = el('div', 'mfa-actions');
+            actions.append(copyBtn, downloadBtn, doneBtn);
+            const wrapper = el('div', 'mfa-enroll');
+            wrapper.append(
+                el('p', 'mfa-step', 'Guarde estes códigos de recuperação'),
+                el(
+                    'p',
+                    'mfa-muted',
+                    'Se perder o celular, use um deles no lugar do código do app. Cada um funciona uma vez, e eles não serão mostrados de novo.'
+                ),
+                list,
+                actions
+            );
+            render(wrapper);
         }
 
         async function startEnroll() {
@@ -135,8 +211,10 @@ window.NexusMfaSetup = (function () {
                     input.select();
                     return;
                 }
-                onChange({ enabled: true });
-                showStatus();
+                await issueRecoveryCodes(() => {
+                    onChange({ enabled: true });
+                    return showStatus();
+                });
             }
 
             const cancelBtn = () =>

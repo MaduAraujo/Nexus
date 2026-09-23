@@ -76,8 +76,8 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp) {
-    if (emp?.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
-    return `<div class="emp-avatar" style="background:${emp?.avatarColor || nameToColor(emp?.name)}">${initials(emp?.name)}</div>`;
+    if (emp?.avatarUrl) return `<div class="emp-avatar" data-bg-img="${escapeHtml(emp.avatarUrl)}"></div>`;
+    return `<div class="emp-avatar" data-bg="${escHtml(emp?.avatarColor || nameToColor(emp?.name))}">${initials(emp?.name)}</div>`;
 }
 
 async function loadRhSidebar() {
@@ -594,12 +594,6 @@ function checkDeptConflict(vacation) {
 
 const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-// Gera o evento "Adiantamento de Férias" (dias de gozo + 1/3 constitucional, e abono pecuniário se houver)
-// no holerite do mês de início da folga, para qualquer férias aprovada — individual ou coletiva. PJ não
-// entra (sem remuneração de férias nesses moldes). Se já existir holerite daquele mês (gerado pela folha
-// mensal em pagamentos.js), soma o evento nos proventos existentes em vez de sobrescrever; se ainda não
-// existir, cria um holerite só com esse evento. Não reaproveita `.upsert()` porque precisa mesclar o JSON
-// de proventos, não substituir a linha inteira.
 async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
     const emp = getEmployee(employeeId);
     if (!emp || emp.contractType === 'pj' || !emp.salary) return;
@@ -624,10 +618,6 @@ async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abon
     const [year, monthNum] = mes.split('-');
     const month = parseInt(monthNum, 10);
 
-    // apply_ferias_payroll_event() faz num único RPC atômico o que antes era ler o holerite e depois
-    // inserir/atualizar em duas idas ao banco — essa versão em duas etapas tinha uma corrida real:
-    // duas aprovações do mesmo colaborador+mês ao mesmo tempo podiam ambas ver "não existe holerite"
-    // e as duas tentarem inserir, uma batendo no UNIQUE(employee_id, mes) (ver migration 079).
     const { error } = await sb.rpc('apply_ferias_payroll_event', {
         p_employee_id: employeeId,
         p_mes: mes,
@@ -638,9 +628,6 @@ async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abon
     if (error) console.error('[Nexus] apply_ferias_payroll_event:', error);
 }
 
-// Desfaz o evento de adiantamento de férias do holerite (se já tiver sido gerado) ao cancelar uma
-// férias aprovada — antes esse evento ficava órfão no holerite, exigindo correção manual do RH
-// (ver migration 079).
 async function reverterEventoAdiantamentoFerias({ employeeId, startDate }) {
     const mes = startDate.slice(0, 7);
     const { error } = await sb.rpc('revert_ferias_payroll_event', { p_employee_id: employeeId, p_mes: mes });
@@ -1431,18 +1418,9 @@ window.generateReceipt = function (id) {
         return;
     }
     const hoje = new Date().toLocaleDateString('pt-BR');
+    const cssHref = new URL('../styles/ferias-recibo-print.css', window.location.href).href;
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo de Férias — ${escHtml(emp?.name || '')}</title>
-        <style>
-            body{font-family:Arial,sans-serif;padding:40px;color:#111;max-width:720px;margin:0 auto;}
-            h1{font-size:18px;margin-bottom:2px;} .sub{color:#555;font-size:13px;margin-bottom:24px;}
-            table{width:100%;border-collapse:collapse;margin:18px 0;}
-            td{padding:8px 4px;border-bottom:1px solid #ddd;font-size:14px;vertical-align:top;}
-            td.label{color:#666;width:220px;}
-            .box{border:1px solid #ccc;border-radius:8px;padding:16px;margin-top:20px;font-size:12.5px;color:#444;line-height:1.6;}
-            .sign{margin-top:70px;display:flex;justify-content:space-between;}
-            .sign div{width:45%;border-top:1px solid #333;text-align:center;padding-top:6px;font-size:12.5px;}
-            @media print { body{padding:0;} }
-        </style></head><body>
+        <link rel="stylesheet" href="${cssHref}"></head><body>
         <h1>Recibo e Aviso de Concessão de Férias</h1>
         <p class="sub">Emitido em ${hoje} · Nexus RH</p>
         <table>
@@ -1588,15 +1566,9 @@ window.exportVacationsPDF = function () {
     </tr>`
         )
         .join('');
+    const cssHref = new URL('../styles/ferias-calendario-print.css', window.location.href).href;
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Calendário de Férias</title>
-        <style>
-            body{font-family:Arial,sans-serif;padding:32px;color:#111;}
-            h1{font-size:18px;margin-bottom:2px;} .sub{color:#555;font-size:12.5px;margin-bottom:18px;}
-            table{width:100%;border-collapse:collapse;font-size:11.5px;}
-            th,td{padding:6px 8px;border-bottom:1px solid #ddd;text-align:left;}
-            th{background:#f3f4f6;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:#555;}
-            @media print { body{padding:0;} }
-        </style></head><body>
+        <link rel="stylesheet" href="${cssHref}"></head><body>
         <h1>Calendário de Férias</h1>
         <p class="sub">Exportado em ${hoje} · ${rows.length} solicitaç${rows.length === 1 ? 'ão' : 'ões'} · Nexus RH</p>
         <table>
@@ -1728,9 +1700,9 @@ function renderGantt() {
             barsDiv.appendChild(bar);
         });
         const gAvatar = emp?.avatarUrl
-            ? `<div class="g-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`
-            : `<div class="g-avatar" style="background:${emp?.avatarColor || nameToColor(name)}">${initials(name)}</div>`;
-        row.innerHTML = `<div class="gantt-row-label">${gAvatar}<div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept"><span class="g-dept-dot" style="background:${deptColor(dept)}"></span><span class="g-dept-name">${escHtml(dept)}</span></div>` : ''}</div></div>`;
+            ? `<div class="g-avatar" data-bg-img="${escapeHtml(emp.avatarUrl)}"></div>`
+            : `<div class="g-avatar" data-bg="${escHtml(emp?.avatarColor || nameToColor(name))}">${initials(name)}</div>`;
+        row.innerHTML = `<div class="gantt-row-label">${gAvatar}<div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept"><span class="g-dept-dot" data-bg="${escHtml(deptColor(dept))}"></span><span class="g-dept-name">${escHtml(dept)}</span></div>` : ''}</div></div>`;
         row.appendChild(barsDiv);
         rowsEl.appendChild(row);
     });
@@ -1831,10 +1803,10 @@ function renderCobertura() {
             (r) => `
         <div class="cobertura-item${r.risk ? ' cobertura-item--risk' : ''}">
             <div class="cobertura-item-top">
-                <span class="cobertura-dept"><span class="cobertura-dept-dot" style="background:${deptColor(r.dept)}"></span>${escHtml(r.dept)}</span>
+                <span class="cobertura-dept"><span class="cobertura-dept-dot" data-bg="${escHtml(deptColor(r.dept))}"></span>${escHtml(r.dept)}</span>
                 <span class="cobertura-count">${r.max}/${r.headcount}</span>
             </div>
-            <span class="cobertura-bar-wrap"><span class="cobertura-bar" style="width:${Math.min(100, (r.max / r.headcount) * 100)}%"></span></span>
+            <span class="cobertura-bar-wrap"><span class="cobertura-bar" data-w="${Math.min(100, (r.max / r.headcount) * 100)}"></span></span>
             ${r.risk ? '<span class="cobertura-risk-badge"><i class="fas fa-triangle-exclamation"></i>Risco de cobertura</span>' : ''}
         </div>`
         )

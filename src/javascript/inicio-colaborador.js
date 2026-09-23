@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         comunicadosList.innerHTML = lista
             .map(
                 (m, i) => `
-            <div class="comunicado-item" style="animation-delay: ${i * 0.06}s">
+            <div class="comunicado-item" data-delay="${i * 0.06}">
                 <div class="comunicado-icon"><i class="fas fa-bullhorn"></i></div>
                 <div class="comunicado-body">
                     <p class="comunicado-text">${escapeHTML(m.texto)}</p>
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return `
             <div class="onboarding-stage">
                 <div class="onboarding-stage-title">
-                    <i class="fas ${s.atual ? 'fa-hourglass-half' : 'fa-flag-checkered'}" style="color:${s.atual ? '#f59e0b' : '#10b981'}"></i>
+                    <i class="fas ${s.atual ? 'fa-hourglass-half step-icon--current' : 'fa-flag-checkered step-icon--done'}"></i>
                     ${STAGE_LABEL[s.dias]} <span class="stage-count">(${doneInStage}/${s.tasks.length})</span>
                 </div>
                 ${s.tasks

@@ -27,8 +27,6 @@ function applyFilters(rows, filters) {
     );
 }
 
-// Parser mínimo do formato do PostgREST usado em sb.from(t).or('col.eq.val,col2.eq.val2') — só cobre
-// o operador `eq`, que é o único que o front-end deste projeto usa em `.or(...)`.
 function parseOrClause(orString) {
     return orString.split(',').map((clause) => {
         const [col, op, ...rest] = clause.split('.');
@@ -63,14 +61,10 @@ function createMockSupabase(tables = {}, { user = null, authError = null, mfaLev
                 filters.push({ op: 'or', clauses: parseOrClause(orString) });
                 return api;
             },
-            // Simplificado: não respeita onConflict de verdade, só junta as linhas novas às existentes
-            // (por índice de `id`, se houver) e registra a chamada para o teste inspecionar.
             upsert(rows, opts) {
                 pendingUpsert = { rows: Array.isArray(rows) ? rows : [rows], opts };
                 return api;
             },
-            // update(patch): aplicado às linhas que já baterem com os filtros (eq/in/...) acumulados
-            // até aqui — encadeie os filtros antes do .then()/await, como no código real.
             update(patch) {
                 pendingUpdate = patch;
                 return api;
@@ -204,9 +198,6 @@ function createMockSupabase(tables = {}, { user = null, authError = null, mfaLev
                 },
             },
         },
-        // Sem Realtime de verdade aqui: o front chama sb.channel(...).on(...).subscribe() para reagir
-        // a mudanças ao vivo, mas nenhum teste precisa disparar esse evento — só que a chamada encadeada
-        // não quebre.
         channel() {
             const chan = {
                 on() {

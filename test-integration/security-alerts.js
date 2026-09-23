@@ -202,7 +202,7 @@ describe('Alertas de comportamento anormal (migration 066)', () => {
 
             await as(db, 'authenticated', U_ADMIN);
             assert.equal((await db.query('SELECT id FROM security_alerts')).rows.length, 1);
-            assert.equal((await db.query('SELECT kind FROM security_rules')).rows.length, 5);
+            assert.equal((await db.query('SELECT kind FROM security_rules')).rows.length, 6);
 
             await as(db, 'authenticated', U_COLAB);
             assert.equal((await db.query('SELECT id FROM security_alerts')).rows.length, 0);

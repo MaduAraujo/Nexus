@@ -121,3 +121,58 @@ describe('perfis obrigatórios', () => {
         assert.equal(NexusMfa.isRequiredFor('colaborador'), false);
     });
 });
+
+describe('códigos de recuperação', () => {
+    test('aceita com ou sem hífen, em minúsculas e com espaços; recusa letras ambíguas (I, O) e 0/1', () => {
+        assert.equal(NexusMfa.isValidRecoveryCode('ABCDE-FGH23'), true);
+        assert.equal(NexusMfa.isValidRecoveryCode(' abcde fgh23 '), true);
+        assert.equal(NexusMfa.normalizeRecoveryCode('abcde-fgh23'), 'ABCDEFGH23');
+        assert.equal(NexusMfa.isValidRecoveryCode('ABCDE-FGH2'), false);
+        assert.equal(NexusMfa.isValidRecoveryCode('ABCDI-FGH23'), false);
+        assert.equal(NexusMfa.isValidRecoveryCode('ABCD0-FGH23'), false);
+        assert.equal(NexusMfa.isValidRecoveryCode(''), false);
+    });
+
+    test('recover não chama o servidor com código mal formatado', async () => {
+        let called = false;
+        const client = { functions: { invoke: async () => ((called = true), {}) } };
+        const { error } = await NexusMfa.recover(client, '123');
+        assert.equal(error.status, 400);
+        assert.equal(called, false);
+    });
+
+    test('recover envia o código normalizado para a Edge Function mfa-recover', async () => {
+        const calls = [];
+        const client = { functions: { invoke: async (name, opts) => (calls.push([name, opts.body]), { error: null }) } };
+        const { error } = await NexusMfa.recover(client, 'abcde-fgh23');
+        assert.equal(error, null);
+        assert.deepEqual(calls, [['mfa-recover', { code: 'ABCDEFGH23' }]]);
+    });
+
+    test('recover devolve o status HTTP do erro (429 = muitas tentativas)', async () => {
+        const client = { functions: { invoke: async () => ({ error: { context: { status: 429 } } }) } };
+        const { error } = await NexusMfa.recover(client, 'ABCDE-FGH23');
+        assert.equal(error.status, 429);
+    });
+
+    test('generateRecoveryCodes e recoveryRemaining usam as RPCs do banco', async () => {
+        const rpcs = [];
+        const client = {
+            rpc: async (name) => {
+                rpcs.push(name);
+                return name === 'mfa_recovery_generate' ? { data: ['AAAAA-22222'], error: null } : { data: 7, error: null };
+            },
+        };
+        assert.deepEqual(await NexusMfa.generateRecoveryCodes(client), { codes: ['AAAAA-22222'], error: null });
+        assert.equal(await NexusMfa.recoveryRemaining(client), 7);
+        assert.deepEqual(rpcs, ['mfa_recovery_generate', 'mfa_recovery_remaining']);
+    });
+
+    test('erro ao gerar ou consultar não vira lista vazia silenciosa', async () => {
+        const client = { rpc: async () => ({ data: null, error: { message: 'aal1' } }) };
+        const gerado = await NexusMfa.generateRecoveryCodes(client);
+        assert.deepEqual(gerado.codes, []);
+        assert.ok(gerado.error);
+        assert.equal(await NexusMfa.recoveryRemaining(client), null);
+    });
+});

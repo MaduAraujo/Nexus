@@ -1,6 +1,4 @@
-// Molda o snapshot que vira contexto do assistente de IA do RH (ai-alerts) a partir das linhas já
-// buscadas do banco — sem chamada de rede aqui, só a transformação. `now` é injetável para os
-// cálculos de "há quantos dias" (waiting_days, days_at_company) darem resultado determinístico em teste.
+import { createPseudonymizer } from './pseudonymize.mjs';
 
 const DAY_MS = 86_400_000;
 const NEW_HIRE_WINDOW_DAYS = 90;
@@ -55,9 +53,30 @@ export function shapeSnapshot(today, rows, now = Date.now()) {
     };
 }
 
-// Janela usada para consultar time_records: de 7 dias atrás até hoje, no formato AAAA-MM-DD do Postgres.
 export function sevenDaysAgo(today = new Date()) {
     const d = new Date(today);
     d.setDate(d.getDate() - 7);
     return d.toISOString().split('T')[0];
+}
+
+export function pseudonymizeRows(rows) {
+    const { employees = [], pendingVacations = [], pendingAdjustments = [], burnoutAlerts = [], pendingDocs = [] } = rows;
+    const joined = [pendingVacations, pendingAdjustments, burnoutAlerts, pendingDocs];
+    const ps = createPseudonymizer([
+        ...employees.map((e) => ({ id: e.id, name: e.name })),
+        ...joined.flat().map((r) => ({ id: r.employee_id, name: r.employees?.name })),
+    ]);
+    const aliasJoin = (r) => ({ ...r, employees: { name: ps.aliasOf(r.employee_id) ?? 'N/A' } });
+
+    return {
+        ps,
+        rows: {
+            ...rows,
+            employees: employees.map((e) => ({ ...e, name: ps.aliasOf(e.id) })),
+            pendingVacations: pendingVacations.map(aliasJoin),
+            pendingAdjustments: pendingAdjustments.map(aliasJoin),
+            burnoutAlerts: burnoutAlerts.map(aliasJoin),
+            pendingDocs: pendingDocs.map(aliasJoin),
+        },
+    };
 }

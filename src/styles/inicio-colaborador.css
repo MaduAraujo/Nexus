@@ -1637,3 +1637,11 @@ body {
         forced-color-adjust: none;
     }
 }
+
+i.step-icon--current {
+    color: #f59e0b;
+}
+
+i.step-icon--done {
+    color: #10b981;
+}

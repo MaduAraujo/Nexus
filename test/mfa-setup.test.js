@@ -2,12 +2,6 @@ const { test, describe, before, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-// mfa-setup.js é a UI de ativação/desativação do MFA (window.NexusMfaSetup.mount), consumida tanto
-// pelo fluxo obrigatório do RH quanto pelo opcional do colaborador. Ela lê window.NexusMfa a cada
-// chamada de mount(), então cada teste troca esse mock para simular sucesso/erro sem depender do
-// Supabase real — o que importa aqui é a máquina de estados da tela (qual botão aparece, o que ele
-// dispara) e não a lib de MFA em si (isso já é coberto por mfa.test.js).
-
 let container;
 let client;
 let confirmCalls;
@@ -34,13 +28,25 @@ beforeEach(() => {
     navigator.clipboard = { writeText: async (text) => clipboardWrites.push(text) };
 });
 
+const RECOVERY_CODES = ['AAAAA-22222', 'BBBBB-33333'];
+
 function mount(mfaMock, opts = {}) {
-    global.window.NexusMfa = mfaMock;
+    global.window.NexusMfa = {
+        recoveryRemaining: async () => 10,
+        generateRecoveryCodes: async () => ({ codes: RECOVERY_CODES, error: null }),
+        ...mfaMock,
+    };
     return global.window.NexusMfaSetup.mount(container, { client, ...opts });
 }
 
 function text() {
     return container.textContent;
+}
+
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+function buttonNamed(label) {
+    return Array.from(container.querySelectorAll('button')).find((b) => b.textContent === label);
 }
 
 describe('status inicial', () => {
@@ -127,7 +133,7 @@ describe('ativação (enroll)', () => {
         assert.equal(confirmBtn.disabled, false, 'código de 6 dígitos deve habilitar o botão');
     });
 
-    test('confirmar com código certo: chama verify, avisa onChange e volta ao status (ativado)', async () => {
+    test('confirmar com código certo: chama verify, mostra os códigos de recuperação e só depois avisa onChange e volta ao status', async () => {
         const onChangeCalls = [];
         await mount(
             {
@@ -153,17 +159,54 @@ describe('ativação (enroll)', () => {
         input.value = '123456';
         input.dispatchEvent(new global.window.Event('input'));
 
-        // Trocamos listFactors depois do clique para simular que agora o fator já está verificado.
         global.window.NexusMfa.listFactors = async () => ({ verified: [{ id: 'f1' }] });
         Array.from(container.querySelectorAll('button'))
             .find((b) => b.textContent === 'Ativar')
             .click();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flush();
+
+        assert.match(text(), /Guarde estes códigos de recuperação/);
+        assert.deepEqual(
+            Array.from(container.querySelectorAll('.mfa-codes li')).map((li) => li.textContent),
+            RECOVERY_CODES
+        );
+        assert.deepEqual(onChangeCalls, [], 'a tela de códigos não pode sumir antes de a pessoa confirmar que guardou');
+
+        buttonNamed('Já guardei os códigos').click();
+        await flush();
 
         assert.deepEqual(onChangeCalls, [{ enabled: true }]);
         assert.match(text(), /Verificação em duas etapas ativada/);
+        assert.match(text(), /10 disponíveis/);
+    });
+
+    test('se gerar os códigos falhar depois de ativar, volta ao status com aviso (o MFA continua ativo)', async () => {
+        const onChangeCalls = [];
+        await mount(
+            {
+                listFactors: async () => ({ verified: [] }),
+                startEnroll: async () => ({ factorId: 'f1', qrCode: 'x', secret: 'ABCD1234' }),
+                isValidCode: () => true,
+                verify: async () => ({}),
+                generateRecoveryCodes: async () => ({ codes: [], error: new Error('aal1') }),
+                recoveryRemaining: async () => 0,
+            },
+            { onChange: (v) => onChangeCalls.push(v) }
+        );
+        buttonNamed('Ativar verificação em duas etapas').click();
+        await flush();
+        buttonNamed('Continuar').click();
+        const input = container.querySelector('input');
+        input.value = '123456';
+        input.dispatchEvent(new global.window.Event('input'));
+        global.window.NexusMfa.listFactors = async () => ({ verified: [{ id: 'f1' }] });
+        buttonNamed('Ativar').click();
+        await flush();
+
+        assert.deepEqual(onChangeCalls, [{ enabled: true }]);
+        assert.match(text(), /Não foi possível gerar os códigos de recuperação/);
+        assert.match(text(), /Verificação em duas etapas ativada/);
+        assert.match(text(), /Você não tem códigos de recuperação/);
     });
 
     test('confirmar com código errado: mostra erro, reabilita o botão e não fecha a tela', async () => {
@@ -190,7 +233,6 @@ describe('ativação (enroll)', () => {
 
         assert.match(text(), /Código inválido ou expirado/);
         assert.equal(confirmBtn.disabled, false);
-        // continua na tela de código, não voltou ao status
         assert.match(text(), /2\. Digite o código de 6 dígitos/);
     });
 
@@ -263,9 +305,7 @@ describe('desativação', () => {
             { onChange: (v) => onChangeCalls.push(v) }
         );
         container.querySelector('button').click();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flush();
 
         assert.deepEqual(onChangeCalls, [{ enabled: false }]);
         assert.match(text(), /Verificação em duas etapas desativada/);
@@ -280,9 +320,7 @@ describe('desativação', () => {
             { required: true }
         );
         container.querySelector('button').click();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flush();
 
         assert.match(confirmCalls[0], /precisará ativar de novo/);
         assert.match(text(), /Ative novamente para continuar usando o painel/);
@@ -294,11 +332,70 @@ describe('desativação', () => {
             disable: async () => ({ error: new Error('sessão sem AAL2') }),
         });
         container.querySelector('button').click();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flush();
 
         assert.match(text(), /Saia e entre novamente com o código/);
         assert.match(text(), /Verificação em duas etapas ativada/);
+    });
+});
+
+describe('códigos de recuperação', () => {
+    test('com fator ativo, mostra quantos códigos restam', async () => {
+        await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }), recoveryRemaining: async () => 1 });
+        assert.match(text(), /1 disponível\./);
+    });
+
+    test('sem códigos restantes, avisa em destaque', async () => {
+        await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }), recoveryRemaining: async () => 0 });
+        assert.ok(container.querySelector('.mfa-notice--error'));
+        assert.match(text(), /Você não tem códigos de recuperação/);
+    });
+
+    test('gerar novos pede confirmação, mostra os códigos e volta ao status', async () => {
+        let generated = 0;
+        await mount({
+            listFactors: async () => ({ verified: [{ id: 'f1' }] }),
+            generateRecoveryCodes: async () => {
+                generated++;
+                return { codes: RECOVERY_CODES, error: null };
+            },
+        });
+        buttonNamed('Gerar novos códigos').click();
+        await flush();
+
+        assert.match(confirmCalls[0], /Os códigos antigos param de funcionar/);
+        assert.equal(generated, 1);
+        assert.match(text(), /AAAAA-22222/);
+
+        buttonNamed('Já guardei os códigos').click();
+        await flush();
+        assert.match(text(), /Verificação em duas etapas ativada/);
+    });
+
+    test('gerar novos cancelado na confirmação não gera nada', async () => {
+        global.window.confirm = () => false;
+        let generated = 0;
+        await mount({
+            listFactors: async () => ({ verified: [{ id: 'f1' }] }),
+            generateRecoveryCodes: async () => {
+                generated++;
+                return { codes: RECOVERY_CODES, error: null };
+            },
+        });
+        buttonNamed('Gerar novos códigos').click();
+        await flush();
+        assert.equal(generated, 0);
+    });
+
+    test('copiar grava todos os códigos no clipboard', async () => {
+        await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }) });
+        buttonNamed('Gerar novos códigos').click();
+        await flush();
+        buttonNamed('Copiar').click();
+        await flush();
+
+        assert.equal(clipboardWrites.length, 1);
+        for (const code of RECOVERY_CODES) assert.ok(clipboardWrites[0].includes(code));
+        assert.ok(buttonNamed('Copiado!'));
     });
 });

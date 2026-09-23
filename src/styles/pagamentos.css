@@ -387,7 +387,6 @@ ul {
     max-width: calc(100vw - 32px);
     box-shadow: var(--shadow-lg);
     transform-origin: top left;
-    /* Fechado não ocupa área rolável dentro do modal */
     max-height: 0;
     overflow: hidden;
     padding-top: 0;
@@ -447,7 +446,6 @@ ul {
     border: 1px solid var(--border);
     border-radius: 16px;
     box-shadow: var(--shadow-lg);
-    /* Fechado não ocupa área rolável dentro do modal */
     padding: 0 8px;
     border-width: 0;
     z-index: 950;
@@ -2667,4 +2665,37 @@ select.form-input {
     .slip-table td {
         font-size: 0.76rem;
     }
+}
+
+.main-wrapper.main-wrapper--full {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+.ct-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.ct-label.ct-label--sm {
+    font-size: 0.68rem;
+}
+
+.slip-table td.td-ref {
+    color: var(--text-secondary);
+}
+
+.slip-table td.td-val.td-val--neg {
+    color: var(--danger);
+}
+
+.slip-table td.td-empty {
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 14px;
+}
+
+.slip-table th.th-num {
+    text-align: right;
 }

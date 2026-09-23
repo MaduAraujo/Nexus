@@ -4308,3 +4308,15 @@ ul {
         display: none;
     }
 }
+
+.main-wrapper.main-wrapper--full {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+#dynamic-status-options .status-locked-note {
+    padding: 10px 16px;
+    font-size: 12px;
+    color: #999;
+    margin: 0;
+}

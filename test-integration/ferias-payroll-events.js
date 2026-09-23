@@ -149,8 +149,8 @@ describe('revert_ferias_payroll_event', () => {
 });
 
 describe('sync_medical_leave_statuses — só reverte pelo atestado que causou o afastamento (migration 079)', () => {
-    const ML_OLD = '00000000-0000-4000-c000-00000000f701'; // atestado antigo, não relacionado, já vencido
-    const ML_CURRENT = '00000000-0000-4000-c000-00000000f702'; // atestado que realmente causou o afastamento
+    const ML_OLD = '00000000-0000-4000-c000-00000000f701';
+    const ML_CURRENT = '00000000-0000-4000-c000-00000000f702';
 
     afterEach(async () => {
         await withServiceRole(async (db) => {

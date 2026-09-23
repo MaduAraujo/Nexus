@@ -359,9 +359,7 @@ function buildFolhaRow(r) {
 
     const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
-    const ctBadge = calc.isPJ
-        ? `<span class="badge badge--pj">PJ</span>`
-        : `<span style="font-size:.78rem;color:var(--text-secondary);font-weight:600">${ct}</span>`;
+    const ctBadge = calc.isPJ ? `<span class="badge badge--pj">PJ</span>` : `<span class="ct-label">${ct}</span>`;
 
     const isSelected = selectedIds.has(emp.id);
 
@@ -386,9 +384,7 @@ function buildFolhaCard(r) {
 
     const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
 
-    const ctBadge = calc.isPJ
-        ? `<span class="badge badge--pj">PJ</span>`
-        : `<span style="font-size:.68rem;color:var(--text-secondary);font-weight:600">${ct}</span>`;
+    const ctBadge = calc.isPJ ? `<span class="badge badge--pj">PJ</span>` : `<span class="ct-label ct-label--sm">${ct}</span>`;
 
     const isSelected = selectedIds.has(emp.id);
 
@@ -697,7 +693,7 @@ function renderSlipModal(emp, slip) {
                 `<tr>
             <td>${p.cod}</td>
             <td>${escHtml(p.descricao)}</td>
-            <td style="color:var(--text-secondary)">${escapeHtml(p.referencia)}</td>
+            <td class="td-ref">${escapeHtml(p.referencia)}</td>
             <td class="td-val">${fmtCurrency(p.valor)}</td>
         </tr>`
         )
@@ -709,8 +705,8 @@ function renderSlipModal(emp, slip) {
                 `<tr>
             <td>${d.cod}</td>
             <td>${escHtml(d.descricao)}</td>
-            <td style="color:var(--text-secondary)">${escapeHtml(d.referencia)}</td>
-            <td class="td-val" style="color:var(--danger)">${fmtCurrency(d.valor)}</td>
+            <td class="td-ref">${escapeHtml(d.referencia)}</td>
+            <td class="td-val td-val--neg">${fmtCurrency(d.valor)}</td>
         </tr>`
         )
         .join('');
@@ -740,7 +736,7 @@ function renderSlipModal(emp, slip) {
     <div class="slip-table-wrap">
     <table class="slip-table">
         <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th>Valor (R$)</th></tr></thead>
-        <tbody>${provRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum provento</td></tr>'}</tbody>
+        <tbody>${provRows || '<tr><td colspan="4" class="td-empty">Nenhum provento</td></tr>'}</tbody>
     </table>
     </div>
 
@@ -748,7 +744,7 @@ function renderSlipModal(emp, slip) {
     <div class="slip-table-wrap">
     <table class="slip-table">
         <thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th>Valor (R$)</th></tr></thead>
-        <tbody>${descRows || '<tr><td colspan="4" style="color:var(--text-tertiary);text-align:center;padding:14px">Nenhum desconto</td></tr>'}</tbody>
+        <tbody>${descRows || '<tr><td colspan="4" class="td-empty">Nenhum desconto</td></tr>'}</tbody>
     </table>
     </div>
 
@@ -1301,7 +1297,7 @@ window.confirmarDesligamento = async function () {
         const fileName = `rescisao_${emp.name.replace(/\s+/g, '_')}.pdf`;
         const storagePath = `rh/${Date.now()}_${fileName}`;
 
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, blob, { contentType: 'application/pdf' });
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, blob, { contentType: 'application/pdf', employeeId: emp.id });
         if (uploadError) {
             showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning');
         } else {
@@ -1360,19 +1356,14 @@ function renderRescisaoResult(r) {
     if (!el) return;
 
     const rows = (itens) =>
-        itens
-            .map(
-                (v) =>
-                    `<tr><td>${escHtml(v.descricao)}</td><td style="color:var(--text-secondary)">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`
-            )
-            .join('');
+        itens.map((v) => `<tr><td>${escHtml(v.descricao)}</td><td class="td-ref">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`).join('');
 
     const encargosSection = r.encargos.length
         ? `
         <p class="slip-section-title">Encargos da Empresa</p>
         <div class="slip-table-wrap">
         <table class="slip-table">
-            <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+            <thead><tr><th>Descrição</th><th>Referência</th><th class="th-num">Valor (R$)</th></tr></thead>
             <tbody>${rows(r.encargos)}</tbody>
         </table>
         </div>`
@@ -1382,7 +1373,7 @@ function renderRescisaoResult(r) {
         <p class="slip-section-title">Verbas Rescisórias</p>
         <div class="slip-table-wrap">
         <table class="slip-table">
-            <thead><tr><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
+            <thead><tr><th>Descrição</th><th>Referência</th><th class="th-num">Valor (R$)</th></tr></thead>
             <tbody>${rows(r.verbas)}</tbody>
         </table>
         </div>
@@ -1620,14 +1611,13 @@ window.printCurrentSlip = function () {
     const isPago = slip.status === 'pago';
     const provRows = (slip.proventos || [])
         .map(
-            (p) =>
-                `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${escapeHtml(p.referencia)}</td><td style="text-align:right;font-weight:700">${fmtCurrency(p.valor)}</td></tr>`
+            (p) => `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${escapeHtml(p.referencia)}</td><td class="num">${fmtCurrency(p.valor)}</td></tr>`
         )
         .join('');
     const descRows = (slip.descontos || [])
         .map(
             (d) =>
-                `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${escapeHtml(d.referencia)}</td><td style="text-align:right;font-weight:700;color:#b91c1c">${fmtCurrency(d.valor)}</td></tr>`
+                `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${escapeHtml(d.referencia)}</td><td class="num neg">${fmtCurrency(d.valor)}</td></tr>`
         )
         .join('');
 
@@ -1656,11 +1646,11 @@ window.printCurrentSlip = function () {
             ${isPago ? `<div class="stamp">✓ PAGAMENTO EFETUADO</div>` : ''}
         </div>
         <div class="section-title">Proventos</div>
-        <table><thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
-        <tbody>${provRows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:12px">Nenhum provento</td></tr>'}</tbody></table>
+        <table><thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th class="num">Valor (R$)</th></tr></thead>
+        <tbody>${provRows || '<tr><td colspan="4" class="empty">Nenhum provento</td></tr>'}</tbody></table>
         <div class="section-title">Descontos</div>
-        <table><thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th style="text-align:right">Valor (R$)</th></tr></thead>
-        <tbody>${descRows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:12px">Nenhum desconto</td></tr>'}</tbody></table>
+        <table><thead><tr><th>Cód</th><th>Descrição</th><th>Referência</th><th class="num">Valor (R$)</th></tr></thead>
+        <tbody>${descRows || '<tr><td colspan="4" class="empty">Nenhum desconto</td></tr>'}</tbody></table>
         <div class="totals">
             <div class="total-box blue"><div class="total-label">Total Proventos</div><div class="total-value">${fmtCurrency(slip.total_proventos)}</div></div>
             <div class="total-box red"><div class="total-label">Total Descontos</div><div class="total-value">${fmtCurrency(slip.total_descontos)}</div></div>
@@ -2110,8 +2100,8 @@ function nameToColor(name) {
 }
 
 function empAvatarHtml(emp, ini, color) {
-    if (emp.avatarUrl) return `<div class="emp-avatar" style="background-image:url('${escapeHtml(emp.avatarUrl)}')"></div>`;
-    return `<div class="emp-avatar" style="background:${color}">${ini}</div>`;
+    if (emp.avatarUrl) return `<div class="emp-avatar" data-bg-img="${escapeHtml(emp.avatarUrl)}"></div>`;
+    return `<div class="emp-avatar" data-bg="${escHtml(color)}">${ini}</div>`;
 }
 
 function escHtml(str) {

@@ -46,7 +46,6 @@ serve(async (req) => {
     if (profile?.profile !== "Administrador") return json({ error: "Acesso restrito ao Administrador" }, 403);
     if (!mfaSatisfied(user, authHeader, true)) return json({ error: MFA_REQUIRED_MESSAGE }, 403);
 
-    // Direito à desconexão: fora do horário comercial não há push; o aviso continua na tela inicial do colaborador.
     if (!isBusinessHours(new Date(), QUIET_HOURS)) return json({ sent: 0, skipped: "fora_do_horario" });
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);

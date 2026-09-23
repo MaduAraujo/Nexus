@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
-import { shapeSnapshot, sevenDaysAgo } from "../_shared/ai-alerts-snapshot.mjs";
+import { shapeSnapshot, sevenDaysAgo, pseudonymizeRows } from "../_shared/ai-alerts-snapshot.mjs";
+import { createSseUnmaskStream } from "../_shared/pseudonymize.mjs";
 
 async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: ReturnType<typeof createClient>, today: string) {
   const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
@@ -15,7 +16,7 @@ async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: Re
     caller.from("ai_decision_memory_decrypted").select("action_type,description,created_at").order("created_at", { ascending: false }).limit(10),
   ]);
 
-  return shapeSnapshot(today, {
+  const { ps, rows } = pseudonymizeRows({
     employees: r1.data ?? [],
     pendingVacations: r2.data ?? [],
     pendingAdjustments: r3.data ?? [],
@@ -24,6 +25,7 @@ async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: Re
     recentRecords: r6.data ?? [],
     decisions: r7.data ?? [],
   });
+  return { ps, snapshot: ps.maskDeep(shapeSnapshot(today, rows)) };
 }
 
 function buildSystem(snapshot: object, today: string): string {
@@ -32,10 +34,12 @@ function buildSystem(snapshot: object, today: string): string {
 DADOS DO SISTEMA (${today}):
 ${JSON.stringify(snapshot, null, 2)}
 
+PRIVACIDADE: os colaboradores aparecem por pseudônimos no formato [P1], [P2]... Ao se referir a alguém, escreva o pseudônimo exatamente assim, com os colchetes — o sistema troca pelo nome real antes de mostrar ao usuário. Nunca tente adivinhar ou inventar nomes.
+
 INSTRUÇÕES:
 1. CORRELAÇÕES CRUZADAS: Quando um colaborador aparece em múltiplas categorias (burnout + ausência + ajuste pendente), destaque o padrão convergente — isso é sinal de risco crítico, não casos isolados.
 2. PADRÕES DE EQUIPE: Se vários colaboradores do mesmo departamento têm problemas similares, sinalize como problema sistêmico de gestão.
-3. PERFIS NARRATIVOS: Para perguntas como "Como está o João?" ou "Como está o time de TI?", escreva uma análise completa com situação atual, padrões detectados e recomendações concretas.
+3. PERFIS NARRATIVOS: Para perguntas como "Como está o [P3]?" ou "Como está o time de TI?", escreva uma análise completa com situação atual, padrões detectados e recomendações concretas.
 4. AÇÕES DIRETAS: Quando o usuário pedir para executar algo (aprovar, recusar, marcar como lido), responda APENAS com este formato — sem nenhum texto adicional:
 ACTION:{"type":"approve_vacation|reject_vacation|approve_adjustment|reject_adjustment|mark_burnout_read","ids":["uuid1"],"message":"Descrição clara da ação para confirmação do usuário"}
 5. MEMÓRIA: Use as decisões recentes do snapshot para contextualizar respostas e evitar repetições.
@@ -78,7 +82,7 @@ serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const today = new Date().toISOString().split("T")[0];
-    const snapshot = await gatherSnapshot(admin, caller, today);
+    const { ps, snapshot } = await gatherSnapshot(admin, caller, today);
     const system = buildSystem(snapshot, today);
 
     let messages: { role: string; content: string }[];
@@ -87,7 +91,7 @@ serve(async (req) => {
       messages = [{
         role: "user",
         content: `Analise os dados e retorne APENAS um JSON válido (sem markdown) com esta estrutura exata:
-{"summary":"resumo de 1-2 frases","alerts":[{"severity":"critical|warning|info","category":"aprovacao|burnout|ausencia|documentos|admissao|geral","title":"título curto","description":"descrição com correlações cruzadas quando existirem","employees":["Nome"],"action":"ação sugerida"}]}
+{"summary":"resumo de 1-2 frases","alerts":[{"severity":"critical|warning|info","category":"aprovacao|burnout|ausencia|documentos|admissao|geral","title":"título curto","description":"descrição com correlações cruzadas quando existirem","employees":["[P1]"],"action":"ação sugerida"}]}
 Ordene por urgência. Destaque padrões convergentes no mesmo colaborador ou departamento.`,
       }];
     } else if (action === "report") {
@@ -113,7 +117,10 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
       return json({ error: "action inválido" }, 400);
     }
 
-    const groqMessages = [{ role: "system", content: system }, ...messages];
+    const groqMessages = [
+      { role: "system", content: system },
+      ...messages.map((m) => ({ role: m.role, content: ps.mask(String(m.content ?? "")) })),
+    ];
 
     if (action === "chat") {
       const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -122,7 +129,7 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
         body: JSON.stringify({ model: "openai/gpt-oss-120b", max_tokens: 2048, messages: groqMessages, stream: true }),
       });
       if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
-      return new Response(groqResp.body, {
+      return new Response(groqResp.body!.pipeThrough(createSseUnmaskStream(ps.unmask)), {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
       });
     }
@@ -134,7 +141,7 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
     });
     if (!groqResp.ok) throw new Error(`Groq API ${groqResp.status}: ${await groqResp.text()}`);
 
-    const text = (await groqResp.json()).choices[0].message.content;
+    const text = ps.unmask((await groqResp.json()).choices[0].message.content, { jsonSafe: action === "analyze" });
     return json({ content: text, history: [...messages, { role: "assistant", content: text }] });
 
   } catch (e) {

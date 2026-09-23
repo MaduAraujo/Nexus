@@ -11,6 +11,7 @@
     <script src="../javascript/shared/theme.js"></script>
     <title>Registrar Ponto</title>
     <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="../styles/dynamic-style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="../styles/ponto-colaborador.css">
@@ -129,21 +130,21 @@
                 </div>
 
                 <div id="section-solicitacoes" class="hidden">
-                    <div class="section-header-row" style="margin-bottom:12px">
+                    <div class="section-header-row section-header-row--spaced">
                         <h2 class="section-title"><i class="fas fa-hourglass-half"></i> Ajustes Pendentes</h2>
                     </div>
                     <div class="solicitacoes-list" id="solicitacoes-list"></div>
                 </div>
 
                 <div id="section-team-approvals" class="hidden">
-                    <div class="section-header-row" style="margin-bottom:12px">
+                    <div class="section-header-row section-header-row--spaced">
                         <h2 class="section-title"><i class="fas fa-user-check"></i> Aprovações da Equipe</h2>
                     </div>
                     <div class="solicitacoes-list" id="team-approvals-list"></div>
                 </div>
 
                 <div id="section-bank-requests">
-                    <div class="section-header-row" style="margin-bottom:12px">
+                    <div class="section-header-row section-header-row--spaced">
                         <h2 class="section-title">Minhas Solicitações</h2>
                     </div>
                     <div class="solicitacoes-list" id="bank-requests-list"></div>
@@ -559,8 +560,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js" integrity="sha384-M5nePoB6/w/a9JhtegEibSLGiJy/+QMZZMfvcxjWVCQW/HPwrQ7i21V/Px/8AyVA" crossorigin="anonymous"></script>
 <script src="../javascript/shared/events.js"></script>
+<script src="../javascript/shared/dynamic-style.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/e2e-crypto.js"></script>
+<script src="../javascript/shared/e2e-ui.js"></script>
+<script src="../javascript/shared/e2e.js"></script>
 <script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/shared/files.js"></script>

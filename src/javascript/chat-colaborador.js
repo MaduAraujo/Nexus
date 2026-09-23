@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentChannelId = null;
     let currentTicketId = null;
     let currentDm = null;
+    let e2eReady = false;
     let isEscalated = false;
     let activeChatSub = null;
     let activeTicketSub = null;
@@ -159,10 +160,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         pill.style.display = currentChannelId && !currentDm ? 'flex' : 'none';
     }
 
-    function avatarStyle(e) {
-        if (!e) return `style="background:#6366f1"`;
-        if (e.avatar_url) return `style="background:url(${e.avatar_url}) center/cover"`;
-        return `style="background:${e.avatar_color || '#6366f1'}"`;
+    function avatarAttrs(e) {
+        if (!e) return `data-bg="#6366f1"`;
+        if (e.avatar_url) return `data-bg-img="${esc(e.avatar_url)}"`;
+        return `data-bg="${esc(e.avatar_color || '#6366f1')}"`;
     }
 
     let allChannels = [];
@@ -241,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.innerHTML = `
             <span class="ch-icon"><i class="fas ${faIcon}"></i></span>
             <span class="ch-name">${esc(channel.name)}</span>
-            ${unread > 0 ? `<span class="ch-badge" id="badge-${channel.id}">${unread}</span>` : `<span class="ch-badge" id="badge-${channel.id}" style="display:none">${unread}</span>`}
+            ${unread > 0 ? `<span class="ch-badge" id="badge-${channel.id}">${unread}</span>` : `<span class="ch-badge" id="badge-${channel.id}" data-hide>${unread}</span>`}
         `;
 
         li.addEventListener('click', () => selectChannel(channel, isMember));
@@ -308,6 +309,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `Conversa privada — somente você e ${channel.name.split(' ')[0]} veem estas mensagens`
                 : 'Ambiente corporativo — comunicações monitoradas conforme política de compliance';
         }
+        e2eReady = false;
+        const ready = await NexusE2E.channelReady(channel.id, { isDm }).catch(() => false);
+        if (currentChannelId === channel.id) e2eReady = ready;
+        if (hintText && currentChannelId === channel.id) {
+            const peerName = channel.name.split(' ')[0];
+            if (isDm) {
+                hintText.textContent = e2eReady
+                    ? `Cifrada de ponta a ponta — só você e ${peerName} conseguem ler, nem o servidor`
+                    : `Conversa privada — a criptografia de ponta a ponta começa quando ${peerName} entrar no sistema`;
+            } else if (e2eReady) {
+                if (hintIcon) hintIcon.className = 'fas fa-lock';
+                hintText.textContent = 'Cifrada de ponta a ponta — só os membros do canal e o RH (compliance) conseguem ler, nem o servidor';
+            }
+        }
 
         showChatArea();
 
@@ -322,7 +337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadMessages(channelId) {
         const list = $('messages-list');
         if (!list) return;
-        list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
+        list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: msgs } = await sb
             .from('chat_messages_decrypted')
@@ -331,9 +346,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             .order('created_at', { ascending: true })
             .limit(80);
 
+        const revealed = await Promise.all((msgs || []).map(revealMessage));
+        if (currentChannelId !== channelId) return;
         list.innerHTML = '';
-        (msgs || []).forEach((m) => appendMessage(m, false));
+        revealed.forEach((m) => appendMessage(m, false));
         scrollBottom('messages-scroll');
+    }
+
+    async function revealMessage(msg) {
+        if (!NexusE2E.isEncryptedMessage(msg.content)) return msg;
+        const text = await NexusE2E.decryptMessage(msg.content, { channelId: msg.channel_id, senderId: msg.employee_id }).catch(() => null);
+        if (text === null) return { ...msg, content: 'Mensagem cifrada de ponta a ponta que não abre com as chaves deste acesso.', locked: true };
+        return { ...msg, content: text, e2e: true };
     }
 
     function appendMessage(msg, doScroll = true) {
@@ -348,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const avatarStr = mine
             ? ''
             : `
-            <div class="msg-avatar" ${avatarStyle(e)} title="${esc(e.name)}">
+            <div class="msg-avatar" ${avatarAttrs(e)} title="${esc(e.name)}">
                 ${e.avatar_url ? '' : esc(initials(e.name))}
             </div>`;
 
@@ -357,8 +381,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${avatarStr}
                 <div class="msg-content-wrap">
                     ${!mine ? `<div class="msg-header"><span class="msg-author">${esc(e.name)}</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
-                    <div class="msg-bubble">${esc(msg.content)}</div>
-                    ${mine ? `<div class="msg-header" style="justify-content:flex-end"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    <div class="msg-bubble${msg.locked ? ' msg-bubble--locked' : ''}"${msg.e2e ? ' title="Cifrada de ponta a ponta"' : ''}>${esc(msg.content)}</div>
+                    ${mine ? `<div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
                 </div>
             </div>`;
 
@@ -385,7 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const { data: decrypted } = await sb.from('chat_messages_decrypted').select('*').eq('id', msg.id).single();
                     if (!decrypted) return;
-                    appendMessage(decrypted);
+                    appendMessage(await revealMessage(decrypted));
 
                     if (currentChannelId !== channelId) {
                         unreadCounts[channelId] = (unreadCounts[channelId] || 0) + 1;
@@ -458,12 +482,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatSendBtn.disabled = true;
         autoResize(chatInput);
 
+        const sealed = e2eReady
+            ? await NexusE2E.encryptMessage(text, { channelId: currentChannelId, myEmployeeId, isDm: Boolean(currentDm) }).catch(() => null)
+            : null;
+        if (e2eReady && !sealed) {
+            chatInput.value = text;
+            chatSendBtn.disabled = false;
+            showToast('Não foi possível cifrar a mensagem. Tente de novo.', 'error');
+            return;
+        }
+
         const { data: msg, error } = await sb
             .from('chat_messages')
             .insert({
                 channel_id: currentChannelId,
                 employee_id: myEmployeeId,
-                content: text,
+                content: sealed || text,
             })
             .select()
             .single();
@@ -473,7 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        appendMessage({ ...msg, content: text, employees: myEmployee });
+        appendMessage({ ...msg, content: text, employees: myEmployee, e2e: Boolean(sealed) });
     }
 
     function updateChannelBadge(channelId) {
@@ -490,7 +524,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let dmStarting = false;
 
     const dmAvatar = (person, cls = '') =>
-        `<span class="dm-avatar ${cls}" ${avatarStyle(person)}>${person?.avatar_url ? '' : esc(initials(person?.name))}</span>`;
+        `<span class="dm-avatar ${cls}" ${avatarAttrs(person)}>${person?.avatar_url ? '' : esc(initials(person?.name))}</span>`;
 
     const sortDms = () => dms.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
@@ -550,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.innerHTML = `
             <span class="dm-avatar-wrap">${dmAvatar(dm.other)}</span>
             <span class="ch-name">${esc(dm.name)}</span>
-            <span class="ch-badge" id="badge-${dm.id}" style="display:${unread > 0 ? 'flex' : 'none'}">${unread}</span>`;
+            <span class="ch-badge${unread > 0 ? ' ch-badge--flex' : ''}" id="badge-${dm.id}" ${unread > 0 ? '' : 'data-hide'}>${unread}</span>`;
 
         li.addEventListener('click', () => selectChannel(dm, true));
         return li;
@@ -678,8 +712,7 @@ Com o que posso te ajudar hoje?`;
         list.innerHTML = '';
 
         if (!allTickets.length) {
-            list.innerHTML =
-                '<li class="ch-loading" style="flex-direction:column;align-items:flex-start;gap:4px;"><span style="color:rgba(156,163,175,.9)">Nenhuma conversa ainda</span></li>';
+            list.innerHTML = '<li class="ch-loading ch-loading--empty"><span class="ch-empty-text">Nenhuma conversa ainda</span></li>';
             return;
         }
 
@@ -816,7 +849,7 @@ Com o que posso te ajudar hoje?`;
             li.classList.toggle('active', li.dataset.ticketId === ticket.id);
         });
 
-        setTopbarChannel('<i class="fas fa-headset" style="color:var(--accent-hr)"></i>', 'Agente RH');
+        setTopbarChannel('<i class="fas fa-headset icon-accent-hr"></i>', 'Agente RH');
 
         const areaName = $('hr-area-name');
         const areaStatus = $('hr-area-status');
@@ -880,7 +913,7 @@ Com o que posso te ajudar hoje?`;
         const idx = allTickets.findIndex((t) => t.id === ticketId);
         if (idx !== -1) allTickets[idx] = { ...allTickets[idx], csat_rating: rating };
 
-        wrapEl.innerHTML = `<span class="csat-thanks"><i class="fas fa-circle-check" style="color:var(--success)"></i> Obrigado pela avaliação!</span>`;
+        wrapEl.innerHTML = `<span class="csat-thanks"><i class="fas fa-circle-check icon-success"></i> Obrigado pela avaliação!</span>`;
         showToast('Avaliação enviada, obrigado!', 'success');
     }
 
@@ -900,7 +933,7 @@ Com o que posso te ajudar hoje?`;
     async function loadTicketMessages(ticketId) {
         const list = $('hr-messages-list');
         if (!list) return;
-        list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary);font-size:.82rem;"><i class="fas fa-spinner fa-spin"></i></div>`;
+        list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: msgs } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
 
@@ -920,7 +953,7 @@ Com o que posso te ajudar hoje?`;
                 <div class="msg-row">
                     <div class="msg-content-wrap">
                         <div class="msg-bubble">${esc(msg.content)}</div>
-                        <div class="msg-header" style="justify-content:flex-end"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
+                        <div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                     </div>
                 </div>`;
             list.appendChild(group);
@@ -931,8 +964,8 @@ Com o que posso te ajudar hoje?`;
             group.className = 'msg-group is-rh is-other';
             group.innerHTML = `
                 <div class="msg-row">
-                    <div class="msg-avatar" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff" title="Analista RH">
-                        <i class="fas fa-user-tie" style="font-size:.7rem"></i>
+                    <div class="msg-avatar msg-avatar--analyst" title="Analista RH">
+                        <i class="fas fa-user-tie analyst-icon"></i>
                     </div>
                     <div class="msg-content-wrap">
                         <div class="msg-header"><span class="msg-author">Analista RH</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
@@ -971,10 +1004,10 @@ Com o que posso te ajudar hoje?`;
         group.innerHTML = `
             <div class="msg-row">
                 <div class="msg-avatar bot-avatar" title="Agente RH">
-                    <i class="fas fa-robot" style="font-size:.72rem"></i>
+                    <i class="fas fa-robot agent-icon"></i>
                 </div>
                 <div class="msg-content-wrap">
-                    <div class="msg-header"><span class="msg-author" style="color:var(--accent-hr)">Agente RH</span><span class="msg-time">${fmtTime(now)}</span></div>
+                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span><span class="msg-time">${fmtTime(now)}</span></div>
                     <div class="msg-bubble">${formattedContent}</div>
                     ${qrHtml}
                 </div>
@@ -1063,10 +1096,10 @@ Com o que posso te ajudar hoje?`;
         group.innerHTML = `
             <div class="msg-row">
                 <div class="msg-avatar bot-avatar" title="Agente RH">
-                    <i class="fas fa-robot" style="font-size:.72rem"></i>
+                    <i class="fas fa-robot agent-icon"></i>
                 </div>
                 <div class="msg-content-wrap">
-                    <div class="msg-header"><span class="msg-author" style="color:var(--accent-hr)">Agente RH</span><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
+                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
                     <div class="msg-bubble" id="${bubbleId}"><span class="stream-cursor"></span></div>
                 </div>
             </div>`;
@@ -1284,7 +1317,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
         const wall = $('kudos-wall');
         if (!wall) return;
         if (!allKudos.length) {
-            wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award" style="font-size:1.6rem;opacity:.4;display:block;margin-bottom:8px"></i>Nenhum reconhecimento ainda.</div>`;
+            wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award kudos-empty-icon"></i>Nenhum reconhecimento ainda.</div>`;
             return;
         }
         wall.innerHTML = allKudos

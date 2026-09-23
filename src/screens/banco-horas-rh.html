@@ -11,6 +11,7 @@
     <script src="../javascript/shared/theme.js"></script>
     <title>Gestão de Horas</title>
     <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="../styles/dynamic-style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/banco-horas-rh.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
@@ -19,7 +20,7 @@
 </head>
 <body>
 <div class="layout">
-    <div class="main-wrapper" style="margin-left:0;width:100%">
+    <div class="main-wrapper main-wrapper--full">
         <header class="topbar">
             <div class="topbar-left">
                 <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
@@ -396,7 +397,7 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label" for="adjust-just">Justificativa <span style="color:#ef4444">*</span></label>
+                <label class="form-label" for="adjust-just">Justificativa <span class="required-mark">*</span></label>
                 <textarea id="adjust-just" class="form-textarea" rows="2" data-input="updateAdjustSubmitState"></textarea>
             </div>
             <div class="modal-alert" id="adjust-alert"></div>
@@ -488,7 +489,7 @@
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label">Motivo da rejeição <span style="color:#ef4444">*</span></label>
+                <label class="form-label">Motivo da rejeição <span class="required-mark">*</span></label>
                 <textarea id="reject-request-obs" class="form-textarea" rows="3" placeholder="Explique por que esta solicitação está sendo rejeitada..."></textarea>
             </div>
             <div class="modal-alert" id="reject-request-alert"></div>
@@ -551,8 +552,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="../javascript/shared/events.js"></script>
+<script src="../javascript/shared/dynamic-style.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/e2e-crypto.js"></script>
+<script src="../javascript/shared/e2e-ui.js"></script>
+<script src="../javascript/shared/e2e.js"></script>
 <script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/shared/files.js"></script>

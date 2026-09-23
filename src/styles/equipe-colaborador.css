@@ -1281,3 +1281,13 @@ body {
         width: 100%;
     }
 }
+
+.team-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.team-section-body {
+    margin-top: 12px;
+}

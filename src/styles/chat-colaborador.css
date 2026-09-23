@@ -1610,3 +1610,65 @@ body {
         padding: 8px 10px;
     }
 }
+
+.ch-badge.ch-badge--flex {
+    display: flex;
+}
+
+.list-loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-tertiary);
+    font-size: 0.82rem;
+}
+
+.msg-header.msg-header--mine {
+    justify-content: flex-end;
+}
+
+.ch-loading.ch-loading--empty {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.ch-empty-text {
+    color: rgba(156, 163, 175, 0.9);
+}
+
+i.icon-accent-hr {
+    color: var(--accent-hr);
+}
+
+i.icon-success {
+    color: var(--success);
+}
+
+.msg-avatar.msg-avatar--analyst {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+}
+
+i.analyst-icon {
+    font-size: 0.7rem;
+}
+
+i.agent-icon {
+    font-size: 0.72rem;
+}
+
+.msg-author.msg-author--agent {
+    color: var(--accent-hr);
+}
+
+i.kudos-empty-icon {
+    font-size: 1.6rem;
+    opacity: 0.4;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.msg-bubble.msg-bubble--locked {
+    font-style: italic;
+    opacity: 0.7;
+}

@@ -2,10 +2,6 @@ const { test, describe, before, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMockSupabase } = require('../test-support/mock-supabase');
 
-// equipe-colaborador.js é a tela do gestor (colaborador com subordinados): aprovar/recusar férias do
-// time, ver saldo de banco de horas de cada um e escalar um caso ao RH. Já tinha estado e funções no
-// escopo do módulo (fora do DOMContentLoaded), então só precisou ganhar module.exports — sem mudar
-// comportamento — para o teste chamar loadTeam/approveVacation/etc. diretamente.
 let equipe;
 
 before(() => {
@@ -16,9 +12,6 @@ before(() => {
 
 beforeEach(() => {
     equipe.__setStateForTest({ myEmployeeId: 'gestor1', myEmployee: { id: 'gestor1', name: 'Gestora', email: 'g@nexus.test' } });
-    // Os testes de sucesso não tocam mais o DOM além de checagens `?.`/`if (!x) return` já seguras
-    // contra elemento ausente. Só as poucas telas de erro assumem o elemento existir — esses testes
-    // sobrescrevem getElementById pontualmente e este reset evita que a troca vaze para o próximo teste.
     global.document.getElementById = () => null;
 });
 
@@ -67,7 +60,7 @@ describe('calcWorkedMinEquipe (minutos trabalhados em um registro de ponto)', ()
             retorno_almoco: '2026-06-01T13:00:00',
             saida: '2026-06-01T17:00:00',
         };
-        assert.equal(equipe.calcWorkedMinEquipe(rec), 480); // 4h manhã + 4h tarde
+        assert.equal(equipe.calcWorkedMinEquipe(rec), 480);
     });
 
     test('saiu para o almoço mas ainda não voltou: só conta a manhã', () => {
@@ -157,9 +150,7 @@ describe('loadTeamBalances', () => {
         global.sb = createMockSupabase({
             team_roster: [{ id: 'e1', name: 'CLT 40h', manager_id: 'gestor1', contract_type: 'clt', work_load: '40h' }],
             vacations: [],
-            // Jornada esperada: 480min. Trabalhou 540min (9h) nesse dia -> +60 de saldo.
             time_records: [{ employee_id: 'e1', date: day, entrada: `${day}T08:00:00`, saida: `${day}T17:00:00` }],
-            // Ajuste manual: crédito de 30min, débito de 10min -> líquido +20.
             bank_adjustments: [
                 { employee_id: 'e1', date: day, tipo: 'credito', minutos: 30, deleted_at: null },
                 { employee_id: 'e1', date: day, tipo: 'debito', minutos: 10, deleted_at: null },

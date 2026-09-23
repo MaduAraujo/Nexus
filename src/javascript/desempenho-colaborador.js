@@ -550,7 +550,7 @@ window.selfReportLeave = async function () {
     let storagePath = null;
     if (file) {
         storagePath = `${myEmployeeId}/atestados/${Date.now()}_${NexusFiles.safeName(file.name)}`;
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type });
+        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type, employeeId: myEmployeeId });
         if (uploadError) {
             showToast('Não foi possível enviar o anexo.', 'error');
             return;

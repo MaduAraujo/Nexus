@@ -1996,7 +1996,6 @@ body {
     border: 1px solid var(--border-light);
     border-radius: 16px;
     box-shadow: var(--shadow-lg);
-    /* Fechado não ocupa área rolável dentro do modal */
     padding: 0 8px;
     border-width: 0;
     z-index: 950;
@@ -2240,7 +2239,6 @@ body {
     margin-top: 12px;
     max-width: calc(100vw - 32px);
     z-index: 950;
-    /* Fechado não ocupa área rolável dentro do modal */
     max-height: 0;
     overflow: hidden;
     padding-top: 0;
@@ -2777,4 +2775,9 @@ body {
     background: var(--accent);
     color: #fff;
     transform: translateY(-1px);
+}
+
+.main-wrapper.main-wrapper--full {
+    margin-left: 0 !important;
+    width: 100% !important;
 }

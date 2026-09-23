@@ -1,6 +1,7 @@
 window.NexusMfa = (function () {
     const REQUIRED_PROFILES = ['Administrador'];
     const CODE_LENGTH = 6;
+    const RECOVERY_RE = /^[A-HJ-NP-Z2-9]{10}$/;
 
     function isRequiredFor(profileType) {
         return REQUIRED_PROFILES.includes(profileType);
@@ -26,6 +27,16 @@ window.NexusMfa = (function () {
 
     function isValidCode(value) {
         return normalizeCode(value).length === CODE_LENGTH;
+    }
+
+    function normalizeRecoveryCode(value) {
+        return String(value || '')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '');
+    }
+
+    function isValidRecoveryCode(value) {
+        return RECOVERY_RE.test(normalizeRecoveryCode(value));
     }
 
     async function listFactors(client) {
@@ -71,7 +82,42 @@ window.NexusMfa = (function () {
         return { error: error || null };
     }
 
-    return { REQUIRED_PROFILES, isRequiredFor, decide, assurance, normalizeCode, isValidCode, listFactors, startEnroll, verify, cancelEnroll, disable };
+    async function generateRecoveryCodes(client) {
+        const { data, error } = await client.rpc('mfa_recovery_generate');
+        if (error || !Array.isArray(data)) return { codes: [], error: error || { message: 'empty' } };
+        return { codes: data, error: null };
+    }
+
+    async function recoveryRemaining(client) {
+        const { data, error } = await client.rpc('mfa_recovery_remaining');
+        return error ? null : Number(data) || 0;
+    }
+
+    async function recover(client, code) {
+        if (!isValidRecoveryCode(code)) return { error: { status: 400 } };
+        const { error } = await client.functions.invoke('mfa-recover', { body: { code: normalizeRecoveryCode(code) } });
+        if (!error) return { error: null };
+        return { error: { status: error.context?.status || 0 } };
+    }
+
+    return {
+        REQUIRED_PROFILES,
+        isRequiredFor,
+        decide,
+        assurance,
+        normalizeCode,
+        isValidCode,
+        normalizeRecoveryCode,
+        isValidRecoveryCode,
+        listFactors,
+        startEnroll,
+        verify,
+        cancelEnroll,
+        disable,
+        generateRecoveryCodes,
+        recoveryRemaining,
+        recover,
+    };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = window.NexusMfa;

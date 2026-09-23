@@ -11,6 +11,7 @@
     <script src="../javascript/shared/theme.js"></script>
     <title>Gestão de Férias</title>
     <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="../styles/dynamic-style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/ferias.css" />
     <link rel="stylesheet" href="../styles/btn-back.css" />
@@ -19,7 +20,7 @@
 </head>
 <body>
 <div class="layout">
-    <div class="main-wrapper" style="margin-left:0;width:100%">
+    <div class="main-wrapper main-wrapper--full">
         <header class="topbar">
             <div class="topbar-left">
                 <a href="../screens/inicio-rh.html" class="btn-back" aria-label="Voltar">
@@ -283,7 +284,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label checkbox-label" style="margin-top:24px;">
+                    <label class="form-label checkbox-label checkbox-label--spaced">
                         <input type="checkbox" id="add-abono">
                         <span class="checkbox-box"></span>
                         <span class="checkbox-text">Abono Pecuniário</span>
@@ -326,9 +327,9 @@
             <button class="close-modal" data-click="closeRejectModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <div class="form-group" style="margin-bottom:10px">
-                <label class="form-label" style="margin-bottom:6px">Motivos frequentes</label>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <div class="form-group form-group--tight">
+                <label class="form-label form-label--tight">Motivos frequentes</label>
+                <div class="reason-chips">
                     <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Período conflita com férias de outro colaborador do mesmo departamento."]'>Conflito de equipe</button>
                     <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Período insuficiente de antecedência (mínimo 30 dias)."]'>Antecedência insuficiente</button>
                     <button type="button" class="reject-template-btn" data-click="prefillRejectReason" data-click-args='["Saldo de dias disponível insuficiente para o período solicitado."]'>Saldo insuficiente</button>
@@ -337,7 +338,7 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label" for="reject-reason">Motivo <span style="color:#ef4444">*</span></label>
+                <label class="form-label" for="reject-reason">Motivo <span class="required-mark">*</span></label>
                 <textarea id="reject-reason" class="form-textarea" rows="3" placeholder="Explique o motivo da recusa ao colaborador..."></textarea>
             </div>
             <div class="modal-alert" id="reject-alert"></div>
@@ -475,8 +476,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="../javascript/shared/events.js"></script>
+<script src="../javascript/shared/dynamic-style.js"></script>
 <script src="../javascript/shared/html.js"></script>
 <script src="../javascript/shared/supabase-client.js"></script>
+<script src="../javascript/shared/e2e-crypto.js"></script>
+<script src="../javascript/shared/e2e-ui.js"></script>
+<script src="../javascript/shared/e2e.js"></script>
 <script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
 <script src="../javascript/shared/search.js"></script>

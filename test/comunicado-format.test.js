@@ -2,11 +2,6 @@ const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-// comunicado-format.js roda no navegador e usa DOMParser/Node globais — Node não os tem, então este
-// teste sobe um DOM real via jsdom antes de carregar o módulo (global.window.sanitizeComunicadoHTML é a
-// única barreira de XSS entre um comunicado do RH e o HTML injetado no dispositivo do colaborador,
-// então vale testar o comportamento real do parser, não um substituto simplificado).
-
 before(() => {
     const dom = new JSDOM('<!doctype html><html><body></body></html>');
     global.window = dom.window;

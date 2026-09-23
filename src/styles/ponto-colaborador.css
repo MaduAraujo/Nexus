@@ -2620,3 +2620,13 @@ html {
         opacity: 1;
     }
 }
+
+.section-header-row--spaced {
+    margin-bottom: 12px;
+}
+
+.ponto-table td.td-no-records {
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 0.8rem;
+}

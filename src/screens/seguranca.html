@@ -11,6 +11,7 @@
     <script src="../javascript/shared/theme.js"></script>
     <title>Segurança</title>
     <link rel="stylesheet" href="../styles/fonts.css" />
+    <link rel="stylesheet" href="../styles/dynamic-style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous" />
     <link rel="stylesheet" href="../styles/seguranca.css">
     <link rel="stylesheet" href="../styles/mfa.css">
@@ -33,6 +34,12 @@
             </div>
 
             <div class="sec-card">
+                <h3><i class="fas fa-lock"></i> Criptografia de ponta a ponta</h3>
+                <p class="sec-card-desc">Documentos, atestados, selfies do ponto e conversas diretas são cifrados no navegador. O servidor guarda só o conteúdo cifrado.</p>
+                <div id="e2e-card" class="e2e-status" aria-live="polite"></div>
+            </div>
+
+            <div class="sec-card">
                 <div class="sec-card-head">
                     <h3><i class="fas fa-triangle-exclamation"></i> Alertas de comportamento anormal</h3>
                     <button type="button" id="sec-mark-read" class="sec-btn" hidden></button>
@@ -49,8 +56,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
     <script src="../javascript/shared/events.js"></script>
+    <script src="../javascript/shared/dynamic-style.js"></script>
     <script src="../javascript/shared/html.js"></script>
     <script src="../javascript/shared/supabase-client.js"></script>
+    <script src="../javascript/shared/e2e-crypto.js"></script>
+    <script src="../javascript/shared/e2e-ui.js"></script>
+    <script src="../javascript/shared/e2e.js"></script>
+    <script src="../javascript/shared/files.js"></script>
     <script src="../javascript/shared/mfa.js"></script>
     <script src="../javascript/shared/auth.js"></script>
     <script src="../javascript/shared/mfa-setup.js"></script>

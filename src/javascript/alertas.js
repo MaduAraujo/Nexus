@@ -827,7 +827,7 @@ async function saveToHistory(summary, alerts, healthScore) {
 
 async function loadHistory() {
     const list = document.getElementById('history-list');
-    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Carregando...</p></div>`;
+    if (list) list.innerHTML = `<div class="loading-state loading-state--compact"><div class="loading-spinner"></div><p>Carregando...</p></div>`;
     try {
         const { data } = await sb
             .from('ai_analysis_history_decrypted')
@@ -865,7 +865,7 @@ function historyItemHtml(item) {
         critical ? `<span class="sev-badge sev-critical">${critical} crítico${critical > 1 ? 's' : ''}</span>` : '',
         warning ? `<span class="sev-badge sev-warning">${warning} atenção</span>` : '',
         info ? `<span class="sev-badge sev-info">${info} info</span>` : '',
-        !alerts.length ? `<span class="sev-badge" style="background:#f0fdf4;color:#15803d">Sem alertas</span>` : '',
+        !alerts.length ? `<span class="sev-badge sev-badge--ok">Sem alertas</span>` : '',
     ].join('');
     const rows =
         alerts
@@ -877,7 +877,7 @@ function historyItemHtml(item) {
             ${a.resolved ? '<span class="history-resolved-tag"><i class="fas fa-check"></i> Resolvido</span>' : ''}
         </div>`
             )
-            .join('') || `<span style="font-size:.75rem;color:#94a3b8">Sem alertas nesta análise</span>`;
+            .join('') || `<span class="history-empty-note">Sem alertas nesta análise</span>`;
     return `
     <div class="history-item">
         <div class="history-item-header" data-click="toggleParentOpen">
@@ -999,7 +999,7 @@ function calcSaldoBancoHorasMes(emp, timeRecords, adjustments, monthKey) {
 
 async function loadRiscoComposto() {
     const list = document.getElementById('risco-list');
-    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Cruzando sinais...</p></div>`;
+    if (list) list.innerHTML = `<div class="loading-state loading-state--compact"><div class="loading-spinner"></div><p>Cruzando sinais...</p></div>`;
 
     try {
         const now = new Date();
@@ -1158,7 +1158,7 @@ async function loadRiscoJuridico() {
     const list = document.getElementById('juridico-list');
     const summaryEl = document.getElementById('juridico-summary');
     if (list)
-        list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Calculando exposição jurídica...</p></div>`;
+        list.innerHTML = `<div class="loading-state loading-state--compact"><div class="loading-spinner"></div><p>Calculando exposição jurídica...</p></div>`;
 
     try {
         const now = new Date();
@@ -1287,7 +1287,7 @@ function getDocAlertInfoCompliance(dataValidade, today) {
 
 async function loadCompliance() {
     const list = document.getElementById('compliance-list');
-    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Verificando prazos...</p></div>`;
+    if (list) list.innerHTML = `<div class="loading-state loading-state--compact"><div class="loading-spinner"></div><p>Verificando prazos...</p></div>`;
 
     try {
         const today = new Date();
@@ -1508,7 +1508,7 @@ window.markAnonFeedbackMod = async function (id, status) {
 
 async function loadGestores() {
     const list = document.getElementById('gestores-list');
-    if (list) list.innerHTML = `<div class="loading-state" style="padding:20px"><div class="loading-spinner"></div><p>Levantando gestores...</p></div>`;
+    if (list) list.innerHTML = `<div class="loading-state loading-state--compact"><div class="loading-spinner"></div><p>Levantando gestores...</p></div>`;
 
     try {
         const { data: empData } = await sb.from('employees').select('id,name,dept,email,manager_id').in('status', ['Ativo', 'ativo']);

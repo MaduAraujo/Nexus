@@ -1495,3 +1495,25 @@ body {
         padding: 12px 16px;
     }
 }
+
+.detail-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.detail-status-pill.detail-status-pill--aprovado {
+    background: #dcfce7;
+    color: #065f46;
+}
+
+.detail-status-pill.detail-status-pill--recusado {
+    background: #fee2e2;
+    color: #991b1b;
+}
