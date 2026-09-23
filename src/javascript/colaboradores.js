@@ -2667,8 +2667,8 @@ const TRAINING_STATUS_LABEL = {
     cancelado: 'Cancelado',
 };
 
-let trainingsCatalogFull = []; 
-let trainingsCatalogPublic = []; 
+let trainingsCatalogFull = [];
+let trainingsCatalogPublic = [];
 let trainingsEmployeeId = null;
 let employeeTrainings = [];
 let trAssignCatalogField = null;

@@ -258,11 +258,11 @@ describe('Trigger: aprovar atestado que cobre hoje muda o status do colaborador 
     test('job diário devolve para Ativo quem já encerrou o atestado e não tem outro cobrindo hoje', async () => {
         await withServiceRole(async (db) => {
             await db.query('DELETE FROM medical_leaves WHERE employee_id = $1', [E_SUB]);
-            await db.query(`UPDATE employees SET status = 'Afastado' WHERE id = $1`, [E_SUB]);
-            await db.query(
-                `INSERT INTO medical_leaves (employee_id, start_date, end_date, status) VALUES ($1, CURRENT_DATE - 5, CURRENT_DATE - 2, 'aprovado')`,
+            const r = await db.query(
+                `INSERT INTO medical_leaves (employee_id, start_date, end_date, status) VALUES ($1, CURRENT_DATE - 5, CURRENT_DATE - 2, 'aprovado') RETURNING id`,
                 [E_SUB]
             );
+            await db.query(`UPDATE employees SET status = 'Afastado', afastado_by_medical_leave_id = $1 WHERE id = $2`, [r.rows[0].id, E_SUB]);
             await db.query('SELECT sync_medical_leave_statuses()');
             const { rows } = await db.query(`SELECT status FROM employees WHERE id = $1`, [E_SUB]);
             assert.equal(rows[0].status, 'Ativo');

@@ -4412,6 +4412,8 @@ CREATE INDEX IF NOT EXISTS medical_leaves_emp_idx ON medical_leaves(employee_id,
 
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS afastado_by_medical_leave_id UUID REFERENCES medical_leaves(id) ON DELETE SET NULL;
 
+SELECT nexus_refresh_employees_view();
+
 CREATE TRIGGER medical_leaves_updated_at
   BEFORE UPDATE ON medical_leaves
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -4529,7 +4531,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_existing payslips;
+  v_existing payslips_decrypted;
   v_proventos JSONB;
   v_total_proventos NUMERIC;
 BEGIN
@@ -4539,23 +4541,23 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text || ':' || p_mes, 0));
 
-  SELECT * INTO v_existing FROM payslips WHERE employee_id = p_employee_id AND mes = p_mes;
+  SELECT * INTO v_existing FROM payslips_decrypted WHERE employee_id = p_employee_id AND mes = p_mes;
 
   IF FOUND THEN
-    IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_existing.proventos) p WHERE p->>'cod' = '040') THEN
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(v_existing.proventos, '[]'::jsonb)) p WHERE p->>'cod' = '040') THEN
       RETURN;
     END IF;
-    v_proventos := v_existing.proventos || p_novos_proventos;
+    v_proventos := COALESCE(v_existing.proventos, '[]'::jsonb) || p_novos_proventos;
     v_total_proventos := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(v_proventos) p);
     UPDATE payslips SET
-      proventos = v_proventos,
-      total_proventos = v_total_proventos,
-      salario_liquido = v_total_proventos - COALESCE(total_descontos, 0)
+      proventos = v_proventos::text,
+      total_proventos = v_total_proventos::text,
+      salario_liquido = (v_total_proventos - COALESCE(v_existing.total_descontos, 0))::text
     WHERE id = v_existing.id;
   ELSE
     v_total_proventos := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(p_novos_proventos) p);
     INSERT INTO payslips (employee_id, mes, mes_formatado, competencia, proventos, descontos, total_proventos, total_descontos, salario_liquido, status)
-    VALUES (p_employee_id, p_mes, p_mes_formatado, p_competencia, p_novos_proventos, '[]'::jsonb, v_total_proventos, 0, v_total_proventos, 'publicado');
+    VALUES (p_employee_id, p_mes, p_mes_formatado, p_competencia, p_novos_proventos::text, '[]', v_total_proventos::text, '0', v_total_proventos::text, 'publicado');
   END IF;
 END;
 $$;
@@ -4570,7 +4572,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_slip payslips;
+  v_slip payslips_decrypted;
   v_proventos JSONB;
   v_total NUMERIC;
 BEGIN
@@ -4580,13 +4582,13 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text || ':' || p_mes, 0));
 
-  SELECT * INTO v_slip FROM payslips WHERE employee_id = p_employee_id AND mes = p_mes;
+  SELECT * INTO v_slip FROM payslips_decrypted WHERE employee_id = p_employee_id AND mes = p_mes;
   IF NOT FOUND THEN
     RETURN;
   END IF;
 
   v_proventos := COALESCE(
-    (SELECT jsonb_agg(p) FROM jsonb_array_elements(v_slip.proventos) p WHERE p->>'cod' NOT IN ('040', '041', '042', '043')),
+    (SELECT jsonb_agg(p) FROM jsonb_array_elements(COALESCE(v_slip.proventos, '[]'::jsonb)) p WHERE p->>'cod' NOT IN ('040', '041', '042', '043')),
     '[]'::jsonb
   );
 
@@ -4597,9 +4599,9 @@ BEGIN
 
   v_total := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(v_proventos) p);
   UPDATE payslips SET
-    proventos = v_proventos,
-    total_proventos = v_total,
-    salario_liquido = v_total - COALESCE(v_slip.total_descontos, 0)
+    proventos = v_proventos::text,
+    total_proventos = v_total::text,
+    salario_liquido = (v_total - COALESCE(v_slip.total_descontos, 0))::text
   WHERE id = v_slip.id;
 END;
 $$;

@@ -39,6 +39,8 @@ afterEach(async () => {
     await withServiceRole((db) => db.query('DELETE FROM payslips WHERE employee_id = $1', [E_A]));
 });
 
+const readSlip = (fn) => withUser({ sub: U_RH }, fn);
+
 const PROVENTOS_FERIAS = JSON.stringify([
     { cod: '040', descricao: 'Adiantamento de Férias', referencia: '20 dias', valor: 1500 },
     { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: 500 },
@@ -55,10 +57,10 @@ describe('apply_ferias_payroll_event', () => {
     });
 
     test('sem holerite do mês: cria um novo, só com o evento de férias', async () => {
-        await withUser({ sub: U_RH }, async (db) => {
+        await withUser({ sub: U_RH, commit: true }, async (db) => {
             await db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS]);
         });
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
         assert.equal(rows.length, 1);
         assert.equal(rows[0].total_proventos, '2000.00');
         assert.equal(rows[0].salario_liquido, '2000.00');
@@ -69,40 +71,39 @@ describe('apply_ferias_payroll_event', () => {
         await withServiceRole((db) =>
             db.query(
                 `INSERT INTO payslips (employee_id, mes, proventos, descontos, total_proventos, total_descontos, salario_liquido)
-                 VALUES ($1, '2026-07', '[{"cod":"001","descricao":"Salário Base","valor":3000}]'::jsonb, '[]'::jsonb, 3000, 0, 3000)`,
+                 VALUES ($1, '2026-07', '[{"cod":"001","descricao":"Salário Base","valor":3000}]', '[]', '3000', '0', '3000')`,
                 [E_A]
             )
         );
-        await withUser({ sub: U_RH }, (db) =>
+        await withUser({ sub: U_RH, commit: true }, (db) =>
             db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS])
         );
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
         assert.equal(rows.length, 1);
         assert.equal(rows[0].proventos.length, 3);
         assert.equal(rows[0].total_proventos, '5000.00');
     });
 
     test('chamar duas vezes é idempotente (não duplica o evento cod 040)', async () => {
-        await withUser({ sub: U_RH }, async (db) => {
+        await withUser({ sub: U_RH, commit: true }, async (db) => {
             await db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS]);
             await db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS]);
         });
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
         assert.equal(rows.length, 1);
         assert.equal(rows[0].proventos.length, 2);
         assert.equal(rows[0].total_proventos, '2000.00');
     });
 
     test('duas chamadas concorrentes para o mesmo colaborador+mês não colidem no UNIQUE(employee_id, mes)', async () => {
-        await withUser({ sub: U_RH }, async (db) => {
-            await Promise.all([
-                db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-08', 'Agosto 2026', '08/2026', PROVENTOS_FERIAS]),
-                db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-08', 'Agosto 2026', '08/2026', PROVENTOS_FERIAS]),
-            ]);
-        });
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-08']));
+        const aplicar = () =>
+            withUser({ sub: U_RH, commit: true }, (db) =>
+                db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-08', 'Agosto 2026', '08/2026', PROVENTOS_FERIAS])
+            );
+        await Promise.all([aplicar(), aplicar()]);
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-08']));
         assert.equal(rows.length, 1);
-        assert.equal(rows[0].proventos.length, 2); // não duplicou
+        assert.equal(rows[0].proventos.length, 2); 
     });
 });
 
@@ -114,15 +115,15 @@ describe('revert_ferias_payroll_event', () => {
     });
 
     test('sem holerite do mês: não quebra (nada a reverter)', async () => {
-        await withUser({ sub: U_RH }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
+        await withUser({ sub: U_RH, commit: true }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
     });
 
     test('holerite só com o evento de férias: apaga o holerite inteiro', async () => {
-        await withUser({ sub: U_RH }, (db) =>
+        await withUser({ sub: U_RH, commit: true }, (db) =>
             db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS])
         );
-        await withUser({ sub: U_RH }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
+        await withUser({ sub: U_RH, commit: true }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
         assert.equal(rows.length, 0);
     });
 
@@ -130,16 +131,16 @@ describe('revert_ferias_payroll_event', () => {
         await withServiceRole((db) =>
             db.query(
                 `INSERT INTO payslips (employee_id, mes, proventos, descontos, total_proventos, total_descontos, salario_liquido)
-                 VALUES ($1, '2026-07', '[{"cod":"001","descricao":"Salário Base","valor":3000}]'::jsonb, '[]'::jsonb, 3000, 0, 3000)`,
+                 VALUES ($1, '2026-07', '[{"cod":"001","descricao":"Salário Base","valor":3000}]', '[]', '3000', '0', '3000')`,
                 [E_A]
             )
         );
-        await withUser({ sub: U_RH }, (db) =>
+        await withUser({ sub: U_RH, commit: true }, (db) =>
             db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-07', 'Julho 2026', '07/2026', PROVENTOS_FERIAS])
         );
-        await withUser({ sub: U_RH }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
+        await withUser({ sub: U_RH, commit: true }, (db) => db.query('SELECT revert_ferias_payroll_event($1, $2)', [E_A, '2026-07']));
 
-        const { rows } = await withServiceRole((db) => db.query('SELECT * FROM payslips WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
+        const { rows } = await readSlip((db) => db.query('SELECT * FROM payslips_decrypted WHERE employee_id = $1 AND mes = $2', [E_A, '2026-07']));
         assert.equal(rows.length, 1);
         assert.equal(rows[0].proventos.length, 1);
         assert.equal(rows[0].proventos[0].cod, '001');
