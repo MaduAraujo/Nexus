@@ -385,6 +385,9 @@ function buildActions(v) {
     if (v.status === 'aprovado' || v.status === 'pendente') {
         html += `<button class="btn-action btn-action--edit" title="Editar" data-click="openEditModal" data-click-args="${dargs(v.id)}"><i class="fas fa-pen"></i></button>`;
     }
+    if (v.status === 'aprovado') {
+        html += `<button class="btn-action btn-action--cancel" title="Cancelar férias aprovadas" data-click="cancelApprovedVacation" data-click-args="${dargs(v.id)}"><i class="fas fa-ban"></i></button>`;
+    }
     return html;
 }
 
@@ -621,34 +624,49 @@ async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abon
     const [year, monthNum] = mes.split('-');
     const month = parseInt(monthNum, 10);
 
-    const { data: existing } = await sb.from('payslips').select('id,proventos,total_descontos').eq('employee_id', employeeId).eq('mes', mes).maybeSingle();
+    // apply_ferias_payroll_event() faz num único RPC atômico o que antes era ler o holerite e depois
+    // inserir/atualizar em duas idas ao banco — essa versão em duas etapas tinha uma corrida real:
+    // duas aprovações do mesmo colaborador+mês ao mesmo tempo podiam ambas ver "não existe holerite"
+    // e as duas tentarem inserir, uma batendo no UNIQUE(employee_id, mes) (ver migration 079).
+    const { error } = await sb.rpc('apply_ferias_payroll_event', {
+        p_employee_id: employeeId,
+        p_mes: mes,
+        p_mes_formatado: `${MESES_FOLHA[month - 1]} ${year}`,
+        p_competencia: `${String(month).padStart(2, '0')}/${year}`,
+        p_novos_proventos: novosProventos,
+    });
+    if (error) console.error('[Nexus] apply_ferias_payroll_event:', error);
+}
 
-    if (existing) {
-        if ((existing.proventos || []).some((p) => p.cod === '040')) return; // já gerado antes, não duplica
-        const proventos = [...(existing.proventos || []), ...novosProventos];
-        const totalProventos = +proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
-        const totalDescontos = +(existing.total_descontos || 0);
-        await sb
-            .from('payslips')
-            .update({ proventos, total_proventos: totalProventos, salario_liquido: +(totalProventos - totalDescontos).toFixed(2) })
-            .eq('id', existing.id);
+// Desfaz o evento de adiantamento de férias do holerite (se já tiver sido gerado) ao cancelar uma
+// férias aprovada — antes esse evento ficava órfão no holerite, exigindo correção manual do RH
+// (ver migration 079).
+async function reverterEventoAdiantamentoFerias({ employeeId, startDate }) {
+    const mes = startDate.slice(0, 7);
+    const { error } = await sb.rpc('revert_ferias_payroll_event', { p_employee_id: employeeId, p_mes: mes });
+    if (error) console.error('[Nexus] revert_ferias_payroll_event:', error);
+}
+
+window.cancelApprovedVacation = async function (id) {
+    const vac = vacations.find((v) => v.id === id);
+    if (!vac) return;
+    const emp = getEmployee(vac.employeeId);
+    const ok = confirm(
+        `Cancelar as férias aprovadas de ${emp?.name || 'colaborador'}?\n\nSe já houver um evento de adiantamento de férias gravado no holerite do mês, ele será removido.`
+    );
+    if (!ok) return;
+
+    const { error } = await sb.from('vacations').update({ status: 'cancelado' }).eq('id', id);
+    if (error) {
+        showToast('Não foi possível cancelar.', 'error');
         return;
     }
-
-    const totalProventos = +novosProventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
-    await sb.from('payslips').insert({
-        employee_id: employeeId,
-        mes,
-        mes_formatado: `${MESES_FOLHA[month - 1]} ${year}`,
-        competencia: `${String(month).padStart(2, '0')}/${year}`,
-        proventos: novosProventos,
-        descontos: [],
-        total_proventos: totalProventos,
-        total_descontos: 0,
-        salario_liquido: totalProventos,
-        status: 'publicado',
-    });
-}
+    vac.status = 'cancelado';
+    await reverterEventoAdiantamentoFerias(vac);
+    loadKPIs();
+    renderTable();
+    showToast('Férias canceladas.', 'success');
+};
 
 window.approveRequest = async function (id) {
     const vac = vacations.find((v) => v.id === id);
@@ -1977,3 +1995,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 });
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        gerarEventoAdiantamentoFerias,
+        reverterEventoAdiantamentoFerias,
+        cancelApprovedVacation: window.cancelApprovedVacation,
+        __setStateForTest(next) {
+            if ('vacations' in next) vacations = next.vacations;
+            if ('employees' in next) employees = next.employees;
+        },
+        __getStateForTest() {
+            return { vacations, employees };
+        },
+    };
+}

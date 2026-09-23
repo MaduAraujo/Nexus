@@ -1399,6 +1399,11 @@ ul {
     color: #0369a1;
     border-color: #bae6fd;
 }
+.btn-action--cancel:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
 
 .table-empty {
     display: flex;

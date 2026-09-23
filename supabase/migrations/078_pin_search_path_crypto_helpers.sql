@@ -1,9 +1,3 @@
--- Achado de baixa prioridade do advisor de segurança do Supabase: 7 funções auxiliares de cifragem
--- sem search_path fixo. Nenhuma delas é SECURITY DEFINER nem lê tabela por nome não qualificado, então
--- o risco prático é baixo — mas fixar o search_path é a prática recomendada e não muda nenhum
--- comportamento (todas já rodavam efetivamente em 'public'). Corpo de cada função idêntico ao atual;
--- só a cláusula SET search_path foi acrescentada.
-
 CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql

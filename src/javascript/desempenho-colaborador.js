@@ -1,4 +1,5 @@
 let myEmployeeId = null;
+let myEmployeeRole = null;
 let reviews = [];
 let reviewCompetencies = {};
 let goals = [];
@@ -11,7 +12,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
     myEmployeeId = auth.profile.employee_id;
+    myEmployeeRole = auth.employee?.role || null;
 
+    await loadCareerTrack();
+    renderCareerTrack();
     await loadData();
     renderReviews();
     renderGoals();
@@ -23,6 +27,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadMedicalLeaves();
     renderMedicalLeaves();
 });
+
+let jobTitlesPublic = [];
+
+const CAREER_LEVEL_ORDER = ['Aprendizagem', 'Estágio', 'Operacional', 'Júnior', 'Pleno', 'Sênior', 'Especialista', 'Coordenação', 'Gerência', 'Diretoria'];
+
+async function loadCareerTrack() {
+    const { data } = await sb.rpc('job_titles_public');
+    jobTitlesPublic = data || [];
+}
+
+function careerLevelRank(level) {
+    const i = CAREER_LEVEL_ORDER.indexOf(level);
+    return i === -1 ? CAREER_LEVEL_ORDER.length : i;
+}
+
+function buildCareerTrackGroups(titles, currentRole) {
+    const groups = new Map();
+    for (const t of titles) {
+        const key = t.track || 'Geral';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(t);
+    }
+    return [...groups.entries()].map(([track, group]) => ({
+        track,
+        rows: [...group]
+            .sort((a, b) => careerLevelRank(a.level) - careerLevelRank(b.level) || a.title.localeCompare(b.title))
+            .map((t) => ({ ...t, isCurrent: !!currentRole && t.title === currentRole })),
+    }));
+}
+
+function renderCareerTrack() {
+    const wrap = document.getElementById('career-track-list');
+    if (!wrap) return;
+    if (!jobTitlesPublic.length) {
+        wrap.innerHTML = `<div class="empty-state"><i class="fas fa-route"></i><p>O RH ainda não cadastrou o catálogo de cargos.</p></div>`;
+        return;
+    }
+
+    wrap.innerHTML = buildCareerTrackGroups(jobTitlesPublic, myEmployeeRole)
+        .map(({ track, rows }) => {
+            const rowsHtml = rows
+                .map(
+                    (t) => `<div class="career-level-row${t.isCurrent ? ' career-level-row--current' : ''}">
+                        <div class="career-level-info">
+                            <span class="career-level-title">${escapeHtml(t.title)}</span>
+                            ${t.level ? `<span class="career-level-tag">${escapeHtml(t.level)}</span>` : ''}
+                        </div>
+                        ${t.isCurrent ? `<span class="career-current-badge"><i class="fas fa-map-marker-alt"></i> Você está aqui</span>` : ''}
+                    </div>`
+                )
+                .join('');
+            return `<div class="career-track-group">
+                <p class="career-track-name">${escapeHtml(track)}</p>
+                ${rowsHtml}
+            </div>`;
+        })
+        .join('');
+
+    if (myEmployeeRole && !jobTitlesPublic.some((t) => t.title === myEmployeeRole)) {
+        wrap.insertAdjacentHTML(
+            'beforeend',
+            `<p class="pdi-goal-meta">Seu cargo atual (${escapeHtml(myEmployeeRole)}) não está neste catálogo — fale com o RH se achar que deveria estar.</p>`
+        );
+    }
+}
 
 async function loadData() {
     const [{ data: reviewData }, { data: goalData }] = await Promise.all([
@@ -546,4 +615,20 @@ function showToast(msg, type = 'success') {
         toast.classList.add('hide');
         setTimeout(() => toast.remove(), 400);
     }, 4000);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        loadCareerTrack,
+        buildCareerTrackGroups,
+        fmtDateBR,
+        starString,
+        __setStateForTest(next) {
+            if ('myEmployeeId' in next) myEmployeeId = next.myEmployeeId;
+            if ('myEmployeeRole' in next) myEmployeeRole = next.myEmployeeRole;
+        },
+        __getStateForTest() {
+            return { jobTitlesPublic };
+        },
+    };
 }
