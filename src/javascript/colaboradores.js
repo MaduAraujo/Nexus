@@ -34,7 +34,6 @@ function dbToEmployee(row) {
         qtdDependentes: row.qtd_dependentes,
         pcd: row.pcd ? 'sim' : 'nao',
         deficiencia: row.deficiencia,
-        // Cadastros antigos guardam "Branca"; o valor atual da lista é "Branco".
         racaCor: row.raca_cor === 'Branca' ? 'Branco' : row.raca_cor,
         isProbation: row.is_probation ? 'sim' : 'nao',
         probationEndDate: row.probation_end_date,
@@ -125,7 +124,6 @@ async function fetchEmployees() {
     employees = (data || []).map(dbToEmployee);
 }
 
-// A tabela devolve os campos sensíveis cifrados; depois de gravar, a linha completa é lida pela view que decifra.
 async function insertEmployee(dbData) {
     const { data: created, error } = await sb.from('employees').insert(dbData).select('id').single();
     if (error) throw error;
@@ -1925,7 +1923,7 @@ function setupDateFields() {
 
 let pendingRegDocs = [];
 let pendingRegDocTipo = 'Outros';
-let admissionalDocTypes = ['RG', 'CPF', 'Comprovante de Residência', 'Exame Admissional', 'Carteira de Trabalho', 'Contrato de Trabalho'];
+const admissionalDocTypes = ['RG', 'CPF', 'Comprovante de Residência', 'Exame Admissional', 'Carteira de Trabalho', 'Contrato de Trabalho'];
 
 const REG_DOC_RETENTION_YEARS = {
     'Contrato de Trabalho': 30,
@@ -1965,7 +1963,6 @@ async function fetchAdmissionalDocTypes() {
     admissionalReqs = data || [];
 }
 
-// Os documentos exigidos no cadastro dependem do tipo de contrato escolhido no formulário.
 function getAdmissionalDocTypes() {
     if (!admissionalReqs.length) return admissionalDocTypes;
     return RequisitosDocumentos.requiredTipos(admissionalReqs, 'admissional', document.getElementById('contract-type')?.value);
@@ -2413,10 +2410,6 @@ window.handleEditFromDrawer = function () {
     if (id) editEmployee(id);
 };
 
-// A promoção é um atalho focado (cargo + tipo de contrato + salário) para a mesma trilha de auditoria que
-// "Editar Dados" já grava em employee_audit — o RH também pode promover pela edição completa; aqui só fica mais
-// rápido e com motivo. Exige que o cargo e/ou o tipo de contrato mudem (ex.: estagiário efetivado em CLT): é o
-// que a tela chama de "promoção" e o que a Taxa de Promoção do dashboard mede.
 window.handlePromoteEmployee = function () {
     const id = currentEmployeeId;
     const emp = employees.find((e) => e.id === id);
@@ -2534,12 +2527,8 @@ window.submitPromotion = async function () {
     }
 };
 
-// --- Trilha de Carreira / Cargos e Salários ---
-// `employees.role` continua TEXT (sem FK) — o catálogo só alimenta as opções do campo, não restringe o
-// banco. Colaborador/gestor leem via job_titles_public() (sem faixa salarial); só RH lê a tabela completa.
-
-let jobTitles = []; // linha completa (RH), usada só no modal "Catálogo de Cargos"
-let jobTitlesPublic = []; // título/trilha/nível, usado para montar os dropdowns de Cargo
+let jobTitles = [];
+let jobTitlesPublic = [];
 let roleField = null;
 let promoteRoleField = null;
 
@@ -2548,8 +2537,6 @@ async function fetchJobTitlesPublic() {
     jobTitlesPublic = data || [];
 }
 
-// `currentValue` garante que o cargo já salvo no colaborador continue selecionável mesmo se não estiver
-// (mais) no catálogo — sem isso, editar um colaborador cujo cargo é "customizado" apagaria o campo.
 function populateRoleDropdown(popoverId, currentValue) {
     const popover = document.getElementById(popoverId);
     if (!popover) return;
@@ -2671,11 +2658,6 @@ window.deleteJobTitle = async function (id) {
     showToast('Cargo Excluído!', 'O cargo foi removido do catálogo.', 'error');
 };
 
-// --- Treinamento e Desenvolvimento ---
-// Catálogo (job_titles-like) é RH-only para gerenciar; RH e gestor direto atribuem treinamento a
-// colaboradores (o gestor faz isso em equipe-colaborador.js, restrito a quem lidera). Colaborador também
-// pode autodeclarar um curso externo, que fica "aguardando_aprovacao" até o RH confirmar — ver migration 073.
-
 const TRAINING_STATUS_LABEL = {
     pendente: 'Pendente',
     em_andamento: 'Em andamento',
@@ -2685,8 +2667,8 @@ const TRAINING_STATUS_LABEL = {
     cancelado: 'Cancelado',
 };
 
-let trainingsCatalogFull = []; // RH: linha completa, usada no modal "Catálogo de Treinamentos"
-let trainingsCatalogPublic = []; // qualquer autenticado: título/categoria/horas ativos, para o dropdown de atribuição
+let trainingsCatalogFull = []; 
+let trainingsCatalogPublic = []; 
 let trainingsEmployeeId = null;
 let employeeTrainings = [];
 let trAssignCatalogField = null;
@@ -2944,10 +2926,6 @@ window.completeTraining = async function (id) {
     showToast('Treinamento Concluído!', 'O registro foi marcado como concluído.', 'success');
 };
 
-// --- Processos Disciplinares ---
-// Só o RH registra (decisão confirmada: reduz risco jurídico, mantém um único ponto de registro oficial).
-// O gestor não tem escrita aqui — se precisar, usa o "Escalar ao RH" já existente na tela do time. O colaborador
-// só visualiza o próprio histórico e pode "dar ciência" (ver disciplinary_actions_ack_guard na migration 074).
 const DISCIPLINARY_TYPE_LABEL = { advertencia_verbal: 'Advertência Verbal', advertencia_escrita: 'Advertência Escrita', suspensao: 'Suspensão' };
 
 let disciplinaryEmployeeId = null;
@@ -3073,11 +3051,6 @@ window.addDisciplinaryAction = async function () {
     );
 };
 
-// --- Atestados e Afastamentos Médicos ---
-// Só o colaborador autodeclara (upload do atestado + período, na tela dele); o RH só aprova/recusa aqui —
-// mesmo padrão dos treinamentos autodeclarados. Aprovar um atestado que cobre hoje já muda o status do
-// colaborador para "Afastado" automaticamente (trigger + job diário, ver migration 075) — não precisa fazer
-// isso manualmente pelo "Alterar Status".
 const LEAVE_STATUS_LABEL = { pendente: 'Pendente', aprovado: 'Aprovado', recusado: 'Recusado' };
 
 let medicalLeavesEmployeeId = null;
@@ -3209,14 +3182,8 @@ window.confirmRejectLeave = async function () {
     showToast('Atestado Recusado!', 'O colaborador poderá reenviar, se necessário.', 'info');
 };
 
-// --- Avaliação de Desempenho / PDI ---
-// Somente leitura para o RH: quem avalia e define metas é o gestor direto, pela tela "Minha Equipe"
-// (equipe-colaborador.js, restrito a quem lidera via manager_id). O RH acompanha qualquer colaborador
-// (RLS: is_rh() em SELECT) mas não cria nem edita avaliações/metas — ver migration 071.
-
 const GOAL_STATUS_LABEL = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
 
-let performanceEmployeeId = null;
 let performanceReviews = [];
 let performanceGoals = [];
 
@@ -3284,7 +3251,6 @@ window.handleOpenPerformance = async function () {
     document.getElementById('drawer-dropdown')?.classList.remove('show');
     backToMainMenu();
 
-    performanceEmployeeId = id;
     const nameEl = document.getElementById('performance-emp-name');
     if (nameEl) nameEl.textContent = emp.name;
     const reviewsList = document.getElementById('performance-reviews-list');
@@ -3789,7 +3755,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     daTypeField = createSelectField('da-type', () => {
         document.getElementById('da-suspension-days')?.classList.toggle('hidden', document.getElementById('da-type')?.value !== 'suspensao');
     });
-    setupPdiGoalDatePicker();
     await loadRhSidebar();
     await fetchEmployees();
     await fetchJobTitlesPublic();

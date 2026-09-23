@@ -10,12 +10,16 @@ let chartDeptTurnover = null;
 let chartDeptReadRate = null;
 let chartReadTime = null;
 let chartRace = null;
+let chartTrainingHours = null;
+let chartPerformanceReviews = null;
+let chartPromotionRate = null;
 let employees = [];
 let vacations = [];
 let payslips = [];
 let bankAdjustments = [];
 let promotionEvents = [];
 let completedTrainings = [];
+let completedReviews = [];
 let messages = [];
 let messageReads = [];
 
@@ -179,6 +183,7 @@ async function loadData() {
         { data: readData },
         { data: auditData },
         { data: trainingData },
+        { data: reviewData },
     ] = await Promise.all([
         sb.from('employees_decrypted').select('id,name,dept,status,contract_type,admission_date,termination_date,email,birth_date,gender,salary,pcd,raca_cor'),
         sb.from('vacations').select('id,employee_id,start_date,end_date,status'),
@@ -188,6 +193,7 @@ async function loadData() {
         sb.from('message_reads').select('message_id,employee_id,read_at'),
         sb.from('employee_audit').select('employee_id,changes,created_at').gte('created_at', twelveMonthsAgo.toISOString()),
         sb.from('employee_trainings').select('employee_id,hours,completion_date').eq('status', 'concluido'),
+        sb.from('performance_reviews').select('employee_id,overall_rating,completed_at').eq('status', 'concluida'),
     ]);
     employees = (empData || []).map((e) => ({
         id: e.id,
@@ -215,6 +221,7 @@ async function loadData() {
     bankAdjustments = bankAdjData || [];
     promotionEvents = (auditData || []).filter((a) => (a.changes || []).some((c) => c.field === 'role' || c.field === 'contractType'));
     completedTrainings = trainingData || [];
+    completedReviews = reviewData || [];
     messages = msgData || [];
     messageReads = readData || [];
 }
@@ -226,8 +233,9 @@ function refreshAll() {
     updateDepartmentChart();
     updateTurnoverRate();
     updateAbsenteeism();
-    updatePromotionRate();
-    updateTrainingHours();
+    updatePromotionRateChart();
+    updateTrainingHoursChart();
+    updatePerformanceReviewsChart();
     updateTenureChart();
     updateAgeChart();
     updateGenderChart();
@@ -300,91 +308,133 @@ function updateTurnoverRate() {
     setKpiLevel(el, rate, [10, 20]);
 }
 
-function updatePromotionRate() {
-    const valueEl = document.getElementById('promotion-rate-value');
-    const textEl = document.getElementById('promotion-rate-text');
-    const graphic = document.getElementById('promotion-rate-graphic');
-    if (!valueEl) return;
-
-    const ativos = employees.filter((e) => e.status === 'Ativo');
-    if (!ativos.length) {
-        valueEl.textContent = '—';
-        if (textEl) textEl.textContent = 'Sem colaboradores ativos para calcular.';
-        return;
-    }
-    const ativosIds = new Set(ativos.map((e) => e.id));
-
-    const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    const promotedIds = new Set();
-    const monthlyCounts = new Array(6).fill(0);
-
-    promotionEvents.forEach((entry) => {
-        if (!ativosIds.has(entry.employee_id)) return;
-        promotedIds.add(entry.employee_id);
-        const when = new Date(entry.created_at);
-        const idx = (when.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (when.getMonth() - sixMonthsAgo.getMonth());
-        if (idx >= 0 && idx < 6) monthlyCounts[idx]++;
-    });
-
-    const rate = (promotedIds.size / ativos.length) * 100;
-    valueEl.textContent = `${rate.toFixed(1)}%`;
-    if (textEl) {
-        textEl.textContent = `${promotedIds.size} de ${ativos.length} colaborador${ativos.length > 1 ? 'es' : ''} promovido${promotedIds.size === 1 ? '' : 's'} nos últimos 12 meses.`;
-    }
-
-    if (graphic) {
-        const max = Math.max(1, ...monthlyCounts);
-        graphic.querySelectorAll('span').forEach((span, i) => {
-            span.style.setProperty('--h', `${Math.max(Math.round((monthlyCounts[i] / max) * 100), 6)}%`);
+function updatePromotionRateChart() {
+    const canvas = document.getElementById('chart-promotion-rate');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ativosIds = new Set(employees.filter((e) => e.status === 'Ativo').map((e) => e.id));
+    const { labels, values } = last6Months((y, m) => {
+        const promotedIds = new Set();
+        promotionEvents.forEach((entry) => {
+            if (!ativosIds.has(entry.employee_id)) return;
+            const when = new Date(entry.created_at);
+            if (when.getFullYear() === y && when.getMonth() === m) promotedIds.add(entry.employee_id);
         });
+        return promotedIds.size;
+    });
+    if (chartPromotionRate) {
+        chartPromotionRate.destroy();
+        chartPromotionRate = null;
     }
+    chartPromotionRate = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Promoções',
+                    data: values,
+                    backgroundColor: verticalGradient('#a5b4fc', PALETTE.indigo),
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 30,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} promoç${ctx.parsed.y === 1 ? 'ão' : 'ões'}` } } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } },
+        },
+    });
 }
 
-function updateTrainingHours() {
-    const valueEl = document.getElementById('training-hours-value');
-    const textEl = document.getElementById('training-hours-text');
-    const graphic = document.getElementById('training-hours-graphic');
-    if (!valueEl) return;
-
-    const ativos = employees.filter((e) => e.status === 'Ativo');
-    if (!ativos.length) {
-        valueEl.textContent = '—';
-        if (textEl) textEl.textContent = 'Sem colaboradores ativos para calcular.';
-        return;
-    }
-    const ativosIds = new Set(ativos.map((e) => e.id));
-
-    const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    const monthlyHours = new Array(6).fill(0);
-    let totalHours = 0;
-    const trainedIds = new Set();
-
-    completedTrainings.forEach((t) => {
-        if (!ativosIds.has(t.employee_id)) return;
-        const hours = Number(t.hours) || 0;
-        totalHours += hours;
-        trainedIds.add(t.employee_id);
-        if (t.completion_date) {
-            const when = new Date(t.completion_date + 'T00:00:00');
-            const idx = (when.getFullYear() - sixMonthsAgo.getFullYear()) * 12 + (when.getMonth() - sixMonthsAgo.getMonth());
-            if (idx >= 0 && idx < 6) monthlyHours[idx] += hours;
-        }
+function updateTrainingHoursChart() {
+    const canvas = document.getElementById('chart-training-hours');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ativosIds = new Set(employees.filter((e) => e.status === 'Ativo').map((e) => e.id));
+    const { labels, values } = last6Months((y, m) => {
+        const hours = completedTrainings
+            .filter((t) => {
+                if (!ativosIds.has(t.employee_id) || !t.completion_date) return false;
+                const when = new Date(t.completion_date + 'T00:00:00');
+                return when.getFullYear() === y && when.getMonth() === m;
+            })
+            .reduce((s, t) => s + (Number(t.hours) || 0), 0);
+        return +hours.toFixed(1);
     });
-
-    const avg = totalHours / ativos.length;
-    valueEl.textContent = `${avg.toFixed(1)}h`;
-    if (textEl) {
-        textEl.textContent = `${trainedIds.size} de ${ativos.length} colaborador${ativos.length > 1 ? 'es' : ''} com ao menos um treinamento concluído.`;
+    if (chartTrainingHours) {
+        chartTrainingHours.destroy();
+        chartTrainingHours = null;
     }
+    chartTrainingHours = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Horas concluídas',
+                    data: values,
+                    backgroundColor: verticalGradient('#5eead4', PALETTE.teal),
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 30,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y}h` } } },
+            scales: { y: { beginAtZero: true, ticks: { callback: (v) => `${v}h` }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } },
+        },
+    });
+}
 
-    if (graphic) {
-        const max = Math.max(1, ...monthlyHours);
-        graphic.querySelectorAll('span').forEach((span, i) => {
-            span.style.setProperty('--h', `${Math.max(Math.round((monthlyHours[i] / max) * 100), 6)}%`);
-        });
+function updatePerformanceReviewsChart() {
+    const canvas = document.getElementById('chart-performance-reviews');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ativosIds = new Set(employees.filter((e) => e.status === 'Ativo').map((e) => e.id));
+    const { labels, values } = last6Months((y, m) => {
+        const ratings = completedReviews
+            .filter((r) => {
+                if (!ativosIds.has(r.employee_id) || !r.completed_at || r.overall_rating == null) return false;
+                const when = new Date(r.completed_at);
+                return when.getFullYear() === y && when.getMonth() === m;
+            })
+            .map((r) => Number(r.overall_rating));
+        if (!ratings.length) return 0;
+        return +(ratings.reduce((s, v) => s + v, 0) / ratings.length).toFixed(1);
+    });
+    if (chartPerformanceReviews) {
+        chartPerformanceReviews.destroy();
+        chartPerformanceReviews = null;
     }
+    chartPerformanceReviews = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Nota média',
+                    data: values,
+                    backgroundColor: verticalGradient('#c4b5fd', PALETTE.violet),
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 30,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => (ctx.parsed.y ? ` ${ctx.parsed.y}/5` : ' Sem avaliações concluídas') } },
+            },
+            scales: { y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } },
+        },
+    });
 }
 
 async function updateAbsenteeism() {

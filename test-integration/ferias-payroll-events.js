@@ -2,11 +2,6 @@ const { test, describe, before, after, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { withServiceRole, withUser } = require('../test-support/pg-rls-client.js');
 
-// Cobre a migration 079: apply_ferias_payroll_event/revert_ferias_payroll_event (atômicos, RH-only) e
-// a correção de sync_medical_leave_statuses (só reverte Afastado->Ativo pelo atestado que causou o
-// afastamento, nunca por outro atestado antigo e não relacionado). Não executado nesta sessão por
-// falta de Postgres local — rodar antes de aplicar a 079 em produção.
-
 const U_RH = '00000000-0000-4000-8000-00000000f701';
 const U_A = '00000000-0000-4000-8000-00000000f702';
 
@@ -99,8 +94,6 @@ describe('apply_ferias_payroll_event', () => {
     });
 
     test('duas chamadas concorrentes para o mesmo colaborador+mês não colidem no UNIQUE(employee_id, mes)', async () => {
-        // Antes da migration 079, esse teste reproduzia a corrida real: sem o advisory lock, as duas
-        // podiam ver "não existe holerite" ao mesmo tempo e uma delas batia no UNIQUE constraint.
         await withUser({ sub: U_RH }, async (db) => {
             await Promise.all([
                 db.query('SELECT apply_ferias_payroll_event($1, $2, $3, $4, $5)', [E_A, '2026-08', 'Agosto 2026', '08/2026', PROVENTOS_FERIAS]),
@@ -167,14 +160,11 @@ describe('sync_medical_leave_statuses — só reverte pelo atestado que causou o
 
     test('afastado manualmente (sem afastado_by_medical_leave_id) não é revertido só por ter um atestado antigo e vencido no histórico', async () => {
         await withServiceRole(async (db) => {
-            // Atestado antigo, aprovado, já terminou há muito tempo — não tem nenhuma relação com o
-            // afastamento atual do colaborador.
             await db.query(
                 `INSERT INTO medical_leaves (id, employee_id, start_date, end_date, status)
                  VALUES ($1, $2, '2020-01-01', '2020-01-05', 'aprovado')`,
                 [ML_OLD, E_A]
             );
-            // RH marcou "Afastado" manualmente por outro motivo — afastado_by_medical_leave_id fica NULL.
             await db.query("UPDATE employees SET status = 'Afastado', afastado_by_medical_leave_id = NULL WHERE id = $1", [E_A]);
             await db.query('SELECT sync_medical_leave_statuses()');
         });
