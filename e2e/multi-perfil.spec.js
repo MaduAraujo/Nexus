@@ -4,6 +4,7 @@ const path = require('path');
 const { LOCAL_SUPABASE_URL, LOCAL_SUPABASE_ANON_KEY } = require('../test-support/e2e-supabase-config.js');
 const { E2E_USERS } = require('../test-support/e2e-seed.js');
 const { submitAdminMfa } = require('../test-support/e2e-mfa.js');
+const { waitForDashboard } = require('../test-support/e2e-dashboard.js');
 
 const ORIGINAL_CLIENT_PATH = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
 
@@ -34,10 +35,10 @@ test.describe('Colaborador e RH no mesmo navegador, em abas diferentes', () => {
         await useLocalSupabase(rhTab);
 
         await login(colabTab, E2E_USERS.colaborador, 'colaborador');
-        await colabTab.waitForURL('**/inicio-colaborador.html');
+        await waitForDashboard(colabTab, '**/inicio-colaborador.html');
 
         await login(rhTab, E2E_USERS.administrador, 'Administrador');
-        await rhTab.waitForURL('**/inicio-rh.html');
+        await waitForDashboard(rhTab, '**/inicio-rh.html');
 
         await colabTab.reload();
         await expect(colabTab).toHaveURL(/inicio-colaborador\.html/);
@@ -52,7 +53,7 @@ test.describe('Colaborador e RH no mesmo navegador, em abas diferentes', () => {
         const first = await context.newPage();
         await useLocalSupabase(first);
         await login(first, E2E_USERS.colaborador, 'colaborador');
-        await first.waitForURL('**/inicio-colaborador.html');
+        await waitForDashboard(first, '**/inicio-colaborador.html');
 
         const second = await context.newPage();
         await useLocalSupabase(second);

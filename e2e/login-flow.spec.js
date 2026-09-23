@@ -4,6 +4,7 @@ const path = require('path');
 const { LOCAL_SUPABASE_URL, LOCAL_SUPABASE_ANON_KEY } = require('../test-support/e2e-supabase-config.js');
 const { E2E_USERS } = require('../test-support/e2e-seed.js');
 const { submitAdminMfa } = require('../test-support/e2e-mfa.js');
+const { waitForDashboard } = require('../test-support/e2e-dashboard.js');
 
 const ORIGINAL_CLIENT_PATH = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
 
@@ -34,14 +35,14 @@ test.describe('Login → dashboard (sistema, ponta a ponta contra Supabase local
     test('colaborador loga e chega ao próprio painel', async ({ page }) => {
         await login(page, E2E_USERS.colaborador, 'colaborador');
 
-        await page.waitForURL('**/inicio-colaborador.html');
+        await waitForDashboard(page, '**/inicio-colaborador.html');
         await expect(page.locator('#sidebar-name')).toHaveText(E2E_USERS.colaborador.name);
     });
 
     test('administrador loga e chega ao painel de RH', async ({ page }) => {
         await login(page, E2E_USERS.administrador, 'Administrador');
 
-        await page.waitForURL('**/inicio-rh.html');
+        await waitForDashboard(page, '**/inicio-rh.html');
         await expect(page.locator('#rh-sidebar-name')).toHaveText(E2E_USERS.administrador.name);
     });
 
