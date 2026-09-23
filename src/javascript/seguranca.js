@@ -197,7 +197,6 @@ async function renderEndToEnd() {
     }
 
     const granted = await NexusE2E.grantPendingAdmins().catch(() => 0);
-    box.append(el('p', 'e2e-status-ok', 'Chaves ativas: você e o RH abrem os arquivos protegidos.'));
     if (granted) box.append(el('p', null, `${granted} administrador(es) receberam acesso à chave do RH agora.`));
 
     const migrate = el('button', 'sec-btn', 'Proteger arquivos antigos');
