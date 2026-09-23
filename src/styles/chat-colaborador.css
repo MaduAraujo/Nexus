@@ -1544,6 +1544,9 @@ body {
     .topbar-panels-btn {
         display: flex;
     }
+    .topbar-channel-info {
+        display: none;
+    }
 }
 
 @media (min-width: 769px) {
@@ -1622,7 +1625,11 @@ body {
     font-size: 0.82rem;
 }
 
-.msg-header.msg-header--mine {
+.msg-footer {
+    display: flex;
+    margin-top: 3px;
+}
+.msg-group.is-mine .msg-footer {
     justify-content: flex-end;
 }
 

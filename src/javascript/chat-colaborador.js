@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isDm) {
                 hintText.textContent = e2eReady
                     ? `Cifrada de ponta a ponta — só você e ${peerName} conseguem ler, nem o servidor`
-                    : `Conversa privada — a criptografia de ponta a ponta começa quando ${peerName} entrar no sistema`;
+                    : 'Conversa privada e criptografada';
             } else if (e2eReady) {
                 if (hintIcon) hintIcon.className = 'fas fa-lock';
                 hintText.textContent = 'Cifrada de ponta a ponta — só os membros do canal e o RH (compliance) conseguem ler, nem o servidor';
@@ -380,9 +380,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="msg-row">
                 ${avatarStr}
                 <div class="msg-content-wrap">
-                    ${!mine ? `<div class="msg-header"><span class="msg-author">${esc(e.name)}</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    ${!mine ? `<div class="msg-header"><span class="msg-author">${esc(e.name)}</span></div>` : ''}
                     <div class="msg-bubble${msg.locked ? ' msg-bubble--locked' : ''}"${msg.e2e ? ' title="Cifrada de ponta a ponta"' : ''}>${esc(msg.content)}</div>
-                    ${mine ? `<div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                 </div>
             </div>`;
 
@@ -953,7 +953,7 @@ Com o que posso te ajudar hoje?`;
                 <div class="msg-row">
                     <div class="msg-content-wrap">
                         <div class="msg-bubble">${esc(msg.content)}</div>
-                        <div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
+                        <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                     </div>
                 </div>`;
             list.appendChild(group);
@@ -968,8 +968,9 @@ Com o que posso te ajudar hoje?`;
                         <i class="fas fa-user-tie analyst-icon"></i>
                     </div>
                     <div class="msg-content-wrap">
-                        <div class="msg-header"><span class="msg-author">Analista RH</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
+                        <div class="msg-header"><span class="msg-author">Analista RH</span></div>
                         <div class="msg-bubble">${esc(msg.content)}</div>
+                        <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                     </div>
                 </div>`;
             list.appendChild(group);
@@ -1007,8 +1008,9 @@ Com o que posso te ajudar hoje?`;
                     <i class="fas fa-robot agent-icon"></i>
                 </div>
                 <div class="msg-content-wrap">
-                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span><span class="msg-time">${fmtTime(now)}</span></div>
+                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span></div>
                     <div class="msg-bubble">${formattedContent}</div>
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(now)}</span></div>
                     ${qrHtml}
                 </div>
             </div>`;
@@ -1099,8 +1101,9 @@ Com o que posso te ajudar hoje?`;
                     <i class="fas fa-robot agent-icon"></i>
                 </div>
                 <div class="msg-content-wrap">
-                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
+                    <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span></div>
                     <div class="msg-bubble" id="${bubbleId}"><span class="stream-cursor"></span></div>
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
                 </div>
             </div>`;
         list.appendChild(group);

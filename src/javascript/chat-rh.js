@@ -400,9 +400,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="msg-content-wrap">
                     <div class="msg-header">
                         <span class="msg-author msg-author--agent">Agente RH (Bot)</span>
-                        <span class="msg-time">${fmtTime(msg.created_at)}</span>
                     </div>
                     <div class="msg-bubble">${formattedContent}</div>
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                 </div>
             </div>`;
         list.appendChild(group);
@@ -425,9 +425,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="msg-content-wrap">
                     <div class="msg-header">
                         <span class="msg-author">${esc(e.name || 'Colaborador')}</span>
-                        <span class="msg-time">${fmtTime(msg.created_at)}</span>
                     </div>
                     <div class="msg-bubble">${esc(msg.content)}</div>
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                 </div>
             </div>`;
         list.appendChild(group);
@@ -453,9 +453,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="msg-row">
                 ${avatarHtml}
                 <div class="msg-content-wrap">
-                    ${!isMine ? `<div class="msg-header"><span class="msg-author msg-author--analyst">Analista RH</span><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    ${!isMine ? `<div class="msg-header"><span class="msg-author msg-author--analyst">Analista RH</span></div>` : ''}
                     <div class="msg-bubble">${esc(msg.content)}</div>
-                    ${isMine ? `<div class="msg-header msg-header--mine"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>` : ''}
+                    <div class="msg-footer"><span class="msg-time">${fmtTime(msg.created_at)}</span></div>
                 </div>
             </div>`;
         list.appendChild(group);

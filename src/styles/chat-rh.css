@@ -1336,7 +1336,11 @@ i.agent-icon {
     color: var(--success);
 }
 
-.msg-header.msg-header--mine {
+.msg-footer {
+    display: flex;
+    margin-top: 3px;
+}
+.msg-group.is-mine .msg-footer {
     justify-content: flex-end;
 }
 
