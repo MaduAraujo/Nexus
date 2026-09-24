@@ -94,7 +94,7 @@ export function calcFeriasSnapshot(emp, vacations, today = new Date()) {
     const months = monthsDiff(admDate, today);
     const periods = Math.floor(months / 12);
     const earned = periods * 30;
-    const taken = vacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days - (v.abono ? 10 : 0), 0);
+    const taken = vacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days, 0);
     const saldoEstimado = Math.max(0, earned - taken);
     const period = calcAcquisitivePeriod(admDate, today);
     const diasRestantesCiclo = Math.ceil((period.end.getTime() - today.getTime()) / 86400000);

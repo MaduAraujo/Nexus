@@ -153,41 +153,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         set('info-dept', e.dept);
         set('info-admission', formatDate(e.admission_date));
         set('info-email', e.email);
-
-        renderComunicados(e.dept);
-    }
-
-    async function renderComunicados(dept) {
-        const comunicadosList = document.getElementById('comunicados-list');
-        if (!comunicadosList) return;
-
-        const { data: msgs } = await sb.from('messages').select('*').order('created_at', { ascending: false }).limit(5);
-
-        const lista = msgs || [];
-
-        if (lista.length === 0) {
-            comunicadosList.innerHTML = `
-                <div class="comunicados-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    Nenhum comunicado disponível para você.
-                </div>`;
-            return;
-        }
-
-        comunicadosList.innerHTML = lista
-            .map(
-                (m, i) => `
-            <div class="comunicado-item" data-delay="${i * 0.06}">
-                <div class="comunicado-icon"><i class="fas fa-bullhorn"></i></div>
-                <div class="comunicado-body">
-                    <p class="comunicado-text">${escapeHTML(m.texto)}</p>
-                    <div class="comunicado-meta">
-                        <span class="comunicado-dest">${escapeHTML(m.destino)}</span>
-                    </div>
-                </div>
-            </div>`
-            )
-            .join('');
     }
 
     const STAGE_LABEL = { 30: '30 dias', 60: '60 dias', 90: '90 dias' };
@@ -353,17 +318,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 myEmployee = { ...myEmployee, ...updated };
                 renderAll(myEmployee);
-            }
-        )
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-            },
-            () => {
-                renderComunicados(myEmployee.dept);
             }
         )
         .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter: `employee_id=eq.${myEmployeeId}` }, () => {

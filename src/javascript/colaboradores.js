@@ -194,16 +194,15 @@ function setupRealtimeSync() {
 
 async function loadRhSidebar() {
     const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return;
+    if (!auth) return false;
 
     const nameEl = document.getElementById('rh-sidebar-name');
     const roleEl = document.getElementById('rh-sidebar-role');
     const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (!nameEl) return;
-
-    nameEl.textContent = 'Administrador';
+    if (nameEl) nameEl.textContent = 'Administrador';
     if (roleEl) roleEl.textContent = 'Recursos Humanos';
     if (avatarEl) avatarEl.textContent = 'ADM';
+    return true;
 }
 
 function getInitials(name) {
@@ -678,6 +677,19 @@ window.bulkUpdateStatus = async function (newStatus) {
     showToast('Status Atualizado!', `${targets.length} colaborador(es) atualizado(s) para "${newStatus}".`, 'success');
 };
 
+function confirmSalaryReduction(oldSalary, newSalary) {
+    if (!(Number(oldSalary) > 0) || !(newSalary < Number(oldSalary))) return true;
+    return confirm(
+        `O novo salário (R$ ${newSalary.toFixed(2)}) é menor que o atual (R$ ${Number(oldSalary).toFixed(2)}). A redução salarial é vedada pela Constituição (art. 7º, VI), salvo acordo ou convenção coletiva. Confirmar mesmo assim?`
+    );
+}
+
+function deleteErrorMessage(error, fallback) {
+    return error?.code === '23503'
+        ? 'Há holerite, ponto ou documento com prazo legal de guarda. Inative o colaborador e, se necessário, anonimize os dados (LGPD).'
+        : fallback;
+}
+
 window.bulkDeleteEmployees = async function () {
     const ids = Array.from(selectedIds);
     if (!ids.length) return;
@@ -685,7 +697,7 @@ window.bulkDeleteEmployees = async function () {
 
     const { error } = await sb.from('employees').delete().in('id', ids);
     if (error) {
-        showToast('Erro!', 'Não foi possível excluir os colaboradores selecionados.', 'error');
+        showToast('Erro!', deleteErrorMessage(error, 'Não foi possível excluir os colaboradores selecionados.'), 'error');
         return;
     }
 
@@ -908,12 +920,12 @@ function buildImportRow(rawRow, headerMap, index) {
     const cpfRaw = get('cpf');
     if (!cpfRaw) errors.push('CPF é obrigatório.');
     else if (!isValidCPF(cpfRaw)) errors.push('CPF inválido.');
-    else if (employees.some((e) => e.cpf.replace(/\D/g, '') === cpfRaw.replace(/\D/g, ''))) errors.push('CPF já cadastrado.');
+    else if (employees.some((e) => (e.cpf || '').replace(/\D/g, '') === cpfRaw.replace(/\D/g, ''))) errors.push('CPF já cadastrado.');
 
     const email = get('email').toLowerCase();
     if (!email) errors.push('Email é obrigatório.');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email inválido.');
-    else if (employees.some((e) => e.email.toLowerCase() === email)) errors.push('Email já cadastrado.');
+    else if (employees.some((e) => (e.email || '').toLowerCase() === email)) errors.push('Email já cadastrado.');
 
     const admissionDate = parseImportDate(get('admissionDate'));
     if (!admissionDate) errors.push('Data de admissão inválida.');
@@ -1351,7 +1363,7 @@ window.handleDeleteEmployee = async function () {
     if (!confirm(`Tem certeza que deseja excluir ${emp.name}?\n\nO acesso ao sistema também será removido.`)) return;
     const { error } = await sb.from('employees').delete().eq('id', currentEmployeeId);
     if (error) {
-        showToast('Erro!', 'Não foi possível excluir o colaborador.', 'error');
+        showToast('Erro!', deleteErrorMessage(error, 'Não foi possível excluir o colaborador.'), 'error');
         return;
     }
     employees = employees.filter((e) => e.id !== currentEmployeeId);
@@ -2200,7 +2212,7 @@ function setupFormListener() {
             showToast('CPF Duplicado!', 'Já existe um colaborador com este CPF.', 'error');
             return;
         }
-        const emailDuplicado = employees.some((emp) => emp.email.toLowerCase() === emailDigitado && emp.id !== idField);
+        const emailDuplicado = employees.some((emp) => (emp.email || '').toLowerCase() === emailDigitado && emp.id !== idField);
         if (emailDuplicado) {
             showToast('Email Duplicado!', 'Já existe um colaborador com este email.', 'error');
             return;
@@ -2349,6 +2361,7 @@ function setupFormListener() {
                     return acc;
                 }, []);
 
+                if (!confirmSalaryReduction(old?.salary, empData.salary)) return;
                 dbData.status = old?.status || 'Ativo';
                 const { error } = await sb.from('employees').update(dbData).eq('id', idField);
                 if (error) throw error;
@@ -2366,11 +2379,12 @@ function setupFormListener() {
                 try {
                     const invite = await inviteEmployee(empData.email);
                     if (invite?.id) {
-                        await sb.from('profiles').insert({
+                        const { error: profileError } = await sb.from('profiles').insert({
                             id: invite.id,
                             profile: 'colaborador',
                             employee_id: inserted.id,
                         });
+                        if (profileError) throw new Error(`o acesso não foi vinculado (${profileError.message})`);
                         await sb.from('employees').update({ auth_user_id: invite.id }).eq('id', inserted.id);
                         inviteSent = true;
                     }
@@ -2494,6 +2508,7 @@ window.submitPromotion = async function () {
         });
     }
     if (motivo) changes.push({ field: 'motivo', label: 'Motivo da Promoção', oldValue: '—', newValue: motivo });
+    if (!confirmSalaryReduction(emp.salary, newSalary)) return;
 
     if (btn) btn.disabled = true;
     try {
@@ -2643,7 +2658,7 @@ window.toggleJobTitleActive = async function (id, currentActive) {
 };
 
 window.deleteJobTitle = async function (id) {
-    if (!confirmDelete()) return;
+    if (!confirm('Excluir este cargo do catálogo?')) return;
     const { error } = await sb.from('job_titles').delete().eq('id', id);
     if (error) {
         showToast('Erro!', 'Não foi possível excluir o cargo.', 'error');
@@ -2766,7 +2781,7 @@ window.toggleTrainingCatalogActive = async function (id, currentActive) {
 };
 
 window.deleteTrainingCatalog = async function (id) {
-    if (!confirmDelete()) return;
+    if (!confirm('Excluir este treinamento do catálogo?')) return;
     const { error } = await sb.from('trainings').delete().eq('id', id);
     if (error) {
         showToast('Erro!', 'Não foi possível excluir o treinamento.', 'error');
@@ -2798,7 +2813,8 @@ function renderTrainingsList() {
         .map((t) => {
             const label = TRAINING_STATUS_LABEL[t.status] || t.status;
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
-            if (t.certificate_url) bits.push(`<a href="${escapeHtml(t.certificate_url)}" target="_blank" rel="noopener">Certificado</a>`);
+            if (safeHttpUrl(t.certificate_url))
+                bits.push(`<a href="${escapeHtml(safeHttpUrl(t.certificate_url))}" target="_blank" rel="noopener">Certificado</a>`);
             let actions = t.certificate_path
                 ? `<button type="button" class="training-action-btn" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado</button>`
                 : '';
@@ -3761,7 +3777,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     daTypeField = createSelectField('da-type', () => {
         document.getElementById('da-suspension-days')?.classList.toggle('hidden', document.getElementById('da-type')?.value !== 'suspensao');
     });
-    await loadRhSidebar();
+    if (!(await loadRhSidebar())) return;
     await fetchEmployees();
     await fetchJobTitlesPublic();
     await fetchTrainingsCatalogPublic();

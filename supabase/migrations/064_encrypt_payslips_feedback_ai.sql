@@ -91,7 +91,6 @@ GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx(TEXT, TEXT)       TO authenticated;
 GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_bool(TEXT, TEXT)  TO authenticated;
 GRANT EXECUTE ON FUNCTION nexus_decrypt_ctx_jsonb(TEXT, TEXT) TO authenticated;
 
--- Valor monetário como texto normalizado (2 casas); recusa lixo antes de cifrar. Já cifrado passa direto.
 CREATE OR REPLACE FUNCTION nexus_norm_money(p_label TEXT, p_value TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql

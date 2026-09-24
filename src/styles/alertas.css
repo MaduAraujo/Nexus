@@ -1994,6 +1994,21 @@ ul {
     line-height: 1.5;
 }
 
+.action-targets {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.action-targets-empty {
+    list-style: none;
+    margin-left: -18px;
+    color: #b45309;
+    font-weight: 600;
+}
+
 .action-impact-preview {
     display: flex;
     align-items: flex-start;

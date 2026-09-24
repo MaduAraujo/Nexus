@@ -277,30 +277,6 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="confirm-modal" data-click="handleOverlayClick" data-click-args='[{"$":"event"},"confirm-modal"]'>
-        <div class="modal-card modal-card--sm">
-            <div class="modal-head">
-                <div class="modal-head-info">
-                    <div class="modal-head-icon modal-head-icon--warning"><i class="fas fa-triangle-exclamation"></i></div>
-                    <div>
-                        <h3 class="modal-title">Confirmar ação</h3>
-                        <p class="modal-sub">Esta ação afetará múltiplos registros</p>
-                    </div>
-                </div>
-                <button class="modal-close" data-click="closeModal" data-click-args='["confirm-modal"]'><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <p class="modal-confirm-text" id="confirm-modal-text"></p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" data-click="closeModal" data-click-args='["confirm-modal"]'>Cancelar</button>
-                <button class="btn-primary" id="confirm-modal-ok" data-click="executarMarcarTodosPagos">
-                    <i class="fas fa-check-double"></i> Confirmar
-                </button>
-            </div>
-        </div>
-    </div>
-
     <div class="modal-overlay" id="rescisao-modal">
         <div class="modal-card modal-card--lg">
             <div class="modal-head">

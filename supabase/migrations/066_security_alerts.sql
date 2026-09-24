@@ -74,8 +74,6 @@ DROP POLICY IF EXISTS "rh_security_alerts_select" ON security_alerts;
 CREATE POLICY "rh_security_rules_select"  ON security_rules  FOR SELECT USING (is_rh());
 CREATE POLICY "rh_security_alerts_select" ON security_alerts FOR SELECT USING (is_rh());
 
--- Política mfa_required (migration 063) nas tabelas novas. Se a 063 ainda não foi aplicada, esta migration não depende dela:
--- o laço da 063 cobre toda tabela com RLS existente na hora em que rodar, inclusive estas.
 DO $$
 DECLARE
   t TEXT;

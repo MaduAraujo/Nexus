@@ -46,7 +46,12 @@ window.logout = async function () {
 };
 
 async function loadPayslips() {
-    const { data } = await sb.from('payslips_decrypted').select('*').eq('employee_id', myEmployeeId).eq('status', 'pago').order('mes', { ascending: false });
+    const { data } = await sb
+        .from('payslips_decrypted')
+        .select('*')
+        .eq('employee_id', myEmployeeId)
+        .in('status', ['pago', 'publicado'])
+        .order('mes', { ascending: false });
     holerites = data || [];
     renderMonthList();
     buildMobileSelect();

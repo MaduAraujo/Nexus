@@ -90,7 +90,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    console.error("[invite-employee]", e instanceof Error ? e.message : e);
+    return new Response(JSON.stringify({ error: "Erro interno ao enviar o convite" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

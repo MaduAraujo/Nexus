@@ -28,9 +28,22 @@ function applyFilters(rows, filters) {
 }
 
 function parseOrClause(orString) {
-    return orString.split(',').map((clause) => {
+    const clauses = [];
+    let cur = '',
+        quoted = false;
+    for (let i = 0; i < orString.length; i++) {
+        const ch = orString[i];
+        if (quoted && ch === '\\') cur += ch + orString[++i];
+        else if (ch === '"') ((quoted = !quoted), (cur += ch));
+        else if (ch === ',' && !quoted) (clauses.push(cur), (cur = ''));
+        else cur += ch;
+    }
+    clauses.push(cur);
+    return clauses.map((clause) => {
         const [col, op, ...rest] = clause.split('.');
-        return { col, op, val: rest.join('.') };
+        let val = rest.join('.');
+        if (/^".*"$/s.test(val)) val = val.slice(1, -1).replace(/\\(.)/g, '$1');
+        return { col, op, val };
     });
 }
 

@@ -45,8 +45,8 @@ async function seedE2EUsers(db) {
             [u.userId, u.userId, u.email]
         );
         await db.query(
-            `INSERT INTO employees (id, name, cpf, email, dept, status)
-             VALUES ($1, $2, $3, $4, 'E2E', 'Ativo')
+            `INSERT INTO employees (id, name, cpf, email, dept, status, admission_date, contract_type, work_load, salary)
+             VALUES ($1, $2, $3, $4, 'E2E', 'Ativo', '2024-01-02', 'clt', '40h', 4000)
              ON CONFLICT (id) DO NOTHING`,
             [u.employeeId, u.name, u.cpf, u.email]
         );

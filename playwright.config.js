@@ -12,6 +12,7 @@ module.exports = defineConfig({
         baseURL: 'http://127.0.0.1:4173',
         trace: 'retain-on-failure',
         serviceWorkers: 'block',
+        launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] },
     },
     webServer: {
         command: 'node test-support/static-server.js',

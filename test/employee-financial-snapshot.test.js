@@ -128,9 +128,9 @@ describe('calcFeriasSnapshot', () => {
         assert.equal(snap.saldo_estimado_dias, 30);
     });
 
-    test('abono pecuniário desconta 10 dias do que foi "tirado" (vendeu em vez de descansar)', () => {
+    test('abono pecuniário: os 10 dias vendidos também saem do direito (CLT art. 143)', () => {
         const snap = sfx.calcFeriasSnapshot({ admission_date: '2025-01-01' }, [{ status: 'aprovado', days: 30, abono: true }], new Date('2026-01-02'));
-        assert.equal(snap.saldo_estimado_dias, 10);
+        assert.equal(snap.saldo_estimado_dias, 0);
     });
 
     test('saldo nunca fica negativo mesmo tirando mais do que o direito (nunca deveria acontecer, mas não quebra)', () => {

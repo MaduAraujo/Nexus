@@ -3,7 +3,14 @@ const assert = require('node:assert/strict');
 
 global.window = global;
 
-const { isElegivel13, calcAvos13, calcDecimoTerceiroIntegral, calcParcela13, calcAdiantamentoFerias } = require('../src/javascript/domain/eventos-folha.js');
+const {
+    isElegivel13,
+    calcAvos13,
+    calcDecimoTerceiroIntegral,
+    calcParcela13,
+    calcAdiantamentoFerias,
+    proventosFerias,
+} = require('../src/javascript/domain/eventos-folha.js');
 
 describe('isElegivel13', () => {
     test('CLT em qualquer variação tem direito', () => {
@@ -84,5 +91,39 @@ describe('calcAdiantamentoFerias', () => {
         assert.equal(r.abonoPecuniario, 1000);
         assert.equal(r.tercoAbono, +(1000 / 3).toFixed(2));
         assert.equal(r.total, +(r.ferias + r.tercoFerias + r.abonoPecuniario + r.tercoAbono).toFixed(2));
+    });
+});
+
+describe('proventosFerias', () => {
+    test('30 dias sem abono: férias + 1/3 na competência do início', () => {
+        const r = proventosFerias({ contractType: 'clt', salario: 3000, startDate: '2026-07-06', dias: 30, abono: false });
+        assert.deepEqual(r.mes, '2026-07');
+        assert.equal(r.competencia, '07/2026');
+        assert.equal(r.mesFormatado, 'Julho 2026');
+        assert.deepEqual(
+            r.proventos.map((p) => [p.cod, p.referencia, p.valor]),
+            [
+                ['040', '30 dias', 3000],
+                ['041', '—', 1000],
+            ]
+        );
+    });
+
+    test('30 dias com abono: 20 de descanso + 10 vendidos (não 30 + 10)', () => {
+        const r = proventosFerias({ contractType: 'clt', salario: 3000, startDate: '2026-07-06', dias: 30, abono: true });
+        assert.deepEqual(
+            r.proventos.map((p) => [p.cod, p.referencia, p.valor]),
+            [
+                ['040', '20 dias', 2000],
+                ['041', '—', 666.67],
+                ['042', '10 dias', 1000],
+                ['043', '—', 333.33],
+            ]
+        );
+    });
+
+    test('PJ ou sem salário não geram lançamento', () => {
+        assert.equal(proventosFerias({ contractType: 'pj', salario: 9000, startDate: '2026-07-06', dias: 30 }), null);
+        assert.equal(proventosFerias({ contractType: 'clt', salario: 0, startDate: '2026-07-06', dias: 30 }), null);
     });
 });

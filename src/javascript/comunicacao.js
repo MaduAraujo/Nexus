@@ -3,7 +3,7 @@ const fmtDate = (iso) => new Date(iso).toLocaleDateString('pt-BR');
 const fmtDateTime = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const isLive = (m) => !m.scheduled_at || new Date(m.scheduled_at) <= new Date();
 const fmtSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
-const fileIcon = (type) => (type === 'application/pdf' ? 'fa-file-pdf' : type.startsWith('image/') ? 'fa-file-image' : 'fa-file');
+const fileIcon = (type = '') => (type === 'application/pdf' ? 'fa-file-pdf' : String(type).startsWith('image/') ? 'fa-file-image' : 'fa-file');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 5;
@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
+    const user = auth.user;
 
     const nameEl = document.getElementById('rh-sidebar-name');
     const roleEl = document.getElementById('rh-sidebar-role');
@@ -704,6 +705,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (error) {
             console.error('[Nexus] send:', error);
             sendBtn.disabled = false;
+            alert('Não foi possível enviar o comunicado. Tente novamente.');
             return;
         }
 
@@ -1414,10 +1416,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         editModalSave.disabled = true;
 
-        if (editRemovedPaths.length) {
-            await sb.storage.from('message-attachments').remove(editRemovedPaths);
-        }
-
         let uploadedNew = [];
         if (editStagedFiles.length) {
             const uploads = await Promise.all(
@@ -1442,8 +1440,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         editModalSave.disabled = false;
         if (error) {
             console.error('[Nexus] edit:', error);
+            alert('Não foi possível salvar a edição. Tente novamente.');
             return;
         }
+        if (editRemovedPaths.length) await sb.storage.from('message-attachments').remove(editRemovedPaths);
 
         const idx = dbMensagens.findIndex((m) => m.id === editingId);
         if (idx !== -1) dbMensagens[idx] = data;
@@ -1489,8 +1489,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const msg = dbMensagens.find((m) => m.id === id);
         const paths = (msg?.anexos || []).map((a) => a.path);
+        const { error } = await sb.from('messages').delete().eq('id', id);
+        if (error) {
+            confirmDeleteConfirm.disabled = false;
+            closeConfirmDeleteModal();
+            alert('Não foi possível excluir o comunicado. Tente novamente.');
+            return;
+        }
         if (paths.length) await sb.storage.from('message-attachments').remove(paths);
-        await sb.from('messages').delete().eq('id', id);
         dbMensagens = dbMensagens.filter((m) => m.id !== id);
         delete readCountMap[id];
         updateStats();

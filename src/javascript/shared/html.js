@@ -2,6 +2,11 @@ window.escapeHtml = function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"'`]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' })[c]);
 };
 
+window.safeHttpUrl = function safeHttpUrl(value) {
+    const url = String(value ?? '').trim();
+    return /^https?:\/\/[^\s]+$/i.test(url) ? url : '';
+};
+
 const SANITIZE_DROP_WITH_CONTENT = new Set([
     'SCRIPT',
     'STYLE',

@@ -22,6 +22,12 @@ module.exports = [
         },
     },
     {
+        files: ['src/javascript/shared/supabase-client.js'],
+        rules: {
+            'no-unused-vars': ['warn', { args: 'none', varsIgnorePattern: '^(_|nexusUseProfileSession$|nexusCheckPassword$)' }],
+        },
+    },
+    {
         files: ['test/**/*.js', 'test-support/**/*.js', 'test-integration/**/*.js', 'e2e/**/*.js', 'playwright.config.js', 'eslint.config.js'],
         languageOptions: {
             ecmaVersion: 2022,

@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -40,8 +40,8 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Run unit tests
-        run: npm test
+      - name: Run unit and screen tests (fails below the coverage floor)
+        run: npm run test:coverage
 
       - name: Run PWA audit (manifest, icons, service worker)
         run: npm run test:pwa
@@ -68,7 +68,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -100,7 +100,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

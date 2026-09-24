@@ -178,3 +178,39 @@ describe('getDivisorHoraMensal', () => {
         assert.equal(CLTDomain.getDivisorHoraMensal(480, ''), 200);
     });
 });
+
+describe('contarFaltasInjustificadas (CLT arts. 130 e 131)', () => {
+    const base = { inicio: '2026-06-15', fim: '2026-06-21', primeiroRegistro: '2026-01-02', workLoad: '40h' };
+    const presente = (date) => ({ date, entrada: `${date}T08:00:00-03:00` });
+
+    test('dia útil sem entrada é falta; fim de semana não', () => {
+        const registros = ['2026-06-15', '2026-06-16', '2026-06-18'].map(presente);
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, registros }), 2);
+    });
+
+    test('registro sem entrada (só saída, por exemplo) conta como falta', () => {
+        const registros = [{ date: '2026-06-15', entrada: null, saida: '2026-06-15T18:00:00-03:00' }];
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, registros }), 5);
+    });
+
+    test('feriado e falta abonada não contam', () => {
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, feriados: ['2026-06-18'], abonadas: ['2026-06-19'] }), 3);
+    });
+
+    test('dias de férias e de atestado aprovados não contam (art. 131)', () => {
+        const afastamentos = [
+            { start_date: '2026-06-10', end_date: '2026-06-16' },
+            { start_date: '2026-06-19', end_date: '2026-06-19' },
+        ];
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, afastamentos }), 2);
+    });
+
+    test('antes do primeiro registro de ponto não há dado: não é falta', () => {
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, primeiroRegistro: '2026-06-18' }), 2);
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, primeiroRegistro: null }), 0);
+    });
+
+    test('escala 12x36 não é inferida dos registros', () => {
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, workLoad: '12x36' }), 0);
+    });
+});

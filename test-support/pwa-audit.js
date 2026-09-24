@@ -38,17 +38,20 @@ async function main() {
         });
         page.on('pageerror', (err) => consoleErrors.push(err.message));
 
+        let mainFrameNavigations = 0;
+        page.on('framenavigated', (frame) => {
+            if (frame === page.mainFrame()) mainFrameNavigations++;
+        });
+
         await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'networkidle' });
 
         async function fetchStatus(url) {
-            return page.evaluate(async (u) => {
-                try {
-                    const r = await fetch(u);
-                    return r.status;
-                } catch {
-                    return -1;
-                }
-            }, url);
+            try {
+                const r = await fetch(url);
+                return r.status;
+            } catch {
+                return -1;
+            }
         }
 
         const manifestHref = await page.evaluate(() => {
@@ -62,10 +65,7 @@ async function main() {
             const manifestStatus = await fetchStatus(manifestHref);
             if (manifestStatus !== 200) failures.push(`manifest.json returned ${manifestStatus}`);
 
-            const manifest = await page.evaluate(async (href) => {
-                const r = await fetch(href);
-                return r.json();
-            }, manifestHref);
+            const manifest = await (await fetch(manifestHref)).json();
 
             for (const field of ['name', 'short_name', 'start_url', 'display', 'background_color', 'theme_color']) {
                 if (!manifest[field]) failures.push(`manifest.json missing "${field}"`);
@@ -113,6 +113,9 @@ async function main() {
             return 'timeout';
         });
         if (swState !== 'activated') failures.push(`service worker did not activate (state: ${swState})`);
+
+        await page.waitForTimeout(500);
+        if (mainFrameNavigations !== 1) failures.push(`page navigated ${mainFrameNavigations} times on first visit (expected 1, no reload)`);
 
         if (consoleErrors.length) failures.push(`console errors on load: ${consoleErrors.join(' | ')}`);
 

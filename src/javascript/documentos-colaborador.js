@@ -313,12 +313,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (!confirm('Deseja realmente remover este documento?')) return;
 
-        if (doc?.storage_path) {
-            await sb.storage.from('documents').remove([doc.storage_path]);
+        const { error } = await sb.from('documents').delete().eq('id', selectedId);
+        if (error) {
+            showToast('Não foi possível remover', 'Tente novamente.', 'error');
+            return;
         }
-
-        await sb.from('documents').delete().eq('id', selectedId);
-        if (doc) logAudit('excluido', doc);
+        if (doc?.storage_path) await sb.storage.from('documents').remove([doc.storage_path]);
+        logAudit('excluido', doc);
         selectedId = null;
         await refreshDocs();
         renderList();

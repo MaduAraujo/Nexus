@@ -24,7 +24,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message_id } = await req.json();
+    const { message_id } = await req.json().catch(() => ({}) as Record<string, unknown>);
     if (!message_id) {
       return new Response(JSON.stringify({ error: "message_id é obrigatório" }), {
         status: 400,
@@ -156,7 +156,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    console.error("[send-push]", e instanceof Error ? e.message : e);
+    return new Response(JSON.stringify({ error: "Não foi possível enviar a notificação" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

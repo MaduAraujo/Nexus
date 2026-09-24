@@ -46,14 +46,40 @@ function calcAdiantamentoFerias({ salario, dias, abono = false }) {
     return { ferias, tercoFerias, abonoPecuniario, tercoAbono, total };
 }
 
+const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function proventosFerias({ contractType, salario, startDate, dias, abono }) {
+    if (String(contractType || 'clt').toLowerCase() === 'pj' || !Number(salario)) return null;
+    const diasDescanso = abono ? Math.max(0, dias - 10) : dias;
+    const r = calcAdiantamentoFerias({ salario: Number(salario), dias: diasDescanso, abono: !!abono });
+    if (r.total <= 0) return null;
+    const proventos = [
+        { cod: '040', descricao: 'Adiantamento de Férias', referencia: `${diasDescanso} dias`, valor: r.ferias },
+        { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: r.tercoFerias },
+    ];
+    if (r.abonoPecuniario > 0) {
+        proventos.push({ cod: '042', descricao: 'Abono Pecuniário (venda de férias)', referencia: '10 dias', valor: r.abonoPecuniario });
+        proventos.push({ cod: '043', descricao: '1/3 sobre Abono Pecuniário', referencia: '—', valor: r.tercoAbono });
+    }
+    const [year, monthNum] = startDate.slice(0, 7).split('-');
+    const month = parseInt(monthNum, 10);
+    return {
+        mes: `${year}-${monthNum}`,
+        mesFormatado: `${MESES_FOLHA[month - 1]} ${year}`,
+        competencia: `${monthNum}/${year}`,
+        proventos,
+    };
+}
+
 window.EventosFolha = {
     isElegivel13,
     calcAvos13,
     calcDecimoTerceiroIntegral,
     calcParcela13,
     calcAdiantamentoFerias,
+    proventosFerias,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { isElegivel13, calcAvos13, calcDecimoTerceiroIntegral, calcParcela13, calcAdiantamentoFerias };
+    module.exports = { isElegivel13, calcAvos13, calcDecimoTerceiroIntegral, calcParcela13, calcAdiantamentoFerias, proventosFerias };
 }

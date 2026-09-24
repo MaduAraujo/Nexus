@@ -66,6 +66,14 @@ INSTRUÇÕES:
 Responda sempre em português brasileiro.`;
 }
 
+function sanitizeHistory(history: unknown): { role: string; content: string }[] {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((m) => m && (m.role === "user" || m.role === "assistant"))
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, 2000) }));
+}
+
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -74,7 +82,7 @@ serve(async (req) => {
     new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    const { message, history } = await req.json();
+    const { message, history } = await req.json().catch(() => ({}) as Record<string, unknown>);
     if (!message || typeof message !== "string") return json({ error: "message é obrigatório" }, 400);
     if (message.length > 2000) return json({ error: "Mensagem muito longa (máximo de 2000 caracteres)." }, 400);
 
@@ -101,7 +109,7 @@ serve(async (req) => {
     const { nome_real, ...groqSnapshot } = snapshot;
     const ps = createPseudonymizer([{ id: profile.employee_id, name: nome_real }]);
     const system = buildSystem(groqSnapshot);
-    const messages = [...(history ?? []), { role: "user", content: message }];
+    const messages = [...sanitizeHistory(history), { role: "user", content: message }];
     const groqMessages = [
       { role: "system", content: system },
       ...messages.map((m: { role: string; content: unknown }) => ({ role: m.role, content: ps.mask(String(m.content ?? "")) })),
@@ -118,6 +126,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error("[ai-employee-chat]", e instanceof Error ? e.message : e);
+    return json({ error: "Não foi possível responder agora." }, 500);
   }
 });

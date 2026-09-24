@@ -1493,29 +1493,31 @@ async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificati
             .single();
         if (error || !upserted) return false;
         recordsMap[date] = upserted;
+    } catch {
+        return false;
+    }
+    try {
         await sb.from('activity_logs').insert({
             employee_id: myEmployeeId,
             tipo: 'ponto',
             acao: step,
             date,
-            valor_registrado: upserted[step],
+            valor_registrado: recordsMap[date][step],
             operator_email: myEmployee.email,
             operator_name: myEmployee.name,
             operator_profile: 'colaborador',
             justificativa: justificativaExcesso || null,
         });
         if (excessoLegalMin > 0 && justificativaExcesso) {
-            await sb
-                .rpc('report_daily_overtime_alert', {
+            await Promise.resolve(
+                sb.rpc('report_daily_overtime_alert', {
                     p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
                     p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
                 })
-                .catch(() => {});
+            ).catch(() => {});
         }
-        return true;
-    } catch {
-        return false;
-    }
+    } catch {}
+    return true;
 }
 
 async function flushOfflineQueue() {

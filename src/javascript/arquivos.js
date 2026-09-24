@@ -52,6 +52,8 @@
     if (!auth) return;
     const user = auth.user;
 
+    let closeActivePopover = null;
+
     let activeTab = 'admissional';
     let selectedFiles = [];
     let employees = [];
@@ -165,10 +167,12 @@
         const { data: expired } = await sb.from('documents').select('id,name,employee_id,storage_path').lt('retido_ate', new Date().toISOString().slice(0, 10));
         if (!expired?.length) return 0;
 
+        let purged = 0;
         for (const doc of expired) {
-            if (doc.storage_path) await sb.storage.from('documents').remove([doc.storage_path]);
             const { error } = await sb.from('documents').delete().eq('id', doc.id);
             if (error) continue;
+            if (doc.storage_path) await sb.storage.from('documents').remove([doc.storage_path]);
+            purged++;
             await sb.from('document_audit_log').insert({
                 document_id: doc.id,
                 document_name: doc.name,
@@ -179,7 +183,7 @@
                 details: { email: 'sistema@nexus' },
             });
         }
-        return expired.length;
+        return purged;
     }
 
     async function loadData() {
@@ -1006,12 +1010,12 @@
         const ids = Array.from(selectedIds);
         const docs = ids.map((id) => colabDocs.find((d) => d.id === id)).filter(Boolean);
         const paths = docs.map((d) => d.storage_path).filter(Boolean);
-        if (paths.length) await sb.storage.from('documents').remove(paths);
         const { error } = await sb.from('documents').delete().in('id', ids);
         if (error) {
             showToast('Erro', 'Não foi possível excluir os documentos selecionados.', 'error');
             return;
         }
+        if (paths.length) await sb.storage.from('documents').remove(paths);
         docs.forEach((d) => logAudit('excluido', d));
         colabDocs = colabDocs.filter((d) => !ids.includes(d.id));
         selectedIds.clear();
@@ -1024,12 +1028,12 @@
         const ids = Array.from(selectedIds);
         const docs = ids.map((id) => rhDocs.find((f) => f.id === id)).filter(Boolean);
         const paths = docs.map((d) => d.storage_path).filter(Boolean);
-        if (paths.length) await sb.storage.from('documents').remove(paths);
         const { error } = await sb.from('documents').delete().in('id', ids);
         if (error) {
             showToast('Erro', 'Não foi possível excluir os arquivos selecionados.', 'error');
             return;
         }
+        if (paths.length) await sb.storage.from('documents').remove(paths);
         docs.forEach((d) => logAudit('excluido', d));
         rhDocs = rhDocs.filter((f) => !ids.includes(f.id));
         selectedIds.clear();
@@ -1088,12 +1092,12 @@
     window.deleteColabDoc = async (id, storagePath) => {
         if (!confirmDelete()) return;
         const doc = colabDocs.find((d) => d.id === id);
-        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         const { error } = await sb.from('documents').delete().eq('id', id);
         if (error) {
             showToast('Erro', 'Não foi possível excluir o documento.', 'error');
             return;
         }
+        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         colabDocs = colabDocs.filter((d) => d.id !== id);
         renderTable();
         if (doc) logAudit('excluido', doc);
@@ -1308,19 +1312,18 @@
     window.deleteFile = async (id, storagePath) => {
         if (!confirmDelete()) return;
         const doc = rhDocs.find((f) => f.id === id);
-        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         const { error } = await sb.from('documents').delete().eq('id', id);
         if (error) {
             showToast('Erro', 'Não foi possível excluir o arquivo.', 'error');
             return;
         }
+        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
         rhDocs = rhDocs.filter((f) => f.id !== id);
         renderTable();
         if (doc) logAudit('excluido', doc);
         showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
     };
 
-    let closeActivePopover = null;
     function claimPopover(close) {
         if (closeActivePopover && closeActivePopover !== close) closeActivePopover();
         closeActivePopover = close;

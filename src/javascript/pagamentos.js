@@ -7,6 +7,7 @@ let currentDeptHol = '';
 let allRows = [];
 let employees = [];
 let payslips = [];
+let feriasDoMes = {};
 let rhUser = null;
 let currentSlipData = null;
 const selectedIds = new Set();
@@ -51,7 +52,7 @@ function setLoading(show) {
 }
 
 async function loadData() {
-    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }] = await Promise.all([
+    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }, { data: vacData }] = await Promise.all([
         sb
             .from('employees_decrypted')
             .select(
@@ -60,6 +61,12 @@ async function loadData() {
             .in('status', ['Ativo', 'ativo'])
             .order('name'),
         sb.from('payslips_decrypted').select('*').eq('mes', currentMonth),
+        sb
+            .from('vacations')
+            .select('employee_id,start_date,days,abono')
+            .in('status', ['aprovado', 'concluido'])
+            .gte('start_date', `${currentMonth}-01`)
+            .lt('start_date', nextMonthKey(currentMonth)),
     ]);
 
     if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
@@ -84,6 +91,8 @@ async function loadData() {
         avatarUrl: e.avatar_url,
     }));
     payslips = slipData || [];
+    feriasDoMes = {};
+    (vacData || []).forEach((v) => (feriasDoMes[v.employee_id] ??= []).push(v));
 }
 
 async function refresh() {
@@ -161,7 +170,9 @@ function calcRow(emp) {
     return { salary, inss, irrf, benef, bruto, descontos: +(inss + irrf + descVT).toFixed(2), liquido, isPJ };
 }
 
-async function buildPayslipData(emp, monthKey) {
+const EVENTOS_PRESERVADOS = ['040', '041', '042', '043'];
+
+async function buildPayslipData(emp, monthKey, existingSlip = null) {
     const calc = calcRow(emp);
     const [year, monthNum] = monthKey.split('-');
     const month = parseInt(monthNum, 10);
@@ -251,7 +262,22 @@ async function buildPayslipData(emp, monthKey) {
         if (irrfRecalc > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrfRecalc });
     }
 
-    const totalProventos = +proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
+    const preservados = (existingSlip?.proventos || []).filter((p) => EVENTOS_PRESERVADOS.includes(p.cod));
+    preservados.forEach((p) => proventos.push(p));
+    if (!preservados.length) {
+        (feriasDoMes[emp.id] || []).forEach((v) => {
+            const evento = window.EventosFolha.proventosFerias({
+                contractType: emp.contractType,
+                salario: emp.salary,
+                startDate: v.start_date,
+                dias: v.days,
+                abono: v.abono,
+            });
+            if (evento) proventos.push(...evento.proventos);
+        });
+    }
+
+    const totalProventos = +proventos.reduce((s, p) => s + Number(p.valor), 0).toFixed(2);
     const totalDescontos = +descontos.reduce((s, d) => s + d.valor, 0).toFixed(2);
     const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -499,7 +525,7 @@ window.marcarSelecionadosPagos = async function () {
         const pagoEm = new Date().toISOString();
         const slipsData = await Promise.all(
             rows.map(async (r) => ({
-                ...(await buildPayslipData(r.emp, currentMonth)),
+                ...(await buildPayslipData(r.emp, currentMonth, r.slip)),
                 status: 'pago',
                 pago_em: pagoEm,
                 created_by: rhUser?.id,
@@ -650,34 +676,6 @@ window.verHolerite = function (empId) {
     currentSlipData = { emp: row.emp, slip: row.slip };
     openModal('slip-modal');
     NexusAuth.logAccess(empId, 'holerite', row.slip.competencia || row.slip.mes);
-};
-
-window.executarMarcarTodosPagos = async function () {
-    closeModal('confirm-modal');
-    const pendentes = allRows.filter((r) => !r.pago);
-    if (!pendentes.length) return;
-
-    setLoading(true);
-    try {
-        const pagoEm = new Date().toISOString();
-        const slipsData = await Promise.all(
-            pendentes.map(async (r) => ({
-                ...(await buildPayslipData(r.emp, currentMonth)),
-                status: 'pago',
-                pago_em: pagoEm,
-                created_by: rhUser?.id,
-            }))
-        );
-        const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
-        if (error) {
-            showToast(`Erro ao marcar pagamentos: ${error.message}`, 'error');
-            return;
-        }
-        showToast(`${pendentes.length} colaboradores marcados como pagos.`, 'success');
-        await refresh();
-    } finally {
-        setLoading(false);
-    }
 };
 
 function renderSlipModal(emp, slip) {
@@ -1792,7 +1790,15 @@ async function exportCSV() {
 
     setLoading(true);
     try {
-        const slips = await Promise.all(employees.map((emp) => buildPayslipData(emp, currentMonth)));
+        const slips = await Promise.all(
+            employees.map((emp) =>
+                buildPayslipData(
+                    emp,
+                    currentMonth,
+                    payslips.find((p) => p.employee_id === emp.id)
+                )
+            )
+        );
 
         const header = ['Competência', 'Colaborador', 'CPF', 'Departamento', 'Cargo', 'Tipo de Contrato', 'Tipo', 'Código', 'Descrição', 'Referência', 'Valor'];
         const body = [];

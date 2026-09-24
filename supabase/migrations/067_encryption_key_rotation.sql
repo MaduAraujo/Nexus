@@ -50,7 +50,6 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 BEGIN
-  -- IF aninhado de propósito: numa condição única com AND, o Postgres analisaria a consulta ao Vault mesmo sem Vault.
   IF to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = p_name) THEN
       RETURN TRUE;

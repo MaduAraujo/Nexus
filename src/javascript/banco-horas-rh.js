@@ -265,7 +265,7 @@ function computeBalance(emp, monthKey) {
     const records = getPontoRecords(emp.id);
     const ajustes = getBancoAjustes(emp.id);
     const isPJ = jornadaMin === null;
-    const limiteExtra = hrSettings.limite_extra_diario_min || CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+    const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
     let extrasMin = 0,
         faltaMin = 0,
         diasCompletos = 0,
@@ -915,7 +915,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
             saldoStr = (saldo >= 0 ? '+' : '-') + minToStr(saldo);
             saldoCls = saldo > 0 ? 'positivo' : saldo < 0 ? 'negativo' : 'zero';
         }
-        const limiteExtra = hrSettings.limite_extra_diario_min || CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+        const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
         if (rec.ajustado) badgeHTML = `<span class="badge-sm badge-sm-incompleto">Ajustado</span>`;
         else if (saldo > limiteExtra)
             badgeHTML = `<span class="badge-sm badge-sm-excesso" title="Excede o limite legal de 2h de horas extras diárias (art. 59 CLT)">Excesso 2h+</span>`;
@@ -999,7 +999,7 @@ window.submitAdjust = async function () {
     if (!just) return showErr('A justificativa é obrigatória.');
 
     if (tipo === 'credito') {
-        const limiteExtra = hrSettings.limite_extra_diario_min || CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+        const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
         const { data: dayCredits } = await sb
             .from('bank_adjustments')
             .select('minutos')
@@ -1250,7 +1250,12 @@ window.confirmRejectRequest = async function () {
 };
 
 window.deleteAjuste = async function (empId, adjId) {
-    await sb.from('bank_adjustments').update({ deleted_at: new Date().toISOString() }).eq('id', adjId);
+    if (!confirm('Excluir este ajuste do banco de horas? A exclusão fica registrada na auditoria.')) return;
+    const { error } = await sb.from('bank_adjustments').update({ deleted_at: new Date().toISOString() }).eq('id', adjId);
+    if (error) {
+        showToast('Não foi possível excluir o ajuste.', 'error');
+        return;
+    }
     await sb.from('activity_logs').insert({
         employee_id: empId,
         tipo: 'ajuste_banco',
@@ -1505,7 +1510,12 @@ window.submitHoliday = async function () {
 
 window.deleteHoliday = async function (id) {
     const entry = Object.values(holidaysMap).find((h) => h.id === id);
-    await sb.from('holidays').delete().eq('id', id);
+    if (!confirm(`Excluir o feriado ${entry ? fmtDate(entry.date) : ''}?`)) return;
+    const { error } = await sb.from('holidays').delete().eq('id', id);
+    if (error) {
+        showToast('Não foi possível excluir o feriado.', 'error');
+        return;
+    }
     if (entry) delete holidaysMap[entry.date];
     renderHolidaysList();
     showToast('Feriado removido.', 'info');
@@ -1533,7 +1543,7 @@ window.openSettingsModal = function () {
     const v = $('settings-vencimento');
     if (v) v.value = hrSettings.banco_horas_vencimento_meses || 6;
     const l = $('settings-limite-extra');
-    if (l) l.value = hrSettings.limite_extra_diario_min || CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+    if (l) l.value = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
     const al = $('settings-alert');
     if (al) {
         al.className = 'modal-alert';

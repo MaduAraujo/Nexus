@@ -202,10 +202,12 @@ async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
     today.setHours(0, 0, 0, 0);
     const rangeEnd = cycleEnd < today ? cycleEnd : today;
     if (rangeEnd < cycleStart) return 0;
-    const fmt = (d) => d.toISOString().split('T')[0];
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const inicio = fmt(cycleStart),
+        fim = fmt(rangeEnd);
 
-    const [{ data: recs }, { data: hols }, { data: adjs }] = await Promise.all([
-        sb.from('time_records').select('date,entrada').eq('employee_id', myEmployeeId).gte('date', fmt(cycleStart)).lte('date', fmt(rangeEnd)),
+    const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: first }] = await Promise.all([
+        sb.from('time_records').select('date,entrada').eq('employee_id', myEmployeeId).gte('date', inicio).lte('date', fim),
         sb.from('holidays').select('date'),
         sb
             .from('adjustment_requests')
@@ -213,24 +215,28 @@ async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
             .eq('employee_id', myEmployeeId)
             .eq('tipo', 'falta')
             .eq('status', 'aprovado')
-            .gte('date', fmt(cycleStart))
-            .lte('date', fmt(rangeEnd)),
+            .gte('date', inicio)
+            .lte('date', fim),
+        sb
+            .from('medical_leaves')
+            .select('start_date,end_date')
+            .eq('employee_id', myEmployeeId)
+            .eq('status', 'aprovado')
+            .lte('start_date', fim)
+            .gte('end_date', inicio),
+        sb.from('time_records').select('date').eq('employee_id', myEmployeeId).not('entrada', 'is', null).order('date').limit(1),
     ]);
-    const recMap = {};
-    (recs || []).forEach((r) => {
-        recMap[r.date] = r;
+    const ferias = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido');
+    return CLTDomain.contarFaltasInjustificadas({
+        inicio,
+        fim,
+        registros: recs || [],
+        feriados: (hols || []).map((h) => h.date),
+        abonadas: (adjs || []).map((a) => a.date),
+        afastamentos: [...ferias, ...(leaves || [])],
+        primeiroRegistro: first?.[0]?.date || null,
+        workLoad: myEmployee.work_load,
     });
-    const holidaySet = new Set((hols || []).map((h) => h.date));
-    const justifiedSet = new Set((adjs || []).map((a) => a.date));
-
-    let faltas = 0;
-    for (let d = new Date(cycleStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-        const key = fmt(d);
-        if (d.getDay() === 0 || holidaySet.has(key) || justifiedSet.has(key)) continue;
-        const rec = recMap[key];
-        if (!rec || !rec.entrada) faltas++;
-    }
-    return faltas;
 }
 
 function computeFeriasVencidas() {
@@ -296,7 +302,7 @@ async function loadSummary() {
             earned += diasDireitoPorFaltas(faltas);
         }
     }
-    const taken = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days - (v.abono ? 10 : 0), 0);
+    const taken = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days, 0);
     availableDays = Math.max(0, earned - taken);
     acquisitivePeriod = calcAcquisitivePeriod(admDate, today);
     const daysLeft = Math.ceil((acquisitivePeriod.end - today) / 86400000);

@@ -32,7 +32,7 @@ serve(async (req) => {
     new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    const { table, id } = await req.json();
+    const { table, id } = await req.json().catch(() => ({}) as Record<string, unknown>);
     const cfg = ALERT_TABLES[table];
     if (!cfg || !id) return json({ error: "table/id inválido" }, 400);
 
@@ -120,6 +120,7 @@ serve(async (req) => {
 
     return json({ sent });
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error("[send-alert-push]", e instanceof Error ? e.message : e);
+    return json({ error: "Não foi possível enviar a notificação" }, 500);
   }
 });

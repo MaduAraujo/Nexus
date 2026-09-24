@@ -138,7 +138,7 @@ function horizontalGradient(colorLeft, colorRight) {
 document.addEventListener('DOMContentLoaded', async () => {
     setupChartTheme();
     setupSidebar();
-    await loadRhSidebar();
+    if (!(await loadRhSidebar())) return;
     await loadData();
     refreshAll();
     setupRealtimeSync();
@@ -164,10 +164,11 @@ function setupSectionToggle(btnId, gridId) {
 
 async function loadRhSidebar() {
     const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return;
+    if (!auth) return false;
     setText('rh-sidebar-name', 'Administrador');
     setText('rh-sidebar-role', 'Recursos Humanos');
     setText('rh-sidebar-avatar', 'ADM');
+    return true;
 }
 
 async function loadData() {
@@ -442,23 +443,31 @@ async function updateAbsenteeism() {
     if (!el) return;
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const ativos = employees.filter((e) => e.status === 'Ativo');
+    const ativos = employees.filter((e) => e.status === 'Ativo' && (e.contractType || 'clt').toLowerCase() !== 'pj');
     if (!ativos.length) {
         el.textContent = '—';
         return;
     }
 
-    const { data: records } = await sb
-        .from('time_records')
-        .select('employee_id, date, entrada')
-        .in(
-            'employee_id',
-            ativos.map((e) => e.id)
-        )
-        .gte('date', `${monthKey}-01`)
-        .lte('date', `${monthKey}-${String(now.getDate()).padStart(2, '0')}`);
+    const [{ data: records }, { data: holidays }] = await Promise.all([
+        sb
+            .from('time_records')
+            .select('employee_id, date, entrada')
+            .in(
+                'employee_id',
+                ativos.map((e) => e.id)
+            )
+            .gte('date', `${monthKey}-01`)
+            .lte('date', `${monthKey}-${String(now.getDate()).padStart(2, '0')}`),
+        sb.from('holidays').select('date').gte('date', `${monthKey}-01`),
+    ]);
 
     const presentSet = new Set((records || []).filter((r) => r.entrada).map((r) => `${r.employee_id}_${r.date}`));
+    const holidaySet = new Set((holidays || []).map((h) => h.date));
+    const emFerias = (empId, dateStr) =>
+        vacations.some(
+            (v) => v.employeeId === empId && (v.status === 'aprovado' || v.status === 'concluido') && v.startDate <= dateStr && dateStr <= v.endDate
+        );
 
     let totalWorkDays = 0,
         totalAbsences = 0;
@@ -466,8 +475,9 @@ async function updateAbsenteeism() {
         const dateStr = `${monthKey}-${String(d).padStart(2, '0')}`;
         const dt = new Date(dateStr + 'T12:00:00');
         const dow = dt.getDay();
-        if (dow === 0 || dow === 6) continue;
+        if (dow === 0 || dow === 6 || holidaySet.has(dateStr)) continue;
         ativos.forEach((emp) => {
+            if ((emp.admissionDate && dateStr < emp.admissionDate) || emFerias(emp.id, dateStr)) return;
             totalWorkDays++;
             if (!presentSet.has(`${emp.id}_${dateStr}`)) totalAbsences++;
         });

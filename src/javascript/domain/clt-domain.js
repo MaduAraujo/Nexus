@@ -120,6 +120,26 @@ const CLTDomain = {
         return `${next.getFullYear()}-${pad0(next.getMonth() + 1)}-01`;
     },
 
+    contarFaltasInjustificadas({ inicio, fim, registros = [], feriados = [], abonadas = [], afastamentos = [], primeiroRegistro = null, workLoad = '' }) {
+        if (workLoad === '12x36' || !primeiroRegistro) return 0;
+        const pad0 = (n) => String(n).padStart(2, '0');
+        const key = (d) => `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+        const comEntrada = new Set(registros.filter((r) => r.entrada).map((r) => r.date));
+        const naoConta = new Set([...feriados, ...abonadas]);
+        const afastado = (k) => afastamentos.some((a) => a.start_date <= k && k <= a.end_date);
+
+        let faltas = 0;
+        const cursor = new Date(`${inicio}T12:00:00`);
+        const ultimo = new Date(`${fim}T12:00:00`);
+        for (; cursor <= ultimo; cursor.setDate(cursor.getDate() + 1)) {
+            const k = key(cursor);
+            const dow = cursor.getDay();
+            if (dow === 0 || dow === 6 || k < primeiroRegistro || naoConta.has(k) || comEntrada.has(k) || afastado(k)) continue;
+            faltas++;
+        }
+        return faltas;
+    },
+
     computeBankLedgerStatus(monthlyNet, vencimentoMeses, hoje = new Date()) {
         const keys = Object.keys(monthlyNet).sort();
         const queue = [];

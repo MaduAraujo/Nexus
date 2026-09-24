@@ -503,6 +503,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             .single();
 
         if (error) {
+            chatInput.value = text;
+            chatSendBtn.disabled = false;
             showToast('Erro ao enviar mensagem', 'error');
             return;
         }

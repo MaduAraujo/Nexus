@@ -63,9 +63,13 @@
 
     function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
-
+        let hadController = !!navigator.serviceWorker.controller;
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (!hadController) {
+                hadController = true;
+                return;
+            }
             if (refreshing) return;
             refreshing = true;
             window.location.reload();

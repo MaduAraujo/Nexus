@@ -34,6 +34,7 @@ function dbToEmp(row) {
         admissionDate: row.admission_date,
         birthDate: row.birth_date,
         contractType: (row.contract_type || 'clt').toLowerCase(),
+        workLoad: row.work_load || '',
         status: row.status,
         avatarUrl: row.avatar_url,
         avatarColor: row.avatar_color,
@@ -49,7 +50,7 @@ function isEstagioOuAprendiz(emp) {
 async function fetchData() {
     const [{ data: vData }, { data: eData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
-        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,status,avatar_url,avatar_color,salary'),
+        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,work_load,status,avatar_url,avatar_color,salary'),
     ]);
     vacations = (vData || []).map(dbToVacation);
     employees = (eData || []).map(dbToEmp);
@@ -82,16 +83,16 @@ function empAvatarHtml(emp) {
 
 async function loadRhSidebar() {
     const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return;
+    if (!auth) return false;
     rhUserEmail = auth.user.email;
 
     const nameEl = document.getElementById('rh-sidebar-name');
     const roleEl = document.getElementById('rh-sidebar-role');
     const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (!nameEl) return;
-    nameEl.textContent = 'Administrador';
+    if (nameEl) nameEl.textContent = 'Administrador';
     if (roleEl) roleEl.textContent = 'Recursos Humanos';
     if (avatarEl) avatarEl.textContent = 'ADM';
+    return true;
 }
 
 async function autoExpireVacations() {
@@ -215,10 +216,12 @@ async function calcFaltasInjustificadas(empId, cycleStart, cycleEnd) {
     today.setHours(0, 0, 0, 0);
     const rangeEnd = cycleEnd < today ? cycleEnd : today;
     if (rangeEnd < cycleStart) return 0;
-    const fmt = (d) => d.toISOString().split('T')[0];
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const inicio = fmt(cycleStart),
+        fim = fmt(rangeEnd);
 
-    const [{ data: recs }, { data: hols }, { data: adjs }] = await Promise.all([
-        sb.from('time_records').select('date,entrada').eq('employee_id', empId).gte('date', fmt(cycleStart)).lte('date', fmt(rangeEnd)),
+    const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: first }] = await Promise.all([
+        sb.from('time_records').select('date,entrada').eq('employee_id', empId).gte('date', inicio).lte('date', fim),
         sb.from('holidays').select('date'),
         sb
             .from('adjustment_requests')
@@ -226,24 +229,30 @@ async function calcFaltasInjustificadas(empId, cycleStart, cycleEnd) {
             .eq('employee_id', empId)
             .eq('tipo', 'falta')
             .eq('status', 'aprovado')
-            .gte('date', fmt(cycleStart))
-            .lte('date', fmt(rangeEnd)),
+            .gte('date', inicio)
+            .lte('date', fim),
+        sb
+            .from('medical_leaves')
+            .select('start_date,end_date')
+            .eq('employee_id', empId)
+            .eq('status', 'aprovado')
+            .lte('start_date', fim)
+            .gte('end_date', inicio),
+        sb.from('time_records').select('date').eq('employee_id', empId).not('entrada', 'is', null).order('date').limit(1),
     ]);
-    const recMap = {};
-    (recs || []).forEach((r) => {
-        recMap[r.date] = r;
+    const ferias = vacations
+        .filter((v) => v.employeeId === empId && (v.status === 'aprovado' || v.status === 'concluido'))
+        .map((v) => ({ start_date: v.startDate, end_date: v.endDate }));
+    return CLTDomain.contarFaltasInjustificadas({
+        inicio,
+        fim,
+        registros: recs || [],
+        feriados: (hols || []).map((h) => h.date),
+        abonadas: (adjs || []).map((a) => a.date),
+        afastamentos: [...ferias, ...(leaves || [])],
+        primeiroRegistro: first?.[0]?.date || null,
+        workLoad: getEmployee(empId)?.workLoad,
     });
-    const holidaySet = new Set((hols || []).map((h) => h.date));
-    const justifiedSet = new Set((adjs || []).map((a) => a.date));
-
-    let faltas = 0;
-    for (let d = new Date(cycleStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
-        const key = fmt(d);
-        if (d.getDay() === 0 || holidaySet.has(key) || justifiedSet.has(key)) continue;
-        const rec = recMap[key];
-        if (!rec || !rec.entrada) faltas++;
-    }
-    return faltas;
 }
 
 function renderTable() {
@@ -592,40 +601,27 @@ function checkDeptConflict(vacation) {
     return conflicts.length > 0 ? { dept, count: conflicts.length, names: conflicts.map((v) => getEmployee(v.employeeId)?.name || '?') } : null;
 }
 
-const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
 async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
     const emp = getEmployee(employeeId);
-    if (!emp || emp.contractType === 'pj' || !emp.salary) return;
-
-    const { ferias, tercoFerias, abonoPecuniario, tercoAbono, total } = window.EventosFolha.calcAdiantamentoFerias({
-        salario: Number(emp.salary),
-        dias: days,
-        abono: !!abono,
-    });
-    if (total <= 0) return;
-
-    const novosProventos = [
-        { cod: '040', descricao: 'Adiantamento de Férias', referencia: `${days} dias`, valor: ferias },
-        { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: tercoFerias },
-    ];
-    if (abonoPecuniario > 0) {
-        novosProventos.push({ cod: '042', descricao: 'Abono Pecuniário (venda de férias)', referencia: '10 dias', valor: abonoPecuniario });
-        novosProventos.push({ cod: '043', descricao: '1/3 sobre Abono Pecuniário', referencia: '—', valor: tercoAbono });
-    }
-
-    const mes = startDate.slice(0, 7);
-    const [year, monthNum] = mes.split('-');
-    const month = parseInt(monthNum, 10);
+    if (!emp) return;
+    const evento = window.EventosFolha.proventosFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: days, abono });
+    if (!evento) return;
 
     const { error } = await sb.rpc('apply_ferias_payroll_event', {
         p_employee_id: employeeId,
-        p_mes: mes,
-        p_mes_formatado: `${MESES_FOLHA[month - 1]} ${year}`,
-        p_competencia: `${String(month).padStart(2, '0')}/${year}`,
-        p_novos_proventos: novosProventos,
+        p_mes: evento.mes,
+        p_mes_formatado: evento.mesFormatado,
+        p_competencia: evento.competencia,
+        p_novos_proventos: evento.proventos,
     });
     if (error) console.error('[Nexus] apply_ferias_payroll_event:', error);
+}
+
+async function sincronizarEventosDeFerias() {
+    const hoje = new Date();
+    const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+    const pendentesDeFolha = vacations.filter((v) => v.status === 'aprovado' && v.startDate && v.startDate.slice(0, 7) >= mesAtual);
+    await Promise.all(pendentesDeFolha.map((v) => gerarEventoAdiantamentoFerias(v)));
 }
 
 async function reverterEventoAdiantamentoFerias({ employeeId, startDate }) {
@@ -951,6 +947,10 @@ window.submitAdd = async function () {
     const days = Math.round((eDate - sDate) / 86400000) + 1;
     if (days < 5) {
         showAlert('add-alert', 'O período mínimo de férias é de 5 dias.', 'error');
+        return;
+    }
+    if (abono && days < 20) {
+        showAlert('add-alert', 'O abono pecuniário exige um período de 20 dias ou mais (10 são vendidos).', 'error');
         return;
     }
 
@@ -1935,9 +1935,10 @@ function setTodayDate() {
 document.addEventListener('DOMContentLoaded', async () => {
     setTodayDate();
     setupSidebar();
-    await loadRhSidebar();
+    if (!(await loadRhSidebar())) return;
     await fetchData();
     await autoExpireVacations();
+    await sincronizarEventosDeFerias();
     loadKPIs();
     renderTable();
     renderGantt();

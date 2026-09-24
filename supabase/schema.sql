@@ -781,7 +781,6 @@ CREATE POLICY "rh_memory_all"  ON ai_decision_memory  FOR ALL USING (is_rh());
 CREATE POLICY "rh_ai_decision_log_all"        ON ai_decision_log FOR ALL    USING (is_rh());
 CREATE POLICY "colabo_ai_decision_log_select" ON ai_decision_log FOR SELECT USING (employee_id = my_employee_id());
 
--- Funções auxiliares SECURITY DEFINER: evitam recursão de RLS entre chat_channels e chat_channel_members.
 CREATE OR REPLACE FUNCTION chat_channel_is_dm(p_channel UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (SELECT 1 FROM chat_channels WHERE id = p_channel AND kind = 'dm');
@@ -1694,7 +1693,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio) VALUES
 ON CONFLICT (category, tipo, contract_type) DO NOTHING;
 
 INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) VALUES
-  -- Estágio (Lei 11.788/2008)
   ('admissional', 'RG',                                  true, 'Estágio'),
   ('admissional', 'CPF',                                 true, 'Estágio'),
   ('admissional', 'Comprovante de Residência',           true, 'Estágio'),
@@ -1703,7 +1701,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) V
   ('admissional', 'Comprovante de Matrícula e Frequência', true, 'Estágio'),
   ('admissional', 'Apólice de Seguro de Acidentes Pessoais', true, 'Estágio'),
   ('demissional', 'Termo de Realização do Estágio',      true, 'Estágio'),
-  -- Aprendiz (CLT, arts. 428 a 433)
   ('admissional', 'RG',                                  true, 'Aprendiz'),
   ('admissional', 'CPF',                                 true, 'Aprendiz'),
   ('admissional', 'Comprovante de Residência',           true, 'Aprendiz'),
@@ -1715,7 +1712,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) V
   ('demissional', 'Termo de Rescisão',                   true, 'Aprendiz'),
   ('demissional', 'Exame Demissional',                   true, 'Aprendiz'),
   ('demissional', 'Guia FGTS',                           true, 'Aprendiz'),
-  -- Temporário (Lei 6.019/1974; CLT, art. 443): prazo determinado, sem aviso prévio
   ('admissional', 'RG',                                  true, 'Temporário'),
   ('admissional', 'CPF',                                 true, 'Temporário'),
   ('admissional', 'Comprovante de Residência',           true, 'Temporário'),
@@ -1726,7 +1722,6 @@ INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) V
   ('demissional', 'Termo de Rescisão',                   true, 'Temporário'),
   ('demissional', 'Exame Demissional',                   true, 'Temporário'),
   ('demissional', 'Guia FGTS',                           true, 'Temporário'),
-  -- PJ (Código Civil, arts. 593 a 609): sem vínculo empregatício, sem checklist demissional
   ('admissional', 'Contrato de Prestação de Serviços',   true, 'PJ'),
   ('admissional', 'Cartão CNPJ',                         true, 'PJ'),
   ('admissional', 'RG',                                  true, 'PJ'),
@@ -4092,11 +4087,11 @@ CREATE TRIGGER documents_collaborator_guard_trg
 CREATE TABLE IF NOT EXISTS performance_reviews (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  cycle           TEXT NOT NULL, -- ex.: "1º Semestre 2026" — texto livre, sem calendário fixo de ciclos
+  cycle           TEXT NOT NULL,
   status          TEXT NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho', 'concluida')),
   overall_rating  SMALLINT CHECK (overall_rating BETWEEN 1 AND 5),
   manager_comment TEXT,
-  evaluator_name  TEXT, -- nome de quem avaliou (gestor ou RH) — sem FK: RH nem sempre tem linha em employees
+  evaluator_name  TEXT,
   evaluator_email TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   completed_at    TIMESTAMPTZ,
@@ -4118,7 +4113,7 @@ CREATE INDEX IF NOT EXISTS performance_review_competencies_review_idx ON perform
 CREATE TABLE IF NOT EXISTS pdi_goals (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id      UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  review_id        UUID REFERENCES performance_reviews(id) ON DELETE SET NULL, -- opcional: meta pode nascer fora de um ciclo
+  review_id        UUID REFERENCES performance_reviews(id) ON DELETE SET NULL,
   title            TEXT NOT NULL,
   description      TEXT,
   due_date         DATE,
@@ -4208,8 +4203,8 @@ CREATE POLICY "colabo_pdi_goals_own_update" ON pdi_goals FOR UPDATE
 CREATE TABLE IF NOT EXISTS job_titles (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title        TEXT NOT NULL,
-  track        TEXT, -- trilha/área de carreira (ex.: "Recursos Humanos", "Tecnologia") — opcional, RH define
-  level        TEXT, -- nível dentro da trilha (ex.: "Júnior", "Pleno", "Sênior", "Especialista", "Gerência")
+  track        TEXT,
+  level        TEXT,
   salary_min   NUMERIC(10,2),
   salary_max   NUMERIC(10,2),
   active       BOOLEAN NOT NULL DEFAULT true,
@@ -4260,8 +4255,8 @@ CREATE TABLE IF NOT EXISTS trainings (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title          TEXT NOT NULL,
   description    TEXT,
-  category       TEXT, -- ex.: "Compliance", "Técnico", "Liderança", "Idiomas"
-  provider       TEXT, -- ex.: "Interno", "Externo", nome da plataforma
+  category       TEXT,
+  provider       TEXT,
   duration_hours NUMERIC(6,2),
   active         BOOLEAN NOT NULL DEFAULT true,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
@@ -4280,7 +4275,7 @@ CREATE POLICY "authenticated_trainings_select" ON trainings FOR SELECT TO authen
 CREATE TABLE IF NOT EXISTS employee_trainings (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id      UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  training_id      UUID REFERENCES trainings(id) ON DELETE SET NULL, -- opcional: registro pode ser livre, fora do catálogo
+  training_id      UUID REFERENCES trainings(id) ON DELETE SET NULL,
   title            TEXT NOT NULL,
   category         TEXT,
   provider         TEXT,
@@ -4291,8 +4286,8 @@ CREATE TABLE IF NOT EXISTS employee_trainings (
   completion_date  DATE,
   certificate_url  TEXT,
   certificate_path TEXT,
-  notes            TEXT, -- ex.: motivo da recusa pelo RH
-  assigned_by_name TEXT, -- nome de quem atribuiu (RH ou gestor) — nulo quando autodeclarado
+  notes            TEXT,
+  assigned_by_name TEXT,
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   updated_at       TIMESTAMPTZ DEFAULT NOW(),
   CHECK (
@@ -5136,3 +5131,30 @@ CREATE POLICY "colabo_storage_select_certificados" ON storage.objects FOR SELECT
         AND et.employee_id = my_employee_id()
     )
   );
+
+
+CREATE OR REPLACE FUNCTION employees_delete_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN OLD;
+  END IF;
+  IF EXISTS (SELECT 1 FROM payslips WHERE employee_id = OLD.id)
+     OR EXISTS (SELECT 1 FROM time_records WHERE employee_id = OLD.id)
+     OR EXISTS (SELECT 1 FROM documents WHERE employee_id = OLD.id) THEN
+    RAISE EXCEPTION 'Colaborador com holerite, ponto ou documento não pode ser excluído (prazo legal de guarda). Inative e, se necessário, anonimize.'
+      USING ERRCODE = '23503';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_delete_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_delete_guard_trg ON employees;
+CREATE TRIGGER employees_delete_guard_trg
+  BEFORE DELETE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_delete_guard();

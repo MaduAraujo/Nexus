@@ -43,7 +43,7 @@ let allMsgs = [];
 let lidos = new Set();
 
 async function loadData() {
-    const orFilter = myDept ? `destino.eq.Todos,destino.eq.${myDept}` : 'destino.eq.Todos';
+    const orFilter = myDept ? `destino.eq.Todos,destino.eq."${myDept.replace(/["\\]/g, '\\$&')}"` : 'destino.eq.Todos';
     const [{ data: msgs }, { data: reads }] = await Promise.all([
         sb.from('messages').select('*').or(orFilter).order('created_at', { ascending: false }),
         sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
@@ -127,13 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('modal-close')?.addEventListener('click', closeModal);
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (msgModal && !msgModal.classList.contains('hidden')) {
-                closeModal();
-                return;
-            }
-            if (isMobile()) closeSide();
-        }
+        if (e.key === 'Escape' && msgModal && !msgModal.classList.contains('hidden')) closeModal();
     });
 
     function render() {

@@ -322,7 +322,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function markStatus(newStatus) {
         if (!currentTicketId) return;
 
-        await sb.from('hr_tickets').update({ status: newStatus }).eq('id', currentTicketId);
+        const { error } = await sb.from('hr_tickets').update({ status: newStatus }).eq('id', currentTicketId);
+        if (error) {
+            showToast('Não foi possível atualizar o atendimento', 'error', 'Tente novamente.');
+            return;
+        }
 
         currentTicket = { ...currentTicket, status: newStatus };
         const idx = allTickets.findIndex((t) => t.id === currentTicketId);
@@ -507,6 +511,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             .single();
 
         if (error) {
+            replyInput.value = text;
+            replySendBtn.disabled = false;
             showToast('Erro ao enviar resposta', 'error');
             return;
         }

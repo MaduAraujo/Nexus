@@ -248,7 +248,8 @@ function renderTrainings() {
         .map((t) => {
             const label = TRAINING_STATUS_LABEL[t.status] || t.status;
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
-            if (t.certificate_url) bits.push(`<a href="${escapeHtml(t.certificate_url)}" target="_blank" rel="noopener">Certificado</a>`);
+            if (safeHttpUrl(t.certificate_url))
+                bits.push(`<a href="${escapeHtml(safeHttpUrl(t.certificate_url))}" target="_blank" rel="noopener">Certificado</a>`);
             if (t.certificate_path)
                 bits.push(
                     `<button type="button" class="training-cert-link" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado anexado</button>`
@@ -293,6 +294,10 @@ async function selfReportTrainingSubmit() {
         return;
     }
     const certificateUrl = document.getElementById('tr-self-cert')?.value.trim() || null;
+    if (certificateUrl && !safeHttpUrl(certificateUrl)) {
+        showToast('O link do certificado deve começar com https://', 'error');
+        return;
+    }
     const file = document.getElementById('tr-self-file')?.files?.[0] || null;
     if (!file) {
         showToast('Anexe o certificado (imagem ou PDF).', 'error');

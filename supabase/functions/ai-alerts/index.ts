@@ -47,6 +47,14 @@ ACTION:{"type":"approve_vacation|reject_vacation|approve_adjustment|reject_adjus
 Responda sempre em português brasileiro. Seja direto, empático e orientado a ações concretas.`;
 }
 
+function sanitizeHistory(history: unknown): { role: string; content: string }[] {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((m) => m && (m.role === "user" || m.role === "assistant"))
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, 2000) }));
+}
+
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
@@ -112,7 +120,7 @@ Ordene por urgência. Destaque padrões convergentes no mesmo colaborador ou dep
 Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
       }];
     } else if (action === "chat") {
-      messages = [...(history ?? []), { role: "user", content: message }];
+      messages = [...sanitizeHistory(history), { role: "user", content: String(message ?? "").slice(0, 4000) }];
     } else {
       return json({ error: "action inválido" }, 400);
     }
@@ -145,6 +153,7 @@ Tom profissional e empático. Baseie-se SOMENTE nos dados do snapshot.`,
     return json({ content: text, history: [...messages, { role: "assistant", content: text }] });
 
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error("[ai-alerts]", e instanceof Error ? e.message : e);
+    return json({ error: "Não foi possível concluir a análise agora." }, 500);
   }
 });

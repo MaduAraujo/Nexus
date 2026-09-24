@@ -38,7 +38,7 @@ const CATEGORY_LABEL = {
 const SEV_LABEL = { critical: 'Crítico', warning: 'Atenção', info: 'Info' };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await checkAuth();
+    if (!(await checkAuth())) return;
     setupListeners();
     setupTabs();
     syncAdminNotifButtonUI();
@@ -47,8 +47,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuth() {
     const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return;
+    if (!auth) return false;
     rhUser = auth.user;
+    return true;
 }
 
 const ADMIN_PUSH_VAPID_PUBLIC_KEY = 'BKEh0-IRJSvTztskLtGWT6syeAf1dyrRJwslbUs9v9ISuu9nMdr4fthxtkT6P8UdEDR4GJMKXJIXRNb-9EJhgAY';
@@ -356,6 +357,7 @@ function showActionConfirmation(actionData, originalMessage) {
         <div class="action-confirm-card">
             <div class="action-confirm-header"><i class="fas fa-bolt"></i> Ação detectada</div>
             <p class="action-confirm-message">${esc(actionData.message)}</p>
+            <ul class="action-targets"><li><i class="fas fa-spinner fa-spin"></i> Conferindo os registros…</li></ul>
             <div class="action-impact-preview hidden"></div>
             <div class="action-confirm-btns">
                 <button class="btn-do-action"><i class="fas fa-check"></i> Confirmar</button>
@@ -381,7 +383,22 @@ function showActionConfirmation(actionData, originalMessage) {
             .catch(() => {});
     }
 
-    div.querySelector('.btn-do-action').addEventListener('click', async () => {
+    const doBtn = div.querySelector('.btn-do-action');
+    doBtn.disabled = true;
+    describeActionTargets(actionData)
+        .then(({ lines, validIds }) => {
+            const list = div.querySelector('.action-targets');
+            list.innerHTML = lines.length
+                ? lines.map((l) => `<li>${esc(l)}</li>`).join('')
+                : '<li class="action-targets-empty">Nenhum registro pendente corresponde a esta ação.</li>';
+            actionData.ids = validIds;
+            doBtn.disabled = !validIds.length;
+        })
+        .catch(() => {
+            div.querySelector('.action-targets').innerHTML = '<li class="action-targets-empty">Não foi possível conferir os registros.</li>';
+        });
+
+    doBtn.addEventListener('click', async () => {
         const btns = div.querySelector('.action-confirm-btns');
         btns.innerHTML = '<span class="action-status"><i class="fas fa-spinner fa-spin"></i> Executando...</span>';
         const ok = await executeAction(actionData);
@@ -391,6 +408,26 @@ function showActionConfirmation(actionData, originalMessage) {
         if (ok) saveChatMessages(originalMessage, `✓ ${actionData.message}`).catch(() => {});
     });
     div.querySelector('.btn-cancel-action').addEventListener('click', () => div.remove());
+}
+
+const ACTION_PENDING_STATUS = { vacations: 'pendente', adjustment_requests: 'pendente' };
+
+async function describeActionTargets({ type, ids = [] }) {
+    const table = AI_DECISION_TARGET_TABLE[type];
+    if (!table || !ids.length) return { lines: [], validIds: [] };
+    const { data: rows } = await sb.from(table).select('*').in('id', ids);
+    const pending = ACTION_PENDING_STATUS[table];
+    const valid = (rows || []).filter((r) => (pending ? r.status === pending : table !== 'burnout_alerts' || !r.lido));
+    const empIds = [...new Set(valid.map((r) => r.employee_id).filter(Boolean))];
+    const { data: emps } = empIds.length ? await sb.from('employees').select('id,name').in('id', empIds) : { data: [] };
+    const nameOf = (id) => (emps || []).find((e) => e.id === id)?.name || 'Colaborador';
+    const fmt = (d) => (d ? d.split('-').reverse().join('/') : '—');
+    const lines = valid.map((r) => {
+        if (table === 'vacations') return `${nameOf(r.employee_id)} — férias de ${fmt(r.start_date)} a ${fmt(r.end_date)} (${r.days} dias)`;
+        if (table === 'adjustment_requests') return `${nameOf(r.employee_id)} — ajuste de ${r.tipo} em ${fmt(r.date)}`;
+        return `${nameOf(r.employee_id)} — alerta de ${fmt(r.date)}`;
+    });
+    return { lines, validIds: valid.map((r) => r.id) };
 }
 
 const AI_DECISION_TARGET_TABLE = {
@@ -428,13 +465,26 @@ async function executeAction(actionData) {
             evidenceRows = data || [];
         }
 
+        const decidedBy = { decided_by_name: rhUser?.email?.split('@')[0] || 'RH', decided_by_email: rhUser?.email || null };
         switch (type) {
-            case 'approve_vacation':
-                await sb.from('vacations').update({ status: 'aprovado', approved_at: now }).in('id', ids);
+            case 'approve_vacation': {
+                const { error } = await sb
+                    .from('vacations')
+                    .update({ status: 'aprovado', approved_at: now, ...decidedBy })
+                    .in('id', ids)
+                    .eq('status', 'pendente');
+                if (error) throw error;
                 break;
-            case 'reject_vacation':
-                await sb.from('vacations').update({ status: 'recusado', rejected_at: now }).in('id', ids);
+            }
+            case 'reject_vacation': {
+                const { error } = await sb
+                    .from('vacations')
+                    .update({ status: 'recusado', rejected_at: now, rejection_reason: 'Recusada pelo RH via assistente de IA.', ...decidedBy })
+                    .in('id', ids)
+                    .eq('status', 'pendente');
+                if (error) throw error;
                 break;
+            }
             case 'approve_adjustment':
             case 'reject_adjustment': {
                 const decision = type === 'approve_adjustment' ? 'aprovado' : 'rejeitado';
@@ -452,9 +502,11 @@ async function executeAction(actionData) {
                 if (firstError) throw firstError;
                 break;
             }
-            case 'mark_burnout_read':
-                await sb.from('burnout_alerts').update({ lido: true }).in('id', ids);
+            case 'mark_burnout_read': {
+                const { error } = await sb.from('burnout_alerts').update({ lido: true }).in('id', ids);
+                if (error) throw error;
                 break;
+            }
             default:
                 throw new Error(`Ação desconhecida: ${type}`);
         }
