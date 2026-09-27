@@ -61,7 +61,7 @@ window.NexusMfa = (function () {
         const { data, error } = await client.auth.mfa.enroll({
             factorType: 'totp',
             issuer: 'Nexus RH',
-            friendlyName: `App autenticador ${new Date().toISOString().slice(0, 10)}`,
+            friendlyName: `App autenticador ${localISODate()}`,
         });
         if (error) return { error };
         return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, error: null };

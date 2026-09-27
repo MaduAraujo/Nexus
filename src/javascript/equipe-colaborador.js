@@ -681,10 +681,7 @@ window.assignTraining = async function () {
 };
 
 window.approveTraining = async function (id) {
-    const { error } = await sb
-        .from('employee_trainings')
-        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id);
+    const { error } = await sb.from('employee_trainings').update({ status: 'concluido', completion_date: localISODate() }).eq('id', id);
     if (error) {
         showToast('Não foi possível aprovar o treinamento.', 'error');
         return;
@@ -706,10 +703,7 @@ window.rejectTraining = async function (id) {
 };
 
 window.completeTraining = async function (id) {
-    const { error } = await sb
-        .from('employee_trainings')
-        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id);
+    const { error } = await sb.from('employee_trainings').update({ status: 'concluido', completion_date: localISODate() }).eq('id', id);
     if (error) {
         showToast('Não foi possível concluir o treinamento.', 'error');
         return;

@@ -60,10 +60,6 @@ function dbToEmployee(row) {
     };
 }
 
-function localISODate(d = new Date()) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function employeeToDb(emp) {
     const parseVal = (v) =>
         v
@@ -900,7 +896,7 @@ function parseImportDate(v) {
     const br = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (br) return dataValida(+br[3], +br[2], +br[1]) ? `${br[3]}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}` : null;
     const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    return isNaN(d.getTime()) ? null : localISODate(d);
 }
 
 function parseImportSalary(v) {

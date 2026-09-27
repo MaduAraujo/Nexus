@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { createMockSupabase } = require('../test-support/mock-supabase');
 
 global.window = global;
+require('../src/javascript/shared/datas.js');
 const NexusMfa = require('../src/javascript/shared/mfa.js');
 
 const AAL1_SEM_FATOR = { currentLevel: 'aal1', nextLevel: 'aal1' };

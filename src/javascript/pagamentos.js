@@ -1116,9 +1116,8 @@ async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr) {
 }
 
 async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
-    const desde = new Date(ateDataStr);
-    desde.setMonth(desde.getMonth() - 12);
-    const desdeKey = desde.toISOString().slice(0, 7);
+    const [ateAno, ateMes] = ateDataStr.split('-');
+    const desdeKey = `${Number(ateAno) - 1}-${ateMes}`;
     const ateKey = ateDataStr.slice(0, 7);
 
     const { data: slips } = await sb.from('payslips_decrypted').select('mes,proventos').eq('employee_id', empId).gte('mes', desdeKey).lt('mes', ateKey);
@@ -1544,7 +1543,7 @@ window.confirmarDesligamento = async function () {
                 source: 'Administrador',
                 status: 'aprovado',
                 created_by: rhUser.id,
-                retido_ate: retidoAte.toISOString().slice(0, 10),
+                retido_ate: localISODate(retidoAte),
                 lgpd_consentimento: true,
                 lgpd_consentimento_em: new Date().toISOString(),
             });

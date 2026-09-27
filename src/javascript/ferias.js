@@ -96,7 +96,7 @@ async function loadRhSidebar() {
 }
 
 async function autoExpireVacations() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localISODate();
     const toExpire = vacations.filter((v) => v.status === 'aprovado' && v.endDate < today);
     if (!toExpire.length) return;
     const ids = toExpire.map((v) => v.id);
@@ -1510,7 +1510,7 @@ window.exportVacationsCSV = function () {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ferias_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `ferias_${localISODate()}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();

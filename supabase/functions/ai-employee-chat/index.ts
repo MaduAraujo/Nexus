@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { getJornadaMin, calcBancoHorasLedger, calcFeriasSnapshot } from "../_shared/employee-financial-snapshot.mjs";
 import { createPseudonymizer, createSseUnmaskStream } from "../_shared/pseudonymize.mjs";
+import { hojeSaoPaulo, inicioDoDia } from "../_shared/datas.mjs";
 
 async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([
@@ -21,12 +22,14 @@ async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, e
 
   const jornadaMin = getJornadaMin(emp);
   const vencimentoMeses = settingsRes.data?.banco_horas_vencimento_meses ?? 6;
-  const ledger = calcBancoHorasLedger(recsRes.data ?? [], adjRes.data ?? [], jornadaMin, vencimentoMeses);
-  const ferias = calcFeriasSnapshot(emp, vacRes.data ?? []);
+  const hoje = hojeSaoPaulo();
+  const hojeData = inicioDoDia(hoje);
+  const ledger = calcBancoHorasLedger(recsRes.data ?? [], adjRes.data ?? [], jornadaMin, vencimentoMeses, hojeData);
+  const ferias = calcFeriasSnapshot(emp, vacRes.data ?? [], hojeData);
 
   return {
     nome_real: emp.name as string,
-    hoje: new Date().toISOString().slice(0, 10),
+    hoje,
     colaborador: {
       nome: "[P1]", cargo: emp.role, departamento: emp.dept,
       admissao: emp.admission_date, tipo_contrato: emp.contract_type,
@@ -47,12 +50,12 @@ async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, e
   };
 }
 
-function buildSystem(snapshot: object): string {
+function buildSystem(snapshot: object, hoje: string): string {
   return `Você é o Agente de Atendimento RH do sistema Nexus, conversando diretamente com um colaborador (não é RH, não tem acesso a dados de outros colaboradores).
 
 PRIVACIDADE: o colaborador aparece pelo pseudônimo [P1]. Se for chamá-lo pelo nome, escreva exatamente [P1], com os colchetes — o sistema troca pelo nome real antes de exibir. Nunca tente adivinhar o nome.
 
-DADOS REAIS DESTE COLABORADOR (${new Date().toISOString().slice(0, 10)}):
+DADOS REAIS DESTE COLABORADOR (${hoje}):
 ${JSON.stringify(snapshot, null, 2)}
 
 INSTRUÇÕES:
@@ -108,7 +111,7 @@ serve(async (req) => {
 
     const { nome_real, ...groqSnapshot } = snapshot;
     const ps = createPseudonymizer([{ id: profile.employee_id, name: nome_real }]);
-    const system = buildSystem(groqSnapshot);
+    const system = buildSystem(groqSnapshot, snapshot.hoje);
     const messages = [...sanitizeHistory(history), { role: "user", content: message }];
     const groqMessages = [
       { role: "system", content: system },

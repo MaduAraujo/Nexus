@@ -4,6 +4,7 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
 import { shapeSnapshot, sevenDaysAgo, pseudonymizeRows } from "../_shared/ai-alerts-snapshot.mjs";
 import { createSseUnmaskStream } from "../_shared/pseudonymize.mjs";
+import { hojeSaoPaulo } from "../_shared/datas.mjs";
 
 async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: ReturnType<typeof createClient>, today: string) {
   const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
@@ -12,7 +13,7 @@ async function gatherSnapshot(admin: ReturnType<typeof createClient>, caller: Re
     admin.from("adjustment_requests").select("id,employee_id,date,tipo,justificativa,created_at,employees(name)").eq("status", "pendente").order("created_at"),
     admin.from("burnout_alerts").select("id,employee_id,date,alertas,created_at,employees(name)").eq("lido", false).order("created_at", { ascending: false }).limit(15),
     admin.from("documents").select("employee_id,name,created_at,employees(name)").eq("status", "pendente").eq("source", "colaborador"),
-    admin.from("time_records").select("employee_id,date,entrada").gte("date", sevenDaysAgo(new Date(today))).lte("date", today),
+    admin.from("time_records").select("employee_id,date,entrada").gte("date", sevenDaysAgo(today)).lte("date", today),
     caller.from("ai_decision_memory_decrypted").select("action_type,description,created_at").order("created_at", { ascending: false }).limit(10),
   ]);
 
@@ -89,7 +90,7 @@ serve(async (req) => {
     if (allowed === false) return json({ error: "Limite de análises por hora atingido. Tente novamente mais tarde." }, 429);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const today = new Date().toISOString().split("T")[0];
+    const today = hojeSaoPaulo();
     const { ps, snapshot } = await gatherSnapshot(admin, caller, today);
     const system = buildSystem(snapshot, today);
 

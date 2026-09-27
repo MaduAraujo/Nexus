@@ -4,9 +4,12 @@ const { createMockSupabase } = require('../test-support/mock-supabase');
 
 let documentos;
 
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 before(() => {
     global.window = global;
     global.document = { addEventListener: () => {}, getElementById: () => null };
+    require('../src/javascript/shared/datas.js');
     require('../src/javascript/domain/requisitos-documentos.js');
     documentos = require('../src/javascript/documentos-colaborador.js');
 });
@@ -23,25 +26,25 @@ describe('computeRetentionDate (prazo de guarda LGPD por tipo de documento)', ()
     test('tipos trabalhistas de 30 anos (ex.: Contrato de Trabalho)', () => {
         const esperado = new Date();
         esperado.setFullYear(esperado.getFullYear() + 30);
-        assert.equal(documentos.computeRetentionDate('Contrato de Trabalho'), esperado.toISOString().slice(0, 10));
+        assert.equal(documentos.computeRetentionDate('Contrato de Trabalho'), localISO(esperado));
     });
 
     test('exames têm 20 anos', () => {
         const esperado = new Date();
         esperado.setFullYear(esperado.getFullYear() + 20);
-        assert.equal(documentos.computeRetentionDate('Exame Admissional'), esperado.toISOString().slice(0, 10));
+        assert.equal(documentos.computeRetentionDate('Exame Admissional'), localISO(esperado));
     });
 
     test('RG/CPF/comprovante de residência têm 5 anos', () => {
         const esperado = new Date();
         esperado.setFullYear(esperado.getFullYear() + 5);
-        assert.equal(documentos.computeRetentionDate('RG'), esperado.toISOString().slice(0, 10));
+        assert.equal(documentos.computeRetentionDate('RG'), localISO(esperado));
     });
 
     test('tipo não listado cai no padrão de 5 anos', () => {
         const esperado = new Date();
         esperado.setFullYear(esperado.getFullYear() + 5);
-        assert.equal(documentos.computeRetentionDate('Certificado de Curso'), esperado.toISOString().slice(0, 10));
+        assert.equal(documentos.computeRetentionDate('Certificado de Curso'), localISO(esperado));
     });
 });
 

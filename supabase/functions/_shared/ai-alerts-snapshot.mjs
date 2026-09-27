@@ -1,4 +1,5 @@
 import { createPseudonymizer } from './pseudonymize.mjs';
+import { hojeSaoPaulo } from './datas.mjs';
 
 const DAY_MS = 86_400_000;
 const NEW_HIRE_WINDOW_DAYS = 90;
@@ -53,10 +54,9 @@ export function shapeSnapshot(today, rows, now = Date.now()) {
     };
 }
 
-export function sevenDaysAgo(today = new Date()) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
+export function sevenDaysAgo(hoje = hojeSaoPaulo()) {
+    const [ano, mes, dia] = hoje.split('-').map(Number);
+    return new Date(Date.UTC(ano, mes - 1, dia - 7)).toISOString().slice(0, 10);
 }
 
 export function pseudonymizeRows(rows) {

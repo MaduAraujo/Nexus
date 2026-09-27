@@ -444,3 +444,102 @@ describe('ai-employee-chat', () => {
         assert.equal((await h2(request('https://x', { body: { message: 'oi' }, headers: { Authorization: AAL2 } }))).status, 403);
     });
 });
+
+describe('Edge Functions usam o dia de Brasília, não o do servidor em UTC', () => {
+    const NOITE_BRASILIA = new Date('2026-09-27T01:30:00Z');
+
+    function comoServidorUtc(t) {
+        const tz = process.env.TZ;
+        process.env.TZ = 'UTC';
+        t.after(() => {
+            if (tz === undefined) delete process.env.TZ;
+            else process.env.TZ = tz;
+        });
+        t.mock.timers.enable({ apis: ['Date'], now: NOITE_BRASILIA });
+    }
+
+    test('ai-alerts: relatório e janela de 7 dias às 22h30 de 26/09 são de 26/09', async (t) => {
+        comoServidorUtc(t);
+        const caller = new FakeSupabase({ user: RH, tables: { profiles, ai_decision_memory_decrypted: [] }, rpc: { rate_limit_check: true } });
+        const admin = new FakeSupabase({
+            tables: {
+                employees: [{ id: 'e1', name: 'Ana Souza', dept: 'TI', status: 'Ativo' }],
+                vacations: [],
+                adjustment_requests: [],
+                burnout_alerts: [],
+                documents: [],
+                time_records: [
+                    { employee_id: 'e1', date: '2026-09-18', entrada: '08:00' },
+                    { employee_id: 'e1', date: '2026-09-19', entrada: '08:00' },
+                ],
+            },
+        });
+        const originalFetch = globalThis.fetch;
+        let enviado;
+        globalThis.fetch = async (url, init) => {
+            enviado = JSON.parse(init.body);
+            return new Response(JSON.stringify({ choices: [{ message: { content: '{"summary":"ok","alerts":[]}' } }] }), { status: 200 });
+        };
+        try {
+            const h = await loadEdgeFunction('ai-alerts', { env: ENV, createClient: clients({ caller, admin }) });
+            const r = await h(request('https://x', { body: { action: 'analyze' }, headers: { Authorization: AAL2 } }));
+            assert.equal(r.status, 200);
+            const system = enviado.messages[0].content;
+            assert.match(system, /DADOS DO SISTEMA \(2026-09-26\)/);
+            assert.doesNotMatch(system, /2026-09-27/);
+            assert.match(system, /"employees_no_records_last_7days": \[\]/, 'ponto de 19/09 está dentro da janela de 7 dias');
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test('ai-employee-chat: "hoje", férias e banco de horas às 22h30 de 26/09 são de 26/09', async (t) => {
+        comoServidorUtc(t);
+        const caller = new FakeSupabase({
+            user: COLAB,
+            tables: {
+                profiles,
+                employees_decrypted: [
+                    {
+                        id: 'emp-ana',
+                        name: 'Ana Souza',
+                        role: 'Analista',
+                        dept: 'TI',
+                        admission_date: '2024-09-27',
+                        contract_type: 'clt',
+                        work_load: '40h',
+                        salary: 4000,
+                    },
+                ],
+                vacations: [],
+                time_records: [],
+                bank_adjustments: [],
+                hr_settings: [{ id: 1, banco_horas_vencimento_meses: 6 }],
+                payslips_decrypted: [],
+                documents: [],
+                adjustment_requests: [],
+            },
+            rpc: { rate_limit_check: true },
+        });
+        const originalFetch = globalThis.fetch;
+        let enviado;
+        globalThis.fetch = async (url, init) => {
+            enviado = JSON.parse(init.body);
+            return new Response('data: [DONE]\n', { status: 200 });
+        };
+        try {
+            const h = await loadEdgeFunction('ai-employee-chat', { env: ENV, createClient: () => caller });
+            const r = await h(request('https://x', { body: { message: 'Quando vencem minhas férias?' }, headers: { Authorization: AAL1 } }));
+            assert.equal(r.status, 200);
+            await r.text();
+            const system = enviado.messages[0].content;
+            assert.match(system, /DADOS REAIS DESTE COLABORADOR \(2026-09-26\)/);
+            assert.match(system, /"hoje": "2026-09-26"/);
+            assert.match(system, /"inicio": "2025-09-27"/, 'o novo período aquisitivo só começa em 27/09');
+            assert.match(system, /"fim": "2026-09-26"/);
+            assert.match(system, /"dias_restantes_no_ciclo_atual": 0/);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+});

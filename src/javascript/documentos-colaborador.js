@@ -18,10 +18,10 @@ function computeRetentionDate(tipo) {
     const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
     const d = new Date();
     d.setFullYear(d.getFullYear() + years);
-    return d.toISOString().slice(0, 10);
+    return localISODate(d);
 }
 
-function isUnderRetention(doc, hoje = new Date().toISOString().slice(0, 10)) {
+function isUnderRetention(doc, hoje = localISODate()) {
     return doc?.status === 'aprovado' && (!doc.retido_ate || doc.retido_ate >= hoje);
 }
 

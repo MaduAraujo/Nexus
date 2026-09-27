@@ -136,7 +136,7 @@
         const years = RETENTION_YEARS[tipo] ?? DEFAULT_RETENTION_YEARS;
         const d = new Date();
         d.setFullYear(d.getFullYear() + years);
-        return d.toISOString().slice(0, 10);
+        return localISODate(d);
     }
 
     function getExpiryInfo(dataValidade) {
@@ -164,7 +164,7 @@
     }
 
     async function runLgpdPurge() {
-        const { data: expired } = await sb.from('documents').select('id,name,employee_id,storage_path').lt('retido_ate', new Date().toISOString().slice(0, 10));
+        const { data: expired } = await sb.from('documents').select('id,name,employee_id,storage_path').lt('retido_ate', localISODate());
         if (!expired?.length) return 0;
 
         let purged = 0;

@@ -118,7 +118,7 @@ function setupSubstitutoSelect() {
 }
 
 async function autoExpireVacations() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localISODate();
     const toExpire = myVacations.filter((v) => v.status === 'aprovado' && v.end_date < today);
     if (!toExpire.length) return;
     const ids = toExpire.map((v) => v.id);

@@ -10,7 +10,14 @@ before(async () => {
 
 describe('sevenDaysAgo', () => {
     test('volta 7 dias e devolve só a data (AAAA-MM-DD)', () => {
-        assert.equal(sevenDaysAgo(new Date('2026-06-15T23:00:00Z')), '2026-06-08');
+        assert.equal(sevenDaysAgo('2026-06-15'), '2026-06-08');
+        assert.equal(sevenDaysAgo('2026-03-03'), '2026-02-24');
+        assert.equal(sevenDaysAgo('2026-01-04'), '2025-12-28');
+    });
+
+    test('sem data, parte do dia de Brasília mesmo depois das 21h', (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-27T01:30:00Z') });
+        assert.equal(sevenDaysAgo(), '2026-09-19');
     });
 });
 

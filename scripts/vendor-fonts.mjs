@@ -29,11 +29,7 @@ if (!blocks.length) throw new Error('Nenhum @font-face na resposta do Google Fon
 
 await mkdir(fontsDir, { recursive: true });
 
-const out = [
-    '/* Gerado por scripts/vendor-fonts.mjs. Não edite à mão: rode o script de novo. */',
-    '/* Fontes hospedadas no próprio site (nada é carregado de fonts.googleapis.com / fonts.gstatic.com). */',
-    '',
-];
+const out = [];
 
 for (const [, subset, body] of blocks) {
     if (!SUBSETS.has(subset)) continue;

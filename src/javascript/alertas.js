@@ -1233,7 +1233,7 @@ async function loadRiscoJuridico() {
 
     try {
         const now = new Date();
-        const janelaIntervaloInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_INTERVALO_DIAS * 86400000).toISOString().split('T')[0];
+        const janelaIntervaloInicio = localISODate(new Date(now.getTime() - RISCO_JURIDICO_JANELA_INTERVALO_DIAS * 86400000));
         const janelaExcessoInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_EXCESSO_DIAS * 86400000).toISOString();
         const janelaRejeicaoInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_REJEICAO_DIAS * 86400000).toISOString();
 
