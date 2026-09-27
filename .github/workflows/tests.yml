@@ -115,7 +115,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.118.0
 
       - name: Hide migrations (they assume employees/etc. already exist, as on the hosted project; schema.sql is the fresh-DB bootstrap loaded below)
         run: mv supabase/migrations "$RUNNER_TEMP/supabase-migrations"
