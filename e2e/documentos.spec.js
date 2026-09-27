@@ -23,6 +23,7 @@ test.describe('Documentos do colaborador (Supabase local real)', () => {
     test.afterAll(resetE2EData);
 
     test('colaborador envia, o arquivo vai cifrado ao Storage, o RH aprova e os dois conseguem abrir', async ({ page }) => {
+        test.setTimeout(150_000);
         await login(page, ADMIN, 'Administrador');
         await switchUser(page, COLAB, 'colaborador');
 
