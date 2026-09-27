@@ -136,9 +136,12 @@ async function loadData() {
     teamRequests = isManager ? teamRes?.data || [] : [];
 }
 
+// "Hoje" no fuso da empresa, o mesmo que a política de time_records usa. Com o
+// fuso do aparelho, um celular em UTC depois das 21h de Brasília mandava o dia
+// seguinte e a batida era recusada (42501).
+const TODAY_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
 function todayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+    return TODAY_FMT.format(new Date());
 }
 function nowISO() {
     return new Date().toISOString();
