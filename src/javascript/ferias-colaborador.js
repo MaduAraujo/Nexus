@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     myEmployeeId = auth.profile.employee_id;
     myEmployee = auth.employee;
 
-    loadSidebarInfo();
     applyContractTypeUI();
     setupDatePickers();
     setupTimelineYearPicker();
@@ -40,35 +39,6 @@ function applyContractTypeUI() {
     hint.innerHTML = '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
     document.getElementById('req-obs')?.closest('.form-group')?.before(hint);
 }
-
-function loadSidebarInfo() {
-    const name = myEmployee.name || '—';
-    const color = myEmployee.avatar_color || '#6366f1';
-    const ini = name
-        .split(' ')
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
-        .join('');
-    const avatarEl = document.getElementById('sidebar-avatar');
-    const nameEl = document.getElementById('sidebar-name');
-    const roleEl = document.getElementById('sidebar-role');
-    if (avatarEl) {
-        if (myEmployee.avatar_url) {
-            avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`;
-            avatarEl.textContent = '';
-        } else {
-            avatarEl.style.background = window.nexusFundoLegivel(color);
-            avatarEl.textContent = ini;
-        }
-    }
-    if (nameEl) nameEl.textContent = name;
-    if (roleEl) roleEl.textContent = myEmployee.role || 'Colaborador';
-}
-
-window.logout = async function () {
-    await sb.auth.signOut();
-    window.location.href = '../screens/login.html';
-};
 
 async function loadMyVacations() {
     const { data } = await sb.from('vacations').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false });

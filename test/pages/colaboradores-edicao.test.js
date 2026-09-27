@@ -123,6 +123,59 @@ describe('colaboradores.html — editar sem perder dados', () => {
         );
     });
 
+    test('ida e volta com todos os campos condicionais ligados: salvar sem mudar nada preserva tudo', async () => {
+        const completo = {
+            pcd: true,
+            deficiencia: 'Visual',
+            pensao_alimenticia: true,
+            tipo_pensao: 'percentual',
+            is_probation: true,
+            probation_end_date: '2026-07-20',
+            is_aviso_previo: false,
+            forma_pagamento: 'conta',
+            banco: 'Itaú',
+            tipo_conta: 'corrente',
+            agencia: '1234',
+            conta: '56789-0',
+            tipo_chave_pix: null,
+            chave_pix: null,
+            admission_date: '2026-04-21',
+        };
+        const c = client(completo);
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        page.window.editEmployee(ANA.id);
+        await page.settle();
+        assert.equal(page.$('input[name="pcd"][value="sim"]').checked, true);
+        assert.equal(page.$('#tipo-deficiencia').value, 'Visual');
+        assert.equal(page.$('input[name="tipo-pensao"][value="percentual"]').checked, true);
+        assert.equal(page.$('#banco').value, 'Itaú');
+        assert.equal(page.$('#agencia').value, '1234');
+
+        const antes = { ...c.tables.employees.find((e) => e.id === ANA.id) };
+        await page.submit('#employee-form');
+        await page.settle(20);
+        const upd = c.writes('employees', 'update')[0]?.payload;
+        assert.ok(upd, page.toasts().join(' | '));
+        for (const k of [
+            'pcd',
+            'deficiencia',
+            'pensao_alimenticia',
+            'tipo_pensao',
+            'is_probation',
+            'probation_end_date',
+            'forma_pagamento',
+            'banco',
+            'tipo_conta',
+            'agencia',
+            'conta',
+            'qtd_dependentes',
+            'seguradora',
+        ])
+            assert.deepEqual([k, upd[k]], [k, antes[k]]);
+        assert.equal(upd.chave_pix, null, 'pagamento em conta não guarda chave PIX');
+        assert.equal(c.writes('employee_audit', 'insert').length, 0, 'nada mudou: nada a auditar');
+    });
+
     test('editar colaborador desligado mantém o status e a data de desligamento', async () => {
         const c = client({ status: 'Inativo', termination_date: '2026-05-31' });
         page = await openPage('colaboradores', { client: c, now: NOW });

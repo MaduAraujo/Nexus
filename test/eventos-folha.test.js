@@ -141,7 +141,7 @@ describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT 
     });
 
     test('INSS e IRRF sobre férias + 1/3; abono (042/043) isento dos dois', () => {
-        const r = reciboFerias({ contractType: 'clt', salario: 4000, startDate: '2026-07-13', dias: 20, abono: true });
+        const r = reciboFerias({ contractType: 'clt', salario: 4000, startDate: '2026-07-06', dias: 20, abono: true });
         const base = 2666.67 + 888.89;
         const inss = calcINSS(base);
         assert.deepEqual(
@@ -151,14 +151,39 @@ describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT 
                 ['906', calcIRRF(base - inss)],
             ]
         );
+        assert.deepEqual([r.descontos[0].competencia, r.descontos[0].base], ['2026-07', base]);
         assert.equal(r.totalProventos, +(base + 1333.33 + 444.44).toFixed(2));
         assert.equal(r.liquido, +(r.totalProventos - r.totalDescontos).toFixed(2));
-        assert.deepEqual([r.mes, r.pagarAte, r.competencia], ['2026-07-F13', '2026-07-11', '07/2026']);
-        assert.match(r.mesFormatado, /Recibo de Férias — gozo a partir de 13\/07\/2026/);
+        assert.deepEqual([r.mes, r.pagarAte, r.competencia], ['2026-07-F06', '2026-07-04', '07/2026']);
+        assert.match(r.mesFormatado, /Recibo de Férias — gozo a partir de 06\/07\/2026/);
+    });
+
+    test('férias que atravessam o mês: base e INSS separados por competência; IRRF uma vez, sobre o total', () => {
+        const r = reciboFerias({ contractType: 'clt', salario: 3000, startDate: '2026-07-25', dias: 15, abono: false });
+        const base = 1500 + 500;
+        const julho = +((base * 7) / 15).toFixed(2);
+        const agosto = +(base - julho).toFixed(2);
+        const inss = r.descontos.filter((d) => d.cod === '901');
+        assert.deepEqual(
+            inss.map((d) => [d.competencia, d.referencia, d.base, d.valor]),
+            [
+                ['2026-07', '7 dias', julho, calcINSS(julho)],
+                ['2026-08', '8 dias', agosto, calcINSS(agosto)],
+            ]
+        );
+        assert.match(inss[1].descricao, /competência 08\/2026/);
+        const totalInss = +(calcINSS(julho) + calcINSS(agosto)).toFixed(2);
+        assert.equal(r.descontos.find((d) => d.cod === '906')?.valor ?? 0, calcIRRF(base - totalInss));
+    });
+
+    test('dias de gozo por competência', () => {
+        const { diasPorCompetencia } = require('../src/javascript/domain/eventos-folha.js');
+        assert.deepEqual(diasPorCompetencia('2026-12-20', 20), { '2026-12': 12, '2027-01': 8 });
+        assert.deepEqual(diasPorCompetencia('2026-07-01', 10), { '2026-07': 10 });
     });
 
     test('aprendiz: INSS de 8% e sem IRRF; PJ não tem recibo', () => {
-        const r = reciboFerias({ contractType: 'aprendiz', salario: 1500, startDate: '2026-07-13', dias: 30, abono: false });
+        const r = reciboFerias({ contractType: 'aprendiz', salario: 1500, startDate: '2026-07-01', dias: 30, abono: false });
         assert.deepEqual(
             r.descontos.map((d) => [d.cod, d.valor]),
             [['901', +((1500 + 500) * 0.08).toFixed(2)]]

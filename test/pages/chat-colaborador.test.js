@@ -245,3 +245,163 @@ describe('chat-colaborador.html — reconhecimento e feedback anônimo', () => {
         ]);
     });
 });
+
+describe('chat-colaborador.html — atendimento em tempo real e validações', () => {
+    test('resposta do RH chega sem recarregar; atendimento resolvido pede avaliação na hora', async () => {
+        const c = client({
+            hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'Dúvida', status: 'aguardando_rh', created_at: '2026-06-10', updated_at: '2026-06-11' }],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+
+        c.tables.hr_ticket_messages_decrypted.push({
+            id: 'r1',
+            ticket_id: 't1',
+            role: 'rh',
+            content: 'Olá, <b>vou verificar</b>',
+            created_at: '2026-06-17T10:00:00Z',
+        });
+        c.emit('hr_ticket_messages', { eventType: 'INSERT', new: { id: 'r1', ticket_id: 't1', role: 'rh' } });
+        await page.waitFor(() => /vou verificar/.test(page.text('#hr-messages-list')));
+        assert.equal(page.$$('#hr-messages-list b').length, 0, 'resposta do RH não vira HTML');
+
+        c.emit('hr_ticket_messages', { eventType: 'INSERT', new: { id: 'u9', ticket_id: 't1', role: 'user' } });
+        await page.settle();
+
+        c.tables.hr_tickets[0].status = 'resolvido';
+        c.emit('hr_tickets', { eventType: 'UPDATE', new: { ...c.tables.hr_tickets[0] } });
+        await page.waitFor(() => page.$('.csat-star'));
+        assert.equal(page.text('#hr-area-status'), 'Resolvido');
+    });
+
+    test('reconhecimento sem colega ou mensagem é barrado; falha do banco avisa sem fechar', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-kudos');
+        await page.click('#btn-dar-reconhecimento');
+        await page.click('#kudos-submit-btn');
+        assert.equal(page.text('#kudos-error'), 'Selecione um colega e escreva uma mensagem.');
+        page.$('#kudos-colleague').value = CAIO.id;
+        await page.fill('#kudos-message', 'Obrigada!');
+        c.errors['kudos:insert'] = { message: 'falhou' };
+        await page.click('#kudos-submit-btn');
+        assert.equal(page.text('#kudos-error'), 'Não foi possível publicar. Tente novamente.');
+    });
+
+    test('feedback anônimo vazio não envia; falha do banco mostra erro', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#anon-feedback-btn');
+        assert.equal(page.$('#anon-submit-btn').disabled, true);
+        await page.window.submitAnonFeedback();
+        assert.equal(page.text('#anon-error'), 'Escreva sua mensagem antes de enviar.');
+        await page.fill('#anon-message', 'Precisamos de mais pausas');
+        c.errors['anonymous_feedback:insert'] = { message: 'falhou' };
+        await page.click('#anon-submit-btn');
+        assert.equal(page.text('#anon-error'), 'Não foi possível enviar. Tente novamente.');
+        page.window.closeAnonFeedbackModal();
+        assert.equal(page.$('#anon-feedback-modal').classList.contains('open'), false);
+    });
+});
+
+describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
+    function comE2E(p, { cifra }) {
+        p.window.NexusE2E.channelReady = async () => true;
+        p.window.NexusE2E.encryptMessage = cifra;
+    }
+
+    test('canal cifrado: se a cifragem falha, NADA vai em texto aberto e o texto volta ao campo', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        comE2E(page, {
+            cifra: async () => {
+                throw new Error('sem chave');
+            },
+        });
+        await page.click('.channel-item[data-channel-id="ch-geral"]');
+        await page.settle();
+        assert.match(page.text('#compliance-hint-text'), /Cifrada de ponta a ponta — só os membros do canal e o RH/);
+        await page.fill('#chat-input', 'Segredo da equipe');
+        await page.click('#chat-send-btn');
+        assert.equal(c.writes('chat_messages', 'insert').length, 0);
+        assert.equal(page.$('#chat-input').value, 'Segredo da equipe');
+        assert.ok(page.toasts().some((t) => /Não foi possível cifrar a mensagem/.test(t)));
+    });
+
+    test('canal cifrado: grava só o texto cifrado', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        comE2E(page, { cifra: async (texto) => `nexus-e2e:v1:${Buffer.from(texto).toString('base64')}` });
+        await page.click('.channel-item[data-channel-id="ch-geral"]');
+        await page.settle();
+        await page.fill('#chat-input', 'Segredo da equipe');
+        await page.click('#chat-send-btn');
+        const [ins] = c.writes('chat_messages', 'insert');
+        assert.match(ins.payload[0].content, /^nexus-e2e:v1:/);
+        assert.doesNotMatch(ins.payload[0].content, /Segredo/);
+    });
+
+    test('DM cifrada mostra que nem o servidor lê; falha ao criar a conversa avisa', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        comE2E(page, { cifra: async () => 'x' });
+        await page.click('#dm-new-btn');
+        await page.fill('#dm-search', 'caio');
+        await page.click('.dm-picker-item');
+        await page.settle();
+        assert.match(page.text('#compliance-hint-text'), /Cifrada de ponta a ponta — só você e Caio conseguem ler, nem o servidor/);
+        page.close();
+
+        const falha = client(
+            {},
+            {
+                rpc: {
+                    get_or_create_dm: { error: { message: 'bloqueado' } },
+                    colleague_directory: [{ id: CAIO.id, name: CAIO.name, dept: CAIO.dept }],
+                    e2e_channel_member_keys: [],
+                },
+            }
+        );
+        page = await openPage('chat-colaborador', { client: falha });
+        await page.click('#dm-new-btn');
+        await page.fill('#dm-search', 'caio');
+        await page.click('.dm-picker-item');
+        await page.settle();
+        assert.equal(page.text('#dm-error'), 'Não foi possível abrir a conversa. Tente novamente.');
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#dm-modal').classList.contains('open'), false);
+    });
+
+    test('mensagem nova em outra DM acende o contador; na conversa aberta, não', async () => {
+        const c = client({
+            chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        c.emit('chat_messages', { new: { id: 'z1', channel_id: 'dm1', employee_id: BIA.id } });
+        await page.settle();
+        assert.equal(page.text('#badge-dm1'), '1');
+        c.emit('chat_messages', { new: { id: 'z2', channel_id: 'dm1', employee_id: ANA.id } });
+        c.emit('chat_messages', { new: { id: 'z3', channel_id: 'ch-geral', employee_id: BIA.id } });
+        await page.settle();
+        assert.equal(page.text('#badge-dm1'), '1', 'mensagem própria e de canal não contam como DM');
+    });
+
+    test('criar atendimento com erro avisa; avaliação que falha não agradece', async () => {
+        const c = client({
+            hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'Dúvida', status: 'resolvido', created_at: '2026-06-10', updated_at: '2026-06-11' }],
+        });
+        c.errors['hr_tickets:insert'] = { message: 'falhou' };
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-rh');
+        await page.click('#new-ticket-btn');
+        await page.settle();
+        assert.ok(page.toasts().some((t) => /Erro|erro|Não foi possível/.test(t)));
+
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        c.errors['hr_tickets:update'] = { message: 'falhou' };
+        await page.click('.csat-star[data-rating="4"]');
+        await page.settle();
+        assert.doesNotMatch(page.text('#hr-messages-list'), /Obrigado pela avaliação/);
+    });
+});

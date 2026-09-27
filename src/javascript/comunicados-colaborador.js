@@ -86,11 +86,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     myEmployeeId = employee.id;
     myDept = employee.dept || '';
 
-    window.logout = async () => {
-        await sb.auth.signOut();
-        window.location.href = '../screens/login.html';
-    };
-
     const searchInput = document.getElementById('search-input');
     const searchClear = document.getElementById('search-clear');
     const lista = document.getElementById('comunicados-list');

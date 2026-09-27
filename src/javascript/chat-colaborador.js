@@ -1470,11 +1470,6 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
         }, 4000);
     };
 
-    window.logout = async function () {
-        await sb.auth.signOut();
-        window.location.href = '../screens/login.html';
-    };
-
     setupPresence();
     await loadChannels();
     await loadTickets();

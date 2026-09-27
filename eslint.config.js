@@ -42,7 +42,7 @@ module.exports = [
     {
         files: ['e2e/**/*.js'],
         languageOptions: {
-            globals: { ...globals.node, window: 'readonly', sb: 'readonly', NexusFiles: 'readonly' },
+            globals: { ...globals.node, window: 'readonly', document: 'readonly', getComputedStyle: 'readonly', sb: 'readonly', NexusFiles: 'readonly' },
         },
     },
     {

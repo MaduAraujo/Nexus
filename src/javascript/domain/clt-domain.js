@@ -180,6 +180,27 @@ const CLTDomain = {
         }, 0);
     },
 
+    diasUteisGozoNoMes(ferias = [], monthKey) {
+        const [y, m] = monthKey.split('-').map(Number);
+        const dias = new Set();
+        ferias.forEach((v) => {
+            const gozo = CLTDomain.periodoGozoFerias(v);
+            if (!gozo) return;
+            const d = new Date(`${gozo.start_date}T12:00:00`);
+            const fim = new Date(`${gozo.end_date}T12:00:00`);
+            for (; d <= fim; d.setDate(d.getDate() + 1)) {
+                if (d.getFullYear() === y && d.getMonth() === m - 1 && d.getDay() !== 0 && d.getDay() !== 6) dias.add(d.getDate());
+            }
+        });
+        return dias.size;
+    },
+
+    DIAS_UTEIS_BENEFICIO: 22,
+
+    diasBeneficioNoMes(ferias = [], monthKey) {
+        return Math.max(0, CLTDomain.DIAS_UTEIS_BENEFICIO - CLTDomain.diasUteisGozoNoMes(ferias, monthKey));
+    },
+
     diasSalarioNoMes(ferias = [], monthKey) {
         const [y, m] = monthKey.split('-').map(Number);
         const gozo = CLTDomain.diasGozoNoMes(ferias, monthKey);

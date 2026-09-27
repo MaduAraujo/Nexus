@@ -982,11 +982,6 @@ function setupRealtimeSync() {
         .subscribe();
 }
 
-window.logout = async function () {
-    await sb.auth.signOut();
-    window.location.href = '../screens/login.html';
-};
-
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = $('toast-container');

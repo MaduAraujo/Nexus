@@ -9,41 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     myEmployeeId = auth.profile.employee_id;
     myEmployee = auth.employee;
 
-    loadSidebarInfo();
     setupMobileMonthSelect();
     setupInformeYearSelect();
     await loadPayslips();
     setupRealtimeSync();
 });
-
-function loadSidebarInfo() {
-    const name = myEmployee.name || '—';
-    const color = myEmployee.avatar_color || '#6366f1';
-    const ini = name
-        .split(' ')
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
-        .join('');
-    const avatarEl = document.getElementById('sidebar-avatar');
-    const nameEl = document.getElementById('sidebar-name');
-    const roleEl = document.getElementById('sidebar-role');
-    if (avatarEl) {
-        if (myEmployee.avatar_url) {
-            avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`;
-            avatarEl.textContent = '';
-        } else {
-            avatarEl.style.background = window.nexusFundoLegivel(color);
-            avatarEl.textContent = ini;
-        }
-    }
-    if (nameEl) nameEl.textContent = name;
-    if (roleEl) roleEl.textContent = myEmployee.role || 'Colaborador';
-}
-
-window.logout = async function () {
-    await sb.auth.signOut();
-    window.location.href = '../screens/login.html';
-};
 
 async function loadPayslips() {
     const { data } = await sb
@@ -365,15 +335,17 @@ function summarizeInforme(year) {
     const totalLiquido = doAno.reduce((s, h) => s + (Number(h.salario_liquido) || 0), 0);
     const codSum = (cod) => doAno.reduce((s, h) => s + (h.descontos || []).filter((d) => d.cod === cod).reduce((ss, d) => ss + (Number(d.valor) || 0), 0), 0);
     const totalInss = codSum('901');
-    const totalIrrf = codSum('902');
-    return { doAno: doAno.sort((a, b) => a.mes.localeCompare(b.mes)), totalProventos, totalInss, totalIrrf, totalLiquido };
+    const totalIrrf = codSum('902') + codSum('906');
+    const decimo = doAno.filter((h) => /^\d{4}-13-/.test(h.mes));
+    const total13 = decimo.reduce((s, h) => s + (Number(h.total_proventos) || 0), 0);
+    return { doAno: doAno.sort((a, b) => a.mes.localeCompare(b.mes)), totalProventos, totalInss, totalIrrf, totalLiquido, total13 };
 }
 
 window.renderInforme = function (year) {
     const content = document.getElementById('informe-content');
     const emptyEl = document.getElementById('informe-empty');
     if (!content) return;
-    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
+    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido, total13 } = summarizeInforme(year);
 
     if (!doAno.length) {
         content.innerHTML = '';
@@ -395,6 +367,7 @@ window.renderInforme = function (year) {
             <div class="informe-stat"><span class="informe-stat-label"><span class="informe-stat-label--full">Total líquido recebido</span><span class="informe-stat-label--short">TL Recebido</span></span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">INSS retido</span><span class="informe-stat-value danger">${formatCurrency(totalInss)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">IRRF retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>
+            ${total13 > 0 ? `<div class="informe-stat"><span class="informe-stat-label">13º salário (tributação exclusiva)</span><span class="informe-stat-value">${formatCurrency(total13)}</span></div>` : ''}
         </div>
         <div class="informe-table-card">
             <table class="informe-table">
@@ -407,7 +380,7 @@ window.renderInforme = function (year) {
 window.printInforme = function () {
     const sel = document.getElementById('informe-year-select');
     const year = sel?.value || String(new Date().getFullYear());
-    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido } = summarizeInforme(year);
+    const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido, total13 } = summarizeInforme(year);
     if (!doAno.length) return;
 
     setText('informe-print-title-year', `Ano-calendário ${year}`);
@@ -424,7 +397,8 @@ window.printInforme = function () {
             <div class="informe-stat"><span class="informe-stat-label">Rendimentos Brutos</span><span class="informe-stat-value">${formatCurrency(totalProventos)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">Total Líquido</span><span class="informe-stat-value">${formatCurrency(totalLiquido)}</span></div>
             <div class="informe-stat"><span class="informe-stat-label">INSS Retido</span><span class="informe-stat-value danger">${formatCurrency(totalInss)}</span></div>
-            <div class="informe-stat"><span class="informe-stat-label">IRRF Retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>`;
+            <div class="informe-stat"><span class="informe-stat-label">IRRF Retido</span><span class="informe-stat-value danger">${formatCurrency(totalIrrf)}</span></div>
+            ${total13 > 0 ? `<div class="informe-stat"><span class="informe-stat-label">13º Salário (Tributação Exclusiva)</span><span class="informe-stat-value">${formatCurrency(total13)}</span></div>` : ''}`;
     }
 
     const tbody = document.getElementById('informe-print-tbody');
@@ -458,12 +432,9 @@ window.addEventListener('afterprint', () => {
 function setupRealtimeSync() {
     sb.channel('payslips-colab')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payslips', filter: `employee_id=eq.${myEmployeeId}` }, async () => {
+            const aberto = currentId;
             await loadPayslips();
-            if (currentId) {
-                const h = holerites.find((x) => x.id === currentId);
-                if (h) selectPayslipById(h.id);
-                else if (holerites.length) selectPayslipById(holerites[0].id);
-            }
+            if (aberto && holerites.some((x) => x.id === aberto)) selectPayslipById(aberto);
             showToast('Holerite atualizado pelo RH.', 'success');
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'employees', filter: `id=eq.${myEmployeeId}` }, async (payload) => {

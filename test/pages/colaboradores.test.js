@@ -343,3 +343,206 @@ describe('colaboradores.html — importação, disciplinares, atestados, onboard
         assert.equal(c.writes('onboarding_tasks', 'delete').length, 1);
     });
 });
+
+describe('colaboradores.html — LGPD, status e modelo de importação', () => {
+    test('LGPD: quem acessou os dados e as decisões da IA sobre o colaborador, escapados', async () => {
+        const c = client({
+            data_access_log: [
+                {
+                    id: 'a1',
+                    employee_id: ANA.id,
+                    tipo: 'holerite',
+                    detalhe: '06/2026',
+                    accessed_by_name: 'RH <b>Admin</b>',
+                    created_at: '2026-06-16T10:00:00Z',
+                },
+                { id: 'a2', employee_id: ANA.id, tipo: 'desconhecido', accessed_by_name: null, created_at: '2026-06-15T10:00:00Z' },
+            ],
+            ai_decision_log: [],
+            ai_decision_log_decrypted: [
+                {
+                    id: 'd1',
+                    employee_id: ANA.id,
+                    target_table: 'vacations',
+                    ai_message: 'Aprovar <img src=x>',
+                    decided_by_name: 'Maria',
+                    created_at: '2026-06-14T10:00:00Z',
+                },
+                { id: 'd2', employee_id: ANA.id, target_table: '<svg onload=1>', ai_message: 'x', created_at: '2026-06-13T10:00:00Z' },
+            ],
+        });
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        page.window.openDrawer(ANA.id);
+        await page.window.handleShowLgpd();
+        await page.settle();
+        const acessos = page.text('#lgpd-access-log-body');
+        assert.match(acessos, /RH <b>Admin<\/b>.*Holerite — 06\/2026/);
+        assert.match(acessos, /desconhecido/);
+        const ia = page.text('#lgpd-ai-decisions-body');
+        assert.match(ia, /Confirmado por Maria.*Férias: Aprovar <img src=x>/);
+        assert.equal(page.$$('#lgpd-access-log-body b, #lgpd-ai-decisions-body img, #lgpd-ai-decisions-body svg').length, 0, 'nada vira HTML');
+    });
+
+    test('LGPD sem registros mostra os vazios', async () => {
+        page = await openPage('colaboradores', { client: client({ ai_decision_log_decrypted: [] }), now: NOW });
+        page.window.openDrawer(ANA.id);
+        await page.window.handleShowLgpd();
+        await page.settle();
+        assert.match(page.text('#lgpd-access-log-body'), /Nenhum acesso registrado ainda/);
+        assert.match(page.text('#lgpd-ai-decisions-body'), /Nenhuma decisão da IA registrada ainda/);
+    });
+
+    test('opções de status dependem do status atual; Inativo é permanente', async () => {
+        page = await openPage('colaboradores', { client: client(), now: NOW });
+        const opcoes = () => page.$$('#dynamic-status-options [data-click="updateStatus"]').map((a) => JSON.parse(a.dataset.clickArgs)[0]);
+        page.window.openDrawer(ANA.id);
+        page.window.showStatusSubmenu();
+        assert.deepEqual(opcoes(), ['Inativo', 'Férias', 'Afastado']);
+        page.window.openDrawer(CAIO.id);
+        page.window.showStatusSubmenu();
+        assert.deepEqual(opcoes(), ['Ativo']);
+        assert.match(page.text('#dynamic-status-options'), /Voltar das Férias/);
+        page.close();
+
+        const c = client();
+        c.tables.employees.find((e) => e.id === BIA.id).status = 'Afastado';
+        c.tables.employees.find((e) => e.id === CAIO.id).status = 'Inativo';
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        page.window.openDrawer(BIA.id);
+        page.window.showStatusSubmenu();
+        assert.match(page.text('#dynamic-status-options'), /Voltar do Afastamento/);
+        page.window.openDrawer(CAIO.id);
+        page.window.showStatusSubmenu();
+        assert.equal(opcoes().length, 0);
+        assert.match(page.text('#dynamic-status-options'), /Status Inativo é permanente/);
+    });
+
+    test('voltar de férias não mexe na data de desligamento; erro do banco avisa', async () => {
+        const c = client();
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        page.window.openDrawer(CAIO.id);
+        await page.window.updateStatus('Ativo');
+        await page.settle();
+        const caio = c.tables.employees.find((e) => e.id === CAIO.id);
+        assert.deepEqual([caio.status, caio.termination_date ?? null], ['Ativo', null]);
+
+        c.errors['employees:update'] = { message: 'falhou' };
+        page.window.openDrawer(ANA.id);
+        await page.window.updateStatus('Afastado');
+        assert.ok(page.toasts().some((t) => /Não foi possível atualizar o status/.test(t)));
+        assert.equal(c.tables.employees.find((e) => e.id === ANA.id).status, 'Ativo');
+    });
+
+    test('modelo de importação traz as colunas obrigatórias e um exemplo', async () => {
+        page = await openPage('colaboradores', { client: client(), now: NOW });
+        page.window.downloadImportTemplate();
+        assert.equal(page.saved.at(-1), 'modelo_importacao_colaboradores.xlsx');
+    });
+});
+
+describe('colaboradores.html — regras de cadastro, importação e lista', () => {
+    test('CPF: tamanho, dígitos repetidos e cada dígito verificador', async () => {
+        page = await openPage('colaboradores', { client: client(), now: NOW });
+        const valido = page.window.isValidCPF;
+        assert.equal(valido('529.982.247-25'), true);
+        assert.equal(valido('52998224725'), true);
+        assert.equal(valido('529.982.247-2'), false, 'faltando dígito');
+        assert.equal(valido('111.111.111-11'), false, 'todos iguais');
+        assert.equal(valido('529.982.247-35'), false, 'primeiro verificador errado');
+        assert.equal(valido('529.982.247-24'), false, 'segundo verificador errado');
+        assert.equal(valido('000.000.001-91'), true, 'resto 10/11 vira 0');
+    });
+
+    test('importação: cada campo obrigatório é apontado; salário "3.500" é milhar; data impossível é recusada', async () => {
+        const CABECALHO = ['Nome', 'CPF', 'Email', 'Data de Admissão', 'Tipo de Contrato', 'Departamento', 'Jornada', 'Salário', 'Tipo de Salário', 'Cargo'];
+        const c = client();
+        const xlsxRows = [
+            CABECALHO,
+            ['', '', '', '', '', '', '', '', '', 'Estagiário'],
+            ['Email Ruim', '111.444.777-35', 'sem-arroba', '31/02/2025', 'CLT', 'TI', '40h', '0', 'Mensal', ''],
+            ['Milhar BR', '153.509.460-56', 'milhar@empresa.com', '15/01/2025', 'CLT', 'TI', '40h', '3.500', 'Mensal', ''],
+            ['Já Existe', '000.000.001-91', 'ana@empresa.com', '2025-13-01', 'CLT', 'TI', '40h', 'R$ 12.000', 'Mensal', ''],
+        ];
+        page = await openPage('colaboradores', { client: c, now: NOW, xlsxRows, fetch: async () => new Response('{"id":"auth-x"}', { status: 200 }) });
+        page.window.openImportModal();
+        await page.setFiles('#import-file-input', [page.file('equipe.xlsx', 'xlsx', 'application/vnd.ms-excel')]);
+        await page.settle(20);
+        const preview = page.text('#import-preview-body');
+        for (const msg of [
+            'Nome é obrigatório',
+            'CPF é obrigatório',
+            'Email é obrigatório',
+            'Tipo de contrato é obrigatório',
+            'Departamento é obrigatório',
+            'Jornada de trabalho é obrigatória',
+            'Tipo de salário é obrigatório',
+            'Email inválido',
+            'Email já cadastrado',
+        ])
+            assert.ok(preview.includes(msg), `falta o aviso "${msg}"`);
+        assert.equal((preview.match(/Data de admissão inválida/g) || []).length, 3, '31/02, mês 13 e vazio');
+        assert.equal((preview.match(/Salário inválido/g) || []).length, 2, 'vazio e zero');
+        await page.click('#btn-import-confirm');
+        await page.settle(20);
+        const [milhar] = c.writes('employees', 'insert').map((w) => w.payload[0]);
+        assert.deepEqual([milhar.name, milhar.salary, milhar.admission_date], ['Milhar BR', 3500, '2025-01-15']);
+    });
+
+    test('aviso prévio: vencido, termina hoje e termina em breve aparecem como alerta; longe não', async () => {
+        const c = client();
+        const set = (id, fim) =>
+            Object.assign(
+                c.tables.employees.find((e) => e.id === id),
+                { is_aviso_previo: true, aviso_previo_end_date: fim }
+            );
+        set(ANA.id, '2026-06-10');
+        set(BIA.id, '2026-06-17');
+        set(CAIO.id, '2026-09-30');
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        const sino = (nome) => rowFor(page, nome).querySelector('.bell-alert-icon')?.getAttribute('title') || '';
+        assert.match(sino('Ana Souza'), /Aviso prévio venceu há 7d/);
+        assert.match(sino('Bia Lima'), /Aviso prévio termina hoje/);
+        assert.doesNotMatch(sino('Caio Prado'), /Aviso prévio/);
+    });
+
+    test('filtros de status e departamento se combinam', async () => {
+        const c = client();
+        c.tables.employees.find((e) => e.id === BIA.id).status = 'Afastado';
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        const nomes = () => page.$$('#employee-list-body tr').map((tr) => tr.querySelector('.employee-name-cell strong').textContent);
+        for (const [filtro, esperado] of [
+            ['afastados', /Bia Lima/],
+            ['ferias', /Caio Prado/],
+            ['ativos', /Ana Souza/],
+        ]) {
+            await page.click(`[data-filter="${filtro}"]`);
+            assert.match(nomes().join(' '), esperado, filtro);
+            assert.equal(nomes().length, 1, filtro);
+        }
+        await page.click('[data-filter="inativos"]');
+        assert.match(page.text('#employee-list-body'), /Nenhum|nenhum/);
+    });
+
+    test('paginação: 5 por página, avançar e voltar', async () => {
+        const extras = Array.from({ length: 9 }, (_, i) => ({
+            ...BIA,
+            id: `emp-x${i}`,
+            name: `Pessoa ${String(i).padStart(2, '0')}`,
+            email: `p${i}@empresa.com`,
+            cpf: `000.000.00${i}-00`,
+            manager_id: null,
+            created_at: `2023-01-${String(10 + i).padStart(2, '0')}`,
+        }));
+        const c = client();
+        c.tables.employees.push(...extras);
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        assert.equal(page.$$('#employee-list-body tr').length, 5);
+        const next = page.$$('.pagination-btn').at(-1);
+        await page.click(next);
+        assert.equal(page.$$('#employee-list-body tr').length, 5);
+        await page.click(page.$$('.pagination-btn').at(-1));
+        assert.equal(page.$$('#employee-list-body tr').length, 2);
+        await page.click(page.$$('.pagination-btn')[0]);
+        assert.equal(page.$$('#employee-list-body tr').length, 5);
+    });
+});

@@ -828,7 +828,7 @@ async function renderEmpSaldoBanco() {
         el.classList.add('hidden');
         return;
     }
-    const jornadaMin = tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz' ? 360 : 480;
+    const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: tipo, workLoad: emp?.workLoad });
 
     const now = new Date();
     const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -836,14 +836,10 @@ async function renderEmpSaldoBanco() {
         sb.from('time_records').select('entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${mk}-01`),
         sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', empId).gte('date', `${mk}-01`).is('deleted_at', null),
     ]);
-    const diffMin = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
     let net = 0;
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        const worked = r.saida_almoco
-            ? diffMin(r.entrada, r.saida_almoco) + (r.retorno_almoco && r.saida ? diffMin(r.retorno_almoco, r.saida) : 0)
-            : diffMin(r.entrada, r.saida);
-        net += worked - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
     });
     (adjs || []).forEach((a) => {
         net += a.tipo === 'credito' ? a.minutos : -a.minutos;
@@ -1270,6 +1266,10 @@ window.submitColetiva = async function () {
         return;
     }
     const days = Math.round((eDate - sDate) / 86400000) + 1;
+    if (days < 10) {
+        showAlert('coletiva-alert', 'Férias coletivas têm no mínimo 10 dias corridos por período (CLT art. 139 §1º).', 'error');
+        return;
+    }
 
     const targets = employees.filter((e) => e.status !== 'Inativo' && (!dept || e.dept === dept) && !isEstagioOuAprendiz(e));
     if (targets.length === 0) {

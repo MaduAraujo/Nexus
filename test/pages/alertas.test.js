@@ -188,3 +188,109 @@ describe('alertas.html — outras abas', () => {
         assert.equal(c.writes('ai_chat_history', 'delete').length, 1);
     });
 });
+
+describe('alertas.html — painéis com dados', () => {
+    const semAlmoco = (employee_id, date) => ({
+        employee_id,
+        date,
+        entrada: `${date}T08:00:00-03:00`,
+        saida_almoco: null,
+        retorno_almoco: null,
+        saida: `${date}T17:00:00-03:00`,
+    });
+
+    async function abrirAba(p, aba) {
+        await p.click(`.panel-tab[data-tab="${aba}"]`);
+        await p.waitFor(() => !/Calculando|Cruzando|Verificando|Levantando/.test(p.text(`#${aba}-body`)));
+    }
+
+    test('risco jurídico: soma prazo vencido, excesso de jornada, intervalo não cumprido e ajuste rejeitado', async () => {
+        const c = client({
+            compliance_alerts: [{ employee_id: ANA.id, lido: false, alertas: [{ nivel: 'critico', titulo: '30 dia(s) de férias vencidas' }] }],
+            burnout_alerts: [
+                { employee_id: ANA.id, created_at: '2026-06-10T10:00:00Z', alertas: [{ tipo: 'excesso_legal_diario' }, { tipo: 'excesso_legal_diario' }] },
+            ],
+            time_records: [semAlmoco(ANA.id, '2026-06-15'), semAlmoco(ANA.id, '2026-06-16')],
+            adjustment_requests: [{ employee_id: ANA.id, status: 'rejeitado', created_at: '2026-05-10T10:00:00Z' }],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'juridico');
+        const t = page.text('#juridico-list');
+        assert.match(t, /Ana Souza/);
+        assert.match(t, /Score de risco jurídico: \d+\/100/);
+        assert.match(t, /30 dia\(s\) de férias vencidas/);
+        assert.match(t, /2 dia\(s\) com jornada além do limite legal diário/);
+        assert.match(t, /2 dia\(s\) sem intervalo intrajornada completo/);
+        assert.doesNotMatch(t, /Bia Lima/);
+        assert.match(page.text('#juridico-summary'), /Score médio da empresa: \d+\/100.*1 colaborador\(es\) em risco crítico|colaborador\(es\) em atenção/);
+    });
+
+    test('risco jurídico sem exposição mostra o estado vazio', async () => {
+        page = await openPage('alertas', { client: client(), now: NOW });
+        await abrirAba(page, 'juridico');
+        assert.match(page.text('#juridico-list'), /Nenhuma exposição jurídica identificada/);
+    });
+
+    test('risco composto: só quem acumula 2 ou mais sinais (burnout + ticket aguardando RH)', async () => {
+        const c = client({
+            burnout_alerts: [
+                {
+                    employee_id: ANA.id,
+                    lido: false,
+                    created_at: '2026-06-15T10:00:00Z',
+                    date: '2026-06-15',
+                    alertas: [{ nivel: 'critico', titulo: 'Sem pausas' }],
+                },
+                { employee_id: BIA.id, lido: false, created_at: '2026-06-15T10:00:00Z', date: '2026-06-15', alertas: [{ nivel: 'atencao', titulo: 'Extras' }] },
+            ],
+            hr_tickets: [{ employee_id: ANA.id, subject: 'Assédio <b>moral</b>', status: 'aguardando_rh' }],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'risco');
+        const t = page.text('#risco-list');
+        assert.match(t, /Ana Souza/);
+        assert.match(t, /Burnout crítico/);
+        assert.match(t, /Ticket RH: .*Assédio/);
+        assert.doesNotMatch(t, /Bia Lima/, 'um sinal só não é risco composto');
+        assert.equal(page.$$('#risco-list b').length, 0, 'assunto do ticket não vira HTML');
+    });
+
+    test('compliance: documento vencido é crítico e vem antes; contador no resumo', async () => {
+        const c = client({
+            documents: [
+                { id: 'd1', employee_id: ANA.id, name: 'aso.pdf', tipo: 'ASO', data_validade: '2026-06-01' },
+                { id: 'd2', employee_id: BIA.id, name: 'nr35.pdf', tipo: 'NR-35', data_validade: '2026-07-10' },
+            ],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'compliance');
+        const cards = page.$$('#compliance-list .alert-card');
+        assert.equal(cards.length, 2);
+        assert.match(page.text(cards[0]), /Ana Souza.*aso\.pdf \(ASO\) vencido há 16d/);
+        assert.match(page.text(cards[1]), /Bia Lima.*nr35\.pdf \(NR-35\) vence em 23d/);
+        assert.equal(page.text('#compliance-summary-count'), '2');
+    });
+
+    test('gestores: liderados, decisões e escalações; sem gestor mostra o vazio', async () => {
+        const c = client({
+            vacations: [{ id: 'v9', employee_id: BIA.id, decided_by_email: ANA.email, status: 'aprovado' }],
+            bank_requests: [{ id: 'b9', decided_by_email: ANA.email, requires_approval_from: 'gestor' }],
+            hr_tickets: [{ employee_id: ANA.id, about_employee_id: BIA.id, status: 'resolvido' }],
+        });
+        c.tables.employees.find((e) => e.id === BIA.id).manager_id = ANA.id;
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'gestores');
+        const card = page.$$('#gestores-list .gestor-card').find((el) => /Ana Souza/.test(el.textContent));
+        assert.deepEqual(
+            [...card.querySelectorAll('.gestor-stat-val')].map((e) => e.textContent),
+            ['1', '1', '1', '1']
+        );
+        page.close();
+
+        const semLider = client();
+        semLider.tables.employees.forEach((e) => (e.manager_id = null));
+        page = await openPage('alertas', { client: semLider, now: NOW });
+        await abrirAba(page, 'gestores');
+        assert.match(page.text('#gestores-list'), /Nenhum gestor definido/);
+    });
+});

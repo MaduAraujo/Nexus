@@ -235,3 +235,106 @@ describe('banco-horas-rh.html — feriados, configurações e exportação', () 
         assert.ok(page.objectUrls.length + page.pdfs.length + page.opened.length >= 2);
     });
 });
+
+describe('banco-horas-rh.html — vencimento, avisos, auditoria e tempo real', () => {
+    const extras = (employee_id, date) => dia(employee_id, date, '20:00');
+
+    test('crédito antigo não compensado vence (prazo de 6 meses): KPI, aviso e filtro de vencidos', async () => {
+        const c = client({ time_records: [extras(ANA.id, '2025-10-06'), extras(ANA.id, '2025-10-07'), dia(ANA.id, '2026-06-15', '17:00')] });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        assert.equal(page.text('#kpi-count-vencido'), '1');
+        assert.match(page.text('#notif-panel-body'), /1 colaborador com banco de horas vencido/);
+        assert.match(page.text('#notif-panel-body'), /1 solicitação de banco de horas pendente/);
+        await page.click('#notif-panel-body [data-click="goToVencidos"]');
+        assert.deepEqual(
+            page.$$('#banco-tbody tr').map((tr) => tr.textContent.includes('Ana Souza')),
+            [true]
+        );
+        await page.click('#notif-panel-body [data-click="goToSolicitacoes"]');
+        assert.equal(page.$('#tab-solicitacoes').classList.contains('active'), true);
+    });
+
+    test('saldo crítico (mais de 20h negativas) aparece nos avisos', async () => {
+        const c = client({
+            bank_adjustments: [
+                { id: 'adjc', employee_id: ANA.id, tipo: 'debito', minutos: 1500, date: '2026-06-02', justificativa: 'Faltas', deleted_at: null },
+            ],
+        });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        assert.match(page.text('#notif-panel-body'), /1 colaborador em saldo crítico/);
+        await page.click('#notif-panel-body [data-click="goToCriticos"]');
+        assert.ok(page.$$('#banco-tbody tr').every((tr) => tr.textContent.includes('Ana Souza')));
+    });
+
+    test('aba de auditoria lista batidas e ajustes com operador; filtros por tipo e colaborador; vazio', async () => {
+        const c = client({
+            activity_logs: [
+                {
+                    id: 'l1',
+                    employee_id: ANA.id,
+                    tipo: 'ponto',
+                    acao: 'entrada',
+                    date: '2026-06-15',
+                    valor_registrado: '2026-06-15T08:02:00-03:00',
+                    operator_name: 'Ana Souza',
+                    operator_profile: 'colaborador',
+                    created_at: '2026-06-15T11:02:00Z',
+                    employees: { name: ANA.name, dept: ANA.dept },
+                },
+                {
+                    id: 'l2',
+                    employee_id: BIA.id,
+                    tipo: 'ajuste_banco',
+                    acao: 'credito',
+                    minutos: 90,
+                    date: '2026-06-12',
+                    operator_name: 'RH Admin',
+                    operator_profile: 'Administrador',
+                    justificativa: 'Evento no sábado',
+                    created_at: '2026-06-12T20:00:00Z',
+                    employees: { name: BIA.name, dept: BIA.dept },
+                },
+            ],
+        });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        await page.click('.tab-btn[data-tab="auditoria"]');
+        await page.settle();
+        assert.equal(page.text('#audit-count'), '2 registros encontrados');
+        assert.match(page.text('#audit-tbody'), /Ana Souza.*Ponto.*Entrada.*08:02.*Colaborador/);
+        assert.match(page.text('#audit-tbody'), /Bia Lima.*Banco.*Crédito.*\+1h 30min.*RH Admin.*RH.*Evento no sábado/);
+
+        await page.click('#audit-filter-dropdown-menu [data-audit-tipo="ajuste_banco"]');
+        await page.settle();
+        assert.equal(page.text('#audit-count'), '1 registro encontrado');
+        assert.equal(page.text('#audit-filter-label'), 'Ajustes de Banco');
+
+        await page.click(`#audit-emp-chips [data-emp-id="${ANA.id}"]`);
+        await page.settle();
+        assert.match(page.text('#audit-tbody'), /Nenhum registro de auditoria encontrado/);
+    });
+
+    test('tempo real: nova solicitação atualiza o selo; feriado novo recarrega a lista aberta', async () => {
+        const c = client();
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        assert.equal(page.text('#tab-badge-solicitacoes'), '1');
+        c.tables.bank_requests.push({
+            id: 'br3',
+            employee_id: ANA.id,
+            origem: 'colaborador',
+            tipo: 'credito',
+            minutos: 30,
+            date: '2026-06-16',
+            status: 'pendente',
+            requires_approval_from: 'rh',
+            created_at: '2026-06-16T18:00:00Z',
+            employees: { name: ANA.name, dept: ANA.dept },
+        });
+        c.emit('bank_requests', { eventType: 'INSERT', new: { id: 'br3' } });
+        await page.waitFor(() => page.text('#tab-badge-solicitacoes') === '2');
+
+        page.window.openHolidaysModal();
+        c.tables.holidays.push({ id: 'h2', date: '2026-06-20', name: 'Feriado municipal', abrangencia: 'municipal' });
+        c.emit('holidays', { eventType: 'INSERT', new: { id: 'h2' } });
+        await page.waitFor(() => /Feriado municipal/.test(page.text('#holidays-modal')));
+    });
+});

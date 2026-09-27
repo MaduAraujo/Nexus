@@ -201,3 +201,130 @@ describe('perfil-colaborador.html — notificações e segurança', () => {
         await page.waitFor(() => page.navigations.length, { timeout: 3000 });
     });
 });
+
+describe('perfil-colaborador.html — falhas e casos de borda', () => {
+    test('erros do banco ao salvar perfil, foto, cor e preferência avisam e não mudam a tela', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        c.errors['employees:update'] = { message: 'falhou' };
+
+        await page.click('[data-click="toggleEditInfo"]');
+        await page.fill('#edit-name', 'Outro Nome');
+        await page.click('[data-click="saveInfo"]');
+        assert.ok(page.toasts().includes('Erro ao salvar.'));
+        assert.equal(page.text('#profile-hero-name'), 'Ana Souza');
+
+        await page.setFiles('#photo-input', [page.file('eu.png', 'png', 'image/png')]);
+        assert.ok(page.toasts().includes('Erro ao salvar foto.'));
+
+        await page.click('[data-click="removePhoto"]');
+        assert.ok(page.toasts().includes('Erro ao remover foto.'));
+
+        await page.window.saveNotifPref('email', false);
+        assert.ok(page.toasts().includes('Erro ao salvar preferência.'));
+    });
+
+    test('foto: acima de 10 MB é recusada e falha no Storage não grava a URL', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        const grande = page.file('grande.png', 'x', 'image/png');
+        Object.defineProperty(grande, 'size', { value: 11 * 1024 * 1024 });
+        await page.setFiles('#photo-input', [grande]);
+        assert.ok(page.toasts().includes('Imagem deve ter no máximo 10 MB.'));
+
+        c.errors['storage:avatars:upload'] = { message: 'quota' };
+        await page.setFiles('#photo-input', [page.file('eu.png', 'png', 'image/png')]);
+        assert.ok(page.toasts().includes('Erro ao enviar foto.'));
+        assert.equal(c.writes('employees', 'update').length, 0);
+    });
+
+    test('menus do avatar: abrir um fecha o outro', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        page.window.toggleAvatarMenu();
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), true);
+        page.window.openColorPicker();
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), false);
+        assert.equal(page.$('#color-picker').classList.contains('open'), true);
+        page.window.toggleAvatarMenu();
+        assert.equal(page.$('#color-picker').classList.contains('open'), false);
+        page.window.toggleAvatarMenu();
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), false);
+        page.window.openColorPicker();
+        page.window.openColorPicker();
+        assert.equal(page.$('#color-picker').classList.contains('open'), false);
+    });
+
+    test('iPhone sem o app instalado: push pede instalação antes', async () => {
+        page = await openPage('perfil-colaborador', {
+            client: client(),
+            now: NOW,
+            push: { permission: 'granted' },
+            before: (w) =>
+                Object.defineProperty(w.navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' }),
+        });
+        assert.equal(page.$('#notif-push-browser').disabled, true);
+        assert.match(page.text('#notif-push-desc'), /Instale o app na Tela de Início/);
+        await page.window.togglePushNotifications(true);
+        assert.match(page.toasts().join(' '), /Instale o app primeiro/);
+    });
+
+    test('senha: falha do servidor avisa; falha ao migrar as chaves E2E avisa o que fazer', async () => {
+        const c = client({ signIn: () => ({ data: {}, error: null }) });
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        const preencher = async () => {
+            await page.fill('#curr-pass', 'atual-senha-1');
+            await page.fill('#new-pass-profile', 'nova-senha-2026');
+            await page.fill('#confirm-pass-profile', 'nova-senha-2026');
+        };
+        await preencher();
+        c.errors['auth:updateUser'] = { message: 'weak' };
+        await page.window.changePassword();
+        assert.ok(page.toasts().includes('Erro ao alterar senha. Tente novamente.'));
+
+        delete c.errors['auth:updateUser'];
+        page.window.NexusE2E.rewrapPassword = async () => {
+            throw new Error('sem chave');
+        };
+        await preencher();
+        await page.window.changePassword();
+        assert.match(page.toasts().join(' '), /chaves de ponta a ponta continuam na senha antiga/);
+
+        await page.fill('#new-pass-profile', 'curta1');
+        await page.window.changePassword();
+        assert.ok(page.toasts().includes('Mínimo 12 caracteres.'));
+
+        await page.fill('#new-pass-profile', 'nova-senha-2026');
+        await page.fill('#confirm-pass-profile', 'outra-senha-2026');
+        page.window.checkNewPass();
+        assert.equal(page.text('#pw-match-msg'), 'As senhas não coincidem.');
+        await page.fill('#confirm-pass-profile', '');
+        page.window.checkNewPass();
+        assert.equal(page.text('#pw-match-msg'), '');
+    });
+
+    test('mostrar/ocultar senha e trocar de aba', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        const btn = page.document.createElement('button');
+        btn.innerHTML = '<i class="fas fa-eye"></i>';
+        page.window.togglePwSmall('curr-pass', btn);
+        assert.equal(page.$('#curr-pass').type, 'text');
+        assert.equal(btn.querySelector('i').className, 'fas fa-eye-slash');
+        page.window.togglePwSmall('curr-pass', btn);
+        assert.equal(page.$('#curr-pass').type, 'password');
+
+        const tab = page.$('.ptab:not(.active)');
+        const alvo = tab.dataset.clickArgs ? JSON.parse(tab.dataset.clickArgs)[1] : null;
+        if (alvo) {
+            await page.click(tab);
+            assert.equal(page.$(`#ptab-${alvo}`).classList.contains('active'), true);
+        }
+    });
+
+    test('contrato temporário não tem férias; sem admissão mostra traço', async () => {
+        page = await openPage('perfil-colaborador', { client: client({ emp: { contract_type: 'temporario' } }), now: NOW });
+        assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), 'Não aplicável');
+        page.close();
+        page = await openPage('perfil-colaborador', { client: client({ emp: { admission_date: null } }), now: NOW });
+        assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), '—');
+    });
+});

@@ -69,7 +69,11 @@ async function loadData() {
             .in('status', ['aprovado', 'concluido'])
             .lte('start_date', lastDayOfMonthKey(currentMonth))
             .gte('end_date', `${currentMonth}-01`),
-        sb.from('payslips_decrypted').select('*').gte('mes', `${currentMonth}-F`).lt('mes', `${currentMonth}-G`),
+        sb
+            .from('payslips_decrypted')
+            .select('*')
+            .gte('mes', `${prevMonthKey(currentMonth)}-F`)
+            .lt('mes', `${currentMonth}-G`),
     ]);
 
     if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
@@ -94,7 +98,7 @@ async function loadData() {
         avatarUrl: e.avatar_url,
     }));
     payslips = slipData || [];
-    recibosFerias = reciboData || [];
+    recibosFerias = (reciboData || []).filter((r) => /^\d{4}-\d{2}-F\d{2}$/.test(r.mes));
     feriasDoMes = {};
     feriasNoMes = {};
     (vacData || []).forEach((v) => {
@@ -188,6 +192,26 @@ function recibosDoColaborador(empId) {
     return recibosFerias.filter((r) => r.employee_id === empId);
 }
 
+function feriasNaCompetencia(recibos, monthKey) {
+    let base = 0,
+        inssRetido = 0;
+    recibos.forEach((r) => {
+        const inss901 = (r.descontos || []).filter((d) => d.cod === '901');
+        if (inss901.some((d) => d.competencia)) {
+            inss901
+                .filter((d) => d.competencia === monthKey)
+                .forEach((d) => {
+                    base += Number(d.base || 0);
+                    inssRetido += Number(d.valor || 0);
+                });
+        } else if ((r.mes || '').startsWith(monthKey)) {
+            base += somaCods(r.proventos, COD_FERIAS_TRIBUTAVEIS);
+            inssRetido += somaCods(r.descontos, ['901']);
+        }
+    });
+    return { base: +base.toFixed(2), inssRetido: +inssRetido.toFixed(2) };
+}
+
 function calcImpostosMes({ contractType, baseMensal, baseFerias = 0, inssRetidoRecibo = 0, irrfFeriasNoRecibo = false }) {
     const isAprendiz = (contractType || '').toLowerCase() === 'aprendiz';
     const isEstagio = CLTDomain.isEstagio(contractType);
@@ -233,9 +257,10 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
     const descontos = [];
 
     if (!calc.isPJ) {
+        const diasBeneficio = CLTDomain.diasBeneficioNoMes(feriasNoMes[emp.id] || [], monthKey);
         if (emp.benValeRefeicao) {
-            const vr = parseCurrency(emp.benValeRefeicao) * 22;
-            if (vr > 0) proventos.push({ cod: '010', descricao: 'Vale Refeição', referencia: '22 dias', valor: +vr.toFixed(2) });
+            const vr = parseCurrency(emp.benValeRefeicao) * diasBeneficio;
+            if (vr > 0) proventos.push({ cod: '010', descricao: 'Vale Refeição', referencia: `${diasBeneficio} dias`, valor: +vr.toFixed(2) });
         }
         if (emp.benValeAlimentacao) {
             const va = parseCurrency(emp.benValeAlimentacao);
@@ -244,10 +269,10 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
         if (emp.valeTransporte === 'sim') {
             const condDia = parseInt(emp.conducoesdia || '2', 10);
             const valPass = parseCurrency(emp.valorPassagem || '0');
-            const vtBruto = +(valPass * condDia * 22).toFixed(2);
-            const descVT = +Math.min(calc.salary * CLTDomain.VALE_TRANSPORTE_DESCONTO_MAX_PERCENTUAL, vtBruto).toFixed(2);
+            const vtBruto = +(valPass * condDia * diasBeneficio).toFixed(2);
+            const descVT = estagio ? 0 : +Math.min(salarioMes * CLTDomain.VALE_TRANSPORTE_DESCONTO_MAX_PERCENTUAL, vtBruto).toFixed(2);
             if (vtBruto > 0) {
-                proventos.push({ cod: '012', descricao: 'Vale Transporte', referencia: `${condDia} cond/dia`, valor: vtBruto });
+                proventos.push({ cod: '012', descricao: 'Vale Transporte', referencia: `${condDia} cond/dia · ${diasBeneficio} dias`, valor: vtBruto });
                 if (descVT > 0) descontos.push({ cod: '903', descricao: 'Desc. Vale Transporte', referencia: '6%', valor: descVT });
             }
         }
@@ -310,12 +335,13 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
         const legado = proventosFeriasLegado(existingSlip);
         proventos.push(...legado);
         const recibos = recibosDoColaborador(emp.id);
+        const ferias = feriasNaCompetencia(recibos, monthKey);
         const impostos = calcImpostosMes({
             contractType: emp.contractType,
             baseMensal: salarioMes + valorNoturno + valorFeriado - falta.valorFaltas - falta.valorDsr,
-            baseFerias: somaCods(legado, COD_FERIAS_TRIBUTAVEIS) + recibos.reduce((s, r) => s + somaCods(r.proventos, COD_FERIAS_TRIBUTAVEIS), 0),
-            inssRetidoRecibo: recibos.reduce((s, r) => s + somaCods(r.descontos, ['901']), 0),
-            irrfFeriasNoRecibo: recibos.length > 0 && !legado.length,
+            baseFerias: somaCods(legado, COD_FERIAS_TRIBUTAVEIS) + ferias.base,
+            inssRetidoRecibo: ferias.inssRetido,
+            irrfFeriasNoRecibo: ferias.base > 0 && !legado.length,
         });
         descontos.push(...impostos.descontos);
     } else {
@@ -767,7 +793,9 @@ function buildHolCard(r, competLabel) {
 
 function linhasRecibosFerias() {
     const E = window.EventosFolha;
-    const linhas = recibosFerias.map((slip) => ({ slip, emp: employees.find((e) => e.id === slip.employee_id), inicio: E.inicioDoReciboFerias(slip.mes) }));
+    const linhas = recibosFerias
+        .filter((slip) => slip.mes.startsWith(currentMonth))
+        .map((slip) => ({ slip, emp: employees.find((e) => e.id === slip.employee_id), inicio: E.inicioDoReciboFerias(slip.mes) }));
     Object.entries(feriasDoMes).forEach(([empId, lista]) =>
         lista.forEach((v) => {
             if (linhas.some((l) => l.emp?.id === empId && l.inicio === v.start_date)) return;
@@ -1107,6 +1135,12 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
 
 function nextMonthKey(monthKey) {
     return CLTDomain.nextMonthKey(monthKey);
+}
+
+function prevMonthKey(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}`;
 }
 
 function lastDayOfMonthKey(monthKey) {

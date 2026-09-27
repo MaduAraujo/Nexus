@@ -735,11 +735,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 4000);
     };
 
-    window.logout = async function () {
-        await sb.auth.signOut();
-        window.location.href = '../screens/login.html';
-    };
-
     function autoResize(el) {
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 120) + 'px';

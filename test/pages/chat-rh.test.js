@@ -165,3 +165,57 @@ describe('chat-rh.html', () => {
         assert.match(page.text('#anon-feedback-list'), /Nenhum feedback com status "arquivado"/);
     });
 });
+
+describe('chat-rh.html — tempo real', () => {
+    test('mensagem do colaborador chega na conversa aberta com o nome; a própria resposta não duplica', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        const antes = page.$$('#messages-list .message, #messages-list [class*="msg"]').length;
+
+        c.tables.hr_ticket_messages_decrypted.push({
+            id: 'x9',
+            ticket_id: 't1',
+            role: 'user',
+            employee_id: ANA.id,
+            content: 'Ainda aguardo',
+            created_at: '2026-06-17T09:30:00-03:00',
+        });
+        c.emit('hr_ticket_messages', { eventType: 'INSERT', new: { id: 'x9', ticket_id: 't1', role: 'user', employee_id: ANA.id } });
+        await page.waitFor(() => /Ainda aguardo/.test(page.text('#messages-list')));
+
+        c.emit('hr_ticket_messages', { eventType: 'INSERT', new: { id: 'nao-existe', ticket_id: 't1', role: 'bot' } });
+        await page.settle();
+        assert.ok(page.$$('#messages-list .message, #messages-list [class*="msg"]').length > antes);
+    });
+
+    test('escalação de gestor em tempo real avisa quem escalou e sobre quem', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        c.tables.hr_tickets.push({
+            id: 't9',
+            employee_id: BIA.id,
+            about_employee_id: ANA.id,
+            status: 'aguardando_rh',
+            subject: 'Comportamento',
+            updated_at: '2026-06-17T09:00:00-03:00',
+        });
+        c.emit('hr_tickets', { eventType: 'INSERT', new: { id: 't9', employee_id: BIA.id, about_employee_id: ANA.id, status: 'aguardando_rh' } });
+        await page.waitFor(() => page.toasts().some((t) => /Bia Lima escalou algo sobre Ana Souza/.test(t)));
+        c.emit('hr_tickets', { eventType: 'INSERT', new: { id: 't9', employee_id: BIA.id } });
+        await page.settle();
+        assert.equal(page.$$('.ticket-item[data-ticket-id="t9"]').length, 1, 'o mesmo ticket não entra duas vezes');
+    });
+
+    test('mudança de status feita em outra aba atualiza o ticket aberto', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        c.emit('hr_tickets', { eventType: 'UPDATE', new: { id: 't1', status: 'resolvido' } });
+        await page.settle();
+        assert.match(page.text('.ticket-item[data-ticket-id="t1"]'), /Resolvido/i);
+        assert.equal(page.$('.ticket-item[data-ticket-id="t1"]').classList.contains('active'), true, 'continua selecionado');
+    });
+});

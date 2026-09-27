@@ -148,3 +148,30 @@ jobs:
           name: playwright-report
           path: test-results/
           retention-days: 7
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Serve the site as Vercel does (vercel.json headers, .vercelignore paths hidden)
+        run: |
+          COMO_PRODUCAO=1 E2E_STATIC_PORT=4180 node test-support/static-server.js &
+          sleep 2
+
+      - name: OWASP ZAP baseline (spider + passive scan; fails on FAIL-level findings)
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable             zap-baseline.py -t http://127.0.0.1:4180/src/screens/login.html -m 2 -J zap.json -r zap.html -I
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap/

@@ -307,3 +307,243 @@ describe('ferias.html (RH) — exportação e recibo', () => {
         assert.match(page.opened[0].text(), /Ana Souza/);
     });
 });
+
+describe('ferias.html (RH) — cobertura, indicadores e visões', () => {
+    test('cobertura por departamento: mais de 30% da equipe fora ao mesmo tempo é risco', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-10', 'aprovado'), vac('v2', BIA.id, '2026-07-05', '2026-07-15', 'aprovado')]);
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('.tab-btn[data-tab="calendar"]');
+        await page.settle();
+        const fin = page.$$('#cobertura-wrap .cobertura-item').find((el) => /Financeiro/.test(el.textContent));
+        assert.match(page.text(fin), /2\/2/);
+        assert.ok(fin.classList.contains('cobertura-item--risk'));
+        const ti = page.$$('#cobertura-wrap .cobertura-item').find((el) => /TI/.test(el.textContent));
+        assert.ok(!ti.classList.contains('cobertura-item--risk'));
+    });
+
+    test('indicadores abrem a lista: pendentes, saindo em 15 dias e em férias hoje', async () => {
+        const client = rhClient([
+            vac('v1', ANA.id, '2026-06-25', '2026-07-04', 'aprovado'),
+            vac('v2', BIA.id, '2026-06-10', '2026-06-20', 'aprovado'),
+            vac('v3', CAIO.id, '2026-08-01', '2026-08-10', 'pendente'),
+        ]);
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.openKpiModal('upcoming');
+        assert.match(page.text('#kpi-info-body'), /Ana Souza.*sai em 25\/06\/2026.*10d/);
+        page.window.openKpiModal('ativas');
+        assert.match(page.text('#kpi-info-body'), /Bia Lima.*volta em 20\/06\/2026.*3d/);
+        page.window.openKpiModal('pendente');
+        assert.match(page.text('#kpi-info-body'), /Caio Prado/);
+        page.window.openKpiModal('inexistente');
+        const vazio = rhClient([]);
+        page.close();
+        page = await openPage('ferias', { client: vazio, now: NOW });
+        page.window.openKpiModal('ativas');
+        assert.match(page.text('#kpi-info-body'), /Nenhum registro no momento/);
+    });
+
+    test('férias vencidas: lista quem passou do período concessivo, do maior atraso para o menor', async () => {
+        const client = rhClient([]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) ana.admission_date = '2023-01-10';
+        }
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.openExpiredModal();
+        assert.match(page.text('#expired-body'), /Bia Lima.*vencida desde 09\/05\/2024 90d.*Ana Souza.*vencida desde 09\/01\/2025 60d/);
+    });
+
+    test('ver solicitação mostra a fração do ciclo; editar preenche o formulário', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-15', 'aprovado', { obs: 'Viagem' })]);
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.openViewModal('v1');
+        assert.match(page.text('#view-modal'), /Ana Souza.*Financeiro.*01\/07\/2026.*15\/07\/2026/);
+        page.window.openEditModal('v1');
+        assert.equal(page.text('#add-modal-title'), 'Editar Solicitação');
+        assert.equal(page.$('#add-obs').value, 'Viagem');
+        assert.equal(page.$('#add-start').value, '2026-07-01');
+        page.window.openViewModal('nao-existe');
+        page.window.openEditModal('nao-existe');
+    });
+
+    test('exportar para agenda: arquivo .ics com o fim exclusivo e link do Google Agenda', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-15', 'aprovado')]);
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.downloadIcs('v1');
+        assert.equal(page.downloads.at(-1).name, 'ferias_Ana_Souza.ics');
+        page.window.openGoogleCalendar('v1');
+        const url = page.opened.at(-1).url;
+        assert.match(url, /dates=20260701\/20260716/, 'fim exclusivo: 15/07 + 1 dia');
+        assert.match(decodeURIComponent(url), /Férias — Ana Souza/);
+    });
+});
+
+describe('ferias.html (RH) — coletivas e lote', () => {
+    test('coletiva abaixo de 10 dias é recusada (CLT art. 139 §1º); estagiário fica de fora', async () => {
+        const client = rhClient([]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const bia = client.tables[t].find((e) => e.id === BIA.id);
+            if (bia) bia.contract_type = 'estagio';
+        }
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('[data-click="openColetivaModal"]');
+        await pick(page, 'coletiva-dept', 'Financeiro');
+        page.eval(`setDatePickerValue('coletiva-start', '2026-12-22'); setDatePickerValue('coletiva-end', '2026-12-27'); updateColetivaSubmitState();`);
+        await page.settle();
+        await page.click('#btn-coletiva-submit');
+        assert.match(page.text('#coletiva-alert'), /mínimo 10 dias corridos/);
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+
+        page.eval(`setDatePickerValue('coletiva-end', '2026-12-31'); updateColetivaSubmitState();`);
+        await page.settle();
+        await page.click('#btn-coletiva-submit');
+        assert.deepEqual(
+            client.writes('vacations', 'insert')[0].payload.map((r) => r.employee_id),
+            [ANA.id],
+            'estagiária (recesso) não entra na coletiva'
+        );
+    });
+
+    test('coletiva: data final antes da inicial e departamento sem ninguém elegível', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-12-20', '2026-12-31', 'aprovado'), vac('v2', BIA.id, '2026-12-20', '2026-12-31', 'aprovado')]);
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('[data-click="openColetivaModal"]');
+        await pick(page, 'coletiva-dept', 'Financeiro');
+        page.eval(`setDatePickerValue('coletiva-start', '2026-12-31'); setDatePickerValue('coletiva-end', '2026-12-20'); updateColetivaSubmitState();`);
+        await page.settle();
+        page.window.submitColetiva();
+        await page.settle();
+        assert.match(page.text('#coletiva-alert'), /Data de fim deve ser após a data de início/);
+        page.eval(`setDatePickerValue('coletiva-start', '2026-12-20'); setDatePickerValue('coletiva-end', '2026-12-31');`);
+        await page.window.submitColetiva();
+        assert.match(page.text('#coletiva-alert'), /já possuem férias no período/);
+    });
+
+    test('aprovar em lote com conflito de equipe pede confirmação e cita os nomes; recusar em lote pede motivo', async () => {
+        const client = rhClient([
+            vac('v1', ANA.id, '2026-07-01', '2026-07-10', 'pendente'),
+            vac('v2', BIA.id, '2026-07-05', '2026-07-12', 'aprovado'),
+            vac('v3', CAIO.id, '2026-08-01', '2026-08-10', 'pendente'),
+        ]);
+        page = await openPage('ferias', { client, now: NOW, confirm: false });
+        await page.check(rowOf(page, 'v1').querySelector('input[type="checkbox"]'));
+        await page.window.bulkApprove();
+        assert.match(page.confirms.at(-1), /1 das solicitações selecionadas têm conflito de equipe.*Ana Souza/);
+        assert.equal(status(client, 'v1'), 'pendente');
+
+        page.window.bulkReject();
+        assert.equal(page.$('#reject-modal').classList.contains('open'), true);
+        assert.match(page.text('#reject-sub'), /1 solicitações selecionadas/);
+    });
+
+    test('erro do banco ao aprovar em lote avisa e não emite recibo', async () => {
+        const client = rhClient([vac('v3', CAIO.id, '2026-08-01', '2026-08-10', 'pendente'), vac('v4', ANA.id, '2026-09-01', '2026-09-10', 'pendente')]);
+        page = await openPage('ferias', { client, now: NOW, confirm: true });
+        client.errors['vacations:update'] = { message: 'falhou' };
+        await page.check(rowOf(page, 'v4').querySelector('input[type="checkbox"]'));
+        await page.window.bulkApprove();
+        assert.ok(page.toasts().includes('Erro ao aprovar em lote.'));
+        assert.equal(client.rpcCalls('apply_ferias_recibo').length, 0);
+    });
+});
+
+describe('ferias.html (RH) — painel do cadastro manual e validações', () => {
+    const setEmp = (client, id, campos) => {
+        for (const t of ['employees', 'employees_decrypted']) {
+            const e = client.tables[t].find((x) => x.id === id);
+            if (e) Object.assign(e, campos);
+        }
+    };
+    async function abrirCadastro(client, empId) {
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('[data-click="openAddModal"]');
+        if (empId) await pick(page, 'add-employee', empId);
+        await page.settle(30);
+    }
+
+    test('painel mostra frações do ciclo e o direito; 50 anos ou mais exige período único', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { birth_date: '1970-03-01' });
+        await abrirCadastro(client, ANA.id);
+        const info = page.$('#add-emp-ferias-info');
+        assert.match(page.text(info), /Ciclo atual: 0\/3 frações utilizadas/);
+        assert.match(page.text(info), /direito a 30 dias neste ciclo/);
+        assert.match(page.text(info), /50 anos ou mais: férias devem ser gozadas em período único/);
+        assert.ok(info.classList.contains('negativo'));
+    });
+
+    test('estagiário: recesso sem abono no painel e abono desabilitado', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'estagio' });
+        await abrirCadastro(client, ANA.id);
+        assert.match(page.text('#add-emp-ferias-info'), /estagiário\/aprendiz: recesso remunerado, sem abono pecuniário/);
+        assert.equal(page.$('#add-abono').disabled, true);
+    });
+
+    test('saldo do banco de horas usa a jornada do contrato (44h = 8h48 por dia)', async () => {
+        const dia = (d, saida) => ({
+            employee_id: ANA.id,
+            date: `2026-06-${d}`,
+            entrada: `2026-06-${d}T08:00:00-03:00`,
+            saida_almoco: `2026-06-${d}T12:00:00-03:00`,
+            retorno_almoco: `2026-06-${d}T13:00:00-03:00`,
+            saida: `2026-06-${d}T${saida}:00-03:00`,
+        });
+        const client = rhClient([]);
+        client.tables.time_records.push(dia('15', '17:48'), dia('16', '18:18'));
+        client.tables.bank_adjustments.push({ employee_id: ANA.id, tipo: 'debito', minutos: 10, date: '2026-06-10', deleted_at: null });
+        setEmp(client, ANA.id, { work_load: '44h' });
+        await abrirCadastro(client, ANA.id);
+        assert.match(page.text('#add-emp-saldo-info'), /\+0h 20min/, '30 min extras − 10 de débito; 8h48 cumpridas não contam');
+        assert.ok(page.$('#add-emp-saldo-info').classList.contains('positivo'));
+    });
+
+    test('PJ não mostra saldo de banco de horas', async () => {
+        await abrirCadastro(rhClient([]), CAIO.id);
+        assert.ok(page.$('#add-emp-saldo-info').classList.contains('hidden'));
+    });
+
+    test('validações: sem colaborador, sem datas, fim antes do início', async () => {
+        const client = rhClient([]);
+        await abrirCadastro(client, null);
+        await page.window.submitAdd();
+        assert.match(page.text('#add-alert'), /Selecione um colaborador/);
+        await pick(page, 'add-employee', ANA.id);
+        await page.window.submitAdd();
+        assert.match(page.text('#add-alert'), /Informe o período completo/);
+        page.eval(`setDatePickerValue('add-start', '2026-08-20'); setDatePickerValue('add-end', '2026-08-10'); calcAddDays();`);
+        assert.match(page.text('#add-days-count'), /Data de fim inválida/);
+        await page.window.submitAdd();
+        assert.match(page.text('#add-alert'), /Data de fim deve ser após a data de início/);
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+    });
+
+    test('editar grava no mesmo registro; erro do banco avisa', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-08-03', '2026-08-14', 'aprovado')]);
+        page = await openPage('ferias', { client, now: NOW, confirm: true });
+        page.window.openEditModal('v1');
+        await page.settle(30);
+        page.$('#add-obs').value = 'Remarcada';
+        await page.window.submitAdd();
+        await page.settle();
+        const [upd] = client.writes('vacations', 'update');
+        assert.equal(upd.payload.obs, 'Remarcada');
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+
+        client.errors['vacations:update'] = { message: 'falhou' };
+        page.window.openEditModal('v1');
+        await page.settle(30);
+        await page.window.submitAdd();
+        assert.match(page.text('#add-alert') + page.toasts().join(' '), /Erro|erro/);
+    });
+
+    test('recibo com pop-up bloqueado avisa; exportar sem nada no filtro avisa', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-10', 'aprovado')]);
+        page = await openPage('ferias', { client, now: NOW, before: (w) => (w.open = () => null) });
+        page.window.generateReceipt('v1');
+        assert.ok(page.toasts().includes('Permita pop-ups para gerar o recibo.'));
+        await page.fill('#search-input', 'ninguém com esse nome');
+        page.window.exportVacationsCSV();
+        assert.ok(page.toasts().includes('Nenhuma solicitação para exportar com o filtro atual.'));
+    });
+});

@@ -91,6 +91,16 @@ function pagarFeriasAte(startDate) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+function diasPorCompetencia(startDate, dias) {
+    const out = {};
+    const d = new Date(`${startDate}T12:00:00`);
+    for (let i = 0; i < dias; i++, d.setDate(d.getDate() + 1)) {
+        const k = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+        out[k] = (out[k] || 0) + 1;
+    }
+    return out;
+}
+
 function reciboFerias({ contractType, salario, startDate, dias, abono }) {
     const evento = proventosFerias({ contractType, salario, startDate, dias, abono });
     if (!evento) return null;
@@ -100,10 +110,29 @@ function reciboFerias({ contractType, salario, startDate, dias, abono }) {
         .reduce((s, p) => s + p.valor, 0)
         .toFixed(2);
     const aprendiz = String(contractType || '').toLowerCase() === 'aprendiz';
-    const inss = calcINSSContrato(base, contractType);
-    const irrf = aprendiz ? 0 : calcIRRF(base - inss);
+    const porMes = diasPorCompetencia(startDate, Number(dias) || 0);
+    const meses = Object.keys(porMes).sort();
     const descontos = [];
-    if (inss > 0) descontos.push({ cod: '901', descricao: 'INSS sobre férias', referencia: `${((inss / base) * 100).toFixed(1)}%`, valor: inss });
+    let inss = 0,
+        baseDistribuida = 0;
+    meses.forEach((mes, i) => {
+        const baseMes = i === meses.length - 1 ? +(base - baseDistribuida).toFixed(2) : +((base * porMes[mes]) / Number(dias)).toFixed(2);
+        baseDistribuida = +(baseDistribuida + baseMes).toFixed(2);
+        const inssMes = calcINSSContrato(baseMes, contractType);
+        inss = +(inss + inssMes).toFixed(2);
+        if (inssMes > 0) {
+            const [ano, mm] = mes.split('-');
+            descontos.push({
+                cod: '901',
+                descricao: meses.length > 1 ? `INSS sobre férias — competência ${mm}/${ano}` : 'INSS sobre férias',
+                referencia: `${porMes[mes]} dias`,
+                valor: inssMes,
+                competencia: mes,
+                base: baseMes,
+            });
+        }
+    });
+    const irrf = aprendiz ? 0 : calcIRRF(base - inss);
     if (irrf > 0) descontos.push({ cod: '906', descricao: 'IRRF sobre férias', referencia: 'Tabela', valor: irrf });
     const totalProventos = +evento.proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
     const totalDescontos = +descontos.reduce((s, d) => s + d.valor, 0).toFixed(2);
@@ -132,6 +161,7 @@ window.EventosFolha = {
     mesReciboFerias,
     inicioDoReciboFerias,
     pagarFeriasAte,
+    diasPorCompetencia,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -146,5 +176,6 @@ if (typeof module !== 'undefined' && module.exports) {
         mesReciboFerias,
         inicioDoReciboFerias,
         pagarFeriasAte,
+        diasPorCompetencia,
     };
 }

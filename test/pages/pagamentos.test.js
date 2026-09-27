@@ -364,6 +364,88 @@ describe('pagamentos.html — folha do mês', () => {
         assert.equal(irrf.valor, page.window.calcIRRF(3000 - 100), 'IRRF sobre a bolsa, sem dedução de INSS');
     });
 
+    function comBeneficios(client, extra = {}) {
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) Object.assign(ana, { vale_refeicao: 30, vale_transporte: true, valor_passagem: 5, conducoes_dia: 2, ...extra });
+        }
+        return client;
+    }
+
+    async function fecharAna(client, now = NOW) {
+        page = await openPage('pagamentos', { client, now });
+        await page.check(rowFor(page, 'Ana Souza').querySelector('.cb-row'));
+        await page.click('[data-click="marcarSelecionadosPagos"]');
+        return client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
+    }
+
+    test('VR e VT não são pagos nos dias úteis de gozo de férias', async () => {
+        const client = comBeneficios(
+            espelharPayslips(
+                rhClient({
+                    vacations: [
+                        { id: 'v1', employee_id: ANA.id, start_date: '2026-07-13', end_date: '2026-07-22', days: 10, abono: false, status: 'aprovado' },
+                    ],
+                })
+            )
+        );
+        const slip = await fecharAna(client);
+        const vr = slip.proventos.find((p) => p.cod === '010');
+        const vt = slip.proventos.find((p) => p.cod === '012');
+        assert.deepEqual([vr.referencia, vr.valor], ['14 dias', 420], '22 − 8 dias úteis de gozo (13 a 22/07)');
+        assert.deepEqual([vt.referencia, vt.valor], ['2 cond/dia · 14 dias', 140]);
+        const desc = slip.descontos.find((d) => d.cod === '903');
+        assert.equal(desc.valor, 140, '6% do salário do mês passaria de 140: o desconto fica limitado ao VT recebido');
+    });
+
+    test('mês sem férias: VR e VT com os 22 dias', async () => {
+        const slip = await fecharAna(comBeneficios(espelharPayslips(rhClient())));
+        assert.equal(slip.proventos.find((p) => p.cod === '010').referencia, '22 dias');
+        assert.equal(slip.proventos.find((p) => p.cod === '012').valor, 220);
+    });
+
+    test('estagiário: auxílio-transporte sem o desconto de 6% (Lei 11.788 art. 12)', async () => {
+        const client = comBeneficios(espelharPayslips(rhClient()), { contract_type: 'estagio', salary: 1500 });
+        const slip = await fecharAna(client);
+        assert.ok(slip.proventos.some((p) => p.cod === '012'));
+        assert.ok(!slip.descontos.some((d) => d.cod === '903'));
+    });
+
+    test('férias que atravessam o mês: cada holerite leva só a base e o INSS da sua competência', async () => {
+        const reciboJulho = {
+            ...RECIBO_ANA,
+            id: 'rf-jul',
+            mes: '2026-07-F25',
+            proventos: [
+                { cod: '040', descricao: 'Adiantamento de Férias', referencia: '15 dias', valor: 2000 },
+                { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: 666.67 },
+            ],
+            descontos: [
+                { cod: '901', descricao: 'INSS sobre férias — competência 07/2026', referencia: '7 dias', valor: 93.33, competencia: '2026-07', base: 1244.45 },
+                {
+                    cod: '901',
+                    descricao: 'INSS sobre férias — competência 08/2026',
+                    referencia: '8 dias',
+                    valor: 106.67,
+                    competencia: '2026-08',
+                    base: 1422.22,
+                },
+            ],
+        };
+        const ferias = [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-25', end_date: '2026-08-08', days: 15, abono: false, status: 'aprovado' }];
+
+        const julho = await fecharAna(espelharPayslips(rhClient({ payslips: [{ ...reciboJulho }], vacations: ferias })));
+        const salJul = julho.proventos.find((p) => p.cod === '001').valor;
+        assert.equal(julho.descontos.find((d) => d.cod === '901').valor, +(page.window.calcINSS(salJul + 1244.45) - 93.33).toFixed(2));
+        page.close();
+
+        const agosto = await fecharAna(espelharPayslips(rhClient({ payslips: [{ ...reciboJulho }], vacations: ferias })), '2026-08-20T10:00:00-03:00');
+        const salAgo = agosto.proventos.find((p) => p.cod === '001').valor;
+        assert.equal(agosto.proventos.find((p) => p.cod === '001').referencia, '22 dias');
+        assert.equal(agosto.descontos.find((d) => d.cod === '901').valor, +(page.window.calcINSS(salAgo + 1422.22) - 106.67).toFixed(2));
+        assert.equal(page.visible('#recibos-ferias'), false, 'o recibo de julho não reaparece como pendente em agosto');
+    });
+
     test('pagos saem da folha e aparecem nos holerites; o holerite abre e registra o acesso', async () => {
         const client = rhClient({
             payslips_decrypted: [

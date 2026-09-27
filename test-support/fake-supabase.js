@@ -440,6 +440,8 @@ class FakeAuth {
     }
     async updateUser(attrs) {
         this._client.calls.push({ auth: 'updateUser', attrs: clone(attrs) });
+        const injected = this._client._errorFor('auth', 'updateUser', { attrs });
+        if (injected) return { data: { user: null }, error: injected };
         return { data: { user: this.user }, error: null };
     }
     async resetPasswordForEmail(email, opts) {

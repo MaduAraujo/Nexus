@@ -150,6 +150,104 @@ describe('inicio-colaborador.html', () => {
     });
 });
 
+describe('inicio-colaborador.html — navegação, teclado e tempo real', () => {
+    function client(extra = {}) {
+        return new FakeSupabase({
+            user: COLAB_USER,
+            tables: baseTables({ messages: [], onboarding_tasks: [], onboarding_progress: [], vacations: [], documents: [], ...extra }),
+        });
+    }
+    const celular = (w) => Object.defineProperty(w, 'innerWidth', { configurable: true, value: 390 });
+
+    test('desktop: recolher o menu lateral persiste entre visitas', async () => {
+        page = await openPage('inicio-colaborador', { client: client() });
+        await page.click('#sidebar-toggle');
+        assert.equal(page.$('#sidebar').classList.contains('collapsed'), true);
+        assert.equal(page.window.localStorage.getItem('sidebarState_colab'), 'collapsed');
+        page.close();
+        page = await openPage('inicio-colaborador', { client: client(), localStorage: { sidebarState_colab: 'collapsed' } });
+        assert.equal(page.$('#sidebar').classList.contains('collapsed'), true);
+        await page.click('#sidebar-toggle');
+        assert.equal(page.window.localStorage.getItem('sidebarState_colab'), 'expanded');
+    });
+
+    test('celular: menu abre pelo botão, fecha pelo fundo escuro e pelo Esc', async () => {
+        page = await openPage('inicio-colaborador', { client: client(), before: celular });
+        await page.click('#topbar-menu-btn');
+        assert.equal(page.$('#sidebar').classList.contains('open'), true);
+        assert.equal(page.document.body.style.overflow, 'hidden');
+        await page.click('#sidebar-overlay');
+        assert.equal(page.$('#sidebar').classList.contains('open'), false);
+        await page.click('#sidebar-toggle');
+        assert.equal(page.$('#sidebar').classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#sidebar').classList.contains('open'), false);
+        assert.equal(page.document.body.style.overflow, '');
+    });
+
+    test('calendário abre com Enter, navega entre meses e anos e fecha com clique fora', async () => {
+        page = await openPage('inicio-colaborador', { client: client(), now: '2026-01-10T10:00:00-03:00' });
+        await page.key(page.$('#topbar-date'), 'Enter');
+        assert.equal(page.$('#calendar-popover').classList.contains('open'), true);
+        assert.equal(page.text('#calendar-title'), 'Janeiro 2026');
+        assert.equal(page.$('#calendar-grid .calendar-day--today').textContent, '10');
+        await page.click('#calendar-prev');
+        assert.equal(page.text('#calendar-title'), 'Dezembro 2025');
+        await page.click('#calendar-next');
+        await page.click('#calendar-next');
+        assert.equal(page.text('#calendar-title'), 'Fevereiro 2026');
+        assert.equal(page.$$('#calendar-grid .calendar-day').length % 7, 0);
+        await page.click(page.document.body);
+        assert.equal(page.$('#topbar-date').getAttribute('aria-expanded'), 'false');
+        await page.key(page.$('#topbar-date'), ' ');
+        assert.equal(page.$('#calendar-popover').classList.contains('open'), true);
+    });
+
+    test('tema: o botão alterna e descreve a próxima ação para leitor de tela', async () => {
+        page = await openPage('inicio-colaborador', { client: client() });
+        const btn = page.$('#theme-toggle-btn');
+        const antes = btn.getAttribute('aria-label');
+        await page.click(btn);
+        assert.notEqual(btn.getAttribute('aria-label'), antes);
+        assert.match(btn.getAttribute('aria-label'), /Mudar para tema (claro|escuro)/);
+    });
+
+    test('RH atualiza o cadastro: nome, cargo e foto mudam na hora; sem tarefas de onboarding o cartão some', async () => {
+        const c = client();
+        c.tables.employees_decrypted.find((e) => e.id === ANA.id).admission_date = '2026-06-01';
+        page = await openPage('inicio-colaborador', { client: c, now: '2026-06-17T10:00:00-03:00' });
+        assert.equal(page.visible('#onboarding-card'), false);
+        c.emit('employees', {
+            new: { id: ANA.id, status: 'Ativo', name: 'Ana Souza Lima', role: 'Analista Sênior', avatar_url: 'https://storage.test/a.jpg' },
+        });
+        await page.settle();
+        assert.equal(page.text('#welcome-name'), 'Ana Souza Lima');
+        assert.equal(page.text('#sidebar-role'), 'Analista Sênior');
+        assert.match(page.$('#welcome-avatar').style.background, /a\.jpg/);
+        assert.equal(page.text('#sidebar-avatar'), '');
+    });
+
+    test('documento novo do RH para assinar aparece sem recarregar', async () => {
+        const c = client();
+        page = await openPage('inicio-colaborador', { client: c });
+        assert.equal(page.visible('#docs-alert'), false);
+        c.tables.documents.push({
+            id: 'd9',
+            employee_id: ANA.id,
+            name: 'termo.pdf',
+            tipo: 'Termo',
+            is_current: true,
+            source: 'Administrador',
+            requer_assinatura: true,
+            assinado_em: null,
+            status: 'aprovado',
+            created_at: '2026-06-17T10:00:00Z',
+        });
+        c.emit('documents', { eventType: 'INSERT', new: { id: 'd9', employee_id: ANA.id } });
+        await page.waitFor(() => page.visible('#docs-alert'));
+    });
+});
+
 describe('comunicados-colaborador.html', () => {
     const MSGS = [
         { id: 'm1', texto: 'Feriado na sexta', destino: 'Todos', categoria: 'Institucional', created_at: '2026-06-16T10:00:00-03:00', anexos: [] },

@@ -560,7 +560,7 @@ function renderTable(data, filter) {
         tr.style.cursor = 'pointer';
         tr.onclick = () => window.openDrawer(emp.id);
         const empAlerts = computeEmployeeAlerts(emp);
-        const bellHtml = empAlerts.length ? `<i class="fas fa-bell bell-alert-icon" title="${empAlerts.map((a) => a.label).join(' · ')}"></i>` : '';
+        const bellHtml = empAlerts.length ? `<i class="fas fa-bell bell-alert-icon" title="${escapeHtml(empAlerts.map((a) => a.label).join(' · '))}"></i>` : '';
         tr.innerHTML = `
             <td class="td-checkbox" data-click="noop" data-click-stop>
                 <input type="checkbox" class="row-checkbox" aria-label="Selecionar ${escapeHtml(emp.name)}" ${selectedIds.has(emp.id) ? 'checked' : ''} data-change="toggleRowSelection" data-change-args="${dargs(emp.id, { $: 'this.checked' })}">
@@ -887,12 +887,18 @@ function mapImportHeaders(headerRow) {
     return map;
 }
 
+function dataValida(ano, mes, dia) {
+    const d = new Date(Date.UTC(ano, mes - 1, dia));
+    return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia;
+}
+
 function parseImportDate(v) {
     if (!v) return null;
     v = String(v).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return dataValida(+iso[1], +iso[2], +iso[3]) ? v : null;
     const br = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (br) return `${br[3]}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}`;
+    if (br) return dataValida(+br[3], +br[2], +br[1]) ? `${br[3]}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}` : null;
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
@@ -900,7 +906,8 @@ function parseImportDate(v) {
 function parseImportSalary(v) {
     if (!v) return null;
     const cleaned = String(v).replace(/[R$\s]/g, '');
-    const normalized = cleaned.includes(',') ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned;
+    const soMilhar = /^\d{1,3}(\.\d{3})+$/.test(cleaned);
+    const normalized = cleaned.includes(',') || soMilhar ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned;
     const num = parseFloat(normalized);
     return isNaN(num) ? null : num;
 }
@@ -1501,7 +1508,7 @@ function renderAiDecisionLogTimeline(entries) {
                     <span class="audit-timeline-operator"><i class="fas fa-robot"></i> Confirmado por ${escHtml(entry.decided_by_name || 'RH')}</span>
                     <span class="audit-timeline-date">${when}</span>
                 </div>
-                <div class="audit-timeline-field">${label}: ${escHtml(entry.ai_message)}</div>
+                <div class="audit-timeline-field">${escHtml(label)}: ${escHtml(entry.ai_message)}</div>
             </div>`;
         })
         .join('');
@@ -3518,9 +3525,16 @@ function setupToggleField(radioName, triggerValue, detailsId) {
             } else {
                 details.style.display = 'none';
                 details.classList.remove('conditional-visible');
-                details.querySelectorAll('input, select, textarea').forEach((f) => (f.value = ''));
+                limparCampos(details);
             }
         });
+    });
+}
+
+function limparCampos(container) {
+    container.querySelectorAll('input, select, textarea').forEach((f) => {
+        if (f.type === 'radio' || f.type === 'checkbox') f.checked = false;
+        else f.value = '';
     });
 }
 
@@ -3534,11 +3548,11 @@ function setupPaymentMethodToggle() {
             if (checked?.value === 'pix') {
                 pixDetails.style.display = 'block';
                 contaDetails.style.display = 'none';
-                contaDetails.querySelectorAll('input, select').forEach((f) => (f.value = ''));
+                limparCampos(contaDetails);
             } else if (checked?.value === 'conta') {
                 pixDetails.style.display = 'none';
                 contaDetails.style.display = 'block';
-                pixDetails.querySelectorAll('input, select').forEach((f) => (f.value = ''));
+                limparCampos(pixDetails);
             } else {
                 pixDetails.style.display = 'none';
                 contaDetails.style.display = 'none';
@@ -3593,7 +3607,7 @@ function resetConditionalFields() {
         if (el) {
             el.style.display = 'none';
             el.classList.remove('conditional-visible');
-            el.querySelectorAll('input, select, textarea').forEach((f) => (f.value = ''));
+            limparCampos(el);
         }
     });
 }

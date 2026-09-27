@@ -104,4 +104,101 @@ describe('holerite-colaborador.html', () => {
         await page.waitFor(() => page.printed === 1);
         assert.equal(page.text('#informe-print-name'), 'Ana Souza');
     });
+
+    test('informe: IRRF de férias (recibo próprio) entra nos retidos e o 13º aparece em quadro separado', async () => {
+        const recibo = slip('rf', ANA.id, '2026-07-F06', 'Recibo de Férias — gozo a partir de 06/07/2026', 'pago', 3000, {
+            proventos: [{ cod: '040', descricao: 'Férias', referencia: '20 dias', valor: 2666.67 }],
+            descontos: [
+                { cod: '901', descricao: 'INSS sobre férias', referencia: '20 dias', valor: 240, competencia: '2026-07', base: 3555.56 },
+                { cod: '906', descricao: 'IRRF sobre férias', referencia: 'Tabela', valor: 55 },
+            ],
+            total_proventos: 3555.56,
+            total_descontos: 295,
+        });
+        const decimo = slip('d13', ANA.id, '2026-13-2', '13º Salário — 2ª Parcela 2026', 'publicado', 1800, {
+            proventos: [{ cod: '031', descricao: '13º', referencia: '12/12', valor: 2000 }],
+            descontos: [{ cod: '902', descricao: 'IRRF sobre 13º', referencia: 'Tabela', valor: 40 }],
+            total_proventos: 2000,
+            total_descontos: 40,
+        });
+        const c = new FakeSupabase({ user: COLAB_USER, tables: baseTables({ payslips_decrypted: [...SLIPS, recibo, decimo] }) });
+        page = await openPage('holerite-colaborador', { client: c });
+        await page.click('[data-click="openInformeModal"]');
+        const t = page.text('#informe-content');
+        assert.match(t, /IRRF retido\s*R\$\s*295,00/, '100 + 100 dos meses + 55 das férias + 40 do 13º');
+        assert.match(t, /13º salário \(tributação exclusiva\)\s*R\$\s*2\.000,00/);
+    });
+
+    test('ano sem holerites no informe mostra o vazio', async () => {
+        page = await openPage('holerite-colaborador', { client: client() });
+        await page.click('[data-click="openInformeModal"]');
+        page.window.renderInforme('2019');
+        assert.equal(page.text('#informe-content'), '');
+        assert.equal(page.visible('#informe-empty'), true);
+        page.window.closeInformeModal();
+        assert.equal(page.$('#informe-modal').classList.contains('open'), false);
+    });
+
+    test('seletor de competência no celular: abre, fecha com Esc e clique fora, e troca o holerite', async () => {
+        page = await openPage('holerite-colaborador', { client: client() });
+        const trigger = page.$('#month-select-mobile-trigger');
+        const popover = page.$('#month-select-mobile-popover');
+        await page.click(trigger);
+        assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+        await page.key(page.document, 'Escape');
+        assert.equal(popover.classList.contains('open'), false);
+        await page.click(trigger);
+        await page.click(page.document.body);
+        assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+        await page.click(trigger);
+        await page.click(popover.querySelector('.select-option[data-value="p1"]'));
+        assert.equal(page.text('#doc-competencia'), 'Competência: 05/2026');
+        assert.equal(page.text('#month-select-mobile-text'), 'Maio 2026');
+    });
+
+    test('imprimir o holerite pede a orientação e aplica o tamanho da página', async () => {
+        const adoptedStyleSheets = (w) => {
+            Object.defineProperty(w.document, 'adoptedStyleSheets', { value: [], writable: true });
+            w.CSSStyleSheet = class {
+                replaceSync(css) {
+                    this.css = css;
+                }
+            };
+        };
+        page = await openPage('holerite-colaborador', { client: client(), before: adoptedStyleSheets });
+        page.window.printPayslip();
+        assert.equal(page.$('#print-orientation-modal').classList.contains('open'), true);
+        page.window.printPayslipWithOrientation('diagonal');
+        assert.equal(page.printed || 0, 0, 'orientação inválida não imprime');
+        page.window.printPayslipWithOrientation('landscape');
+        assert.equal(page.$('#print-orientation-modal').classList.contains('open'), false);
+        assert.equal(page.printed, 1);
+        assert.equal(page.document.adoptedStyleSheets[0].css, '@page { size: landscape; }');
+    });
+
+    test('comparativo sem holerites mostra o vazio; fechar devolve a rolagem', async () => {
+        page = await openPage('holerite-colaborador', { client: new FakeSupabase({ user: COLAB_USER, tables: baseTables({ payslips_decrypted: [] }) }) });
+        page.window.openComparativoModal();
+        assert.equal(page.visible('#comparativo-empty'), true);
+        page.window.closeComparativoModal();
+        assert.equal(page.document.body.style.overflow, '');
+    });
+
+    test('RH publica um holerite novo: a tela recarrega e avisa', async () => {
+        const c = client();
+        page = await openPage('holerite-colaborador', { client: c });
+        c.tables.payslips_decrypted.push(slip('p9', ANA.id, '2026-08', 'Agosto 2026', 'publicado', 3600));
+        c.emit('payslips', { eventType: 'INSERT', new: { id: 'p9' } });
+        await page.waitFor(() => page.toasts().some((t) => /Holerite atualizado pelo RH/.test(t)));
+        assert.equal(page.$$('#month-list .month-card').length, 4);
+        assert.equal(page.text('#doc-competencia'), 'Competência: 06/2026', 'continua no holerite que estava aberto');
+    });
+
+    test('conta desativada pelo RH encerra a sessão', async () => {
+        const c = client();
+        page = await openPage('holerite-colaborador', { client: c });
+        c.emit('employees', { eventType: 'UPDATE', new: { id: ANA.id, status: 'Inativo' } });
+        await page.waitFor(() => page.toasts().some((t) => /Conta desativada/.test(t)));
+        await page.waitFor(() => page.navigations.some((u) => /login\.html/.test(u)), { timeout: 5000 });
+    });
 });

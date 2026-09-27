@@ -251,3 +251,155 @@ describe('ferias-colaborador.html — solicitar', () => {
         assert.match(page.opened[0].url, /google\.com\/calendar\/render\?action=TEMPLATE.*dates=20260720\/20260730/);
     });
 });
+
+describe('ferias-colaborador.html — validações do envio, tempo real e navegação', () => {
+    async function abrir(client, now = NOW) {
+        page = await openPage('ferias-colaborador', { client, now });
+        await page.click('#btn-solicitar');
+    }
+    async function enviar(inicio, fim, { abono = false } = {}) {
+        page.$('#req-start').value = inicio;
+        page.$('#req-end').value = fim;
+        page.$('#req-abono').checked = abono;
+        await page.window.submitRequest();
+        await page.settle();
+        return page.text('#modal-alert');
+    }
+
+    test('o servidor da tela barra o envio mesmo se o botão for burlado', async () => {
+        const client = colabClient();
+        await abrir(client);
+        assert.match(await enviar('', ''), /Selecione as datas de início e fim/);
+        assert.match(await enviar('2026-07-01', '2026-07-10'), /Antecedência mínima de 30 dias/);
+        assert.match(await enviar('2026-08-03', '2026-08-05'), /Período mínimo de 5 dias/);
+        assert.match(await enviar('2026-08-03', '2026-11-30'), /Saldo insuficiente/);
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+    });
+
+    test('frações: quarta fração é barrada; a terceira exige que alguma tenha 14 dias', async () => {
+        const fr = (id, ini, fim, days) => ({
+            id,
+            employee_id: ANA.id,
+            start_date: ini,
+            end_date: fim,
+            days,
+            status: 'aprovado',
+            created_at: '2026-01-10T10:00:00Z',
+        });
+        const client = colabClient({ vacations: [fr('f1', '2026-02-02', '2026-02-06', 5), fr('f2', '2026-03-02', '2026-03-06', 5)] });
+        await abrir(client);
+        assert.match(await enviar('2026-08-03', '2026-08-07'), /Ao menos uma fração deve ter 14 dias corridos/);
+        page.close();
+
+        const tres = colabClient({
+            vacations: [fr('f1', '2026-02-02', '2026-02-06', 5), fr('f2', '2026-03-02', '2026-03-06', 5), fr('f3', '2026-04-06', '2026-04-19', 14)],
+        });
+        await abrir(tres);
+        assert.match(await enviar('2026-08-03', '2026-08-07'), /3 frações de férias permitidas/);
+    });
+
+    test('menor de 18 ou 50 anos ou mais: férias em período único', async () => {
+        const client = colabClient({
+            vacations: [
+                {
+                    id: 'f1',
+                    employee_id: ANA.id,
+                    start_date: '2026-03-02',
+                    end_date: '2026-03-11',
+                    days: 10,
+                    status: 'aprovado',
+                    created_at: '2026-01-10T10:00:00Z',
+                },
+            ],
+        });
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).birth_date = '1970-01-01';
+        await abrir(client);
+        assert.match(await enviar('2026-08-03', '2026-08-12'), /devem gozar as férias em período único/);
+    });
+
+    test('erro do banco ao enviar mantém o formulário aberto e avisa', async () => {
+        const client = colabClient();
+        client.errors['vacations:insert'] = { message: 'falhou' };
+        await abrir(client);
+        assert.match(await enviar('2026-08-03', '2026-08-12'), /Erro ao enviar solicitação/);
+        assert.equal(page.$('#btn-confirm').disabled, false, 'o botão volta a ficar disponível');
+    });
+
+    test('estagiário: recesso sem abono pecuniário, com aviso da Lei do Estágio', async () => {
+        const client = colabClient();
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'estagio';
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.$('#req-abono').closest('.form-group').style.display, 'none');
+        assert.match(page.text('#request-modal'), /Lei do Estágio \(11\.788\/2008\) — sem abono pecuniário/);
+    });
+
+    test('RH decide em tempo real: avisa a aprovação e a recusa e atualiza o histórico', async () => {
+        const client = colabClient({
+            vacations: [
+                {
+                    id: 'p1',
+                    employee_id: ANA.id,
+                    start_date: '2026-08-03',
+                    end_date: '2026-08-12',
+                    days: 10,
+                    status: 'pendente',
+                    created_at: '2026-06-01T10:00:00Z',
+                },
+            ],
+        });
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        client.tables.vacations[0].status = 'aprovado';
+        client.emit('vacations', { eventType: 'UPDATE', old: { status: 'pendente' }, new: { id: 'p1', status: 'aprovado' } });
+        await page.waitFor(() => page.toasts().includes('Suas férias foram aprovadas pelo RH!'));
+        await page.waitFor(() => /Aprovado/.test(page.text('#history-list')));
+        client.tables.vacations[0].status = 'recusado';
+        client.emit('vacations', { eventType: 'UPDATE', old: { status: 'aprovado' }, new: { id: 'p1', status: 'recusado' } });
+        await page.waitFor(() => page.toasts().some((t) => /recusada/.test(t)));
+        await page.waitFor(() => /Recusado/.test(page.text('#history-list')));
+        await page.settle(20);
+    });
+
+    test('linha do tempo: escolher o ano pelo seletor; Esc e clique fora fecham', async () => {
+        const client = colabClient({
+            vacations: [
+                {
+                    id: 'a1',
+                    employee_id: ANA.id,
+                    start_date: '2025-03-03',
+                    end_date: '2025-03-12',
+                    days: 10,
+                    status: 'concluido',
+                    created_at: '2025-01-10T10:00:00Z',
+                },
+            ],
+        });
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        const trigger = page.$('#timeline-year-trigger');
+        await page.click(trigger);
+        assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+        await page.key(page.document, 'Escape');
+        assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+        await page.click(trigger);
+        await page.click(page.document.body);
+        assert.equal(page.$('#timeline-year-popover').classList.contains('open'), false);
+        await page.click(trigger);
+        await page.click(page.$('#timeline-year-popover button[data-year="2025"]'));
+        assert.equal(page.text('#timeline-year'), '2025');
+        assert.ok(page.$$('#timeline-bars > *').length > 0);
+    });
+
+    test('motivo da recusa abre e fecha pelo fundo do modal', async () => {
+        page = await openPage('ferias-colaborador', { client: colabClient(), now: NOW });
+        page.window.showReason('');
+        assert.equal(page.text('#detail-reason'), 'Motivo não informado.');
+        const modal = page.$('#detail-modal');
+        page.window.handleOverlayClick({ target: modal.firstElementChild, currentTarget: modal }, 'detail-modal');
+        assert.equal(modal.classList.contains('open'), true, 'clique dentro do cartão não fecha');
+        page.window.handleOverlayClick({ target: modal, currentTarget: modal }, 'detail-modal');
+        assert.equal(modal.classList.contains('open'), false);
+        await page.click('#btn-solicitar');
+        const req = page.$('#request-modal');
+        page.window.handleOverlayClick({ target: req, currentTarget: req }, 'request-modal');
+        assert.equal(req.classList.contains('open'), false);
+    });
+});
