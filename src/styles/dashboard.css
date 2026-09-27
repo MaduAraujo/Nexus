@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -10,8 +10,8 @@
     --bg-input: #f1f5f9;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -37,9 +37,11 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -148,7 +150,7 @@ ul {
 }
 
 .logo-name .x {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-toggle {
@@ -224,7 +226,7 @@ ul {
 
 .nav-item.active .nav-icon i,
 .nav-link:hover .nav-icon i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-footer {
@@ -615,7 +617,7 @@ ul {
 .section-toggle-btn:hover {
     background: var(--accent-light);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .section-toggle-btn i {
@@ -1206,7 +1208,7 @@ ul {
     background: #f5f3ff;
 }
 .export-option:hover .export-option-title {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .export-option-icon {

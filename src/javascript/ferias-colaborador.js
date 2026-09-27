@@ -57,7 +57,7 @@ function loadSidebarInfo() {
             avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`;
             avatarEl.textContent = '';
         } else {
-            avatarEl.style.background = color;
+            avatarEl.style.background = window.nexusFundoLegivel(color);
             avatarEl.textContent = ini;
         }
     }
@@ -206,37 +206,7 @@ async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
     const inicio = fmt(cycleStart),
         fim = fmt(rangeEnd);
 
-    const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: first }] = await Promise.all([
-        sb.from('time_records').select('date,entrada').eq('employee_id', myEmployeeId).gte('date', inicio).lte('date', fim),
-        sb.from('holidays').select('date'),
-        sb
-            .from('adjustment_requests')
-            .select('date')
-            .eq('employee_id', myEmployeeId)
-            .eq('tipo', 'falta')
-            .eq('status', 'aprovado')
-            .gte('date', inicio)
-            .lte('date', fim),
-        sb
-            .from('medical_leaves')
-            .select('start_date,end_date')
-            .eq('employee_id', myEmployeeId)
-            .eq('status', 'aprovado')
-            .lte('start_date', fim)
-            .gte('end_date', inicio),
-        sb.from('time_records').select('date').eq('employee_id', myEmployeeId).not('entrada', 'is', null).order('date').limit(1),
-    ]);
-    const ferias = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido');
-    return CLTDomain.contarFaltasInjustificadas({
-        inicio,
-        fim,
-        registros: recs || [],
-        feriados: (hols || []).map((h) => h.date),
-        abonadas: (adjs || []).map((a) => a.date),
-        afastamentos: [...ferias, ...(leaves || [])],
-        primeiroRegistro: first?.[0]?.date || null,
-        workLoad: myEmployee.work_load,
-    });
+    return (await window.NexusFaltas.listar(myEmployeeId, inicio, fim, { workLoad: myEmployee.work_load })).length;
 }
 
 function computeFeriasVencidas() {
@@ -247,7 +217,9 @@ function computeFeriasVencidas() {
     const closedCycles = buildAcquisitiveCycles(admDate, today).filter((c) => c.end < today);
     if (!closedCycles.length) return null;
 
-    let usedRemaining = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((sum, v) => sum + (v.days || 0), 0);
+    let usedRemaining = myVacations
+        .filter((v) => v.status === 'aprovado' || v.status === 'concluido')
+        .reduce((sum, v) => sum + CLTDomain.diasConsumidosFerias(v), 0);
 
     let expiredDays = 0,
         oldestConcessivo = null;
@@ -302,7 +274,7 @@ async function loadSummary() {
             earned += diasDireitoPorFaltas(faltas);
         }
     }
-    const taken = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days, 0);
+    const taken = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + CLTDomain.diasConsumidosFerias(v), 0);
     availableDays = Math.max(0, earned - taken);
     acquisitivePeriod = calcAcquisitivePeriod(admDate, today);
     const daysLeft = Math.ceil((acquisitivePeriod.end - today) / 86400000);
@@ -830,7 +802,7 @@ function updateValorFeriasPreview(days, abono) {
     }
 
     const diaria = salario / 30;
-    const diasDescanso = abono ? days - 10 : days;
+    const diasDescanso = days;
     const valorFerias = diaria * diasDescanso;
     const tercoFerias = valorFerias / 3;
     const valorAbono = abono ? diaria * 10 : 0;
@@ -848,6 +820,14 @@ function updateValorFeriasPreview(days, abono) {
     setEl('valor-ferias-rows', rows.join(''));
     setEl('valor-ferias-total', fmtBRLFerias(total));
     wrap.classList.remove('hidden');
+}
+
+function motivoSemAbono(inicio, days) {
+    if (isEstagioOuAprendiz(myEmployee)) return 'Sem abono pecuniário para estágio/aprendiz.';
+    if (days + CLTDomain.DIAS_ABONO_PECUNIARIO > availableDays)
+        return `Saldo insuficiente para vender 10 dias: ${days} de descanso + 10 vendidos passam dos ${availableDays} disponíveis.`;
+    if (countFractionsInCycle(currentCycleFor(inicio)).some((v) => v.abono)) return 'O abono já foi pedido neste período aquisitivo.';
+    return null;
 }
 
 window.calcDays = function () {
@@ -897,18 +877,19 @@ window.calcDays = function () {
     }
 
     if (abonoEl) {
-        if (days >= 20 && errors.length === 0) {
+        const motivo = motivoSemAbono(s, days);
+        if (!motivo && errors.length === 0) {
             abonoEl.disabled = false;
-            if (hint) hint.textContent = 'Você pode converter 10 dias em pagamento adicional.';
+            if (hint) hint.textContent = 'Os 10 dias vendidos não entram no período acima: você trabalha neles, antes ou depois do descanso.';
         } else {
             abonoEl.disabled = true;
             abonoEl.checked = false;
-            if (hint) hint.textContent = days < 20 ? 'Disponível somente para 20 dias ou mais.' : '';
+            if (hint) hint.textContent = motivo || '';
         }
     }
-    const abono = abonoEl?.checked && days >= 20;
-    let daysText = `${days} ${days === 1 ? 'dia selecionado' : 'dias selecionados'}`;
-    if (abono) daysText += ` · ${days - 10} de descanso + 10 de abono`;
+    const abono = !!abonoEl?.checked && !abonoEl.disabled;
+    let daysText = `${days} ${days === 1 ? 'dia de descanso' : 'dias de descanso'}`;
+    if (abono) daysText += ` + 10 vendidos (abono)`;
     if (countEl) countEl.textContent = daysText;
     if (errors.length > 0) {
         showAlert(errors.map((e) => `<i class="fas fa-exclamation-triangle"></i> ${e}`).join('<br>'));
@@ -945,6 +926,11 @@ window.submitRequest = async function () {
         showAlert(`<i class="fas fa-exclamation-triangle"></i> Saldo insuficiente (${availableDays} dias disponíveis).`);
         return;
     }
+    const semAbono = abono ? motivoSemAbono(s, days) : null;
+    if (semAbono) {
+        showAlert(`<i class="fas fa-exclamation-triangle"></i> ${semAbono}`);
+        return;
+    }
     if (days < 5) {
         showAlert('<i class="fas fa-exclamation-triangle"></i> Período mínimo de 5 dias.');
         return;
@@ -979,7 +965,7 @@ window.submitRequest = async function () {
             start_date: startVal,
             end_date: endVal,
             days,
-            abono: abono && days >= 20,
+            abono,
             substituto_id: substitutoId,
             obs,
             status: 'pendente',

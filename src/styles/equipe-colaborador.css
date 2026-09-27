@@ -1,13 +1,13 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
     --bg-page: #f0f1f5;
     --bg-white: #ffffff;
     --bg-topbar: #0d0e12;
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --border-color: #e5e7eb;
     --border-dark: rgba(255, 255, 255, 0.07);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
@@ -29,11 +29,13 @@
     --bg-white: #16171d;
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
     --border-color: rgba(255, 255, 255, 0.08);
     --success-bg: rgba(16, 185, 129, 0.16);
     --danger-bg: rgba(239, 68, 68, 0.16);
     --warning-bg: rgba(245, 158, 11, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -145,7 +147,7 @@ body {
     gap: 8px;
 }
 .section-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.85rem;
 }
 .section-sub {
@@ -271,7 +273,7 @@ body {
 }
 .team-card-evaluate:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: var(--accent);
 }
 
@@ -294,7 +296,7 @@ body {
 }
 .team-card-trainings:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: var(--accent);
 }
 
@@ -340,7 +342,7 @@ body {
 }
 .team-card-medical:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: var(--accent);
 }
 
@@ -471,7 +473,7 @@ body {
     opacity: 0.25;
     display: block;
     margin-bottom: 14px;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .empty-state p {
     font-size: 0.92rem;
@@ -514,7 +516,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
 }
 .modal-header h3 {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -526,10 +528,10 @@ body {
     gap: 9px;
 }
 .modal-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .modal-close {
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     border: none;
     width: 30px;
     height: 30px;
@@ -631,7 +633,7 @@ body {
     font-family: 'DM Sans', sans-serif;
 }
 .btn-secondary:hover {
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
 }
 
 @keyframes fadeIn {
@@ -696,7 +698,7 @@ body {
     gap: 6px;
 }
 .performance-section-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .performance-list {
     display: flex;
@@ -750,7 +752,7 @@ body {
     color: var(--text-tertiary);
 }
 .training-meta a {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .leave-status-badge {
     flex-shrink: 0;
@@ -920,7 +922,7 @@ body {
 }
 .select-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .select-popover {
     position: absolute;
@@ -977,7 +979,7 @@ body {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -1208,7 +1210,7 @@ body {
 }
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .calendar-weekdays {
     display: grid;

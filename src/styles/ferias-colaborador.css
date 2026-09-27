@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -8,8 +8,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -54,7 +54,7 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
@@ -72,6 +72,8 @@
 
     --neutral-bg: rgba(255, 255, 255, 0.06);
     --neutral-text: #9aa1b0;
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -394,7 +396,7 @@ button {
     gap: 8px;
 }
 .timeline-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .timeline-year-picker {
     position: relative;
@@ -637,7 +639,7 @@ button {
     min-width: 44px;
     border-radius: 13px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -741,7 +743,7 @@ button {
 
 .btn-motivo {
     font-size: 0.72rem;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     padding: 5px 10px;
     border-radius: 8px;
     font-weight: 600;
@@ -787,7 +789,7 @@ button {
 .btn-cal-sm:hover {
     background: var(--accent-light);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .hidden {
@@ -804,7 +806,7 @@ button {
     padding: 9px 12px;
 }
 .form-hint-block i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     margin-right: 4px;
 }
 
@@ -839,7 +841,7 @@ button {
     height: 72px;
     border-radius: 20px;
     background: linear-gradient(135deg, var(--accent-light), rgba(99, 102, 241, 0.04));
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -939,7 +941,7 @@ button {
     gap: 9px;
 }
 .modal-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .modal-close {
     background: var(--bg-white);
@@ -1118,7 +1120,7 @@ button {
 }
 .date-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .select-popover {
@@ -1181,7 +1183,7 @@ button {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -1258,7 +1260,7 @@ button {
 }
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-weekdays {

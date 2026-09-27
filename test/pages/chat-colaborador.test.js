@@ -196,7 +196,7 @@ describe('chat-colaborador.html — atendimento RH', () => {
         assert.match(page.text('#hr-messages-list'), /Obrigado pela avaliação/);
     });
 
-    test('apagar só para mim esconde o atendimento; para todos apaga', async () => {
+    test('apagar esconde o atendimento só para o colaborador; não há exclusão do histórico do RH', async () => {
         const c = client({
             hr_tickets: [
                 { id: 't1', employee_id: ANA.id, subject: 'A', status: 'bot', updated_at: '2026-06-11' },
@@ -204,10 +204,13 @@ describe('chat-colaborador.html — atendimento RH', () => {
             ],
         });
         page = await openPage('chat-colaborador', { client: c });
+        assert.equal(page.$$('[data-action="all"]').length, 0, 'sem opção de apagar para todos');
         await page.click('.ticket-item[data-ticket-id="t1"] [data-action="me"]');
+        assert.match(page.confirms.at(-1), /continua guardado pelo RH/);
         assert.deepEqual(c.writes('hr_ticket_hidden', 'upsert')[0].payload, [{ employee_id: ANA.id, ticket_id: 't1' }]);
-        await page.click('.ticket-item[data-ticket-id="t2"] [data-action="all"]');
-        assert.equal(c.writes('hr_tickets', 'delete').length, 1);
+        await page.click('.ticket-item[data-ticket-id="t2"] [data-action="me"]');
+        assert.equal(c.writes('hr_tickets', 'delete').length, 0);
+        assert.equal(c.tables.hr_tickets.length, 2, 'os atendimentos continuam no banco');
         assert.match(page.text('#ticket-list'), /Nenhuma conversa ainda/);
     });
 });

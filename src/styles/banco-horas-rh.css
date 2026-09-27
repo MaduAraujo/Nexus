@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-light: rgba(99, 102, 241, 0.1);
     --accent-gradient: linear-gradient(135deg, #7076f5 0%, #5457e0 100%);
     --accent-glow: 0 1px 2px rgba(79, 70, 229, 0.3), 0 10px 24px -8px rgba(99, 102, 241, 0.55);
@@ -12,7 +12,7 @@
 
     --text-primary: #0f172a;
     --text-secondary: #475569;
-    --text-tertiary: #94a3b8;
+    --text-tertiary: #606a77;
     --text-on-dark: #f1f5f9;
 
     --border: #e5e9f2;
@@ -52,7 +52,7 @@
 
     --text-primary: #e8eaf0;
     --text-secondary: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border: rgba(255, 255, 255, 0.08);
     --border-light: rgba(255, 255, 255, 0.08);
@@ -63,6 +63,8 @@
     --info-bg: rgba(59, 130, 246, 0.16);
 
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 .row-deep-link-highlight {
@@ -316,7 +318,7 @@ ul {
     transition: background 0.15s var(--ease);
 }
 .notif-item:hover {
-    background: #f7f8ff;
+    background: var(--bg-soft, #f7f8ff);
 }
 .notif-item:last-child {
     border-bottom: none;
@@ -426,7 +428,7 @@ ul {
     background: var(--accent-light);
 }
 .export-option:hover .export-option-title {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .export-option-icon {
@@ -768,7 +770,7 @@ ul {
 .tabs-bar {
     display: flex;
     gap: 4px;
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     border-radius: 10px;
     padding: 4px;
     width: fit-content;
@@ -792,12 +794,12 @@ ul {
     font-size: 0.75rem;
 }
 .tab-btn:hover {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: rgba(99, 102, 241, 0.08);
 }
 .tab-btn.active {
     background: var(--bg-card);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: var(--shadow-sm);
 }
 
@@ -887,7 +889,7 @@ ul {
     transition: color var(--transition);
 }
 .search-wrap:focus-within > i.fa-search {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .search-wrap input {
     flex: 1;
@@ -943,7 +945,7 @@ ul {
 }
 .chip:hover {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
 }
 .chip--active,
@@ -983,20 +985,20 @@ ul {
 }
 .btn-filter:hover {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
 }
 .btn-filter.open {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow:
         0 0 0 3px rgba(99, 102, 241, 0.14),
         var(--shadow-sm);
 }
 .btn-filter.filtered {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 600;
 }
 
@@ -1015,7 +1017,7 @@ ul {
 }
 .filter-chevron.open,
 .btn-filter.filtered .filter-chevron {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .filter-dropdown-menu {
@@ -1094,7 +1096,7 @@ ul {
 .filter-dropdown-chips .chip.chip--active {
     background: var(--accent-light);
     border-color: transparent;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: none;
 }
 
@@ -1165,7 +1167,7 @@ ul {
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--text-tertiary);
-    background: #fafbff;
+    background: var(--bg-soft, #fafbff);
     border-bottom: 1px solid var(--border-light);
     text-align: center;
     white-space: nowrap;
@@ -1196,7 +1198,7 @@ ul {
     animation: rowIn 0.28s var(--ease) backwards;
 }
 .req-table tbody tr:hover td {
-    background: #f7f8ff;
+    background: var(--bg-soft, #f7f8ff);
 }
 .req-table tbody tr:hover td:first-child {
     box-shadow: inset 3px 0 0 var(--accent);
@@ -1301,7 +1303,7 @@ ul {
     border-color: rgba(239, 68, 68, 0.22);
 }
 .badge--zerado {
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     color: var(--text-secondary);
     border-color: var(--border-light);
 }
@@ -1385,7 +1387,7 @@ ul {
     justify-content: center;
     font-size: 0.78rem;
     transition: all 0.18s var(--ease);
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     color: var(--text-secondary);
 }
 .btn-icon:hover {
@@ -1401,7 +1403,7 @@ ul {
 }
 .btn-icon--adjust {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .btn-icon--adjust:hover {
     background: var(--accent);
@@ -1526,7 +1528,7 @@ ul {
 }
 
 .close-modal {
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     border: none;
     width: 32px;
     height: 32px;
@@ -1731,7 +1733,7 @@ ul {
 }
 .number-step:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .form-input::placeholder {
@@ -1834,7 +1836,7 @@ select.form-input {
         border-color 0.18s var(--ease);
 }
 .btn-cancel:hover {
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
     border-color: #cbd5e1;
 }
 
@@ -2019,7 +2021,7 @@ select.form-input {
     gap: 8px;
 }
 .detail-section-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 13px;
 }
 
@@ -2035,7 +2037,7 @@ select.form-input {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--text-tertiary);
-    background: #fafbff;
+    background: var(--bg-soft, #fafbff);
     border-bottom: 1px solid var(--border-light);
     text-align: left;
     white-space: nowrap;
@@ -2193,7 +2195,7 @@ select.form-input {
     border-radius: 50%;
     font-size: 12.5px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border: 1.5px solid #c7d2fe;
     flex-shrink: 0;
     transition:
@@ -2264,7 +2266,7 @@ select.form-input {
 }
 .select-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .select-popover {
@@ -2331,7 +2333,7 @@ select.form-input {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -2757,7 +2759,7 @@ i.icon-disabled {
 
 i.meta-icon {
     margin-right: 3px;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .detail-section-title.detail-section-title--flush {

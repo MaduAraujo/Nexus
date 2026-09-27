@@ -2,6 +2,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 global.window = global;
+require('../src/javascript/domain/tabelas-fiscais.js');
 
 const {
     isElegivel13,
@@ -109,8 +110,8 @@ describe('proventosFerias', () => {
         );
     });
 
-    test('30 dias com abono: 20 de descanso + 10 vendidos (não 30 + 10)', () => {
-        const r = proventosFerias({ contractType: 'clt', salario: 3000, startDate: '2026-07-06', dias: 30, abono: true });
+    test('20 dias de gozo com abono: paga os 20 de descanso + os 10 vendidos à parte', () => {
+        const r = proventosFerias({ contractType: 'clt', salario: 3000, startDate: '2026-07-06', dias: 20, abono: true });
         assert.deepEqual(
             r.proventos.map((p) => [p.cod, p.referencia, p.valor]),
             [
@@ -125,5 +126,61 @@ describe('proventosFerias', () => {
     test('PJ ou sem salário não geram lançamento', () => {
         assert.equal(proventosFerias({ contractType: 'pj', salario: 9000, startDate: '2026-07-06', dias: 30 }), null);
         assert.equal(proventosFerias({ contractType: 'clt', salario: 0, startDate: '2026-07-06', dias: 30 }), null);
+    });
+});
+
+describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT art. 145)', () => {
+    const { reciboFerias, mesReciboFerias, inicioDoReciboFerias, pagarFeriasAte } = require('../src/javascript/domain/eventos-folha.js');
+    const { calcINSS, calcIRRF } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('chave, vencimento e competência do recibo', () => {
+        assert.equal(mesReciboFerias('2026-07-13'), '2026-07-F13');
+        assert.equal(inicioDoReciboFerias('2026-07-F13'), '2026-07-13');
+        assert.equal(inicioDoReciboFerias('2026-07'), null);
+        assert.equal(pagarFeriasAte('2026-07-01'), '2026-06-29', 'vira o mês para trás');
+    });
+
+    test('INSS e IRRF sobre férias + 1/3; abono (042/043) isento dos dois', () => {
+        const r = reciboFerias({ contractType: 'clt', salario: 4000, startDate: '2026-07-13', dias: 20, abono: true });
+        const base = 2666.67 + 888.89;
+        const inss = calcINSS(base);
+        assert.deepEqual(
+            r.descontos.map((d) => [d.cod, d.valor]),
+            [
+                ['901', inss],
+                ['906', calcIRRF(base - inss)],
+            ]
+        );
+        assert.equal(r.totalProventos, +(base + 1333.33 + 444.44).toFixed(2));
+        assert.equal(r.liquido, +(r.totalProventos - r.totalDescontos).toFixed(2));
+        assert.deepEqual([r.mes, r.pagarAte, r.competencia], ['2026-07-F13', '2026-07-11', '07/2026']);
+        assert.match(r.mesFormatado, /Recibo de Férias — gozo a partir de 13\/07\/2026/);
+    });
+
+    test('aprendiz: INSS de 8% e sem IRRF; PJ não tem recibo', () => {
+        const r = reciboFerias({ contractType: 'aprendiz', salario: 1500, startDate: '2026-07-13', dias: 30, abono: false });
+        assert.deepEqual(
+            r.descontos.map((d) => [d.cod, d.valor]),
+            [['901', +((1500 + 500) * 0.08).toFixed(2)]]
+        );
+        assert.equal(reciboFerias({ contractType: 'pj', salario: 9000, startDate: '2026-07-13', dias: 30 }), null);
+    });
+});
+
+describe('estágio: recesso pago com a bolsa, sem 1/3 nem recibo de férias', () => {
+    const { reciboFerias } = require('../src/javascript/domain/eventos-folha.js');
+    const { calcINSSContrato } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('sem proventos de férias e sem recibo', () => {
+        for (const contractType of ['estagio', 'estágio']) {
+            assert.equal(proventosFerias({ contractType, salario: 1500, startDate: '2026-07-06', dias: 15 }), null);
+            assert.equal(reciboFerias({ contractType, salario: 1500, startDate: '2026-07-06', dias: 15 }), null);
+        }
+    });
+
+    test('bolsa de estágio não tem INSS', () => {
+        assert.equal(calcINSSContrato(1500, 'estagio'), 0);
+        assert.equal(calcINSSContrato(1500, 'pj'), 0);
+        assert.ok(calcINSSContrato(1500, 'clt') > 0);
     });
 });

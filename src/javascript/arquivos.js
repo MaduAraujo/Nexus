@@ -190,7 +190,7 @@
         const [{ data: empData }, { data: termData }, { data: docData }, { data: reqData }] = await Promise.all([
             sb.from('employees').select('id,name,dept,contract_type').neq('status', 'Inativo').order('name'),
             sb.from('employees').select('id,name,dept,contract_type').eq('status', 'Inativo').order('name'),
-            sb.from('documents').select('*').order('created_at', { ascending: false }),
+            sb.from('documents').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
             sb.from('document_requirements').select('*').eq('obrigatorio', true),
         ]);
         employees = empData || [];
@@ -403,7 +403,7 @@
     }
 
     function rowCheckbox(id) {
-        return `<input type="checkbox" class="row-check" data-id="${id}" ${selectedIds.has(id) ? 'checked' : ''}>`;
+        return `<input type="checkbox" class="row-check" data-id="${id}" aria-label="Selecionar arquivo" ${selectedIds.has(id) ? 'checked' : ''}>`;
     }
 
     function renderTable() {
@@ -443,7 +443,7 @@
                         <button class="btn-icon btn-icon--reject"  title="Recusar"  data-click="rejectColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-times"></i></button>
                         ${returnBtn(d)}
                         ${historyBtn(d)}
-                        <button class="btn-icon btn-icon--delete"  title="Excluir"  data-click="deleteColabDoc" data-click-args="${dargs(d.id, d.storage_path || '')}"><i class="fas fa-trash"></i></button>
+                        <button class="btn-icon btn-icon--delete"  title="Excluir"  data-click="deleteColabDoc" data-click-args="${dargs(d.id)}"><i class="fas fa-trash"></i></button>
                     </div></td>
                 </tr>`;
                 })
@@ -481,7 +481,7 @@
                 <td><div class="actions-cell">
                     <button class="btn-icon btn-icon--view"   title="Visualizar" data-click="viewFile" data-click-args="${dargs(f.id, f.storage_path || '')}"><i class="fas fa-eye"></i></button>
                     ${historyBtn(f)}
-                    <button class="btn-icon btn-icon--delete" title="Excluir"    data-click="deleteFile" data-click-args="${dargs(f.id, f.storage_path || '')}"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon btn-icon--delete" title="Excluir"    data-click="deleteFile" data-click-args="${dargs(f.id)}"><i class="fas fa-trash"></i></button>
                 </div></td>
             </tr>`;
             })
@@ -1006,39 +1006,29 @@
     };
 
     window.bulkDeleteColab = async () => {
-        if (!confirmDelete(selectedIds.size)) return;
         const ids = Array.from(selectedIds);
-        const docs = ids.map((id) => colabDocs.find((d) => d.id === id)).filter(Boolean);
-        const paths = docs.map((d) => d.storage_path).filter(Boolean);
-        const { error } = await sb.from('documents').delete().in('id', ids);
-        if (error) {
-            showToast('Erro', 'Não foi possível excluir os documentos selecionados.', 'error');
-            return;
-        }
-        if (paths.length) await sb.storage.from('documents').remove(paths);
-        docs.forEach((d) => logAudit('excluido', d));
+        if (!(await softDelete(ids))) return;
         colabDocs = colabDocs.filter((d) => !ids.includes(d.id));
         selectedIds.clear();
         renderTable();
-        showToast('Documentos excluídos!', `${ids.length} documento${ids.length > 1 ? 's' : ''} removido${ids.length > 1 ? 's' : ''}.`, 'error');
+        showToast(
+            'Documentos excluídos!',
+            `${ids.length} documento${ids.length > 1 ? 's' : ''} excluído${ids.length > 1 ? 's' : ''} (mantido${ids.length > 1 ? 's' : ''} em guarda legal).`,
+            'error'
+        );
     };
 
     window.bulkDeleteRh = async () => {
-        if (!confirmDelete(selectedIds.size)) return;
         const ids = Array.from(selectedIds);
-        const docs = ids.map((id) => rhDocs.find((f) => f.id === id)).filter(Boolean);
-        const paths = docs.map((d) => d.storage_path).filter(Boolean);
-        const { error } = await sb.from('documents').delete().in('id', ids);
-        if (error) {
-            showToast('Erro', 'Não foi possível excluir os arquivos selecionados.', 'error');
-            return;
-        }
-        if (paths.length) await sb.storage.from('documents').remove(paths);
-        docs.forEach((d) => logAudit('excluido', d));
+        if (!(await softDelete(ids))) return;
         rhDocs = rhDocs.filter((f) => !ids.includes(f.id));
         selectedIds.clear();
         renderTable();
-        showToast('Arquivos excluídos!', `${ids.length} arquivo${ids.length > 1 ? 's' : ''} removido${ids.length > 1 ? 's' : ''}.`, 'error');
+        showToast(
+            'Arquivos excluídos!',
+            `${ids.length} arquivo${ids.length > 1 ? 's' : ''} excluído${ids.length > 1 ? 's' : ''} (mantido${ids.length > 1 ? 's' : ''} em guarda legal).`,
+            'error'
+        );
     };
 
     window.bulkDownloadRh = async () => {
@@ -1048,9 +1038,13 @@
             showToast('Nada para baixar', 'Nenhum arquivo com download disponível na seleção.', 'warning');
             return;
         }
+        const failed = [];
         for (const doc of docs) {
             const { blob } = await NexusFiles.download('documents', doc.storage_path);
-            if (!blob) continue;
+            if (!blob) {
+                failed.push(doc.name);
+                continue;
+            }
             try {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1060,9 +1054,20 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-            } catch {}
+            } catch {
+                failed.push(doc.name);
+            }
         }
-        showToast('Download iniciado', `${docs.length} arquivo${docs.length > 1 ? 's' : ''} baixado${docs.length > 1 ? 's' : ''}.`, 'success');
+        const ok = docs.length - failed.length;
+        if (!ok) {
+            showToast('Download não realizado', `Não foi possível baixar: ${failed.join(', ')}.`, 'error');
+            return;
+        }
+        showToast(
+            'Download iniciado',
+            `${ok} arquivo${ok > 1 ? 's' : ''} baixado${ok > 1 ? 's' : ''}.${failed.length ? ` Não foi possível baixar: ${failed.join(', ')}.` : ''}`,
+            failed.length ? 'warning' : 'success'
+        );
     };
 
     window.approveColabDoc = async (id) => {
@@ -1089,19 +1094,11 @@
         showToast('Documento recusado', 'O status foi atualizado para Recusado.', 'error');
     };
 
-    window.deleteColabDoc = async (id, storagePath) => {
-        if (!confirmDelete()) return;
-        const doc = colabDocs.find((d) => d.id === id);
-        const { error } = await sb.from('documents').delete().eq('id', id);
-        if (error) {
-            showToast('Erro', 'Não foi possível excluir o documento.', 'error');
-            return;
-        }
-        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
+    window.deleteColabDoc = async (id) => {
+        if (!(await softDelete([id]))) return;
         colabDocs = colabDocs.filter((d) => d.id !== id);
         renderTable();
-        if (doc) logAudit('excluido', doc);
-        showToast('Documento excluído!', 'O arquivo foi removido com sucesso.', 'error');
+        showToast('Documento excluído!', 'O documento saiu das listas e fica guardado pelo prazo legal.', 'error');
     };
 
     window.viewFile = async (id, storagePath) => {
@@ -1122,7 +1119,7 @@
         const pool = rhDocs.concat(colabDocs);
         const chain = [];
         let current = pool.find((d) => d.id === id);
-        while (current) {
+        while (current && !chain.includes(current)) {
             chain.push(current);
             current = current.replaces_document_id ? pool.find((d) => d.id === current.replaces_document_id) : null;
         }
@@ -1309,19 +1306,11 @@
         });
     });
 
-    window.deleteFile = async (id, storagePath) => {
-        if (!confirmDelete()) return;
-        const doc = rhDocs.find((f) => f.id === id);
-        const { error } = await sb.from('documents').delete().eq('id', id);
-        if (error) {
-            showToast('Erro', 'Não foi possível excluir o arquivo.', 'error');
-            return;
-        }
-        if (storagePath) await sb.storage.from('documents').remove([storagePath]);
+    window.deleteFile = async (id) => {
+        if (!(await softDelete([id]))) return;
         rhDocs = rhDocs.filter((f) => f.id !== id);
         renderTable();
-        if (doc) logAudit('excluido', doc);
-        showToast('Arquivo excluído!', 'O arquivo foi removido com sucesso.', 'error');
+        showToast('Arquivo excluído!', 'O arquivo saiu das listas e fica guardado pelo prazo legal.', 'error');
     };
 
     function claimPopover(close) {
@@ -1732,7 +1721,8 @@
                 .single();
 
             if (dbError) {
-                showToast('Erro ao salvar', `${file.name} foi enviado mas não foi possível salvar os dados.`, 'error');
+                await sb.storage.from('documents').remove([storagePath]);
+                showToast('Erro ao salvar', `Não foi possível registrar ${file.name}. Tente enviar de novo.`, 'error');
                 continue;
             }
 
@@ -1789,12 +1779,21 @@
         })
         .subscribe();
 
-    function confirmDelete(count) {
-        const msg =
-            count > 1
-                ? `Deseja realmente excluir os ${count} arquivos selecionados? Esta ação não pode ser desfeita.`
-                : 'Deseja realmente excluir este arquivo? Esta ação não pode ser desfeita.';
-        return window.confirm(msg);
+    async function softDelete(ids) {
+        if (!ids.length) return false;
+        const alvo = ids.length > 1 ? `os ${ids.length} arquivos selecionados` : 'este arquivo';
+        const motivo = window.prompt(`Informe o motivo para excluir ${alvo} (obrigatório, fica registrado na auditoria):`);
+        if (motivo === null) return false;
+        if (motivo.trim().length < 10) {
+            showToast('Motivo obrigatório', 'Descreva o motivo da exclusão com pelo menos 10 caracteres.', 'warning');
+            return false;
+        }
+        const { error } = await sb.rpc('soft_delete_documents', { p_ids: ids, p_reason: motivo.trim() });
+        if (error) {
+            showToast('Erro', error.message || 'Não foi possível excluir.', 'error');
+            return false;
+        }
+        return true;
     }
 
     function showToast(title, msg, type = 'success') {

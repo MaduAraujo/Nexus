@@ -162,8 +162,8 @@
 }
 
 .mfa-btn--danger {
-    border-color: var(--danger, #ef4444);
-    color: var(--danger, #ef4444);
+    border-color: #b91c1c;
+    color: #b91c1c;
 }
 
 .mfa-notice {
@@ -179,12 +179,12 @@
 
 .mfa-notice--error {
     background: var(--danger-bg, #fee2e2);
-    color: var(--danger, #ef4444);
+    color: #b91c1c;
 }
 
 .mfa-notice--success {
     background: var(--success-bg, #dcfce7);
-    color: var(--success, #10b981);
+    color: #047857;
 }
 
 .mfa-codes {
@@ -208,4 +208,14 @@
     .mfa-codes {
         grid-template-columns: 1fr;
     }
+}
+
+:root[data-theme='dark'] .mfa-notice--success {
+    color: #6ee7b7;
+}
+
+:root[data-theme='dark'] .mfa-notice--error,
+:root[data-theme='dark'] .mfa-btn--danger {
+    color: #fca5a5;
+    border-color: #fca5a5;
 }

@@ -32,7 +32,7 @@ function loadSidebarInfo() {
             avatarEl.style.background = `url(${myEmployee.avatar_url}) center/cover`;
             avatarEl.textContent = '';
         } else {
-            avatarEl.style.background = color;
+            avatarEl.style.background = window.nexusFundoLegivel(color);
             avatarEl.textContent = ini;
         }
     }

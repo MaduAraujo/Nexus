@@ -482,7 +482,7 @@
             avatarDiv?.classList.remove('hidden');
             if (avatarDiv) {
                 avatarDiv.textContent = ini;
-                avatarDiv.style.background = color;
+                avatarDiv.style.background = window.nexusFundoLegivel(color);
             }
             if (removeBtn) removeBtn.style.display = 'none';
         }
@@ -576,8 +576,8 @@
 
     let feriasUsadas = 0;
     async function carregarFeriasUsadas() {
-        const { data } = await sb.from('vacations').select('days,status').eq('employee_id', myEmployeeId).in('status', ['aprovado', 'concluido']);
-        feriasUsadas = (data || []).reduce((s, v) => s + (Number(v.days) || 0), 0);
+        const { data } = await sb.from('vacations').select('days,abono,status').eq('employee_id', myEmployeeId).in('status', ['aprovado', 'concluido']);
+        feriasUsadas = (data || []).reduce((s, v) => s + CLTDomain.diasConsumidosFerias(v), 0);
     }
 
     function positionFloating(el, anchor) {

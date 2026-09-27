@@ -20,6 +20,11 @@ const CLTDomain = {
         return 8 * 60;
     },
 
+    isEstagio(contractType) {
+        const t = String(contractType || '').toLowerCase();
+        return t === 'estagio' || t === 'estágio';
+    },
+
     diasAvisoPrevioIntegral(anosCompletos) {
         return Math.min(CLTDomain.AVISO_PREVIO_MIN_DIAS + 3 * Math.max(0, anosCompletos), CLTDomain.AVISO_PREVIO_MAX_DIAS);
     },
@@ -120,24 +125,77 @@ const CLTDomain = {
         return `${next.getFullYear()}-${pad0(next.getMonth() + 1)}-01`;
     },
 
-    contarFaltasInjustificadas({ inicio, fim, registros = [], feriados = [], abonadas = [], afastamentos = [], primeiroRegistro = null, workLoad = '' }) {
-        if (workLoad === '12x36' || !primeiroRegistro) return 0;
+    listarFaltasInjustificadas({ inicio, fim, registros = [], feriados = [], abonadas = [], afastamentos = [], primeiroRegistro = null, workLoad = '' }) {
+        if (workLoad === '12x36' || !primeiroRegistro) return [];
         const pad0 = (n) => String(n).padStart(2, '0');
         const key = (d) => `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
         const comEntrada = new Set(registros.filter((r) => r.entrada).map((r) => r.date));
         const naoConta = new Set([...feriados, ...abonadas]);
         const afastado = (k) => afastamentos.some((a) => a.start_date <= k && k <= a.end_date);
 
-        let faltas = 0;
+        const faltas = [];
         const cursor = new Date(`${inicio}T12:00:00`);
         const ultimo = new Date(`${fim}T12:00:00`);
         for (; cursor <= ultimo; cursor.setDate(cursor.getDate() + 1)) {
             const k = key(cursor);
             const dow = cursor.getDay();
             if (dow === 0 || dow === 6 || k < primeiroRegistro || naoConta.has(k) || comEntrada.has(k) || afastado(k)) continue;
-            faltas++;
+            faltas.push(k);
         }
         return faltas;
+    },
+
+    contarFaltasInjustificadas(params) {
+        return CLTDomain.listarFaltasInjustificadas(params).length;
+    },
+
+    periodoGozoFerias({ start_date, end_date, days }) {
+        const inicio = new Date(`${start_date}T12:00:00`);
+        const dias = Number(days) || Math.round((new Date(`${end_date}T12:00:00`) - inicio) / 86400000) + 1;
+        if (!(dias > 0)) return null;
+        const fim = new Date(inicio);
+        fim.setDate(fim.getDate() + dias - 1);
+        const pad0 = (n) => String(n).padStart(2, '0');
+        return { start_date, end_date: `${fim.getFullYear()}-${pad0(fim.getMonth() + 1)}-${pad0(fim.getDate())}`, dias };
+    },
+
+    DIAS_ABONO_PECUNIARIO: 10,
+
+    diasConsumidosFerias({ days, abono }) {
+        return (Number(days) || 0) + (abono ? CLTDomain.DIAS_ABONO_PECUNIARIO : 0);
+    },
+
+    diasGozoNoMes(ferias = [], monthKey) {
+        const [y, m] = monthKey.split('-').map(Number);
+        const primeiro = new Date(y, m - 1, 1, 12);
+        const ultimo = new Date(y, m, 0, 12);
+        return ferias.reduce((total, v) => {
+            const gozo = CLTDomain.periodoGozoFerias(v);
+            if (!gozo) return total;
+            const ini = new Date(`${gozo.start_date}T12:00:00`);
+            const fim = new Date(`${gozo.end_date}T12:00:00`);
+            const a = ini > primeiro ? ini : primeiro;
+            const b = fim < ultimo ? fim : ultimo;
+            return b < a ? total : total + Math.round((b - a) / 86400000) + 1;
+        }, 0);
+    },
+
+    diasSalarioNoMes(ferias = [], monthKey) {
+        const [y, m] = monthKey.split('-').map(Number);
+        const gozo = CLTDomain.diasGozoNoMes(ferias, monthKey);
+        if (gozo >= new Date(y, m, 0).getDate()) return 0;
+        return Math.max(0, 30 - gozo);
+    },
+
+    descontoFaltasDsr({ salario, faltas = [] }) {
+        const diaria = Number(salario || 0) / 30;
+        const semanas = new Set(faltas.map((d) => CLTDomain.weekStartKey(d))).size;
+        return {
+            dias: faltas.length,
+            semanas,
+            valorFaltas: +(diaria * faltas.length).toFixed(2),
+            valorDsr: +(diaria * semanas).toFixed(2),
+        };
     },
 
     computeBankLedgerStatus(monthlyNet, vencimentoMeses, hoje = new Date()) {

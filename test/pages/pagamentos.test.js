@@ -35,6 +35,28 @@ function espelharPayslips(client) {
     return client;
 }
 
+const RECIBO_ANA = {
+    id: 'rf1',
+    employee_id: ANA.id,
+    mes: '2026-07-F13',
+    mes_formatado: 'Recibo de Férias — gozo a partir de 13/07/2026',
+    competencia: '07/2026',
+    status: 'publicado',
+    proventos: [
+        { cod: '040', descricao: 'Adiantamento de Férias', referencia: '20 dias', valor: 2666.67 },
+        { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: 888.89 },
+        { cod: '042', descricao: 'Abono Pecuniário (venda de férias)', referencia: '10 dias', valor: 1333.33 },
+        { cod: '043', descricao: '1/3 sobre Abono Pecuniário', referencia: '—', valor: 444.44 },
+    ],
+    descontos: [
+        { cod: '901', descricao: 'INSS sobre férias', referencia: '8.9%', valor: 315.27 },
+        { cod: '906', descricao: 'IRRF sobre férias', referencia: 'Tabela', valor: 91.88 },
+    ],
+    total_proventos: 5333.33,
+    total_descontos: 407.15,
+    salario_liquido: 4926.18,
+};
+
 const rowFor = (p, name) => p.$$('#folha-tbody tr').find((tr) => tr.textContent.includes(name));
 
 describe('pagamentos.html — folha do mês', () => {
@@ -115,12 +137,139 @@ describe('pagamentos.html — folha do mês', () => {
             ['001', '040', '041']
         );
         assert.equal(slipAna.total_proventos, 4000 + 2666.67 + 888.89);
+
+        const base = 4000 + 2666.67 + 888.89;
+        const inss = slipAna.descontos.find((d) => d.cod === '901');
+        assert.equal(inss.descricao, 'INSS (salário + férias)');
+        assert.equal(inss.valor, page.window.calcINSS(base), 'férias + 1/3 entram na base do INSS');
+        const inssFerias = +((inss.valor * (2666.67 + 888.89)) / base).toFixed(2);
+        const irrfFerias = slipAna.descontos.find((d) => d.cod === '906');
+        assert.equal(irrfFerias.valor, page.window.calcIRRF(2666.67 + 888.89 - inssFerias), 'IRRF das férias apurado em separado');
+        const irrf = slipAna.descontos.find((d) => d.cod === '902');
+        assert.equal(irrf.valor, page.window.calcIRRF(4000 - (inss.valor - inssFerias)));
     });
 
-    test('férias aprovadas pelo gestor (sem evento lançado) entram no holerite do mês de início', async () => {
+    test('recibo de férias na competência: INSS do mês soma férias + 1/3 e desconta o já retido; abono e IRRF ficam no recibo', async () => {
         const client = espelharPayslips(
             rhClient({
-                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-13', end_date: '2026-07-22', days: 10, abono: false, status: 'aprovado' }],
+                payslips: [{ ...RECIBO_ANA }],
+                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-13', end_date: '2026-08-01', days: 20, abono: true, status: 'aprovado' }],
+            })
+        );
+        page = await openPage('pagamentos', { client, now: NOW });
+        await page.check(rowFor(page, 'Ana Souza').querySelector('.cb-row'));
+        await page.click('[data-click="marcarSelecionadosPagos"]');
+        const slipAna = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
+        assert.deepEqual(
+            slipAna.proventos.map((p) => p.cod),
+            ['001'],
+            'férias, 1/3 e abono não voltam no holerite do mês'
+        );
+        const salario = slipAna.proventos[0].valor;
+        const inss = slipAna.descontos.find((d) => d.cod === '901');
+        assert.equal(inss.valor, +(page.window.calcINSS(salario + 2666.67 + 888.89) - 315.27).toFixed(2));
+        assert.match(inss.descricao, /menos o retido no recibo/);
+        assert.ok(!slipAna.descontos.some((d) => d.cod === '906'), 'IRRF de férias já foi no recibo');
+    });
+
+    test('aprendiz: INSS de 8% sobre salário + férias e sem IRRF', async () => {
+        page = await openPage('pagamentos', { client: rhClient(), now: NOW });
+        const r = page.window.calcImpostosMes({ contractType: 'aprendiz', baseMensal: 1000, baseFerias: 500 });
+        assert.deepEqual([r.inss, r.irrf, r.irrfFerias], [120, 0, 0]);
+        assert.deepEqual(page.plain(r.descontos.map((d) => [d.cod, d.referencia])), [['901', '8%']]);
+    });
+
+    test('holerite com férias sem INSS não fecha (trava do RH antes do banco)', async () => {
+        page = await openPage('pagamentos', { client: rhClient(), now: NOW });
+        const validar = page.window.validarTributacaoFerias;
+        const ferias = [{ cod: '040', valor: 1000 }];
+        assert.match(validar({ proventos: ferias, descontos: [] }, 'clt'), /sem desconto de INSS/);
+        assert.equal(validar({ proventos: ferias, descontos: [{ cod: '901', valor: 90 }] }, 'clt'), null);
+        assert.equal(validar({ proventos: ferias, descontos: [] }, 'pj'), null);
+        assert.equal(validar({ proventos: [{ cod: '042', valor: 500 }], descontos: [] }, 'clt'), null);
+    });
+
+    test('férias aprovadas pelo gestor sem recibo aparecem para o RH emitir; o holerite do mês não as paga', async () => {
+        const client = espelharPayslips(
+            rhClient(
+                {
+                    vacations: [
+                        { id: 'v1', employee_id: ANA.id, start_date: '2026-07-13', end_date: '2026-07-22', days: 10, abono: false, status: 'aprovado' },
+                    ],
+                },
+                { rpc: { apply_ferias_recibo: {} } }
+            )
+        );
+        page = await openPage('pagamentos', { client, now: NOW });
+        assert.equal(page.visible('#recibos-ferias'), true);
+        const item = page.$('#recibos-ferias-list .recibo-item');
+        assert.match(page.text(item), /Ana Souza.*Gozo a partir de 13\/07\/2026 · pagar até 11\/07\/2026.*Sem recibo/);
+
+        await page.click(item.querySelector('[data-click="emitirReciboFerias"]'));
+        const [rpc] = client.rpcCalls('apply_ferias_recibo');
+        assert.equal(rpc.args.p_mes, '2026-07-F13');
+        assert.deepEqual(
+            rpc.args.p_proventos.map((p) => [p.cod, p.valor]),
+            [
+                ['040', 1333.33],
+                ['041', 444.44],
+            ]
+        );
+        assert.deepEqual(
+            rpc.args.p_descontos.map((d) => d.cod),
+            ['901']
+        );
+        assert.match(page.toasts().join(' '), /Recibo de férias de Ana Souza emitido — pagar até 11\/07\/2026/);
+    });
+
+    test('recibo emitido: o RH vê, marca como pago e o atraso fica visível', async () => {
+        const client = espelharPayslips(
+            rhClient({
+                payslips: [{ ...RECIBO_ANA, mes: '2026-07-F10', mes_formatado: 'Recibo de Férias — gozo a partir de 10/07/2026' }],
+                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-10', end_date: '2026-07-29', days: 20, abono: true, status: 'aprovado' }],
+            })
+        );
+        page = await openPage('pagamentos', { client, now: '2026-07-20T10:00:00-03:00' });
+        const item = () => page.$('#recibos-ferias-list .recibo-item');
+        assert.match(page.text(item()), /pagar até 08\/07\/2026.*Atrasado/);
+        assert.equal(page.$$('#recibos-ferias-list .recibo-item').length, 1, 'férias com recibo não aparecem de novo como "sem recibo"');
+
+        await page.click(item().querySelector('[data-click="verReciboFerias"]'));
+        assert.match(page.text('#slip-modal-body'), /Abono Pecuniário.*IRRF sobre férias/);
+        page.window.closeModal?.('slip-modal');
+
+        await page.click(item().querySelector('[data-click="pagarReciboFerias"]'));
+        const [upd] = client.writes('payslips', 'update');
+        assert.equal(upd.payload.status, 'pago');
+        await page.waitFor(() => /Pago/.test(page.text(item())));
+    });
+
+    test('falta injustificada gera duas rubricas: o dia (905) e o DSR da semana (904)', async () => {
+        const uteis = ['01', '02', '03', '06', '07', '10', '13', '14', '15', '16', '17'];
+        const time_records = uteis.map((d) => ({ employee_id: ANA.id, date: `2026-07-${d}`, entrada: `2026-07-${d}T08:00:00-03:00` }));
+        const client = espelharPayslips(rhClient({ time_records }));
+        page = await openPage('pagamentos', { client, now: NOW });
+        page.window.toggleSelectAll({ checked: true });
+        await page.settle();
+        await page.click('[data-click="marcarSelecionadosPagos"]');
+        const slipAna = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
+        const falta = slipAna.descontos.find((d) => d.cod === '905');
+        const dsr = slipAna.descontos.find((d) => d.cod === '904');
+        assert.deepEqual([falta.referencia, falta.valor], ['2 dias', 266.67]);
+        assert.deepEqual([dsr.referencia, dsr.valor], ['1 semana', 133.33]);
+        const inss = slipAna.descontos.find((d) => d.cod === '901');
+        assert.equal(inss.valor, page.window.calcINSS(4000 - 266.67 - 133.33), 'faltas e DSR saem da base do INSS');
+    });
+
+    test('dia abonado, feriado, atestado e o próprio dia de hoje não viram falta', async () => {
+        const uteis = ['01', '02', '03', '06', '10', '13', '14', '15', '16', '17'];
+        const time_records = uteis.map((d) => ({ employee_id: ANA.id, date: `2026-07-${d}`, entrada: `2026-07-${d}T08:00:00-03:00` }));
+        const client = espelharPayslips(
+            rhClient({
+                time_records,
+                holidays: [{ date: '2026-07-07' }],
+                adjustment_requests: [{ employee_id: ANA.id, date: '2026-07-08', tipo: 'falta', status: 'aprovado' }],
+                medical_leaves: [{ employee_id: ANA.id, start_date: '2026-07-09', end_date: '2026-07-09', status: 'aprovado' }],
             })
         );
         page = await openPage('pagamentos', { client, now: NOW });
@@ -129,23 +278,90 @@ describe('pagamentos.html — folha do mês', () => {
         await page.click('[data-click="marcarSelecionadosPagos"]');
         const slipAna = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
         assert.deepEqual(
-            slipAna.proventos.filter((p) => p.cod >= '040' && p.cod <= '043').map((p) => [p.cod, p.valor]),
-            [
-                ['040', 1333.33],
-                ['041', 444.44],
-            ]
+            slipAna.descontos.filter((d) => d.cod === '904' || d.cod === '905'),
+            []
         );
     });
 
-    test('desconto de DSR por falta injustificada (justificativa recusada)', async () => {
-        const client = espelharPayslips(rhClient({ adjustment_requests: [{ employee_id: ANA.id, date: '2026-07-08', tipo: 'falta', status: 'rejeitado' }] }));
+    test('mês com férias: o salário paga só os dias fora do gozo (as férias vão no recibo, sem pagar em dobro)', async () => {
+        const client = espelharPayslips(
+            rhClient({
+                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-13', end_date: '2026-07-22', days: 10, abono: false, status: 'aprovado' }],
+            })
+        );
+        page = await openPage('pagamentos', { client, now: NOW });
+        await page.check(rowFor(page, 'Ana Souza').querySelector('.cb-row'));
+        await page.click('[data-click="marcarSelecionadosPagos"]');
+        const slipAna = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
+        const salario = slipAna.proventos.find((p) => p.cod === '001');
+        assert.deepEqual([salario.referencia, salario.valor], ['20 dias', 2666.67]);
+        assert.ok(!slipAna.proventos.some((p) => p.cod === '040'));
+    });
+
+    test('férias que atravessam o mês: o mês seguinte desconta o resto do gozo e não paga 040 de novo', async () => {
+        const client = espelharPayslips(
+            rhClient({
+                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-06-25', end_date: '2026-07-09', days: 15, abono: false, status: 'aprovado' }],
+            })
+        );
         page = await openPage('pagamentos', { client, now: NOW });
         page.window.toggleSelectAll({ checked: true });
         await page.settle();
         await page.click('[data-click="marcarSelecionadosPagos"]');
         const slipAna = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
-        const dsr = slipAna.descontos.find((d) => d.cod === '904');
-        assert.deepEqual([dsr.referencia, dsr.valor], ['1 semana', 133.33]);
+        assert.deepEqual(
+            slipAna.proventos.map((p) => [p.cod, p.referencia]),
+            [['001', '21 dias']]
+        );
+    });
+
+    test('a tabela da folha mostra a prévia do holerite (faltas, DSR e impostos do mês)', async () => {
+        const uteis = ['01', '02', '03', '06', '07', '10', '13', '14', '15', '16', '17'];
+        const time_records = uteis.map((d) => ({ employee_id: ANA.id, date: `2026-07-${d}`, entrada: `2026-07-${d}T08:00:00-03:00` }));
+        const client = espelharPayslips(rhClient({ time_records }));
+        page = await openPage('pagamentos', { client, now: NOW });
+        await page.waitFor(() => page.$('#folha-tbody').dataset.previa === 'ok');
+        const previa = await page.window.buildPayslipData(
+            page.window.eval('employees').find((e) => e.id === ANA.id),
+            MES,
+            null
+        );
+        const linha = page.text(rowFor(page, 'Ana Souza'));
+        const brl = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        assert.ok(linha.includes(brl(previa.salario_liquido)), `líquido da prévia (${previa.salario_liquido}) na linha: ${linha}`);
+        assert.ok(previa.descontos.some((d) => d.cod === '905'));
+        assert.ok(previa.salario_liquido < 4000 - 400, 'o líquido já sai com as faltas descontadas');
+    });
+
+    test('estagiário: bolsa sem INSS e com IRRF, sem DSR, integral no recesso e sem recibo de férias', async () => {
+        const client = espelharPayslips(
+            rhClient({
+                vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-06', end_date: '2026-07-20', days: 15, abono: false, status: 'aprovado' }],
+                time_records: ['01', '02', '03', '21', '22', '23'].map((d) => ({
+                    employee_id: ANA.id,
+                    date: `2026-07-${d}`,
+                    entrada: `2026-07-${d}T08:00:00-03:00`,
+                })),
+            })
+        );
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) Object.assign(ana, { contract_type: 'estagio', salary: 3000 });
+        }
+        page = await openPage('pagamentos', { client, now: '2026-07-25T10:00:00-03:00' });
+        assert.equal(page.visible('#recibos-ferias'), false, 'recesso de estágio não gera recibo de férias');
+        await page.check(rowFor(page, 'Ana Souza').querySelector('.cb-row'));
+        await page.click('[data-click="marcarSelecionadosPagos"]');
+        const slip = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
+        assert.deepEqual(
+            slip.proventos.map((p) => [p.cod, p.descricao, p.referencia, p.valor]),
+            [['001', 'Bolsa de Estágio', '30 dias', 3000]]
+        );
+        assert.ok(!slip.descontos.some((d) => d.cod === '901'), 'sem INSS');
+        assert.ok(!slip.descontos.some((d) => d.cod === '904'), 'sem DSR');
+        assert.equal(slip.descontos.find((d) => d.cod === '905')?.referencia, '1 dia', 'só o dia 24 (fora do recesso) é falta');
+        const irrf = slip.descontos.find((d) => d.cod === '902');
+        assert.equal(irrf.valor, page.window.calcIRRF(3000 - 100), 'IRRF sobre a bolsa, sem dedução de INSS');
     });
 
     test('pagos saem da folha e aparecem nos holerites; o holerite abre e registra o acesso', async () => {

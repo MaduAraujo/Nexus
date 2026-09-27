@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -9,8 +9,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -45,7 +45,7 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
@@ -53,6 +53,8 @@
     --danger-bg: rgba(239, 68, 68, 0.16);
     --warning-bg: rgba(245, 158, 11, 0.16);
     --info-bg: rgba(59, 130, 246, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -169,7 +171,7 @@ body {
 }
 
 .logo-name .x {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-toggle {
@@ -251,7 +253,7 @@ body {
 .nav-item.active .nav-icon i,
 .nav-link.active .nav-icon i,
 .nav-link:hover .nav-icon i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-footer {
@@ -603,7 +605,7 @@ body {
     height: 28px;
     border-radius: 8px;
     background: var(--bg-white);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border: 2px solid rgba(99, 102, 241, 0.25);
     display: flex;
     align-items: center;
@@ -664,7 +666,7 @@ body {
 
 .avatar-menu-item:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .avatar-menu-item i {
     width: 16px;
@@ -673,7 +675,7 @@ body {
 }
 .avatar-menu-divider {
     height: 1px;
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     margin: 4px 6px;
 }
 
@@ -870,7 +872,7 @@ body {
     flex-shrink: 0;
 }
 .ptab:hover {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
 }
 .ptab.active {
@@ -919,7 +921,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
     gap: 12px;
     flex-wrap: wrap;
 }
@@ -935,7 +937,7 @@ body {
 }
 
 .profile-card-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.82rem;
 }
 
@@ -959,7 +961,7 @@ body {
 
 .btn-edit-section:hover {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
 }
 
@@ -1109,7 +1111,7 @@ body {
 }
 
 .btn-cancel-edit:hover {
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
 }
 
 .btn-save-edit {
@@ -1209,7 +1211,7 @@ body {
     color: var(--danger);
 }
 .prof-icon--gray {
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     color: #64748b;
 }
 
@@ -1412,7 +1414,7 @@ body {
 }
 
 .toggle-pw-small:hover {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .pw-match-msg {

@@ -20,6 +20,10 @@ const COLAB = { id: 'u-ana', email: 'ana@empresa.com', factors: [] };
 const AAL2 = `Bearer ${fakeJwt({ sub: 'u-rh', aal: 'aal2' })}`;
 const AAL1 = `Bearer ${fakeJwt({ sub: 'u-rh', aal: 'aal1' })}`;
 
+function emDiaUtil(t) {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-23T13:00:00Z') });
+}
+
 function clients({ caller, admin }) {
     return (url, key) => (key === ENV.SUPABASE_SERVICE_ROLE_KEY ? admin : caller);
 }
@@ -218,7 +222,8 @@ describe('send-push (comunicados)', () => {
         assert.equal((await h(request('https://x', { body: '' }))).status, 400);
     });
 
-    test('chamada do sistema envia só para o depto, respeita preferência e limpa inscrição expirada', async () => {
+    test('chamada do sistema envia só para o depto, respeita preferência e limpa inscrição expirada', async (t) => {
+        emDiaUtil(t);
         const { admin, enviados, webpush } = setup();
         const h = await loadEdgeFunction('send-push', { env: ENV, createClient: () => admin, webpush });
         const r = await h(request('https://x', { body: { message_id: 'm1' }, headers: { Authorization: `Bearer ${ENV.SUPABASE_SERVICE_ROLE_KEY}` } }));
@@ -251,7 +256,8 @@ describe('send-push (comunicados)', () => {
 });
 
 describe('send-document-push', () => {
-    test('valida ids, exige RH com MFA e avisa o dono do documento', async () => {
+    test('valida ids, exige RH com MFA e avisa o dono do documento', async (t) => {
+        emDiaUtil(t);
         const caller = new FakeSupabase({ user: RH, tables: { profiles } });
         const admin = new FakeSupabase({
             tables: {

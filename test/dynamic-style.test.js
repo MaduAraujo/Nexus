@@ -71,4 +71,20 @@ describe('dynamic-style', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(host.firstElementChild.style.color, 'rgb(255, 0, 0)');
     });
+
+    test('avatar com iniciais brancas: o fundo escurece até 4.5:1 (WCAG AA); fundo sem texto fica igual', () => {
+        const lum = (rgb) =>
+            rgb
+                .map((v) => v / 255)
+                .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+                .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+        const contraBranco = (css) => 1.05 / (lum(css.match(/\d+/g).map(Number)) + 0.05);
+
+        const avatar = render('<span style="color:#fff" data-bg="#f59e0b">AS</span>');
+        assert.ok(contraBranco(avatar.style.background) >= 4.5, avatar.style.background);
+        assert.equal(render('<span style="color:#fff" data-bg="#4f46e5">AS</span>').style.background, 'rgb(79, 70, 229)', 'já legível: não muda');
+        assert.equal(render('<span data-bg="#f59e0b"></span>').style.background, 'rgb(245, 158, 11)', 'sem texto (barra, bolinha): não muda');
+        assert.ok(contraBranco(window.nexusFundoLegivel('#10b981')) >= 4.5);
+        assert.equal(window.nexusFundoLegivel('var(--accent)'), 'var(--accent)');
+    });
 });

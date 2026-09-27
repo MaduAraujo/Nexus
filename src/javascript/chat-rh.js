@@ -250,7 +250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 avatar.style.background = `url(${emp.avatar_url}) center/cover`;
                 avatar.textContent = '';
             } else {
-                avatar.style.background = emp.avatar_color || '#6366f1';
+                avatar.style.background = window.nexusFundoLegivel(emp.avatar_color || '#6366f1');
                 avatar.textContent = initials(emp.name);
             }
         }

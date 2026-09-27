@@ -58,8 +58,12 @@ async function marcarLido(msgId) {
     await sb.from('message_reads').upsert({ message_id: msgId, employee_id: myEmployeeId }, { onConflict: 'message_id,employee_id' });
 }
 
+function exigeCiencia(msg) {
+    return msg?.categoria === 'Urgente';
+}
+
 async function marcarTodosLidos() {
-    const naoLidos = allMsgs.filter((m) => !lidos.has(m.id));
+    const naoLidos = allMsgs.filter((m) => !lidos.has(m.id) && !exigeCiencia(m));
     if (!naoLidos.length) return;
     naoLidos.forEach((m) => lidos.add(m.id));
     await sb.from('message_reads').upsert(
@@ -95,6 +99,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnMarcarTodos = document.getElementById('btn-marcar-todos');
 
     const msgModal = document.getElementById('msg-modal');
+    const modalCard = msgModal?.querySelector('.msg-modal-card');
+    const btnMarcarLido = document.getElementById('btn-marcar-lido');
+    const cienciaWrap = document.getElementById('modal-ciencia-wrap');
+    const cienciaCheck = document.getElementById('modal-ciencia');
+    const scrollHint = document.getElementById('modal-scroll-hint');
+    const lidoInfo = document.getElementById('modal-lido');
+    let msgAberta = null;
+    let chegouAoFim = false;
+
+    function atualizarConfirmacao() {
+        if (!msgAberta) return;
+        const lido = lidos.has(msgAberta.id);
+        const critico = exigeCiencia(msgAberta);
+        btnMarcarLido?.classList.toggle('hidden', lido);
+        lidoInfo?.classList.toggle('hidden', !lido);
+        cienciaWrap?.classList.toggle('hidden', lido || !critico);
+        scrollHint?.classList.toggle('hidden', lido || !critico || chegouAoFim);
+        if (cienciaCheck) cienciaCheck.disabled = !chegouAoFim;
+        if (btnMarcarLido) btnMarcarLido.disabled = critico && !(chegouAoFim && cienciaCheck?.checked);
+    }
+
+    function verificarFim() {
+        if (!modalCard || chegouAoFim) return;
+        chegouAoFim = modalCard.scrollTop + modalCard.clientHeight >= modalCard.scrollHeight - 8;
+        atualizarConfirmacao();
+    }
+
+    modalCard?.addEventListener('scroll', verificarFim);
+    cienciaCheck?.addEventListener('change', atualizarConfirmacao);
+    btnMarcarLido?.addEventListener('click', async () => {
+        if (!msgAberta || btnMarcarLido.disabled) return;
+        await marcarLido(msgAberta.id);
+        atualizarConfirmacao();
+        render();
+    });
 
     function openModal(msg) {
         const dateEl = document.getElementById('modal-date');
@@ -117,9 +156,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         msgModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+
+        msgAberta = msg;
+        chegouAoFim = false;
+        if (cienciaCheck) cienciaCheck.checked = false;
+        if (modalCard) modalCard.scrollTop = 0;
+        verificarFim();
     }
 
     function closeModal() {
+        msgAberta = null;
         msgModal?.classList.add('hidden');
         document.body.style.overflow = '';
     }
@@ -142,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             unreadBadge.classList.toggle('hidden', naoLidosCount === 0);
             unreadCount.textContent = naoLidosCount;
         }
-        btnMarcarTodos?.classList.toggle('hidden', naoLidosCount === 0);
+        btnMarcarTodos?.classList.toggle('hidden', !allMsgs.some((m) => !lidos.has(m.id) && !exigeCiencia(m)));
 
         const filtered = filterMsgs(allMsgs, lidos, filtroAtivo, q);
 
@@ -171,14 +217,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             .join('');
 
         lista.querySelectorAll('.comunicado-card').forEach((card) => {
-            const activate = async () => {
-                const id = card.dataset.id;
-                const msg = allMsgs.find((m) => String(m.id) === id);
+            const activate = () => {
+                const msg = allMsgs.find((m) => String(m.id) === card.dataset.id);
                 if (msg) openModal(msg);
-                if (!lidos.has(id)) {
-                    await marcarLido(id);
-                    render();
-                }
             };
             card.addEventListener('click', activate);
             card.addEventListener('keydown', (e) => {
@@ -221,10 +262,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
         .subscribe();
 
-    window.addEventListener('beforeunload', () => {
-        marcarTodosLidos();
-    });
-
     setInterval(async () => {
         const before = allMsgs.length;
         await loadData();
@@ -241,6 +278,7 @@ if (typeof module !== 'undefined' && module.exports) {
         marcarLido,
         marcarTodosLidos,
         filterMsgs,
+        exigeCiencia,
         escHTML,
         fmtDate,
         timeAgo,

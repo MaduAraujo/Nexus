@@ -21,6 +21,10 @@ function computeRetentionDate(tipo) {
     return d.toISOString().slice(0, 10);
 }
 
+function isUnderRetention(doc, hoje = new Date().toISOString().slice(0, 10)) {
+    return doc?.status === 'aprovado' && (!doc.retido_ate || doc.retido_ate >= hoje);
+}
+
 const RETURN_TIPOS = [
     'Termo de Compromisso de Estágio',
     'Plano de Atividades de Estágio',
@@ -262,7 +266,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (signBtn) signBtn.classList.toggle('hidden', !(doc.requer_assinatura && !doc.assinado_em));
 
         const deleteBtn = document.getElementById('btn-delete-doc');
-        if (deleteBtn) deleteBtn.classList.toggle('hidden', doc.source !== 'colaborador');
+        if (deleteBtn) {
+            deleteBtn.classList.toggle('hidden', doc.source !== 'colaborador');
+            const retido = isUnderRetention(doc);
+            deleteBtn.disabled = retido;
+            deleteBtn.title = retido
+                ? `Documento aprovado sob guarda legal${doc.retido_ate ? ` até ${new Date(`${doc.retido_ate}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}: não pode ser removido`
+                : 'Remover';
+        }
 
         const previewIcon = document.getElementById('detail-file-icon');
         if (previewIcon) {
@@ -309,6 +320,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const doc = myDocs.find((d) => d.id === selectedId);
         if (doc?.source !== 'colaborador') {
             showToast('Não é possível remover', 'Este documento foi enviado pelo RH e só pode ser removido por ele.', 'warning');
+            return;
+        }
+        if (isUnderRetention(doc)) {
+            showToast('Documento sob guarda legal', 'Documentos aprovados ficam guardados pelo prazo legal e não podem ser removidos.', 'warning');
             return;
         }
         if (!confirm('Deseja realmente remover este documento?')) return;
@@ -638,6 +653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         computeRetentionDate,
+        isUnderRetention,
         getIconInfo,
         statusOf,
         missingRequiredTipos,

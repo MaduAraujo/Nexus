@@ -72,7 +72,46 @@ function inicioPeriodoAquisitivoFerias(admissao, demissao) {
     return aniversario;
 }
 
-function calcularRescisao({ tipo, salario, admissao, demissao, saldoBancoHorasMin = 0, jornadaMin = null, workLoad = '', mediaAdicionaisHabituais = 0 }) {
+function calcularRescisaoEstagio({ tipo, salario, admissao, demissao }) {
+    const diaria = salario / 30;
+    const saldoSalario = +(diaria * demissao.getDate()).toFixed(2);
+    const mesesTotais = diffInMonths(admissao, demissao) + (demissao.getDate() >= admissao.getDate() ? 0 : -1);
+    const mesesNoAno = Math.max(0, mesesTotais) % 12;
+    const diasRecesso = Math.round((30 / 12) * mesesNoAno);
+    const recesso = +(diaria * diasRecesso).toFixed(2);
+    const verbas = [{ descricao: 'Saldo de Bolsa', dias: demissao.getDate(), valor: saldoSalario }];
+    if (recesso > 0) verbas.push({ descricao: 'Recesso Proporcional (Lei 11.788 art. 13)', dias: diasRecesso, valor: recesso });
+    const totalVerbas = +verbas.reduce((s, v) => s + v.valor, 0).toFixed(2);
+    return {
+        tipo,
+        label: 'Encerramento de Estágio (Lei 11.788/08)',
+        anosCompletos: Math.floor(Math.max(0, mesesTotais) / 12),
+        mesesCasaAteDemissao: diffInMonths(admissao, demissao),
+        diasAviso: 0,
+        fgtsEstimado: 0,
+        saldoBancoHorasMin: 0,
+        mediaAdicionaisHabituais: 0,
+        verbas,
+        encargos: [],
+        totalVerbas,
+        totalEncargos: 0,
+        custoTotal: totalVerbas,
+        estagio: true,
+    };
+}
+
+function calcularRescisao({
+    tipo,
+    salario,
+    admissao,
+    demissao,
+    saldoBancoHorasMin = 0,
+    jornadaMin = null,
+    workLoad = '',
+    mediaAdicionaisHabituais = 0,
+    contractType = 'clt',
+}) {
+    if (CLTDomain.isEstagio(contractType)) return calcularRescisaoEstagio({ tipo, salario, admissao, demissao });
     const config = TIPOS_RESCISAO[tipo] || TIPOS_RESCISAO.sem_justa_causa;
     const diaria = salario / 30;
     const baseFerias13 = salario + mediaAdicionaisHabituais;

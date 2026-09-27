@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -8,8 +8,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -46,7 +46,7 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
@@ -60,6 +60,8 @@
     --info-text: #60a5fa;
     --neutral-bg: rgba(255, 255, 255, 0.06);
     --neutral-text: #9aa1b0;
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -265,7 +267,6 @@ body {
 .pending-doc-chip--waiting {
     background: rgba(255, 255, 255, 0.55);
     cursor: default;
-    opacity: 0.8;
 }
 .pending-doc-chip--waiting:hover {
     background: rgba(255, 255, 255, 0.55);
@@ -332,7 +333,7 @@ body {
     gap: 8px;
 }
 .doc-list-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.74rem;
     width: 26px;
     height: 26px;
@@ -457,7 +458,7 @@ body {
     text-overflow: ellipsis;
 }
 .doc-card-item.active .doc-card-name {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .doc-card-tipo {
     font-size: 0.73rem;
@@ -543,7 +544,7 @@ body {
     height: 72px;
     border-radius: 20px;
     background: linear-gradient(135deg, var(--accent-light), rgba(99, 102, 241, 0.04));
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -816,7 +817,7 @@ body {
     flex-shrink: 0;
 }
 .doc-preview-area--clickable:hover .doc-preview-open-icon {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .doc-preview-icon {
     width: 52px;
@@ -841,7 +842,7 @@ body {
     color: #f59e0b;
 }
 .doc-preview-icon--other {
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     color: #64748b;
 }
 
@@ -940,7 +941,7 @@ body {
     gap: 10px;
 }
 .modal-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .close-modal {
     background: var(--bg-white);
@@ -1042,7 +1043,7 @@ body {
 }
 .date-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .select-popover {
@@ -1105,7 +1106,7 @@ body {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -1180,7 +1181,7 @@ body {
     margin-bottom: 4px;
 }
 .drop-zone p span {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 600;
     text-decoration: underline;
     cursor: pointer;
@@ -1330,7 +1331,7 @@ body {
     margin-bottom: 8px;
 }
 .mobile-doc-label i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.7rem;
 }
 @media (max-width: 1280px) {

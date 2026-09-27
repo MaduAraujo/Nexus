@@ -224,6 +224,7 @@ function installStubs(w, opts, rec) {
             pushManager: {
                 getSubscription: async () => (rec.push.subscribed ? makeSub() : null),
                 subscribe: async (o) => {
+                    if (push.permission === 'denied') throw new w.DOMException('Registration failed - permission denied', 'NotAllowedError');
                     rec.push.subscribeOptions = o;
                     rec.push.subscribed = true;
                     return makeSub();

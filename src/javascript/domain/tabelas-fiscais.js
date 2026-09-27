@@ -23,6 +23,32 @@ const TABELA_FISCAL = {
     },
 };
 
-window.TABELA_FISCAL = TABELA_FISCAL;
+function calcINSS(salBase) {
+    if (salBase <= 0) return 0;
+    const faixas = TABELA_FISCAL.inss.faixas;
+    const teto = faixas[faixas.length - 1].limite;
+    const base = Math.min(salBase, teto);
+    for (const f of faixas) {
+        if (base <= f.limite) return +(base * f.aliquota - f.deducao).toFixed(2);
+    }
+    return 0;
+}
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { TABELA_FISCAL };
+function calcIRRF(base) {
+    for (const f of TABELA_FISCAL.irrf.faixas) {
+        if (base <= f.limite) return f.aliquota > 0 ? +(base * f.aliquota - f.deducao).toFixed(2) : 0;
+    }
+    return 0;
+}
+
+function calcINSSContrato(base, contractType) {
+    const tipo = String(contractType || '').toLowerCase();
+    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'pj') return 0;
+    if (tipo === 'aprendiz') return +(Math.max(0, base) * TABELA_FISCAL.aprendizInssAliquota).toFixed(2);
+    return calcINSS(base);
+}
+
+window.TABELA_FISCAL = TABELA_FISCAL;
+window.Impostos = { calcINSS, calcIRRF, calcINSSContrato };
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { TABELA_FISCAL, calcINSS, calcIRRF, calcINSSContrato };

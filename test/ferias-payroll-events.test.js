@@ -27,7 +27,9 @@ before(() => {
     global.requestAnimationFrame = (cb) => cb();
     global.setTimeout = (cb) => cb();
     global.dargs = (...values) => JSON.stringify(values);
+    require('../src/javascript/domain/tabelas-fiscais.js');
     require('../src/javascript/domain/eventos-folha.js');
+    global.showToast = () => {};
     ferias = require('../src/javascript/ferias.js');
 });
 
@@ -40,21 +42,25 @@ beforeEach(() => {
 });
 
 describe('gerarEventoAdiantamentoFerias', () => {
-    test('chama apply_ferias_payroll_event com o mês/competência derivados da data de início e os proventos calculados', async () => {
+    test('emite o recibo de férias próprio (não o holerite do mês), já com INSS e IRRF', async () => {
         const calls = [];
         global.sb = { rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
 
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: false });
 
         assert.equal(calls.length, 1);
-        assert.equal(calls[0].name, 'apply_ferias_payroll_event');
+        assert.equal(calls[0].name, 'apply_ferias_recibo');
         assert.equal(calls[0].params.p_employee_id, 'e1');
-        assert.equal(calls[0].params.p_mes, '2026-07');
-        assert.equal(calls[0].params.p_mes_formatado, 'Julho 2026');
+        assert.equal(calls[0].params.p_mes, '2026-07-F10');
+        assert.equal(calls[0].params.p_mes_formatado, 'Recibo de Férias — gozo a partir de 10/07/2026');
         assert.equal(calls[0].params.p_competencia, '07/2026');
         assert.deepEqual(
-            calls[0].params.p_novos_proventos.map((p) => p.cod),
+            calls[0].params.p_proventos.map((p) => p.cod),
             ['040', '041']
+        );
+        assert.deepEqual(
+            calls[0].params.p_descontos.map((d) => d.cod),
+            ['901', '906']
         );
     });
 
@@ -65,7 +71,7 @@ describe('gerarEventoAdiantamentoFerias', () => {
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: true });
 
         assert.deepEqual(
-            calls[0].params.p_novos_proventos.map((p) => p.cod),
+            calls[0].params.p_proventos.map((p) => p.cod),
             ['040', '041', '042', '043']
         );
     });
@@ -97,13 +103,34 @@ describe('gerarEventoAdiantamentoFerias', () => {
 });
 
 describe('reverterEventoAdiantamentoFerias', () => {
-    test('chama revert_ferias_payroll_event com o employee_id e o mês derivado da data de início', async () => {
+    test('cancela o recibo de férias e limpa o lançamento legado no holerite do mês', async () => {
         const calls = [];
         global.sb = { rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
 
         await ferias.reverterEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10' });
 
-        assert.deepEqual(calls, [{ name: 'revert_ferias_payroll_event', params: { p_employee_id: 'e1', p_mes: '2026-07' } }]);
+        assert.deepEqual(calls, [
+            { name: 'revert_ferias_recibo', params: { p_employee_id: 'e1', p_mes: '2026-07-F10' } },
+            { name: 'revert_ferias_payroll_event', params: { p_employee_id: 'e1', p_mes: '2026-07' } },
+        ]);
+    });
+
+    test('recibo já pago: avisa o RH em vez de falhar calado', async () => {
+        const criados = [];
+        const createElement = global.document.createElement;
+        global.document.createElement = () => {
+            const el = fakeEl();
+            criados.push(el);
+            return el;
+        };
+        global.sb = {
+            rpc: async (name) => (name === 'revert_ferias_recibo' ? { error: { message: 'O recibo de férias de 2026-07-F10 já foi pago' } } : { error: null }),
+        };
+        await ferias.reverterEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10' });
+        global.document.createElement = createElement;
+        const toast = criados.find((el) => /toast-error/.test(el.className || ''));
+        assert.ok(toast, 'toast de erro exibido');
+        assert.match(toast.innerHTML, /já foi pago/);
     });
 });
 
@@ -135,7 +162,7 @@ describe('cancelApprovedVacation', () => {
         const { vacations } = ferias.__getStateForTest();
         assert.equal(vacations[0].status, 'cancelado');
         assert.deepEqual(dbCalls[0], { table: 'vacations', patch: { status: 'cancelado' } });
-        assert.deepEqual(dbCalls[1], { rpc: 'revert_ferias_payroll_event', params: { p_employee_id: 'e1', p_mes: '2026-07' } });
+        assert.deepEqual(dbCalls[1], { rpc: 'revert_ferias_recibo', params: { p_employee_id: 'e1', p_mes: '2026-07-F10' } });
     });
 
     test('sem confirmação do usuário, não faz nada', async () => {

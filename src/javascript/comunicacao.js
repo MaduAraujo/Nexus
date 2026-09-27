@@ -1541,6 +1541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadEmployees();
     await loadMessages();
+    if (currentSection === 'history') renderizarMensagens();
     await loadTemplates();
     tryRestoreDraft();
 });

@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -8,8 +8,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
 
     --border-color: #e5e7eb;
     --border-dark: rgba(255, 255, 255, 0.07);
@@ -35,11 +35,13 @@
     --bg-white: #16171d;
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
     --border-color: rgba(255, 255, 255, 0.08);
     --success-bg: rgba(16, 185, 129, 0.16);
     --danger-bg: rgba(239, 68, 68, 0.16);
     --warning-bg: rgba(245, 158, 11, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -120,7 +122,7 @@ body {
     gap: 9px;
 }
 .topbar-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .content {
@@ -150,7 +152,7 @@ body {
     margin-bottom: 14px;
 }
 .section-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .section-desc {
     font-size: 0.8rem;
@@ -332,7 +334,7 @@ body {
     color: #b45309;
 }
 .pdi-goal-meta a {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .career-track-group {
@@ -515,7 +517,7 @@ body {
     justify-content: center;
     border-radius: 12px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 1rem;
 }
 .training-selfreport-title {
@@ -590,7 +592,7 @@ body {
     font-size: 0.84rem;
 }
 .training-selfreport-input:focus-within i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .training-selfreport-file {
     position: relative;
@@ -638,7 +640,7 @@ body {
     justify-content: center;
     border-radius: 10px;
     background: var(--bg-white);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: var(--shadow-sm);
 }
 .training-selfreport-file-text {
@@ -686,7 +688,7 @@ body {
     padding: 0;
     border: none;
     background: none;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font: inherit;
     cursor: pointer;
 }
@@ -784,7 +786,7 @@ body {
     transition: color 0.2s var(--ease);
 }
 .date-field.active .date-field-icon {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .date-field .calendar-popover {
     position: absolute;
@@ -846,7 +848,7 @@ body {
 }
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .calendar-weekdays {
     display: grid;
@@ -893,7 +895,7 @@ body {
 }
 .calendar-day--selected:not(.calendar-day--today) {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
     box-shadow: inset 0 0 0 1.5px var(--accent);
 }

@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sidebarAvatar.style.background = `url(${e.avatar_url}) center/cover`;
                 sidebarAvatar.textContent = '';
             } else {
-                sidebarAvatar.style.background = color;
+                sidebarAvatar.style.background = window.nexusFundoLegivel(color);
                 sidebarAvatar.textContent = ini;
             }
         }
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 welcomeAvatar.style.background = `url(${e.avatar_url}) center/cover`;
                 welcomeAvatar.textContent = '';
             } else {
-                welcomeAvatar.style.background = color;
+                welcomeAvatar.style.background = window.nexusFundoLegivel(color);
                 welcomeAvatar.textContent = ini;
             }
         }

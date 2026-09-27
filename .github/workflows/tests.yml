@@ -120,10 +120,10 @@ jobs:
       - name: Hide migrations (they assume employees/etc. already exist, as on the hosted project; schema.sql is the fresh-DB bootstrap loaded below)
         run: mv supabase/migrations "$RUNNER_TEMP/supabase-migrations"
 
-      - name: Start local Supabase (db + auth + rest only, storage/realtime/etc. not needed for login/dashboard flow)
-        run: supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime
+      - name: Start local Supabase (db + auth + rest + storage; documentos, rescisão e selfies do ponto gravam no Storage real)
+        run: supabase start --exclude logflare,studio,realtime,imgproxy,vector,edge-runtime
 
-      - name: Load schema (storage.* errors are expected - that service isn't provisioned here)
+      - name: Load schema
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 
       - name: Grant table access to anon/authenticated (mirrors hosted project's API auto-expose)
@@ -132,8 +132,14 @@ jobs:
       - name: Restore migrations directory
         run: mv "$RUNNER_TEMP/supabase-migrations" supabase/migrations
 
+      - name: Expose local service key (the E2E cleanup removes test files through the Storage API)
+        run: echo "E2E_SUPABASE_SERVICE_KEY=$(supabase status -o env | sed -n 's/^SERVICE_ROLE_KEY="\(.*\)"$/\1/p')" >> "$GITHUB_ENV"
+
       - name: Run E2E tests
         run: npm run test:e2e
+
+      - name: Load test (20 colaboradores + 3 RH simultâneos; falha com erro ou p95 acima do limite)
+        run: npm run test:load
 
       - name: Upload Playwright report on failure
         if: failure()

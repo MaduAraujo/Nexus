@@ -8,6 +8,8 @@ let allRows = [];
 let employees = [];
 let payslips = [];
 let feriasDoMes = {};
+let feriasNoMes = {};
+let recibosFerias = [];
 let rhUser = null;
 let currentSlipData = null;
 const selectedIds = new Set();
@@ -52,7 +54,7 @@ function setLoading(show) {
 }
 
 async function loadData() {
-    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }, { data: vacData }] = await Promise.all([
+    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }, { data: vacData }, { data: reciboData }] = await Promise.all([
         sb
             .from('employees_decrypted')
             .select(
@@ -63,10 +65,11 @@ async function loadData() {
         sb.from('payslips_decrypted').select('*').eq('mes', currentMonth),
         sb
             .from('vacations')
-            .select('employee_id,start_date,days,abono')
+            .select('employee_id,start_date,end_date,days,abono')
             .in('status', ['aprovado', 'concluido'])
-            .gte('start_date', `${currentMonth}-01`)
-            .lt('start_date', nextMonthKey(currentMonth)),
+            .lte('start_date', lastDayOfMonthKey(currentMonth))
+            .gte('end_date', `${currentMonth}-01`),
+        sb.from('payslips_decrypted').select('*').gte('mes', `${currentMonth}-F`).lt('mes', `${currentMonth}-G`),
     ]);
 
     if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
@@ -91,8 +94,13 @@ async function loadData() {
         avatarUrl: e.avatar_url,
     }));
     payslips = slipData || [];
+    recibosFerias = reciboData || [];
     feriasDoMes = {};
-    (vacData || []).forEach((v) => (feriasDoMes[v.employee_id] ??= []).push(v));
+    feriasNoMes = {};
+    (vacData || []).forEach((v) => {
+        (feriasNoMes[v.employee_id] ??= []).push(v);
+        if (v.start_date.slice(0, 7) === currentMonth) (feriasDoMes[v.employee_id] ??= []).push(v);
+    });
 }
 
 async function refresh() {
@@ -104,28 +112,20 @@ async function refresh() {
         selectedIds.clear();
         renderFolha();
         renderHolerites();
+        renderRecibosFerias();
         loadKPIs();
+        atualizarPrevias();
     } finally {
         setLoading(false);
     }
 }
 
 function calcINSS(salBase) {
-    if (salBase <= 0) return 0;
-    const faixas = TABELA_FISCAL.inss.faixas;
-    const teto = faixas[faixas.length - 1].limite;
-    const base = Math.min(salBase, teto);
-    for (const f of faixas) {
-        if (base <= f.limite) return +(base * f.aliquota - f.deducao).toFixed(2);
-    }
-    return 0;
+    return window.Impostos.calcINSS(salBase);
 }
 
 function calcIRRF(base) {
-    for (const f of TABELA_FISCAL.irrf.faixas) {
-        if (base <= f.limite) return f.aliquota > 0 ? +(base * f.aliquota - f.deducao).toFixed(2) : 0;
-    }
-    return 0;
+    return window.Impostos.calcIRRF(base);
 }
 
 function parseCurrency(str) {
@@ -144,13 +144,14 @@ function calcRow(emp) {
     const ct = (emp.contractType || 'clt').toLowerCase();
     const isPJ = ct === 'pj';
     const isAprendiz = ct === 'aprendiz';
+    const isEstagio = CLTDomain.isEstagio(ct);
     let inss = 0,
         irrf = 0,
         benef = 0,
         descVT = 0;
 
     if (!isPJ) {
-        inss = isAprendiz ? +(salary * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(salary);
+        inss = isEstagio ? 0 : isAprendiz ? +(salary * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(salary);
         if (!isAprendiz) irrf = calcIRRF(salary - inss);
 
         if (emp.benValeRefeicao) benef += parseCurrency(emp.benValeRefeicao) * 22;
@@ -171,13 +172,64 @@ function calcRow(emp) {
 }
 
 const EVENTOS_PRESERVADOS = ['040', '041', '042', '043'];
+const COD_FERIAS_TRIBUTAVEIS = ['040', '041'];
+
+function proventosFeriasLegado(existingSlip) {
+    return (existingSlip?.proventos || []).filter((p) => EVENTOS_PRESERVADOS.includes(p.cod));
+}
+
+const somaCods = (lista, cods) =>
+    +(lista || [])
+        .filter((x) => cods.includes(x.cod))
+        .reduce((s, x) => s + Number(x.valor || 0), 0)
+        .toFixed(2);
+
+function recibosDoColaborador(empId) {
+    return recibosFerias.filter((r) => r.employee_id === empId);
+}
+
+function calcImpostosMes({ contractType, baseMensal, baseFerias = 0, inssRetidoRecibo = 0, irrfFeriasNoRecibo = false }) {
+    const isAprendiz = (contractType || '').toLowerCase() === 'aprendiz';
+    const isEstagio = CLTDomain.isEstagio(contractType);
+    const mensal = Math.max(0, +Number(baseMensal).toFixed(2));
+    const ferias = Math.max(0, +Number(baseFerias).toFixed(2));
+    const base = +(mensal + ferias).toFixed(2);
+    const inss = isEstagio ? 0 : isAprendiz ? +(base * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(base);
+    const inssFerias = base > 0 && inss > 0 ? +((inss * ferias) / base).toFixed(2) : 0;
+    const irrf = isAprendiz ? 0 : calcIRRF(mensal - (inss - inssFerias));
+    const irrfFerias = isAprendiz || !ferias || irrfFeriasNoRecibo ? 0 : calcIRRF(ferias - inssFerias);
+    const inssDevido = Math.max(0, +(inss - inssRetidoRecibo).toFixed(2));
+
+    const descontos = [];
+    if (inssDevido > 0) {
+        const ref = isAprendiz ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%` : `${((inss / base) * 100).toFixed(1)}%`;
+        const descricao = inssRetidoRecibo > 0 ? 'INSS (salário + férias, menos o retido no recibo)' : ferias ? 'INSS (salário + férias)' : 'INSS';
+        descontos.push({ cod: '901', descricao, referencia: ref, valor: inssDevido });
+    }
+    if (irrf > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrf });
+    if (irrfFerias > 0) descontos.push({ cod: '906', descricao: 'IRRF sobre Férias', referencia: 'Tabela', valor: irrfFerias });
+    return { inss, inssFerias, irrf, irrfFerias, descontos };
+}
+
+function validarTributacaoFerias(slip, contractType) {
+    if (String(contractType || 'clt').toLowerCase() === 'pj') return null;
+    const temFerias = (slip.proventos || []).some((p) => COD_FERIAS_TRIBUTAVEIS.includes(p.cod) && Number(p.valor) > 0);
+    if (!temFerias) return null;
+    if ((slip.descontos || []).some((d) => d.cod === '901' && Number(d.valor) > 0)) return null;
+    return 'Holerite com férias sem desconto de INSS — recalcule antes de fechar.';
+}
 
 async function buildPayslipData(emp, monthKey, existingSlip = null) {
     const calc = calcRow(emp);
     const [year, monthNum] = monthKey.split('-');
     const month = parseInt(monthNum, 10);
 
-    const proventos = [{ cod: '001', descricao: 'Salário Base', referencia: '30 dias', valor: calc.salary }];
+    const estagio = CLTDomain.isEstagio(emp.contractType);
+    const diasSalario = calc.isPJ || estagio ? 30 : CLTDomain.diasSalarioNoMes(feriasNoMes[emp.id] || [], monthKey);
+    const salarioMes = diasSalario === 30 ? calc.salary : +((calc.salary / 30) * diasSalario).toFixed(2);
+    const proventos = [];
+    if (salarioMes > 0 || diasSalario === 30)
+        proventos.push({ cod: '001', descricao: estagio ? 'Bolsa de Estágio' : 'Salário Base', referencia: `${diasSalario} dias`, valor: salarioMes });
     const descontos = [];
 
     if (!calc.isPJ) {
@@ -204,8 +256,7 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
         const { noturnoMin, feriadoMin, intervaloDeficitMin } = await calcAdicionaisMes(emp.id, jornadaMin, monthKey);
         const valorHora = calc.salary / CLTDomain.getDivisorHoraMensal(jornadaMin, emp.workLoad);
         let valorNoturno = 0,
-            valorFeriado = 0,
-            valorDsr = 0;
+            valorFeriado = 0;
         if (noturnoMin > 0) {
             valorNoturno = +((noturnoMin / 52.5) * valorHora * CLTDomain.ADICIONAL_NOTURNO_PERCENTUAL).toFixed(2);
             if (valorNoturno > 0)
@@ -238,43 +289,37 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
                 });
         }
 
-        const { semanasComPerda } = await calcDsrDescontoMes(emp.id, monthKey);
-        if (semanasComPerda > 0) {
-            valorDsr = +((calc.salary / 30) * semanasComPerda).toFixed(2);
-            if (valorDsr > 0)
-                descontos.push({
-                    cod: '904',
-                    descricao: 'Desconto de DSR (falta injustificada — Lei 605/49 art. 6º)',
-                    referencia: `${semanasComPerda} semana${semanasComPerda > 1 ? 's' : ''}`,
-                    valor: valorDsr,
-                });
-        }
-
-        const isAprendiz = (emp.contractType || '').toLowerCase() === 'aprendiz';
-        const baseContribuicao = Math.max(0, +(calc.salary + valorNoturno + valorFeriado - valorDsr).toFixed(2));
-        const inssRecalc = isAprendiz ? +(baseContribuicao * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(baseContribuicao);
-        const irrfRecalc = isAprendiz ? 0 : calcIRRF(baseContribuicao - inssRecalc);
-
-        if (inssRecalc > 0) {
-            const ref = isAprendiz ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%` : `${((inssRecalc / baseContribuicao) * 100).toFixed(1)}%`;
-            descontos.push({ cod: '901', descricao: 'INSS', referencia: ref, valor: inssRecalc });
-        }
-        if (irrfRecalc > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrfRecalc });
-    }
-
-    const preservados = (existingSlip?.proventos || []).filter((p) => EVENTOS_PRESERVADOS.includes(p.cod));
-    preservados.forEach((p) => proventos.push(p));
-    if (!preservados.length) {
-        (feriasDoMes[emp.id] || []).forEach((v) => {
-            const evento = window.EventosFolha.proventosFerias({
-                contractType: emp.contractType,
-                salario: emp.salary,
-                startDate: v.start_date,
-                dias: v.days,
-                abono: v.abono,
+        const faltas = await window.NexusFaltas.listar(emp.id, `${monthKey}-01`, lastDayOfMonthKey(monthKey), { workLoad: emp.workLoad });
+        const faltaCalc = CLTDomain.descontoFaltasDsr({ salario: calc.salary, faltas });
+        const falta = estagio ? { ...faltaCalc, semanas: 0, valorDsr: 0 } : faltaCalc;
+        if (falta.valorFaltas > 0)
+            descontos.push({
+                cod: '905',
+                descricao: 'Faltas injustificadas',
+                referencia: `${falta.dias} dia${falta.dias > 1 ? 's' : ''}`,
+                valor: falta.valorFaltas,
             });
-            if (evento) proventos.push(...evento.proventos);
+        if (falta.valorDsr > 0)
+            descontos.push({
+                cod: '904',
+                descricao: 'Desconto de DSR (falta injustificada — Lei 605/49 art. 6º)',
+                referencia: `${falta.semanas} semana${falta.semanas > 1 ? 's' : ''}`,
+                valor: falta.valorDsr,
+            });
+
+        const legado = proventosFeriasLegado(existingSlip);
+        proventos.push(...legado);
+        const recibos = recibosDoColaborador(emp.id);
+        const impostos = calcImpostosMes({
+            contractType: emp.contractType,
+            baseMensal: salarioMes + valorNoturno + valorFeriado - falta.valorFaltas - falta.valorDsr,
+            baseFerias: somaCods(legado, COD_FERIAS_TRIBUTAVEIS) + recibos.reduce((s, r) => s + somaCods(r.proventos, COD_FERIAS_TRIBUTAVEIS), 0),
+            inssRetidoRecibo: recibos.reduce((s, r) => s + somaCods(r.descontos, ['901']), 0),
+            irrfFeriasNoRecibo: recibos.length > 0 && !legado.length,
         });
+        descontos.push(...impostos.descontos);
+    } else {
+        proventos.push(...proventosFeriasLegado(existingSlip));
     }
 
     const totalProventos = +proventos.reduce((s, p) => s + Number(p.valor), 0).toFixed(2);
@@ -303,6 +348,53 @@ function buildFolhaRows() {
         const gerado = !!slip;
         return { emp, calc, slip, pago, gerado };
     });
+}
+
+function resumoDoHolerite(slip, isPJ) {
+    const soma = (lista, cods) =>
+        +(lista || [])
+            .filter((x) => cods.includes(x.cod))
+            .reduce((s, x) => s + Number(x.valor || 0), 0)
+            .toFixed(2);
+    return {
+        salary: soma(slip.proventos, ['001']),
+        inss: soma(slip.descontos, ['901']),
+        irrf: soma(slip.descontos, ['902', '906']),
+        benef: soma(slip.proventos, ['010', '011', '012']),
+        bruto: Number(slip.total_proventos || 0),
+        descontos: Number(slip.total_descontos || 0),
+        liquido: Number(slip.salario_liquido || 0),
+        isPJ,
+    };
+}
+
+const PREVIAS_EM_PARALELO = 3;
+let previasGeracao = 0;
+
+async function calcularPrevias(rows, mes) {
+    const fila = rows.slice();
+    const trabalhador = async () => {
+        for (let r = fila.shift(); r; r = fila.shift()) {
+            try {
+                const slip = r.pago ? r.slip : await buildPayslipData(r.emp, mes, r.slip);
+                r.calc = resumoDoHolerite(slip, r.calc.isPJ);
+            } catch (e) {
+                console.error('Prévia do holerite:', e);
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: PREVIAS_EM_PARALELO }, trabalhador));
+}
+
+async function atualizarPrevias() {
+    const geracao = ++previasGeracao;
+    const tbody = document.getElementById('folha-tbody');
+    tbody?.removeAttribute('data-previa');
+    await calcularPrevias(allRows, currentMonth);
+    if (geracao !== previasGeracao) return;
+    renderFolha();
+    loadKPIs();
+    tbody?.setAttribute('data-previa', 'ok');
 }
 
 function loadKPIs() {
@@ -390,7 +482,7 @@ function buildFolhaRow(r) {
     const isSelected = selectedIds.has(emp.id);
 
     return `<tr class="${isSelected ? 'row-selected' : ''}">
-        <td class="td-check"><input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}"></td>
+        <td class="td-check"><input type="checkbox" class="cb-row" data-emp-id="${emp.id}" aria-label="Selecionar ${escapeHtml(emp.name)}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}"></td>
         <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
         <td data-label="Contrato">${ctBadge}</td>
         <td data-label="Bruto"><span class="val-blue">${fmtCurrency(calc.bruto)}</span></td>
@@ -417,7 +509,7 @@ function buildFolhaCard(r) {
     return `<div class="folha-card-item${isSelected ? ' row-selected' : ''}">
         <div class="folha-card-top">
             <label class="folha-card-check">
-                <input type="checkbox" class="cb-row" data-emp-id="${emp.id}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}">
+                <input type="checkbox" class="cb-row" data-emp-id="${emp.id}" aria-label="Selecionar ${escapeHtml(emp.name)}" ${isSelected ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(emp.id, { $: 'this' })}">
             </label>
             <div class="emp-cell">
                 ${empAvatarHtml(emp, ini, color)}
@@ -531,6 +623,11 @@ window.marcarSelecionadosPagos = async function () {
                 created_by: rhUser?.id,
             }))
         );
+        const bloqueio = rows.map((r, i) => validarTributacaoFerias(slipsData[i], r.emp.contractType) && r.emp.name).find(Boolean);
+        if (bloqueio) {
+            showToast(`${bloqueio}: holerite com férias sem desconto de INSS — não foi fechado.`, 'error');
+            return;
+        }
         const { error } = await sb.from('payslips').upsert(slipsData, { onConflict: 'employee_id,mes' });
         if (error) {
             showToast(`Erro: ${error.message}`, 'error');
@@ -667,6 +764,110 @@ function buildHolCard(r, competLabel) {
         </button>
     </div>`;
 }
+
+function linhasRecibosFerias() {
+    const E = window.EventosFolha;
+    const linhas = recibosFerias.map((slip) => ({ slip, emp: employees.find((e) => e.id === slip.employee_id), inicio: E.inicioDoReciboFerias(slip.mes) }));
+    Object.entries(feriasDoMes).forEach(([empId, lista]) =>
+        lista.forEach((v) => {
+            if (linhas.some((l) => l.emp?.id === empId && l.inicio === v.start_date)) return;
+            const emp = employees.find((e) => e.id === empId);
+            const semRecibo = !emp || (emp.contractType || '').toLowerCase() === 'pj' || CLTDomain.isEstagio(emp.contractType);
+            if (!semRecibo) linhas.push({ slip: null, emp, inicio: v.start_date, ferias: v });
+        })
+    );
+    return linhas.filter((l) => l.emp).sort((a, b) => a.inicio.localeCompare(b.inicio));
+}
+
+function renderRecibosFerias() {
+    const box = document.getElementById('recibos-ferias');
+    const list = document.getElementById('recibos-ferias-list');
+    if (!box || !list) return;
+    const linhas = linhasRecibosFerias();
+    box.classList.toggle('hidden', !linhas.length);
+    const hoje = todayKeyRH();
+    const fmt = (iso) => iso.split('-').reverse().join('/');
+    list.innerHTML = linhas
+        .map(({ slip, emp, inicio, ferias }) => {
+            const ate = window.EventosFolha.pagarFeriasAte(inicio);
+            let status, acoes;
+            if (!slip) {
+                status = '<span class="badge badge--pendente">Sem recibo</span>';
+                acoes = `<button type="button" class="btn-recibo" data-click="emitirReciboFerias" data-click-args="${dargs(emp.id, ferias.start_date)}"><i class="fas fa-file-circle-plus"></i> Emitir recibo</button>`;
+            } else {
+                const pago = slip.status === 'pago';
+                status = pago
+                    ? '<span class="badge badge--pago">Pago</span>'
+                    : ate < hoje
+                      ? '<span class="badge badge--atrasado">Atrasado</span>'
+                      : '<span class="badge badge--gerado">A pagar</span>';
+                acoes = `<button type="button" class="btn-recibo btn-recibo--sec" data-click="verReciboFerias" data-click-args="${dargs(slip.id)}"><i class="fas fa-eye"></i> Ver</button>${
+                    pago
+                        ? ''
+                        : `<button type="button" class="btn-recibo" data-click="pagarReciboFerias" data-click-args="${dargs(slip.id)}"><i class="fas fa-check"></i> Marcar pago</button>`
+                }`;
+            }
+            return `<div class="recibo-item" data-emp-id="${emp.id}">
+                <div class="recibo-info">
+                    <p class="recibo-nome">${escapeHtml(emp.name)}</p>
+                    <p class="recibo-meta">Gozo a partir de ${fmt(inicio)} · pagar até ${fmt(ate)}${slip ? ` · líquido ${fmtCurrency(slip.salario_liquido)}` : ''}</p>
+                </div>
+                ${status}
+                <div class="recibo-acoes">${acoes}</div>
+            </div>`;
+        })
+        .join('');
+}
+
+function todayKeyRH() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad0(d.getMonth() + 1)}-${pad0(d.getDate())}`;
+}
+
+window.emitirReciboFerias = async function (empId, startDate) {
+    const emp = employees.find((e) => e.id === empId);
+    const v = (feriasDoMes[empId] || []).find((x) => x.start_date === startDate);
+    if (!emp || !v) return;
+    const recibo = window.EventosFolha.reciboFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: v.days, abono: v.abono });
+    if (!recibo) return;
+    const { error } = await sb.rpc('apply_ferias_recibo', {
+        p_employee_id: empId,
+        p_mes: recibo.mes,
+        p_mes_formatado: recibo.mesFormatado,
+        p_competencia: recibo.competencia,
+        p_proventos: recibo.proventos,
+        p_descontos: recibo.descontos,
+    });
+    if (error) {
+        showToast(`Erro: ${error.message}`, 'error');
+        return;
+    }
+    showToast(`Recibo de férias de ${emp.name} emitido — pagar até ${recibo.pagarAte.split('-').reverse().join('/')}.`, 'success');
+    await refresh();
+};
+
+window.pagarReciboFerias = async function (slipId) {
+    const slip = recibosFerias.find((r) => r.id === slipId);
+    if (!slip) return;
+    const { error } = await sb.from('payslips').update({ status: 'pago', pago_em: new Date().toISOString() }).eq('id', slipId);
+    if (error) {
+        showToast(`Erro: ${error.message}`, 'error');
+        return;
+    }
+    showToast('Recibo de férias marcado como pago.', 'success');
+    await refresh();
+};
+
+window.verReciboFerias = function (slipId) {
+    const slip = recibosFerias.find((r) => r.id === slipId);
+    const emp = slip && employees.find((e) => e.id === slip.employee_id);
+    if (!slip || !emp) return;
+    renderSlipModal(emp, slip);
+    document.getElementById('slip-bank-info')?.classList.add('hidden');
+    currentSlipData = { emp, slip };
+    openModal('slip-modal');
+    NexusAuth.logAccess(emp.id, 'holerite', slip.mes_formatado || slip.mes);
+};
 
 window.verHolerite = function (empId) {
     const row = allRows.find((r) => r.emp.id === empId);
@@ -828,28 +1029,11 @@ async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
     return { noturnoMin, feriadoMin, intervaloDeficitMin };
 }
 
-function weekStartKeyRH(dateKey) {
-    return CLTDomain.weekStartKey(dateKey);
-}
-
-async function calcDsrDescontoMes(empId, monthKey) {
-    const { data: faltas } = await sb
-        .from('adjustment_requests')
-        .select('date')
-        .eq('employee_id', empId)
-        .eq('tipo', 'falta')
-        .eq('status', 'rejeitado')
-        .gte('date', `${monthKey}-01`)
-        .lt('date', nextMonthKey(monthKey));
-    const semanas = new Set((faltas || []).map((f) => weekStartKeyRH(f.date)));
-    return { semanasComPerda: semanas.size };
-}
-
 async function renderSlipBankInfo(emp, slip) {
     const el = document.getElementById('slip-bank-info');
     if (!el) return;
     const jornadaMin = getJornadaMinRH(emp);
-    if (jornadaMin === null || !slip.mes) {
+    if (jornadaMin === null || !/^\d{4}-\d{2}$/.test(slip.mes || '')) {
         el.classList.add('hidden');
         return;
     }
@@ -923,6 +1107,11 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
 
 function nextMonthKey(monthKey) {
     return CLTDomain.nextMonthKey(monthKey);
+}
+
+function lastDayOfMonthKey(monthKey) {
+    const [y, m] = monthKey.split('-').map(Number);
+    return `${monthKey}-${pad0(new Date(y, m, 0).getDate())}`;
 }
 
 let lastDecimoTerceiroCalc = null;
@@ -1191,7 +1380,17 @@ window.calcularRescisaoModal = async function () {
         }
     }
 
-    const r = calcularRescisao({ tipo, salario, admissao, demissao, saldoBancoHorasMin, jornadaMin, workLoad: emp.workLoad, mediaAdicionaisHabituais });
+    const r = calcularRescisao({
+        tipo,
+        salario,
+        admissao,
+        demissao,
+        saldoBancoHorasMin,
+        jornadaMin,
+        workLoad: emp.workLoad,
+        mediaAdicionaisHabituais,
+        contractType: emp.contractType,
+    });
     renderRescisaoResult(r);
     resultEl?.classList.remove('hidden');
 
@@ -2138,4 +2337,4 @@ function showToast(msg, type = 'success') {
     }, 4000);
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { calcINSS, calcIRRF, calcRow, parseCurrency };
+if (typeof module !== 'undefined' && module.exports) module.exports = { calcINSS, calcIRRF, calcRow, parseCurrency, resumoDoHolerite };

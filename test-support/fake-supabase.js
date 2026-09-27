@@ -207,7 +207,7 @@ class FakeQuery {
 
         if (this._op === 'insert') {
             rows = this._payload.map((row) => {
-                const created = { id: client._nextId(this._table), created_at: client.now(), ...clone(row) };
+                const created = { id: client._nextId(this._table), created_at: client.now(), ...clone(client.defaults[this._table] || {}), ...clone(row) };
                 store.push(created);
                 return created;
             });
@@ -216,7 +216,7 @@ class FakeQuery {
             rows = this._payload.map((row) => {
                 const existing = store.find((r) => conflict.every((c) => row[c] !== undefined && String(r[c]) === String(row[c])));
                 if (existing) return Object.assign(existing, clone(row));
-                const created = { id: client._nextId(this._table), created_at: client.now(), ...clone(row) };
+                const created = { id: client._nextId(this._table), created_at: client.now(), ...clone(client.defaults[this._table] || {}), ...clone(row) };
                 store.push(created);
                 return created;
             });
@@ -249,7 +249,7 @@ class FakeQuery {
         if (mutating && !this._returning && !this._single) return { data: null, error: null, count: null, status: 204 };
         if (this._selectOpts?.head) return { data: null, error: null, count, status: 200 };
 
-        const data = clone(rows);
+        const data = project(clone(rows), this._columns);
         if (this._single) {
             if (data.length === 1) return { data: data[0], error: null, count, status: 200 };
             if (data.length === 0 && this._single === 'maybe') return { data: null, error: null, count, status: 200 };
@@ -448,9 +448,19 @@ class FakeAuth {
     }
 }
 
+function project(rows, columns) {
+    if (typeof columns !== 'string' || !columns.trim() || /[*():]/.test(columns)) return rows;
+    const cols = columns
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+    return rows.map((r) => Object.fromEntries(cols.filter((c) => c in r).map((c) => [c, r[c]])));
+}
+
 class FakeSupabase {
-    constructor({ tables = {}, user = null, session, mfa, rpc = {}, functions = {}, errors = {}, signIn, now, views = {} } = {}) {
+    constructor({ tables = {}, user = null, session, mfa, rpc = {}, functions = {}, errors = {}, signIn, now, views = {}, defaults = {} } = {}) {
         this.tables = clone(tables);
+        this.defaults = defaults;
         this.views = views;
         this.calls = [];
         this.handlers = { rpc, functions, signIn };

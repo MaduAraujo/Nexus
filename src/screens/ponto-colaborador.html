@@ -95,6 +95,12 @@
 
                         <p class="ponto-hint" id="ponto-hint"></p>
                         <p class="ponto-sync-status hidden" id="ponto-sync-status"></p>
+                        <div class="biometria-card" id="biometria-card">
+                            <i class="fas fa-face-smile"></i>
+                            <span id="biometria-status-text">Verificando biometria facial...</span>
+                            <button type="button" class="btn-biometria hidden" id="btn-biometria-cadastrar" data-click="abrirCadastroBiometria">Cadastrar</button>
+                            <button type="button" class="btn-biometria btn-biometria--sec hidden" id="btn-biometria-revogar" data-click="revogarBiometria">Revogar</button>
+                        </div>
                     </div>
                 </div>
 
@@ -316,6 +322,40 @@
         <div class="modal-footer">
             <button class="btn-primary" id="btn-confirmar-ponto" data-click="confirmarRegistro" disabled>
                 Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-biometria">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fas fa-face-smile"></i> Cadastrar biometria facial</h3>
+            <button class="modal-close" data-click="closeModal" data-click-args='["modal-biometria"]'><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="biometria-termo">
+                <p><strong>Dado pessoal sensível (LGPD art. 11).</strong> A biometria facial serve só para confirmar que é você quem registra o ponto.</p>
+                <ul>
+                    <li>A foto não é guardada: guardamos só um modelo facial (números), cifrado e separado dos demais dados.</li>
+                    <li>Ninguém consegue ler esse modelo, nem o RH: o sistema de ponto apenas compara a selfie com ele.</li>
+                    <li>Sua foto de perfil não é usada para isso.</li>
+                    <li>Você pode revogar a qualquer momento nesta tela; o modelo é apagado na hora.</li>
+                </ul>
+            </div>
+            <div class="selfie-capture">
+                <video id="bio-video" autoplay playsinline muted></video>
+                <canvas id="bio-canvas"></canvas>
+                <p class="selfie-hint" id="biometria-hint"></p>
+            </div>
+            <label class="biometria-consentimento">
+                <input type="checkbox" id="biometria-consentimento" data-change="onBiometriaConsentimento">
+                <span>Autorizo, de forma específica e destacada, o tratamento da minha biometria facial para verificar minha identidade no registro de ponto.</span>
+            </label>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-primary" id="btn-biometria-salvar" data-click="salvarBiometria" disabled>
+                <i class="fas fa-camera"></i> Capturar e cadastrar
             </button>
         </div>
     </div>

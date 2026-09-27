@@ -44,7 +44,7 @@
 }
 
 .topbar-date.active i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-popover {
@@ -112,7 +112,7 @@
 
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-weekdays {

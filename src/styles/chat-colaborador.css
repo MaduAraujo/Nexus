@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
     --accent-hr: #ec4899;
@@ -11,8 +11,8 @@
     --bg-chat-l: #16181f;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
     --text-on-dark2: #9ca3af;
 
@@ -42,12 +42,14 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
     --info-bg: rgba(59, 130, 246, 0.16);
     --info-text: #93c5fd;
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -258,7 +260,7 @@ body {
 }
 .chat-tab.active {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: rgba(99, 102, 241, 0.3);
 }
 .chat-tab[data-tab='rh'].active {
@@ -309,7 +311,6 @@ body {
     text-transform: uppercase;
     color: var(--text-on-dark2);
     padding: 10px 16px 4px;
-    opacity: 0.7;
 }
 
 .channel-list,
@@ -348,10 +349,10 @@ body {
 }
 .channel-item.active {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .channel-item.active .ch-icon {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .ch-icon {
@@ -646,12 +647,6 @@ body {
     text-align: center;
     font-size: 0.76rem;
 }
-.ticket-menu-option--danger {
-    color: var(--danger);
-}
-.ticket-menu-option--danger:hover {
-    background: rgba(239, 68, 68, 0.12);
-}
 
 .ticket-meta {
     display: flex;
@@ -720,7 +715,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 2rem;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     margin-bottom: 20px;
 }
 
@@ -1120,7 +1115,7 @@ body {
     margin-bottom: 8px;
 }
 .compliance-hint i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.68rem;
 }
 

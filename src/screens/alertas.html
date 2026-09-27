@@ -155,7 +155,7 @@
                             <span class="ai-online-dot"></span>
                         </div>
                     </div>
-                    <div class="chat-messages" id="chat-messages">
+                    <div class="chat-messages" id="chat-messages" tabindex="0" role="log" aria-live="polite" aria-label="Conversa com a análise de IA">
                         <div class="chat-message ai">
                             <div class="ai-avatar-sm"><i class="fas fa-robot"></i></div>
                             <div class="bubble">
@@ -172,8 +172,8 @@
                         </div>
                     </div>
                     <div class="chat-input-row">
-                        <input type="text" id="chat-input" placeholder="Pergunte..." autocomplete="off" />
-                        <button class="btn-send" id="btn-send" disabled>
+                        <input type="text" id="chat-input" placeholder="Pergunte..." autocomplete="off" aria-label="Pergunta para a análise de IA" />
+                        <button class="btn-send" id="btn-send" aria-label="Enviar pergunta" disabled>
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>

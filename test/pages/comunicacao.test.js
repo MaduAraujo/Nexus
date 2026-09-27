@@ -179,6 +179,25 @@ describe('comunicacao.html — histórico', () => {
         assert.deepEqual(ids(), ['m1']);
     });
 
+    test('abrir o histórico antes de os comunicados carregarem mostra a lista quando eles chegam', async () => {
+        const c = client();
+        let liberar;
+        const carregou = new Promise((r) => (liberar = r));
+        const orig = c.from.bind(c);
+        c.from = (t) => {
+            const builder = orig(t);
+            if (t !== 'messages') return builder;
+            const then = builder.then.bind(builder);
+            builder.then = (ok, fail) => carregou.then(() => then(ok, fail));
+            return builder;
+        };
+        page = await openPage('comunicacao', { client: c, now: NOW });
+        await page.click('#main-toggle-btn');
+        assert.equal(page.$$('#messages-list [data-id]').length, 0);
+        liberar();
+        await page.waitFor(() => page.$$('#messages-list [data-id]').length > 0, { message: 'histórico preenchido após a carga' });
+    });
+
     test('engajamento do comunicado mostra quem leu, por departamento', async () => {
         page = await openPage('comunicacao', { client: client(), now: NOW });
         page.eval('void 0');

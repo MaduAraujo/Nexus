@@ -981,6 +981,10 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('ponto-selfies', 'ponto-selfies', false, 3145728, ARRAY['image/jpeg'])
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('documents', 'documents', false, 26218496, NULL)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE POLICY "rh_storage_all" ON storage.objects FOR ALL
   USING (bucket_id = 'documents' AND is_rh());
 
@@ -5158,3 +5162,803 @@ DROP TRIGGER IF EXISTS employees_delete_guard_trg ON employees;
 CREATE TRIGGER employees_delete_guard_trg
   BEFORE DELETE ON employees
   FOR EACH ROW EXECUTE FUNCTION employees_delete_guard();
+
+ALTER TABLE payslips DROP CONSTRAINT IF EXISTS payslips_status_check;
+ALTER TABLE payslips ADD CONSTRAINT payslips_status_check CHECK (status IN ('rascunho', 'publicado', 'pago'));
+
+DROP POLICY IF EXISTS "colabo_payslips_own" ON payslips;
+CREATE POLICY "colabo_payslips_own" ON payslips FOR SELECT
+  USING (employee_id = my_employee_id() AND status <> 'rascunho');
+
+CREATE OR REPLACE FUNCTION payslips_tributacao_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_proventos JSONB;
+  v_descontos JSONB;
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') OR NEW.status NOT IN ('publicado', 'pago') THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    v_proventos := NEW.proventos::TEXT::JSONB;
+    v_descontos := NEW.descontos::TEXT::JSONB;
+  EXCEPTION WHEN OTHERS THEN
+    v_proventos := NULL;
+  END;
+
+  IF v_proventos IS NULL OR jsonb_typeof(v_proventos) <> 'array' THEN
+    IF TG_OP = 'UPDATE' AND OLD.status IN ('publicado', 'pago') THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Holerite em rascunho só é publicado com a folha recalculada.' USING ERRCODE = '23514';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_proventos) p WHERE p->>'cod' IN ('040', '041') AND (p->>'valor')::NUMERIC > 0)
+     AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(v_descontos, '[]'::JSONB)) d WHERE d->>'cod' = '901' AND (d->>'valor')::NUMERIC > 0) THEN
+    RAISE EXCEPTION 'Holerite com férias sem desconto de INSS não pode ser publicado nem pago. Recalcule a folha do mês.'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION payslips_tributacao_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS payslips_a_tributacao_guard_trg ON payslips;
+CREATE TRIGGER payslips_a_tributacao_guard_trg
+  BEFORE INSERT OR UPDATE ON payslips
+  FOR EACH ROW EXECUTE FUNCTION payslips_tributacao_guard();
+
+CREATE OR REPLACE FUNCTION apply_ferias_payroll_event(
+  p_employee_id UUID,
+  p_mes TEXT,
+  p_mes_formatado TEXT,
+  p_competencia TEXT,
+  p_novos_proventos JSONB
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_existing payslips_decrypted;
+  v_proventos JSONB;
+  v_total_proventos NUMERIC;
+BEGIN
+  IF NOT is_rh() THEN
+    RAISE EXCEPTION 'Apenas o RH pode gerar eventos de folha';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text || ':' || p_mes, 0));
+
+  SELECT * INTO v_existing FROM payslips_decrypted WHERE employee_id = p_employee_id AND mes = p_mes;
+
+  IF FOUND THEN
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(v_existing.proventos, '[]'::jsonb)) p WHERE p->>'cod' = '040') THEN
+      RETURN;
+    END IF;
+    IF v_existing.status = 'pago' THEN
+      RAISE EXCEPTION 'O holerite de % já foi pago: lance as férias em folha complementar.', p_mes USING ERRCODE = '55000';
+    END IF;
+    v_proventos := COALESCE(v_existing.proventos, '[]'::jsonb) || p_novos_proventos;
+    v_total_proventos := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(v_proventos) p);
+    UPDATE payslips SET
+      proventos = v_proventos::text,
+      total_proventos = v_total_proventos::text,
+      salario_liquido = (v_total_proventos - COALESCE(v_existing.total_descontos, 0))::text,
+      status = 'rascunho'
+    WHERE id = v_existing.id;
+  ELSE
+    v_total_proventos := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(p_novos_proventos) p);
+    INSERT INTO payslips (employee_id, mes, mes_formatado, competencia, proventos, descontos, total_proventos, total_descontos, salario_liquido, status)
+    VALUES (p_employee_id, p_mes, p_mes_formatado, p_competencia, p_novos_proventos::text, '[]', v_total_proventos::text, '0', v_total_proventos::text, 'rascunho');
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION apply_ferias_payroll_event(UUID, TEXT, TEXT, TEXT, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION apply_ferias_payroll_event(UUID, TEXT, TEXT, TEXT, JSONB) TO authenticated, service_role;
+
+UPDATE payslips p SET status = 'rascunho'
+  FROM payslips_decrypted d
+ WHERE d.id = p.id
+   AND d.status = 'publicado'
+   AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(d.proventos, '[]'::jsonb)) x WHERE x->>'cod' IN ('040', '041'))
+   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(d.descontos, '[]'::jsonb)) x WHERE x->>'cod' = '901');
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at     TIMESTAMPTZ;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_reason TEXT;
+
+CREATE OR REPLACE FUNCTION document_is_retained(p_status TEXT, p_retido_ate DATE)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT p_status = 'aprovado' AND (p_retido_ate IS NULL OR p_retido_ate >= CURRENT_DATE);
+$$;
+
+GRANT EXECUTE ON FUNCTION document_is_retained(TEXT, DATE) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION document_path_locked(p_path TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM documents d
+     WHERE d.storage_path = p_path
+       AND (document_is_retained(d.status, d.retido_ate)
+            OR (d.deleted_at IS NOT NULL AND (d.retido_ate IS NULL OR d.retido_ate >= CURRENT_DATE)))
+  );
+$$;
+
+REVOKE ALL ON FUNCTION document_path_locked(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION document_path_locked(TEXT) TO authenticated, service_role;
+
+DROP POLICY IF EXISTS "colabo_docs_select_own" ON documents;
+CREATE POLICY "colabo_docs_select_own" ON documents FOR SELECT
+  USING (employee_id = my_employee_id() AND deleted_at IS NULL);
+
+DROP POLICY IF EXISTS "colabo_docs_delete_own" ON documents;
+CREATE POLICY "colabo_docs_delete_own" ON documents FOR DELETE
+  USING (employee_id = my_employee_id() AND source = 'colaborador' AND deleted_at IS NULL
+         AND NOT document_is_retained(status, retido_ate));
+
+CREATE OR REPLACE FUNCTION documents_retention_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    IF document_is_retained(OLD.status, OLD.retido_ate) THEN
+      RAISE EXCEPTION 'Documento aprovado sob guarda legal até % não pode ser apagado. O RH pode excluí-lo de forma lógica, informando o motivo.',
+        COALESCE(to_char(OLD.retido_ate, 'DD/MM/YYYY'), 'prazo indefinido') USING ERRCODE = '42501';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF OLD.deleted_at IS NOT NULL THEN
+    RAISE EXCEPTION 'Documento excluído é mantido só para guarda legal e não pode ser alterado.' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.deleted_at IS NOT NULL OR NEW.deleted_by IS NOT NULL OR NEW.deleted_reason IS NOT NULL THEN
+    RAISE EXCEPTION 'A exclusão de documento só é feita pela função soft_delete_documents (com motivo).' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION documents_retention_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS documents_retention_guard_trg ON documents;
+CREATE TRIGGER documents_retention_guard_trg
+  BEFORE UPDATE OR DELETE ON documents
+  FOR EACH ROW EXECUTE FUNCTION documents_retention_guard();
+
+CREATE OR REPLACE FUNCTION soft_delete_documents(p_ids UUID[], p_reason TEXT)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_reason TEXT := btrim(COALESCE(p_reason, ''));
+  v_count  INTEGER;
+BEGIN
+  IF NOT is_rh() THEN
+    RAISE EXCEPTION 'Apenas o RH pode excluir documentos.' USING ERRCODE = '42501';
+  END IF;
+  IF length(v_reason) < 10 THEN
+    RAISE EXCEPTION 'Informe o motivo da exclusão (mínimo de 10 caracteres).' USING ERRCODE = '22023';
+  END IF;
+
+  WITH excluidos AS (
+    UPDATE documents
+       SET deleted_at = NOW(), deleted_by = auth.uid(), deleted_reason = v_reason
+     WHERE id = ANY(p_ids) AND deleted_at IS NULL
+    RETURNING id, name, employee_id, retido_ate
+  ), auditoria AS (
+    INSERT INTO document_audit_log (document_id, document_name, employee_id, action, actor_id, actor_name, actor_profile, details)
+    SELECT id, name, employee_id, 'excluido', auth.uid(), 'Administrador', 'rh',
+           jsonb_build_object('motivo', v_reason, 'exclusao', 'logica', 'retido_ate', retido_ate, 'email', auth.jwt()->>'email')
+      FROM excluidos
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_count FROM auditoria;
+  RETURN v_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION soft_delete_documents(UUID[], TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION soft_delete_documents(UUID[], TEXT) TO authenticated, service_role;
+
+DROP POLICY IF EXISTS "documents_storage_retention_delete" ON storage.objects;
+CREATE POLICY "documents_storage_retention_delete" ON storage.objects AS RESTRICTIVE FOR DELETE
+  USING (bucket_id <> 'documents' OR NOT document_path_locked(name));
+
+DROP POLICY IF EXISTS "documents_storage_retention_update" ON storage.objects;
+CREATE POLICY "documents_storage_retention_update" ON storage.objects AS RESTRICTIVE FOR UPDATE
+  USING (bucket_id <> 'documents' OR NOT document_path_locked(name));
+
+DROP POLICY IF EXISTS "tickets_colab_delete_own" ON hr_tickets;
+
+CREATE OR REPLACE FUNCTION hr_tickets_history_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'O histórico de atendimentos é preservado para o RH. Para tirar da sua lista, use "Apagar para mim".' USING ERRCODE = '42501';
+  END IF;
+  IF TG_TABLE_NAME = 'hr_ticket_messages' THEN
+    RAISE EXCEPTION 'Mensagens de atendimento não podem ser alteradas.' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION hr_tickets_history_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS hr_tickets_history_guard_trg ON hr_tickets;
+CREATE TRIGGER hr_tickets_history_guard_trg
+  BEFORE DELETE ON hr_tickets
+  FOR EACH ROW EXECUTE FUNCTION hr_tickets_history_guard();
+
+DROP TRIGGER IF EXISTS hr_ticket_messages_history_guard_trg ON hr_ticket_messages;
+CREATE TRIGGER hr_ticket_messages_history_guard_trg
+  BEFORE UPDATE OR DELETE ON hr_ticket_messages
+  FOR EACH ROW EXECUTE FUNCTION hr_tickets_history_guard();
+
+CREATE TABLE IF NOT EXISTS biometric_templates (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id     UUID NOT NULL UNIQUE REFERENCES employees(id) ON DELETE CASCADE,
+  template        TEXT NOT NULL,
+  consent_version TEXT NOT NULL,
+  consent_at      TIMESTAMPTZ NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS biometric_verifications (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  matched     BOOLEAN NOT NULL,
+  distance    NUMERIC(6, 4),
+  vector_hash TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  consumed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS biometric_verifications_emp_idx ON biometric_verifications(employee_id, created_at DESC);
+
+ALTER TABLE biometric_templates     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE biometric_verifications ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON biometric_templates, biometric_verifications FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  t TEXT;
+BEGIN
+  IF to_regprocedure('public.mfa_ok()') IS NULL THEN
+    RETURN;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['biometric_templates', 'biometric_verifications'] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS mfa_required ON public.%I', t);
+    EXECUTE format('CREATE POLICY mfa_required ON public.%I AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()))', t);
+  END LOOP;
+END $$;
+
+CREATE OR REPLACE FUNCTION biometric_templates_encrypt()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  NEW.template   := nexus_wrap('bio:' || NEW.employee_id::TEXT, nexus_norm_json('Modelo biométrico', NEW.template));
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION biometric_templates_encrypt() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS biometric_templates_encrypt_trg ON biometric_templates;
+CREATE TRIGGER biometric_templates_encrypt_trg
+  BEFORE INSERT OR UPDATE ON biometric_templates
+  FOR EACH ROW EXECUTE FUNCTION biometric_templates_encrypt();
+
+CREATE OR REPLACE FUNCTION biometric_descriptor_ok(p_descriptor JSONB)
+RETURNS BOOLEAN
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT jsonb_typeof(p_descriptor) = 'array'
+     AND jsonb_array_length(p_descriptor) = 128
+     AND NOT EXISTS (
+       SELECT 1 FROM jsonb_array_elements(p_descriptor) v
+        WHERE jsonb_typeof(v) <> 'number' OR abs(v::TEXT::NUMERIC) > 10
+     );
+$$;
+
+REVOKE ALL ON FUNCTION biometric_descriptor_ok(JSONB) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION biometric_status()
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_emp UUID := my_employee_id();
+  v_row biometric_templates;
+BEGIN
+  IF v_emp IS NULL THEN
+    RAISE EXCEPTION 'Somente o próprio colaborador consulta a sua biometria.' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO v_row FROM biometric_templates WHERE employee_id = v_emp;
+  RETURN jsonb_build_object('enrolled', FOUND, 'consent_at', v_row.consent_at, 'consent_version', v_row.consent_version);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION biometric_enroll(p_descriptor JSONB, p_consent BOOLEAN, p_consent_version TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_emp UUID := my_employee_id();
+BEGIN
+  IF v_emp IS NULL THEN
+    RAISE EXCEPTION 'Somente o próprio colaborador cadastra a sua biometria.' USING ERRCODE = '42501';
+  END IF;
+  IF p_consent IS NOT TRUE OR btrim(COALESCE(p_consent_version, '')) = '' THEN
+    RAISE EXCEPTION 'O cadastro da biometria exige o seu consentimento específico (LGPD art. 11).' USING ERRCODE = '22023';
+  END IF;
+  IF NOT biometric_descriptor_ok(p_descriptor) THEN
+    RAISE EXCEPTION 'Modelo facial inválido.' USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO biometric_templates (employee_id, template, consent_version, consent_at)
+  VALUES (v_emp, p_descriptor::TEXT, p_consent_version, NOW())
+  ON CONFLICT (employee_id) DO UPDATE
+     SET template = EXCLUDED.template, consent_version = EXCLUDED.consent_version, consent_at = EXCLUDED.consent_at;
+
+  RETURN jsonb_build_object('enrolled', true);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION biometric_verify(p_descriptor JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_emp       UUID := my_employee_id();
+  v_cipher    TEXT;
+  v_template  JSONB;
+  v_distance  NUMERIC;
+  v_matched   BOOLEAN;
+  v_id        UUID;
+  v_hash      TEXT := encode(digest(p_descriptor::TEXT, 'sha256'), 'hex');
+  c_threshold CONSTANT NUMERIC := 0.55;
+  c_replay    CONSTANT NUMERIC := 0.01;
+BEGIN
+  IF v_emp IS NULL THEN
+    RAISE EXCEPTION 'Somente o próprio colaborador verifica a sua biometria.' USING ERRCODE = '42501';
+  END IF;
+  IF NOT biometric_descriptor_ok(p_descriptor) THEN
+    RAISE EXCEPTION 'Modelo facial inválido.' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT template INTO v_cipher FROM biometric_templates WHERE employee_id = v_emp;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('enrolled', false);
+  END IF;
+
+  IF (SELECT count(*) FROM biometric_verifications
+       WHERE employee_id = v_emp AND created_at > NOW() - INTERVAL '10 minutes') >= 10 THEN
+    RAISE EXCEPTION 'Muitas tentativas de verificação. Aguarde alguns minutos.' USING ERRCODE = '54000';
+  END IF;
+
+  v_template := nexus_unwrap('bio:' || v_emp::TEXT, v_cipher)::JSONB;
+  SELECT sqrt(sum(power(a.v::TEXT::NUMERIC - b.v::TEXT::NUMERIC, 2)))
+    INTO v_distance
+    FROM jsonb_array_elements(v_template) WITH ORDINALITY a(v, i)
+    JOIN jsonb_array_elements(p_descriptor) WITH ORDINALITY b(v, i) USING (i);
+  v_matched := v_distance <= c_threshold
+               AND v_distance >= c_replay
+               AND NOT EXISTS (SELECT 1 FROM biometric_verifications WHERE employee_id = v_emp AND vector_hash = v_hash);
+
+  INSERT INTO biometric_verifications (employee_id, matched, distance, vector_hash)
+  VALUES (v_emp, v_matched, round(v_distance, 4), v_hash)
+  RETURNING id INTO v_id;
+
+  RETURN jsonb_build_object('enrolled', true, 'matched', v_matched, 'verification_id', CASE WHEN v_matched THEN v_id END);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION biometric_revoke()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_emp UUID := my_employee_id();
+BEGIN
+  IF v_emp IS NULL THEN
+    RAISE EXCEPTION 'Somente o próprio colaborador revoga a sua biometria.' USING ERRCODE = '42501';
+  END IF;
+  DELETE FROM biometric_templates WHERE employee_id = v_emp;
+  DELETE FROM biometric_verifications WHERE employee_id = v_emp;
+  RETURN jsonb_build_object('enrolled', false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION biometric_status()                        FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION biometric_enroll(JSONB, BOOLEAN, TEXT)    FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION biometric_verify(JSONB)                   FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION biometric_revoke()                        FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION biometric_status()                     TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION biometric_enroll(JSONB, BOOLEAN, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION biometric_verify(JSONB)                TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION biometric_revoke()                     TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION biometric_consume_for_punch(p_employee_id UUID, p_token UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_employee_id IS DISTINCT FROM my_employee_id() THEN
+    RETURN false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM biometric_templates WHERE employee_id = p_employee_id) THEN
+    RETURN true;
+  END IF;
+  UPDATE biometric_verifications
+     SET consumed_at = NOW()
+   WHERE id = p_token
+     AND employee_id = p_employee_id
+     AND matched
+     AND consumed_at IS NULL
+     AND created_at > NOW() - INTERVAL '15 minutes';
+  RETURN FOUND;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION biometric_consume_for_punch(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION biometric_consume_for_punch(UUID, UUID) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS punch_time_record(DATE, TEXT, JSONB, TEXT);
+
+CREATE OR REPLACE FUNCTION punch_time_record(
+  p_date            DATE,
+  p_step            TEXT,
+  p_loc             JSONB DEFAULT NULL,
+  p_selfie_path     TEXT DEFAULT NULL,
+  p_biometric_token UUID DEFAULT NULL
+)
+RETURNS time_records
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+DECLARE
+  v_employee_id UUID := my_employee_id();
+  v_result      time_records;
+BEGIN
+  IF v_employee_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário autenticado não é um colaborador com ponto habilitado';
+  END IF;
+  IF p_step NOT IN ('entrada', 'saida_almoco', 'retorno_almoco', 'saida') THEN
+    RAISE EXCEPTION 'Etapa de ponto inválida: %', p_step;
+  END IF;
+  IF NOT biometric_consume_for_punch(v_employee_id, p_biometric_token) THEN
+    RAISE EXCEPTION 'Verificação facial ausente ou expirada. Tire a selfie novamente.' USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO time_records (employee_id, date)
+  VALUES (v_employee_id, p_date)
+  ON CONFLICT (employee_id, date) DO NOTHING;
+
+  IF p_step = 'entrada' THEN
+    UPDATE time_records SET entrada = now(), entrada_loc = p_loc, entrada_selfie_path = p_selfie_path
+      WHERE employee_id = v_employee_id AND date = p_date
+      RETURNING * INTO v_result;
+  ELSIF p_step = 'saida_almoco' THEN
+    UPDATE time_records SET saida_almoco = now(), saida_almoco_loc = p_loc, saida_almoco_selfie_path = p_selfie_path
+      WHERE employee_id = v_employee_id AND date = p_date
+      RETURNING * INTO v_result;
+  ELSIF p_step = 'retorno_almoco' THEN
+    UPDATE time_records SET retorno_almoco = now(), retorno_almoco_loc = p_loc, retorno_almoco_selfie_path = p_selfie_path
+      WHERE employee_id = v_employee_id AND date = p_date
+      RETURNING * INTO v_result;
+  ELSE
+    UPDATE time_records SET saida = now(), saida_loc = p_loc, saida_selfie_path = p_selfie_path
+      WHERE employee_id = v_employee_id AND date = p_date
+      RETURNING * INTO v_result;
+  END IF;
+
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION punch_time_record(DATE, TEXT, JSONB, TEXT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION punch_time_record(DATE, TEXT, JSONB, TEXT, UUID) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION nexus_encrypted_columns()
+RETURNS TABLE (tbl TEXT, col TEXT, ctx TEXT)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT * FROM (VALUES
+    ('employees', 'cpf',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'rg',                 $q$'emp:' || t.id::text$q$),
+    ('employees', 'telefone',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'salary',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'chave_pix',          $q$'emp:' || t.id::text$q$),
+    ('employees', 'agencia',            $q$'emp:' || t.id::text$q$),
+    ('employees', 'conta',              $q$'emp:' || t.id::text$q$),
+    ('employees', 'birth_date',         $q$'emp:' || t.id::text$q$),
+    ('employees', 'gender',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'raca_cor',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'deficiencia',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'tipo_pensao',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'pcd',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'pensao_alimenticia', $q$'emp:' || t.id::text$q$),
+    ('employee_audit', 'changes',       $q$'emp:' || t.employee_id::text || ':audit:' || t.id::text$q$),
+    ('chat_messages',       'content',  $q$'chan:' || t.channel_id::text$q$),
+    ('hr_ticket_messages',  'content',  $q$'tkt:' || t.ticket_id::text$q$),
+    ('payslips', 'proventos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':proventos'$q$),
+    ('payslips', 'descontos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':descontos'$q$),
+    ('payslips', 'total_proventos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_proventos'$q$),
+    ('payslips', 'total_descontos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_descontos'$q$),
+    ('payslips', 'salario_liquido', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':salario_liquido'$q$),
+    ('anonymous_feedback',  'message',     $q$'fb:' || t.id::text || ':message'$q$),
+    ('ai_analysis_cache',   'summary',     $q$'ai:cache:' || t.cache_key || ':summary'$q$),
+    ('ai_analysis_cache',   'alerts',      $q$'ai:cache:' || t.cache_key || ':alerts'$q$),
+    ('ai_analysis_history', 'summary',     $q$'ai:hist:' || t.id::text || ':summary'$q$),
+    ('ai_analysis_history', 'alerts',      $q$'ai:hist:' || t.id::text || ':alerts'$q$),
+    ('ai_chat_history',     'content',     $q$'ai:chat:' || t.id::text || ':content'$q$),
+    ('ai_decision_memory',  'description', $q$'ai:mem:' || t.id::text || ':description'$q$),
+    ('ai_decision_log',     'ai_message',  $q$'ail:' || t.id::text || ':ai_message'$q$),
+    ('ai_decision_log',     'evidence',    $q$'ail:' || t.id::text || ':evidence'$q$),
+    ('biometric_templates', 'template',    $q$'bio:' || t.employee_id::text$q$)
+  ) AS r (tbl, col, ctx);
+$$;
+
+REVOKE ALL ON FUNCTION nexus_encrypted_columns() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION apply_ferias_recibo(
+  p_employee_id   UUID,
+  p_mes           TEXT,
+  p_mes_formatado TEXT,
+  p_competencia   TEXT,
+  p_proventos     JSONB,
+  p_descontos     JSONB
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_total_proventos NUMERIC;
+  v_total_descontos NUMERIC;
+BEGIN
+  IF NOT is_rh() THEN
+    RAISE EXCEPTION 'Apenas o RH pode gerar recibo de férias';
+  END IF;
+  IF p_mes !~ '^[0-9]{4}-[0-9]{2}-F[0-9]{2}$' THEN
+    RAISE EXCEPTION 'Chave de recibo de férias inválida: %', p_mes USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_proventos) p WHERE p->>'cod' IN ('040', '041') AND (p->>'valor')::NUMERIC > 0)
+     AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(p_descontos, '[]'::jsonb)) d WHERE d->>'cod' = '901' AND (d->>'valor')::NUMERIC > 0) THEN
+    RAISE EXCEPTION 'Recibo de férias sem desconto de INSS não pode ser emitido.' USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text || ':' || p_mes, 0));
+  IF EXISTS (SELECT 1 FROM payslips WHERE employee_id = p_employee_id AND mes = p_mes) THEN
+    RETURN;
+  END IF;
+
+  v_total_proventos := (SELECT COALESCE(SUM((p->>'valor')::numeric), 0) FROM jsonb_array_elements(p_proventos) p);
+  v_total_descontos := (SELECT COALESCE(SUM((d->>'valor')::numeric), 0) FROM jsonb_array_elements(COALESCE(p_descontos, '[]'::jsonb)) d);
+  INSERT INTO payslips (employee_id, mes, mes_formatado, competencia, proventos, descontos, total_proventos, total_descontos, salario_liquido, status)
+  VALUES (p_employee_id, p_mes, p_mes_formatado, p_competencia, p_proventos::text, COALESCE(p_descontos, '[]'::jsonb)::text,
+          v_total_proventos::text, v_total_descontos::text, (v_total_proventos - v_total_descontos)::text, 'publicado');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION apply_ferias_recibo(UUID, TEXT, TEXT, TEXT, JSONB, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION apply_ferias_recibo(UUID, TEXT, TEXT, TEXT, JSONB, JSONB) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION revert_ferias_recibo(p_employee_id UUID, p_mes TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT is_rh() THEN
+    RAISE EXCEPTION 'Apenas o RH pode cancelar recibo de férias';
+  END IF;
+  IF p_mes !~ '^[0-9]{4}-[0-9]{2}-F[0-9]{2}$' THEN
+    RAISE EXCEPTION 'Chave de recibo de férias inválida: %', p_mes USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_employee_id::text || ':' || p_mes, 0));
+  IF EXISTS (SELECT 1 FROM payslips WHERE employee_id = p_employee_id AND mes = p_mes AND status = 'pago') THEN
+    RAISE EXCEPTION 'O recibo de férias de % já foi pago: o estorno é feito na rescisão ou em folha complementar.', p_mes USING ERRCODE = '55000';
+  END IF;
+  DELETE FROM payslips WHERE employee_id = p_employee_id AND mes = p_mes;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION revert_ferias_recibo(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION revert_ferias_recibo(UUID, TEXT) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION generate_compliance_alerts()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_hoje           DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_emp            RECORD;
+  v_alertas        JSONB;
+  v_n              INTEGER;
+  v_cycle_start    DATE;
+  v_cycle_end      DATE;
+  v_concessivo     DATE;
+  v_used_remaining INTEGER;
+  v_expired_days   INTEGER;
+  v_pending        INTEGER;
+  v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
+BEGIN
+  FOR v_emp IN
+    SELECT id, admission_date, contract_type, is_probation, probation_end_date,
+           is_aviso_previo, aviso_previo_end_date
+    FROM employees
+    WHERE status IN ('Ativo', 'ativo')
+  LOOP
+    v_alertas := '[]'::jsonb;
+
+    IF v_emp.admission_date IS NOT NULL AND COALESCE(v_emp.contract_type, '') NOT IN ('estagio', 'estágio', 'aprendiz') THEN
+      v_used_remaining := COALESCE((
+        SELECT SUM(days + CASE WHEN abono THEN 10 ELSE 0 END) FROM vacations
+        WHERE employee_id = v_emp.id AND status IN ('aprovado', 'concluido')
+      ), 0);
+      v_expired_days := 0;
+      v_n := 0;
+      LOOP
+        v_cycle_start := (v_emp.admission_date + (v_n || ' years')::interval)::date;
+        EXIT WHEN v_cycle_start > v_hoje;
+        v_cycle_end := (v_emp.admission_date + ((v_n + 1) || ' years')::interval)::date - 1;
+        IF v_cycle_end < v_hoje THEN
+          v_pending := GREATEST(0, 30 - LEAST(v_used_remaining, 30));
+          v_used_remaining := GREATEST(0, v_used_remaining - 30);
+          IF v_pending > 0 THEN
+            v_concessivo := (v_cycle_end + INTERVAL '1 year')::date;
+            IF v_hoje > v_concessivo THEN
+              v_expired_days := v_expired_days + v_pending;
+            END IF;
+          END IF;
+        END IF;
+        v_n := v_n + 1;
+      END LOOP;
+      IF v_expired_days > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'ferias_vencidas', 'nivel', 'critico',
+          'titulo', format('%s dia(s) de férias vencidas', v_expired_days),
+          'mensagem', format('%s dia(s) de férias vencidas — risco de pagamento em dobro (CLT art. 137).', v_expired_days)
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_probation AND v_emp.probation_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.probation_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'fim_experiencia',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Experiência vencida há %sd', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Experiência vence hoje'
+            ELSE format('Experiência vence em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_aviso_previo AND v_emp.aviso_previo_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.aviso_previo_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aviso_previo',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Aviso prévio venceu há %sd — regularizar desligamento', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Aviso prévio termina hoje'
+            ELSE format('Aviso prévio termina em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
+      INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
+      VALUES (v_emp.id, v_hoje, v_alertas, false)
+      ON CONFLICT (employee_id, date) DO UPDATE
+        SET alertas = EXCLUDED.alertas,
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+DO $$
+DECLARE
+  r      RECORD;
+  v_qual TEXT;
+  v_chk  TEXT;
+  v_sql  TEXT;
+BEGIN
+  FOR r IN
+    SELECT schemaname, tablename, policyname, qual, with_check
+      FROM pg_policies
+     WHERE schemaname = 'public'
+       AND (qual ~ '(is_rh|my_employee_id|auth\.uid)\(\)' OR with_check ~ '(is_rh|my_employee_id|auth\.uid)\(\)')
+  LOOP
+    v_qual := regexp_replace(r.qual, '(?<!SELECT )\m(is_rh|my_employee_id|auth\.uid)\(\)', '(SELECT \1())', 'g');
+    v_chk  := regexp_replace(r.with_check, '(?<!SELECT )\m(is_rh|my_employee_id|auth\.uid)\(\)', '(SELECT \1())', 'g');
+    IF v_qual IS NOT DISTINCT FROM r.qual AND v_chk IS NOT DISTINCT FROM r.with_check THEN
+      CONTINUE;
+    END IF;
+    v_sql := format('ALTER POLICY %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
+    IF v_qual IS NOT NULL THEN
+      v_sql := v_sql || format(' USING (%s)', v_qual);
+    END IF;
+    IF v_chk IS NOT NULL THEN
+      v_sql := v_sql || format(' WITH CHECK (%s)', v_chk);
+    END IF;
+    EXECUTE v_sql;
+  END LOOP;
+END $$;

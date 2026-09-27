@@ -47,12 +47,12 @@ async function loadUserInfo(user, profile) {
 
     if (sidebarAvatar) {
         sidebarAvatar.textContent = iniciais;
-        sidebarAvatar.style.background = avatarColor;
+        sidebarAvatar.style.background = window.nexusFundoLegivel(avatarColor);
     }
     if (sidebarName) sidebarName.textContent = nome;
     if (welcomeAvatar) {
         welcomeAvatar.textContent = iniciais;
-        welcomeAvatar.style.background = avatarColor;
+        welcomeAvatar.style.background = window.nexusFundoLegivel(avatarColor);
     }
     if (welcomeName) welcomeName.textContent = nome;
 }

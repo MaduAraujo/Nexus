@@ -167,6 +167,11 @@
                         </button>
                     </div>
 
+                    <div class="recibos-ferias hidden" id="recibos-ferias">
+                        <p class="recibos-ferias-title"><i class="fas fa-umbrella-beach"></i> Recibos de férias <span>— pagos até 2 dias antes do início do gozo (CLT art. 145), fora da folha do mês</span></p>
+                        <div id="recibos-ferias-list"></div>
+                    </div>
+
                     <div class="summary-row" id="summary-row">
                         <div class="summary-item">
                             <span class="summary-label">Total Brutos</span>
@@ -194,7 +199,7 @@
                         <table class="req-table">
                             <thead>
                                 <tr>
-                                    <th class="th-check"><input type="checkbox" class="cb-row" id="select-all-cb" data-change="toggleSelectAll" data-change-args='[{"$":"this"}]'></th>
+                                    <th class="th-check"><input type="checkbox" class="cb-row" id="select-all-cb" aria-label="Selecionar todos" data-change="toggleSelectAll" data-change-args='[{"$":"this"}]'></th>
                                     <th>Colaborador</th>
                                     <th>Contrato</th>
                                     <th>Salário Bruto</th>
@@ -448,6 +453,7 @@
     <script src="../javascript/shared/search.js"></script>
     <script src="../javascript/domain/tabelas-fiscais.js"></script>
     <script src="../javascript/domain/clt-domain.js"></script>
+    <script src="../javascript/shared/faltas.js"></script>
     <script src="../javascript/domain/calculo-rescisao.js"></script>
     <script src="../javascript/domain/eventos-folha.js"></script>
     <script src="../javascript/pagamentos.js"></script>

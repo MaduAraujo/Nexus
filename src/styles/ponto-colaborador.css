@@ -1,13 +1,13 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
     --bg-page: #f0f1f5;
     --bg-white: #ffffff;
     --bg-topbar: #0d0e12;
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --border-color: #e5e7eb;
     --border-dark: rgba(255, 255, 255, 0.07);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
@@ -37,7 +37,7 @@
     --bg-white: #16171d;
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
     --border-color: rgba(255, 255, 255, 0.08);
     --success-bg: rgba(16, 185, 129, 0.16);
     --success-text: #34d399;
@@ -49,6 +49,8 @@
     --info-text: #60a5fa;
     --neutral-bg: rgba(255, 255, 255, 0.06);
     --neutral-text: #9aa1b0;
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -289,7 +291,7 @@ html {
     gap: 8px;
 }
 .ponto-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.85rem;
 }
 .ponto-clock {
@@ -330,7 +332,7 @@ html {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #f1f5f9;
+    background: var(--bg-soft, #f1f5f9);
     border: 2px solid #e2e8f0;
     display: flex;
     align-items: center;
@@ -348,7 +350,7 @@ html {
 .ts-step.current .ts-dot {
     background: #fff;
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     animation: pulse-ring 2s infinite;
 }
 @keyframes pulse-ring {
@@ -374,7 +376,7 @@ html {
     color: var(--text-main);
 }
 .ts-step.done .ts-time {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .ts-line {
     height: 2px;
@@ -713,7 +715,7 @@ html {
     gap: 5px;
     background: none;
     border: none;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.74rem;
     font-weight: 600;
     cursor: pointer;
@@ -776,7 +778,7 @@ html {
     gap: 8px;
 }
 .section-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.85rem;
 }
 .section-title--plain {
@@ -875,7 +877,7 @@ html {
 
 .map-loading i {
     font-size: 1.5rem;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 #map-leaflet {
@@ -946,7 +948,7 @@ html {
     height: 30px;
     border-radius: 8px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -998,7 +1000,7 @@ html {
 
 .btn-refresh-loc:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: rgba(99, 102, 241, 0.3);
 }
 .btn-refresh-loc.spin i {
@@ -1073,7 +1075,7 @@ html {
 }
 .date-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .select-popover {
@@ -1136,7 +1138,7 @@ html {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -1208,7 +1210,7 @@ html {
 }
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-weekdays {
@@ -1299,7 +1301,7 @@ html {
         color 0.15s;
 }
 .clock-digit.active {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
 }
 .clock-digit-sep {
@@ -1547,7 +1549,7 @@ html {
 .btn-file-choose:hover {
     background: var(--accent-light);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .file-picker-name {
     font-size: 0.78rem;
@@ -1736,7 +1738,7 @@ html {
     opacity: 0.25;
     display: block;
     margin-bottom: 14px;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     animation: floatY 3s ease-in-out infinite;
 }
 @keyframes floatY {
@@ -1809,7 +1811,7 @@ html {
     gap: 9px;
 }
 .modal-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .modal-close {
     background: var(--bg-white);
@@ -1911,14 +1913,14 @@ html {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 1.15rem;
     font-weight: 800;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .badge-tipo {
     padding: 4px 12px;
     border-radius: 50px;
     font-size: 0.76rem;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .confirmar-aviso {
     display: flex;
@@ -1958,8 +1960,74 @@ html {
     background: #111;
     transform: scaleX(-1);
 }
-#selfie-canvas {
+#selfie-canvas,
+#bio-canvas {
     display: none;
+}
+#bio-video {
+    width: 100%;
+    max-width: 220px;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #111;
+    transform: scaleX(-1);
+}
+
+.biometria-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+.biometria-card > span {
+    flex: 1;
+}
+.btn-biometria {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+}
+.btn-biometria--sec {
+    background: none;
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+.btn-biometria.hidden {
+    display: none;
+}
+
+.biometria-termo {
+    font-size: 0.8rem;
+    color: var(--text-main);
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+.biometria-termo ul {
+    margin: 6px 0 0 1.2em;
+    padding: 0;
+}
+
+.biometria-consentimento {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--text-main);
+    cursor: pointer;
+}
+.biometria-consentimento input {
+    margin-top: 3px;
+    accent-color: var(--accent);
 }
 .selfie-actions {
     display: flex;

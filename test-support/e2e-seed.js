@@ -45,10 +45,10 @@ async function seedE2EUsers(db) {
             [u.userId, u.userId, u.email]
         );
         await db.query(
-            `INSERT INTO employees (id, name, cpf, email, dept, status, admission_date, contract_type, work_load, salary)
-             VALUES ($1, $2, $3, $4, 'E2E', 'Ativo', '2024-01-02', 'clt', '40h', 4000)
+            `INSERT INTO employees (id, name, cpf, email, dept, status, admission_date, contract_type, work_load, salary, auth_user_id)
+             VALUES ($1, $2, $3, $4, 'E2E', 'Ativo', '2024-01-02', 'clt', '40h', 4000, $5)
              ON CONFLICT (id) DO NOTHING`,
-            [u.employeeId, u.name, u.cpf, u.email]
+            [u.employeeId, u.name, u.cpf, u.email, u.userId]
         );
         await db.query(
             `INSERT INTO profiles (id, profile, employee_id) VALUES ($1, $2, $3)
@@ -57,6 +57,7 @@ async function seedE2EUsers(db) {
         );
     }
     await seedAdminMfaFactor(db);
+    await db.query('DELETE FROM e2e_org_keys WHERE NOT EXISTS (SELECT 1 FROM e2e_org_key_grants)');
 }
 
 async function seedAdminMfaFactor(db) {
@@ -69,6 +70,7 @@ async function seedAdminMfaFactor(db) {
 }
 
 async function cleanupE2EUsers(db) {
+    await db.query('DELETE FROM e2e_org_keys WHERE created_by = ANY($1)', [[U_COLAB, U_ADMIN]]);
     await db.query('DELETE FROM auth.users WHERE id = ANY($1)', [[U_COLAB, U_ADMIN]]);
     await db.query('DELETE FROM employees WHERE id = ANY($1)', [[E_COLAB, E_ADMIN]]);
 }

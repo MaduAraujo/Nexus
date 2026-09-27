@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-light: rgba(99, 102, 241, 0.12);
     --accent-hr: #ec4899;
     --accent-hr-bg: rgba(236, 72, 153, 0.1);
@@ -10,8 +10,8 @@
     --bg-chat-l: #16181f;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
     --text-on-dark2: #9ca3af;
 
@@ -38,9 +38,11 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -329,7 +331,7 @@ body {
 }
 .tf-chip.active {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border-color: rgba(99, 102, 241, 0.3);
 }
 
@@ -751,7 +753,7 @@ body {
 
 .btn-atend {
     background: rgba(99, 102, 241, 0.1);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border: 1px solid rgba(99, 102, 241, 0.3);
 }
 .btn-atend:hover {
@@ -1018,7 +1020,7 @@ body {
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    background: var(--danger);
+    background: #dc2626;
     color: #fff;
     border-radius: 999px;
     font-size: 0.62rem;
@@ -1160,7 +1162,7 @@ body {
 }
 .af-chip:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .af-chip.active {
     background: var(--accent);
@@ -1195,7 +1197,7 @@ body {
     padding: 2px 8px;
     border-radius: 999px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .af-item-time {
     font-size: 0.7rem;
@@ -1222,7 +1224,7 @@ body {
 }
 .af-item-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .af-empty {
     text-align: center;

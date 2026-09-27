@@ -1,13 +1,13 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
     --bg-page: #f0f1f5;
     --bg-white: #ffffff;
     --bg-topbar: #0d0e12;
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --border-color: #e5e7eb;
     --border-dark: rgba(255, 255, 255, 0.07);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07);
@@ -37,7 +37,7 @@
     --bg-white: #16171d;
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
     --border-color: rgba(255, 255, 255, 0.08);
     --success-bg: rgba(16, 185, 129, 0.16);
     --success-text: #34d399;
@@ -49,6 +49,8 @@
     --info-text: #60a5fa;
     --neutral-bg: rgba(255, 255, 255, 0.06);
     --neutral-text: #9aa1b0;
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -163,7 +165,7 @@ html {
     gap: 8px;
 }
 .sec-card h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.85rem;
 }
 .sec-card-desc {
@@ -215,7 +217,7 @@ html {
 }
 .sec-btn:hover:not(:disabled) {
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .sec-btn:disabled {
     opacity: 0.6;

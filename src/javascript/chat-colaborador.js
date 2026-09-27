@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const hd = document.createElement('li');
             hd.className = 'channel-section-hd';
             hd.style.cssText =
-                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
+                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-top:8px;';
             hd.textContent = 'Meus canais';
             list.appendChild(hd);
             mine.forEach((c) => list.appendChild(buildChannelItem(c, memberOf.has(c.id))));
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const hd = document.createElement('li');
             hd.className = 'channel-section-hd';
             hd.style.cssText =
-                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(156,163,175,.7);margin-top:8px;';
+                'display:list-item;padding:10px 16px 4px;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-top:8px;';
             hd.textContent = 'Outros canais';
             list.appendChild(hd);
             other.forEach((c) => list.appendChild(buildChannelItem(c, memberOf.has(c.id))));
@@ -742,10 +742,7 @@ Com o que posso te ajudar hoje?`;
                     </button>
                     <div class="ticket-menu-dropdown">
                         <button type="button" class="ticket-menu-option" data-action="me">
-                            <i class="fas fa-eye-slash"></i> Apagar somente para mim
-                        </button>
-                        <button type="button" class="ticket-menu-option ticket-menu-option--danger" data-action="all">
-                            <i class="fas fa-trash"></i> Apagar para todos
+                            <i class="fas fa-eye-slash"></i> Apagar para mim
                         </button>
                     </div>
                 </div>
@@ -771,10 +768,6 @@ Com o que posso te ajudar hoje?`;
             e.stopPropagation();
             deleteTicketForMe(ticket);
         });
-        li.querySelector('[data-action="all"]').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteTicketForAll(ticket);
-        });
 
         return li;
     }
@@ -794,7 +787,7 @@ Com o que posso te ajudar hoje?`;
     }
 
     async function deleteTicketForMe(ticket) {
-        if (!confirm('Apagar esta conversa apenas para você? Ela continua disponível para o RH.')) return;
+        if (!confirm('Apagar esta conversa da sua lista? O histórico do atendimento continua guardado pelo RH.')) return;
 
         const { error } = await sb.from('hr_ticket_hidden').upsert({ employee_id: myEmployeeId, ticket_id: ticket.id });
         if (error) {
@@ -804,19 +797,6 @@ Com o que posso te ajudar hoje?`;
 
         removeTicketFromList(ticket.id);
         showToast('Conversa apagada para você', 'success');
-    }
-
-    async function deleteTicketForAll(ticket) {
-        if (!confirm('Apagar esta conversa para todos? Ela será removida definitivamente, inclusive do RH.')) return;
-
-        const { error } = await sb.from('hr_tickets').delete().eq('id', ticket.id);
-        if (error) {
-            showToast('Erro ao apagar conversa', 'error');
-            return;
-        }
-
-        removeTicketFromList(ticket.id);
-        showToast('Conversa apagada para todos', 'success');
     }
 
     $('new-ticket-btn')?.addEventListener('click', createTicket);

@@ -28,8 +28,8 @@ input:-webkit-autofill:active {
     --border: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.16);
     --text: #f4f4f5;
-    --text-muted: #71717a;
-    --text-subtle: #3f3f46;
+    --text-muted: #a1a1aa;
+    --text-subtle: #828287;
     --accent: #e4e4e7;
     --accent-gold: #d4a853;
     --accent-gold-dim: rgba(212, 168, 83, 0.12);

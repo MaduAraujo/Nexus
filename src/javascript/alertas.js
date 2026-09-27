@@ -37,6 +37,10 @@ const CATEGORY_LABEL = {
 
 const SEV_LABEL = { critical: 'Crítico', warning: 'Atenção', info: 'Info' };
 
+function safeSeverity(sev) {
+    return Object.hasOwn(SEV_LABEL, sev) ? sev : 'info';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (!(await checkAuth())) return;
     setupListeners();
@@ -143,10 +147,21 @@ async function toggleAdminPushNotifications() {
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8ArrayAlertas(ADMIN_PUSH_VAPID_PUBLIC_KEY),
         });
-        await syncAdminSubscriptionToServer(subscription.toJSON());
+        if (!(await syncAdminSubscriptionToServer(subscription.toJSON()))) {
+            await subscription.unsubscribe();
+            updateAdminNotifButtonState(false);
+            appendChatMessage('ai', 'Não foi possível ativar as notificações agora. Tente novamente em instantes.');
+            return;
+        }
         updateAdminNotifButtonState(true);
     } catch (err) {
         console.error('[Nexus] admin push toggle:', err);
+        appendChatMessage(
+            'ai',
+            err?.name === 'NotAllowedError'
+                ? 'As notificações estão bloqueadas neste navegador. Libere nas configurações do site para ativar.'
+                : 'Não foi possível ativar as notificações agora. Tente novamente em instantes.'
+        );
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -367,21 +382,20 @@ function showActionConfirmation(actionData, originalMessage) {
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 
-    if (actionData.type === 'reject_adjustment' && actionData.ids?.length) {
-        estimateRejectionImpact(actionData.ids)
+    const showRejectionImpact = (ids) =>
+        estimateRejectionImpact(ids)
             .then((impact) => {
                 if (!impact) return;
                 const impactEl = div.querySelector('.action-impact-preview');
                 const detalhe =
                     impact.porEmpregado.length > 1
-                        ? impact.porEmpregado.map((p) => `${esc(p.nome)}: ${fmtCurrency(p.valor)}`).join(' · ')
+                        ? impact.porEmpregado.map((p) => `${p.nome}: ${fmtCurrency(p.valor)}`).join(' · ')
                         : `${impact.porEmpregado[0].semanas} semana${impact.porEmpregado[0].semanas > 1 ? 's' : ''} de DSR perdido`;
                 impactEl.classList.remove('hidden');
                 impactEl.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <span>Impacto estimado ao rejeitar: <strong>-${fmtCurrency(impact.total)}</strong> (${escapeHtml(detalhe)} — Lei 605/49 art. 6º).</span>`;
                 container.scrollTop = container.scrollHeight;
             })
             .catch(() => {});
-    }
 
     const doBtn = div.querySelector('.btn-do-action');
     doBtn.disabled = true;
@@ -393,6 +407,7 @@ function showActionConfirmation(actionData, originalMessage) {
                 : '<li class="action-targets-empty">Nenhum registro pendente corresponde a esta ação.</li>';
             actionData.ids = validIds;
             doBtn.disabled = !validIds.length;
+            if (actionData.type === 'reject_adjustment' && validIds.length) showRejectionImpact(validIds);
         })
         .catch(() => {
             div.querySelector('.action-targets').innerHTML = '<li class="action-targets-empty">Não foi possível conferir os registros.</li>';
@@ -454,6 +469,7 @@ function buildAiDecisionLogRows({ type, evidenceRows, message, decidedByName, de
 }
 
 async function executeAction(actionData) {
+    let failure = null;
     try {
         const { type, ids = [] } = actionData;
         const now = new Date().toISOString();
@@ -498,8 +514,10 @@ async function executeAction(actionData) {
                         })
                     )
                 );
-                const firstError = results.find((r) => r.error)?.error;
-                if (firstError) throw firstError;
+                failure = results.find((r) => r.error)?.error || null;
+                const applied = new Set(ids.filter((_, i) => !results[i].error));
+                evidenceRows = evidenceRows.filter((r) => applied.has(r.id));
+                if (!applied.size) throw failure;
                 break;
             }
             case 'mark_burnout_read': {
@@ -521,6 +539,7 @@ async function executeAction(actionData) {
         });
         if (decisionLogRows.length) await sb.from('ai_decision_log').insert(decisionLogRows);
 
+        if (failure) throw failure;
         return true;
     } catch (e) {
         console.error('executeAction:', e);
@@ -601,7 +620,7 @@ function closeReportModal() {
 function copyReport() {
     const content = document.getElementById('report-content');
     if (!content) return;
-    navigator.clipboard.writeText(content.innerText).then(() => {
+    navigator.clipboard.writeText(content.innerText ?? content.textContent).then(() => {
         const btn = document.getElementById('btn-copy-report');
         if (!btn) return;
         const orig = btn.innerHTML;
@@ -631,9 +650,9 @@ function renderAlerts({ summary = '', alerts = [], health_score }) {
         return;
     }
 
-    const critical = alerts.filter((a) => a.severity === 'critical');
-    const warning = alerts.filter((a) => a.severity === 'warning');
-    const info = alerts.filter((a) => a.severity === 'info');
+    const critical = alerts.filter((a) => safeSeverity(a.severity) === 'critical');
+    const warning = alerts.filter((a) => safeSeverity(a.severity) === 'warning');
+    const info = alerts.filter((a) => safeSeverity(a.severity) === 'info');
     const sorted = [...critical, ...warning, ...info];
 
     let html = `<div class="summary-banner"><i class="fas fa-robot"></i><span>${esc(summary)}</span></div>`;
@@ -671,7 +690,7 @@ function renderAlerts({ summary = '', alerts = [], health_score }) {
 function alertCard(a, idx = 0) {
     const icon = CATEGORY_ICON[a.category] || 'fa-circle-info';
     const label = CATEGORY_LABEL[a.category] || a.category;
-    const sev = a.severity || 'info';
+    const sev = safeSeverity(a.severity);
     const chips = (a.employees || []).map((n) => `<span class="emp-chip">${esc(n)}</span>`).join('');
     const page = CATEGORY_PAGE[a.category];
     const gotoLink = page
@@ -908,9 +927,9 @@ function renderHistoryTab(items) {
 function historyItemHtml(item) {
     const date = new Date(item.analyzed_at);
     const alerts = item.alerts || [];
-    const critical = alerts.filter((a) => a.severity === 'critical').length;
-    const warning = alerts.filter((a) => a.severity === 'warning').length;
-    const info = alerts.filter((a) => a.severity === 'info').length;
+    const critical = alerts.filter((a) => safeSeverity(a.severity) === 'critical').length;
+    const warning = alerts.filter((a) => safeSeverity(a.severity) === 'warning').length;
+    const info = alerts.filter((a) => safeSeverity(a.severity) === 'info').length;
     const score = item.health_score;
     const sc = score == null ? '' : score >= 80 ? 'score-green' : score >= 60 ? 'score-yellow' : score >= 40 ? 'score-amber' : 'score-red';
     const badges = [
@@ -923,7 +942,7 @@ function historyItemHtml(item) {
         alerts
             .map(
                 (a) => `
-        <div class="history-alert-row sev-${a.severity}">
+        <div class="history-alert-row sev-${safeSeverity(a.severity)}">
             <i class="fas ${CATEGORY_ICON[a.category] || 'fa-circle-info'}"></i>
             <span>${esc(a.title)}</span>
             ${a.resolved ? '<span class="history-resolved-tag"><i class="fas fa-check"></i> Resolvido</span>' : ''}
@@ -1347,7 +1366,7 @@ async function loadCompliance() {
 
         const [{ data: empData }, { data: docData }, { data: complianceData }] = await Promise.all([
             sb.from('employees').select('id,name,dept').in('status', ['Ativo', 'ativo']),
-            sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null),
+            sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null).is('deleted_at', null),
             sb.from('compliance_alerts').select('employee_id,alertas').eq('lido', false),
         ]);
 
@@ -1679,7 +1698,7 @@ async function saveAnalysisCache(summary, alerts, healthScore) {
 
 async function markAlertResolved(idx) {
     try {
-        const { data } = await sb.from('ai_analysis_cache_decrypted').select('alerts').eq('cache_key', 'latest').single();
+        const { data } = await sb.from('ai_analysis_cache_decrypted').select('alerts').eq('cache_key', 'latest').maybeSingle();
         if (!data?.alerts) return;
         const alerts = data.alerts.map((a, i) => (i === idx ? { ...a, resolved: true } : a));
         await sb.from('ai_analysis_cache').update({ alerts }).eq('cache_key', 'latest');
@@ -1699,7 +1718,11 @@ function renderHealthScore(score) {
 
 async function loadAnalysisCache() {
     try {
-        const { data, error } = await sb.from('ai_analysis_cache_decrypted').select('summary, alerts, analyzed_at').eq('cache_key', 'latest').single();
+        const { data, error } = await sb
+            .from('ai_analysis_cache_decrypted')
+            .select('summary, alerts, health_score, analyzed_at')
+            .eq('cache_key', 'latest')
+            .maybeSingle();
 
         if (error || !data || !Array.isArray(data.alerts) || !data.alerts.length) return;
 

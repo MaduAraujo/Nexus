@@ -121,31 +121,30 @@ describe('arquivos.html — documentos enviados pelo colaborador', () => {
         assert.equal(c.writes('document_audit_log', 'insert').at(-1).payload[0].action, 'aprovado');
     });
 
-    test('excluir documento do colaborador: confirmação, registro antes do arquivo', async () => {
+    test('excluir documento do colaborador pede o motivo e exclui de forma lógica', async () => {
         const c = client();
-        page = await openPage('arquivos', { client: c, now: NOW });
+        page = await openPage('arquivos', { client: c, now: NOW, prompt: 'Enviado ao colaborador errado' });
         await page.settle(20);
         const antes = c.calls.length;
-        page.window.deleteColabDoc('c1', 'emp-bia/rg.pdf');
+        page.window.deleteColabDoc('c1');
         await page.settle(20);
-        const ordem = c.calls
-            .slice(antes)
-            .filter((x) => (x.table === 'documents' && x.op === 'delete') || (x.storage === 'documents' && x.op === 'remove'))
-            .map((x) => x.op);
-        assert.deepEqual(ordem, ['delete', 'remove']);
-        assert.match(page.confirms.at(-1), /excluir este arquivo/);
+        assert.match(page.prompts.at(-1), /motivo para excluir este arquivo/);
+        assert.deepEqual(c.rpcCalls('soft_delete_documents')[0].args, { p_ids: ['c1'], p_reason: 'Enviado ao colaborador errado' });
+        const fisicos = c.calls.slice(antes).filter((x) => (x.table === 'documents' && x.op === 'delete') || (x.storage === 'documents' && x.op === 'remove'));
+        assert.deepEqual(fisicos, [], 'nem o registro nem o arquivo saem do banco');
     });
 
-    test('exclusão recusada pelo banco não apaga o arquivo', async () => {
+    test('exclusão recusada pelo banco mantém o arquivo na lista e mostra o motivo', async () => {
         const c = client();
-        page = await openPage('arquivos', { client: c, now: NOW });
+        page = await openPage('arquivos', { client: c, now: NOW, prompt: 'Enviado ao colaborador errado' });
         await page.settle(20);
-        c.errors['documents:delete'] = { message: 'RLS' };
+        c.errors['rpc:soft_delete_documents'] = { message: 'Apenas o RH pode excluir documentos.' };
         const antes = c.calls.length;
-        page.window.deleteFile('a1', 'rh/contrato.pdf');
+        page.window.deleteFile('a1');
         await page.settle(20);
         assert.equal(c.calls.slice(antes).filter((x) => x.storage === 'documents' && x.op === 'remove').length, 0);
-        assert.ok(page.toasts().some((t) => /Não foi possível excluir o arquivo/.test(t)));
+        assert.ok(page.toasts().some((t) => /Apenas o RH pode excluir documentos/.test(t)));
+        assert.match(page.text('#files-tbody'), /contrato\.pdf/);
     });
 });
 

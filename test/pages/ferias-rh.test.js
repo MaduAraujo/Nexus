@@ -17,7 +17,7 @@ function rhClient(vacations, opts = {}) {
     return new FakeSupabase({
         user: RH_USER,
         tables: baseTables({ vacations, time_records: [], holidays: [], bank_adjustments: [] }),
-        rpc: { apply_ferias_payroll_event: {}, revert_ferias_payroll_event: {} },
+        rpc: { apply_ferias_recibo: {}, revert_ferias_recibo: {}, revert_ferias_payroll_event: {} },
         ...opts,
     });
 }
@@ -72,7 +72,7 @@ describe('ferias.html (RH) — lista e indicadores', () => {
 });
 
 describe('ferias.html (RH) — decisões', () => {
-    test('aprovar grava a decisão e lança o adiantamento de férias na folha (CLT)', async () => {
+    test('aprovar grava a decisão e emite o recibo de férias com INSS/IRRF, a pagar 2 dias antes (CLT)', async () => {
         const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-30', 'pendente')]);
         page = await openPage('ferias', { client, now: NOW });
         await page.click(rowOf(page, 'v1').querySelector('[data-click="approveRequest"]'));
@@ -80,24 +80,28 @@ describe('ferias.html (RH) — decisões', () => {
         assert.equal(status(client, 'v1'), 'aprovado');
         const saved = client.tables.vacations[0];
         assert.equal(saved.decided_by_email, RH_USER.email);
-        const [evento] = client.rpcCalls('apply_ferias_payroll_event');
+        const [evento] = client.rpcCalls('apply_ferias_recibo');
         assert.equal(evento.args.p_employee_id, ANA.id);
-        assert.equal(evento.args.p_mes, '2026-07');
+        assert.equal(evento.args.p_mes, '2026-07-F01');
         assert.equal(evento.args.p_competencia, '07/2026');
         assert.deepEqual(
-            evento.args.p_novos_proventos.map((p) => p.cod),
+            evento.args.p_proventos.map((p) => p.cod),
             ['040', '041']
         );
-        assert.equal(evento.args.p_novos_proventos[0].valor, 4000);
-        assert.equal(evento.args.p_novos_proventos[1].valor, 1333.33);
+        assert.equal(evento.args.p_proventos[0].valor, 4000);
+        assert.equal(evento.args.p_proventos[1].valor, 1333.33);
+        assert.deepEqual(
+            evento.args.p_descontos.map((d) => d.cod),
+            ['901', '906']
+        );
         assert.deepEqual(page.toasts(), ['Solicitação aprovada com sucesso!']);
     });
 
-    test('com abono, a folha paga 20 dias de férias + 10 de abono (não 30 + 10)', async () => {
-        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-30', 'pendente', { abono: true })]);
+    test('com abono, o recibo paga os 20 dias de gozo registrados + os 10 vendidos', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-20', 'pendente', { abono: true })]);
         page = await openPage('ferias', { client, now: NOW });
         await page.click(rowOf(page, 'v1').querySelector('[data-click="approveRequest"]'));
-        const proventos = client.rpcCalls('apply_ferias_payroll_event')[0].args.p_novos_proventos;
+        const proventos = client.rpcCalls('apply_ferias_recibo')[0].args.p_proventos;
         assert.deepEqual(
             proventos.map((p) => [p.cod, p.referencia, p.valor]),
             [
@@ -109,7 +113,7 @@ describe('ferias.html (RH) — decisões', () => {
         );
     });
 
-    test('ao abrir, lança na folha as férias futuras aprovadas pelo gestor (a RPC ignora as já lançadas)', async () => {
+    test('ao abrir, emite o recibo das férias futuras aprovadas pelo gestor (a RPC ignora as já emitidas)', async () => {
         const client = rhClient([
             vac('v1', ANA.id, '2026-07-01', '2026-07-10', 'aprovado'),
             vac('v2', BIA.id, '2026-05-01', '2026-05-10', 'concluido'),
@@ -117,9 +121,21 @@ describe('ferias.html (RH) — decisões', () => {
         ]);
         page = await openPage('ferias', { client, now: NOW });
         assert.deepEqual(
-            client.rpcCalls('apply_ferias_payroll_event').map((c) => [c.args.p_employee_id, c.args.p_mes]),
-            [[ANA.id, '2026-07']]
+            client.rpcCalls('apply_ferias_recibo').map((c) => [c.args.p_employee_id, c.args.p_mes]),
+            [[ANA.id, '2026-07-F01']]
         );
+    });
+
+    test('recesso de estagiário não gera recibo de férias ao aprovar', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-15', 'pendente')]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) ana.contract_type = 'estagio';
+        }
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click(rowOf(page, 'v1').querySelector('[data-click="approveRequest"]'));
+        assert.equal(status(client, 'v1'), 'aprovado');
+        assert.equal(client.rpcCalls('apply_ferias_recibo').length, 0);
     });
 
     test('PJ não gera evento de folha ao aprovar', async () => {
@@ -127,7 +143,7 @@ describe('ferias.html (RH) — decisões', () => {
         page = await openPage('ferias', { client, now: NOW });
         await page.click(rowOf(page, 'v1').querySelector('[data-click="approveRequest"]'));
         assert.equal(status(client, 'v1'), 'aprovado');
-        assert.equal(client.rpcCalls('apply_ferias_payroll_event').length, 0);
+        assert.equal(client.rpcCalls('apply_ferias_recibo').length, 0);
     });
 
     test('conflito com colega do mesmo departamento pede confirmação; recusando, nada muda', async () => {
@@ -166,7 +182,7 @@ describe('ferias.html (RH) — decisões', () => {
         assert.match(page.confirms[0], /Aprovar 2 solicitações selecionadas\?/);
         assert.equal(status(client, 'v1'), 'aprovado');
         assert.equal(status(client, 'v2'), 'aprovado');
-        assert.equal(client.rpcCalls('apply_ferias_payroll_event').length, 1, 'só a CLT gera evento');
+        assert.equal(client.rpcCalls('apply_ferias_recibo').length, 1, 'só a CLT gera evento');
     });
 
     test('cancelar férias aprovadas desfaz o evento de folha', async () => {
@@ -184,7 +200,7 @@ describe('ferias.html (RH) — decisões', () => {
         page = await openPage('ferias', { client, now: NOW });
         await page.click(rowOf(page, 'v1').querySelector('[data-click="approveRequest"]'));
         assert.ok(page.toasts().includes('Erro ao aprovar.'));
-        assert.equal(client.rpcCalls('apply_ferias_payroll_event').length, 0);
+        assert.equal(client.rpcCalls('apply_ferias_recibo').length, 0);
         assert.match(page.text(rowOf(page, 'v1')), /Pendente/);
     });
 });
@@ -222,16 +238,16 @@ describe('ferias.html (RH) — cadastro manual e coletivas', () => {
         assert.ok(page.toasts().includes('Solicitação registrada!'));
     });
 
-    test('abono pecuniário exige 20 dias ou mais', async () => {
+    test('com abono, o período cadastrado (só o gozo) vai até 20 dias', async () => {
         const client = rhClient([]);
         page = await openPage('ferias', { client, now: NOW });
         await page.click('[data-click="openAddModal"]');
         await pick(page, 'add-employee', ANA.id);
         await page.settle(30);
-        page.eval(`setDatePickerValue('add-start', '2026-08-03'); setDatePickerValue('add-end', '2026-08-17'); calcAddDays();`);
+        page.eval(`setDatePickerValue('add-start', '2026-08-03'); setDatePickerValue('add-end', '2026-08-23'); calcAddDays();`);
         await page.check('#add-abono');
         await page.click('#btn-add-submit');
-        assert.match(page.text('#add-alert'), /abono pecuniário exige um período de 20 dias ou mais/);
+        assert.match(page.text('#add-alert'), /descanso é de no máximo 20 dias/);
         assert.equal(client.writes('vacations', 'insert').length, 0);
     });
 

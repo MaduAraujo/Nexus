@@ -143,10 +143,25 @@ describe('documentos-colaborador.html', () => {
         assert.equal(page.$('#btn-submit-upload').disabled, true);
     });
 
-    test('remover apaga o registro, depois o arquivo, e audita', async () => {
+    test('documento aprovado sob guarda legal: botão de remover desabilitado e nada é apagado', async () => {
         const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').retido_ate = '2031-02-01';
         page = await openPage('documentos-colaborador', { client: c, now: NOW });
         await page.click('.doc-card-item[data-click-args*="d1"]');
+        const btn = page.$('#btn-delete-doc');
+        assert.equal(btn.disabled, true);
+        assert.match(btn.title, /guarda legal até 01\/02\/2031/);
+        await page.window.deleteSelectedDoc();
+        assert.equal(c.writes('documents', 'delete').length, 0);
+        assert.ok(page.toasts().some((t) => /Documento sob guarda legal/.test(t)));
+    });
+
+    test('documento ainda pendente: remover apaga o registro, depois o arquivo, e audita', async () => {
+        const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').status = 'pendente';
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        assert.equal(page.$('#btn-delete-doc').disabled, false);
         await page.click('#btn-delete-doc');
         const ordem = c.calls
             .filter((x) => (x.table === 'documents' && x.op === 'delete') || (x.storage === 'documents' && x.op === 'remove'))
@@ -155,8 +170,17 @@ describe('documentos-colaborador.html', () => {
         assert.equal(c.writes('document_audit_log', 'insert')[0].payload[0].action, 'excluido');
     });
 
+    test('guarda legal vencida libera a remoção de documento aprovado', async () => {
+        const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').retido_ate = '2020-01-01';
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        assert.equal(page.$('#btn-delete-doc').disabled, false);
+    });
+
     test('se o banco recusar a exclusão, o arquivo NÃO é apagado', async () => {
         const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').status = 'recusado';
         c.errors['documents:delete'] = { message: 'permission denied' };
         page = await openPage('documentos-colaborador', { client: c, now: NOW });
         await page.click('.doc-card-item[data-click-args*="d1"]');

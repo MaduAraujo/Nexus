@@ -1,5 +1,6 @@
 :root {
-    --accent: #6366f1;
+    --chrome-muted: #9ca3af;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -9,8 +10,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -43,7 +44,7 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
@@ -51,6 +52,8 @@
     --danger-bg: rgba(239, 68, 68, 0.16);
     --warning-bg: rgba(245, 158, 11, 0.16);
     --info-bg: rgba(59, 130, 246, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -170,13 +173,13 @@ body {
 }
 
 .logo-name .x {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-toggle {
     background: none;
     border: none;
-    color: var(--text-tertiary);
+    color: var(--chrome-muted);
     cursor: pointer;
     font-size: 18px;
     flex-shrink: 0;
@@ -217,7 +220,7 @@ body {
     display: flex;
     align-items: center;
     padding: 12px;
-    color: var(--text-tertiary);
+    color: var(--chrome-muted);
     text-decoration: none;
     border-radius: 8px;
     transition: all 0.2s;
@@ -248,7 +251,7 @@ body {
 .nav-item.active .nav-icon i,
 .nav-link.active .nav-icon i,
 .nav-link:hover .nav-icon i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .nav-item.active .nav-link,
@@ -336,7 +339,7 @@ body {
 
 .user-role {
     font-size: 11px;
-    color: var(--text-tertiary);
+    color: var(--chrome-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -431,7 +434,7 @@ body {
     padding: 7px 13px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: var(--text-tertiary);
+    color: var(--chrome-muted);
     white-space: nowrap;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -453,12 +456,12 @@ body {
 }
 
 .topbar-date.active i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .topbar-date i {
     font-size: 0.7rem;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-popover {
@@ -526,7 +529,7 @@ body {
 
 .calendar-nav-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .calendar-weekdays {
@@ -605,7 +608,7 @@ body {
     background: rgba(255, 255, 255, 0.07);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    color: var(--text-tertiary);
+    color: var(--chrome-muted);
     font-size: 0.78rem;
     cursor: pointer;
     flex-shrink: 0;
@@ -618,7 +621,7 @@ body {
 
 .theme-toggle-btn:hover {
     background: rgba(255, 255, 255, 0.12);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .theme-toggle-btn i {
@@ -854,7 +857,7 @@ body {
 }
 .info-icon--purple {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .info-icon--green {
     background: var(--success-bg);
@@ -1084,7 +1087,7 @@ body {
 .section-link {
     font-size: 0.78rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     text-decoration: none;
     display: flex;
     align-items: center;
@@ -1284,7 +1287,7 @@ body {
     height: 38px;
     border-radius: 10px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1324,7 +1327,7 @@ body {
     font-size: 0.68rem;
     font-weight: 700;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .comunicados-empty {

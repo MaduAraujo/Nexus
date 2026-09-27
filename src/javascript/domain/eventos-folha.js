@@ -48,9 +48,11 @@ function calcAdiantamentoFerias({ salario, dias, abono = false }) {
 
 const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+const SEM_RECIBO_FERIAS = ['pj', 'estagio', 'estágio'];
+
 function proventosFerias({ contractType, salario, startDate, dias, abono }) {
-    if (String(contractType || 'clt').toLowerCase() === 'pj' || !Number(salario)) return null;
-    const diasDescanso = abono ? Math.max(0, dias - 10) : dias;
+    if (SEM_RECIBO_FERIAS.includes(String(contractType || 'clt').toLowerCase()) || !Number(salario)) return null;
+    const diasDescanso = Number(dias) || 0;
     const r = calcAdiantamentoFerias({ salario: Number(salario), dias: diasDescanso, abono: !!abono });
     if (r.total <= 0) return null;
     const proventos = [
@@ -71,6 +73,54 @@ function proventosFerias({ contractType, salario, startDate, dias, abono }) {
     };
 }
 
+const DIAS_ANTECEDENCIA_PAGAMENTO_FERIAS = 2;
+const pad2 = (n) => String(n).padStart(2, '0');
+
+function mesReciboFerias(startDate) {
+    return `${startDate.slice(0, 7)}-F${startDate.slice(8, 10)}`;
+}
+
+function inicioDoReciboFerias(mes) {
+    const m = /^(\d{4}-\d{2})-F(\d{2})$/.exec(mes || '');
+    return m ? `${m[1]}-${m[2]}` : null;
+}
+
+function pagarFeriasAte(startDate) {
+    const d = new Date(`${startDate}T12:00:00`);
+    d.setDate(d.getDate() - DIAS_ANTECEDENCIA_PAGAMENTO_FERIAS);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function reciboFerias({ contractType, salario, startDate, dias, abono }) {
+    const evento = proventosFerias({ contractType, salario, startDate, dias, abono });
+    if (!evento) return null;
+    const { calcIRRF, calcINSSContrato } = window.Impostos;
+    const base = +evento.proventos
+        .filter((p) => p.cod === '040' || p.cod === '041')
+        .reduce((s, p) => s + p.valor, 0)
+        .toFixed(2);
+    const aprendiz = String(contractType || '').toLowerCase() === 'aprendiz';
+    const inss = calcINSSContrato(base, contractType);
+    const irrf = aprendiz ? 0 : calcIRRF(base - inss);
+    const descontos = [];
+    if (inss > 0) descontos.push({ cod: '901', descricao: 'INSS sobre férias', referencia: `${((inss / base) * 100).toFixed(1)}%`, valor: inss });
+    if (irrf > 0) descontos.push({ cod: '906', descricao: 'IRRF sobre férias', referencia: 'Tabela', valor: irrf });
+    const totalProventos = +evento.proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
+    const totalDescontos = +descontos.reduce((s, d) => s + d.valor, 0).toFixed(2);
+    const [y, m, d] = startDate.split('-');
+    return {
+        mes: mesReciboFerias(startDate),
+        mesFormatado: `Recibo de Férias — gozo a partir de ${d}/${m}/${y}`,
+        competencia: evento.competencia,
+        pagarAte: pagarFeriasAte(startDate),
+        proventos: evento.proventos,
+        descontos,
+        totalProventos,
+        totalDescontos,
+        liquido: +(totalProventos - totalDescontos).toFixed(2),
+    };
+}
+
 window.EventosFolha = {
     isElegivel13,
     calcAvos13,
@@ -78,8 +128,23 @@ window.EventosFolha = {
     calcParcela13,
     calcAdiantamentoFerias,
     proventosFerias,
+    reciboFerias,
+    mesReciboFerias,
+    inicioDoReciboFerias,
+    pagarFeriasAte,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { isElegivel13, calcAvos13, calcDecimoTerceiroIntegral, calcParcela13, calcAdiantamentoFerias, proventosFerias };
+    module.exports = {
+        isElegivel13,
+        calcAvos13,
+        calcDecimoTerceiroIntegral,
+        calcParcela13,
+        calcAdiantamentoFerias,
+        proventosFerias,
+        reciboFerias,
+        mesReciboFerias,
+        inicioDoReciboFerias,
+        pagarFeriasAte,
+    };
 }

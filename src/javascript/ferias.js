@@ -191,7 +191,7 @@ function computeFeriasVencidas(emp, today) {
 
     let usedRemaining = vacations
         .filter((v) => v.employeeId === emp.id && (v.status === 'aprovado' || v.status === 'concluido'))
-        .reduce((sum, v) => sum + (v.days || 0), 0);
+        .reduce((sum, v) => sum + CLTDomain.diasConsumidosFerias(v), 0);
 
     let expiredDays = 0,
         oldestConcessivo = null;
@@ -220,39 +220,7 @@ async function calcFaltasInjustificadas(empId, cycleStart, cycleEnd) {
     const inicio = fmt(cycleStart),
         fim = fmt(rangeEnd);
 
-    const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: first }] = await Promise.all([
-        sb.from('time_records').select('date,entrada').eq('employee_id', empId).gte('date', inicio).lte('date', fim),
-        sb.from('holidays').select('date'),
-        sb
-            .from('adjustment_requests')
-            .select('date')
-            .eq('employee_id', empId)
-            .eq('tipo', 'falta')
-            .eq('status', 'aprovado')
-            .gte('date', inicio)
-            .lte('date', fim),
-        sb
-            .from('medical_leaves')
-            .select('start_date,end_date')
-            .eq('employee_id', empId)
-            .eq('status', 'aprovado')
-            .lte('start_date', fim)
-            .gte('end_date', inicio),
-        sb.from('time_records').select('date').eq('employee_id', empId).not('entrada', 'is', null).order('date').limit(1),
-    ]);
-    const ferias = vacations
-        .filter((v) => v.employeeId === empId && (v.status === 'aprovado' || v.status === 'concluido'))
-        .map((v) => ({ start_date: v.startDate, end_date: v.endDate }));
-    return CLTDomain.contarFaltasInjustificadas({
-        inicio,
-        fim,
-        registros: recs || [],
-        feriados: (hols || []).map((h) => h.date),
-        abonadas: (adjs || []).map((a) => a.date),
-        afastamentos: [...ferias, ...(leaves || [])],
-        primeiroRegistro: first?.[0]?.date || null,
-        workLoad: getEmployee(empId)?.workLoad,
-    });
+    return (await window.NexusFaltas.listar(empId, inicio, fim, { workLoad: getEmployee(empId)?.workLoad })).length;
 }
 
 function renderTable() {
@@ -604,17 +572,18 @@ function checkDeptConflict(vacation) {
 async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
     const emp = getEmployee(employeeId);
     if (!emp) return;
-    const evento = window.EventosFolha.proventosFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: days, abono });
-    if (!evento) return;
+    const recibo = window.EventosFolha.reciboFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: days, abono });
+    if (!recibo) return;
 
-    const { error } = await sb.rpc('apply_ferias_payroll_event', {
+    const { error } = await sb.rpc('apply_ferias_recibo', {
         p_employee_id: employeeId,
-        p_mes: evento.mes,
-        p_mes_formatado: evento.mesFormatado,
-        p_competencia: evento.competencia,
-        p_novos_proventos: evento.proventos,
+        p_mes: recibo.mes,
+        p_mes_formatado: recibo.mesFormatado,
+        p_competencia: recibo.competencia,
+        p_proventos: recibo.proventos,
+        p_descontos: recibo.descontos,
     });
-    if (error) console.error('[Nexus] apply_ferias_payroll_event:', error);
+    if (error) console.error('[Nexus] apply_ferias_recibo:', error);
 }
 
 async function sincronizarEventosDeFerias() {
@@ -625,9 +594,13 @@ async function sincronizarEventosDeFerias() {
 }
 
 async function reverterEventoAdiantamentoFerias({ employeeId, startDate }) {
-    const mes = startDate.slice(0, 7);
-    const { error } = await sb.rpc('revert_ferias_payroll_event', { p_employee_id: employeeId, p_mes: mes });
-    if (error) console.error('[Nexus] revert_ferias_payroll_event:', error);
+    const { error } = await sb.rpc('revert_ferias_recibo', { p_employee_id: employeeId, p_mes: window.EventosFolha.mesReciboFerias(startDate) });
+    if (error) {
+        console.error('[Nexus] revert_ferias_recibo:', error);
+        showToast(error.message || 'Não foi possível cancelar o recibo de férias.', 'error');
+    }
+    const { error: legado } = await sb.rpc('revert_ferias_payroll_event', { p_employee_id: employeeId, p_mes: startDate.slice(0, 7) });
+    if (legado) console.error('[Nexus] revert_ferias_payroll_event:', legado);
 }
 
 window.cancelApprovedVacation = async function (id) {
@@ -949,8 +922,8 @@ window.submitAdd = async function () {
         showAlert('add-alert', 'O período mínimo de férias é de 5 dias.', 'error');
         return;
     }
-    if (abono && days < 20) {
-        showAlert('add-alert', 'O abono pecuniário exige um período de 20 dias ou mais (10 são vendidos).', 'error');
+    if (abono && days + CLTDomain.DIAS_ABONO_PECUNIARIO > 30) {
+        showAlert('add-alert', 'Com abono pecuniário o descanso é de no máximo 20 dias: os 10 vendidos não entram no período.', 'error');
         return;
     }
 
@@ -1427,7 +1400,7 @@ window.generateReceipt = function (id) {
             <tr><td class="label">Colaborador</td><td>${escHtml(emp?.name || '—')}</td></tr>
             <tr><td class="label">Departamento / Função</td><td>${escHtml(emp?.dept || '—')} ${emp?.role ? '/ ' + escHtml(emp.role) : ''}</td></tr>
             <tr><td class="label">Período de Gozo</td><td>${formatDate(v.startDate)} a ${formatDate(v.endDate)} (${v.days} dias corridos)</td></tr>
-            <tr><td class="label">Abono Pecuniário (⅓ vendido)</td><td>${v.abono ? 'Sim — 10 dias convertidos em pagamento adicional' : 'Não'}</td></tr>
+            <tr><td class="label">Abono Pecuniário (⅓ vendido)</td><td>${v.abono ? 'Sim — 10 dias vendidos, trabalhados fora do período de gozo e pagos neste recibo' : 'Não'}</td></tr>
             <tr><td class="label">Substituto / Cobertura</td><td>${escHtml(v.substitutoId ? getEmployee(v.substitutoId)?.name || '—' : '—')}</td></tr>
             <tr><td class="label">Natureza</td><td>${v.coletiva ? 'Férias coletivas' : 'Férias individuais'}</td></tr>
         </table>

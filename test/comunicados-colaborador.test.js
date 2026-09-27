@@ -108,6 +108,19 @@ describe('marcarLido / marcarTodosLidos', () => {
         assert.deepEqual(global.sb.upsertCalls[0].rows.map((r) => r.message_id).sort(), ['m2', 'm3']);
     });
 
+    test('marcarTodosLidos pula comunicado urgente (ciência é individual)', async () => {
+        global.sb = createMockSupabase({ messages: [msg('m1', { categoria: 'Urgente' }), msg('m2')], message_reads: [] });
+        await comunicados.loadData();
+        await comunicados.marcarTodosLidos();
+        assert.deepEqual(
+            global.sb.upsertCalls[0].rows.map((r) => r.message_id),
+            ['m2']
+        );
+        assert.equal(comunicados.__getStateForTest().lidos.has('m1'), false);
+        assert.equal(comunicados.exigeCiencia(msg('x', { categoria: 'Urgente' })), true);
+        assert.equal(comunicados.exigeCiencia(msg('x')), false);
+    });
+
     test('marcarTodosLidos não grava nada quando já está tudo lido', async () => {
         global.sb = createMockSupabase({ messages: [msg('m1')], message_reads: [{ message_id: 'm1', employee_id: 'c1' }] });
         await comunicados.loadData();

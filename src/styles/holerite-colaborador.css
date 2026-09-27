@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.12);
 
@@ -8,8 +8,8 @@
     --bg-topbar: #0d0e12;
 
     --text-main: #1f2937;
-    --text-muted: #6b7280;
-    --text-tertiary: #9ca3af;
+    --text-muted: #656b78;
+    --text-tertiary: #656a71;
     --text-on-dark: #e5e7eb;
 
     --border-color: #e5e7eb;
@@ -39,7 +39,7 @@
 
     --text-main: #e8eaf0;
     --text-muted: #9aa1b0;
-    --text-tertiary: #767c8a;
+    --text-tertiary: #7e8491;
 
     --border-color: rgba(255, 255, 255, 0.08);
 
@@ -48,6 +48,8 @@
     --info-bg: rgba(59, 130, 246, 0.16);
     --info-text: #93c5fd;
     --danger-bg: rgba(239, 68, 68, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -215,7 +217,7 @@ body {
     gap: 8px;
 }
 .month-list-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.74rem;
     width: 26px;
     height: 26px;
@@ -315,7 +317,7 @@ body {
     text-overflow: ellipsis;
 }
 .month-card.active .month-card-competencia {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .month-card-liquido {
     font-size: 0.75rem;
@@ -377,7 +379,7 @@ body {
     height: 72px;
     border-radius: 20px;
     background: linear-gradient(135deg, var(--accent-light), rgba(99, 102, 241, 0.04));
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -556,7 +558,7 @@ body {
 .btn-print.btn-ghost:hover {
     background: var(--bg-page);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: none;
 }
 
@@ -709,7 +711,7 @@ body {
     border-collapse: collapse;
 }
 .doc-table thead th {
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
     padding: 8px 12px;
     font-size: 0.65rem;
     font-weight: 700;
@@ -761,7 +763,7 @@ body {
 
 .total-row td {
     padding: 10px 12px;
-    background: #f8fafc;
+    background: var(--bg-soft, #f8fafc);
     border-top: 2px solid var(--border-color) !important;
     border-bottom: none !important;
 }
@@ -1121,7 +1123,7 @@ body {
     margin-bottom: 8px;
 }
 .mobile-month-label i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-size: 0.7rem;
 }
 .select-field {
@@ -1167,7 +1169,7 @@ body {
 }
 .date-trigger.active .select-trigger-arrow {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 .select-popover {
     position: absolute;
@@ -1229,7 +1231,7 @@ body {
 }
 .select-option.selected {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     font-weight: 700;
 }
 
@@ -1290,7 +1292,7 @@ body {
     gap: 9px;
 }
 .modal-header h3 i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .modal-close {

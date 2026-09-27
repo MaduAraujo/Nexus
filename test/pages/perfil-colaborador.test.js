@@ -87,11 +87,11 @@ describe('perfil-colaborador.html — dados', () => {
 });
 
 describe('perfil-colaborador.html — resumo de férias e banco de horas', () => {
-    test('férias disponíveis descontam o que já foi aprovado ou gozado (abono incluso)', async () => {
+    test('férias disponíveis descontam o gozo e os 10 dias vendidos no abono', async () => {
         const c = client({
             extra: {
                 vacations: [
-                    { employee_id: ANA.id, days: 30, status: 'concluido', abono: true },
+                    { employee_id: ANA.id, days: 20, status: 'concluido', abono: true },
                     { employee_id: ANA.id, days: 10, status: 'pendente' },
                 ],
             },

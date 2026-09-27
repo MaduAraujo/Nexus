@@ -35,7 +35,7 @@ function colabClient({ records = [], extra = {}, now } = {}) {
             activity_logs: [],
             ...extra,
         }),
-        rpc: { punch_time_record: punchRpc, report_daily_overtime_alert: {} },
+        rpc: { punch_time_record: punchRpc, report_daily_overtime_alert: {}, biometric_status: { enrolled: false } },
     });
 }
 

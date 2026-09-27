@@ -214,3 +214,56 @@ describe('contarFaltasInjustificadas (CLT arts. 130 e 131)', () => {
         assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, workLoad: '12x36' }), 0);
     });
 });
+
+describe('listarFaltasInjustificadas + descontoFaltasDsr (fonte única de falta; Lei 605/49 art. 6º)', () => {
+    const base = { inicio: '2026-06-15', fim: '2026-06-30', primeiroRegistro: '2026-01-02', workLoad: '40h' };
+    const presente = (date) => ({ date, entrada: `${date}T08:00:00-03:00` });
+
+    test('devolve as datas, e a contagem usada nas férias é o tamanho dessa mesma lista', () => {
+        const registros = ['2026-06-15', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25', '2026-06-26'].map(
+            presente
+        );
+        const faltas = CLTDomain.listarFaltasInjustificadas({ ...base, registros });
+        assert.deepEqual(faltas, ['2026-06-16', '2026-06-29', '2026-06-30']);
+        assert.equal(CLTDomain.contarFaltasInjustificadas({ ...base, registros }), faltas.length);
+    });
+
+    test('desconta o dia de cada falta e um DSR por semana com falta', () => {
+        const r = CLTDomain.descontoFaltasDsr({ salario: 3000, faltas: ['2026-06-16', '2026-06-29', '2026-06-30'] });
+        assert.deepEqual(r, { dias: 3, semanas: 2, valorFaltas: 300, valorDsr: 200 });
+    });
+
+    test('sem faltas, sem desconto', () => {
+        assert.deepEqual(CLTDomain.descontoFaltasDsr({ salario: 3000 }), { dias: 0, semanas: 0, valorFaltas: 0, valorDsr: 0 });
+    });
+});
+
+describe('férias no salário do mês (sem pagar os dias de gozo em dobro)', () => {
+    test('o registro de férias é só o gozo: o abono não mexe no calendário', () => {
+        const comAbono = { start_date: '2026-07-06', end_date: '2026-07-25', days: 20, abono: true };
+        assert.deepEqual(CLTDomain.periodoGozoFerias(comAbono), { start_date: '2026-07-06', end_date: '2026-07-25', dias: 20 });
+        assert.equal(CLTDomain.periodoGozoFerias({ start_date: '2026-07-13', end_date: '2026-07-22' }).dias, 10, 'sem days usa as datas');
+        assert.equal(CLTDomain.periodoGozoFerias({ start_date: '2026-07-13', end_date: '2026-07-12', days: 0 }), null);
+    });
+
+    test('o saldo consome o gozo e mais os 10 dias vendidos', () => {
+        assert.equal(CLTDomain.diasConsumidosFerias({ days: 20, abono: true }), 30);
+        assert.equal(CLTDomain.diasConsumidosFerias({ days: 15, abono: false }), 15);
+        assert.equal(CLTDomain.diasConsumidosFerias({}), 0);
+    });
+
+    test('dias de gozo por mês quando as férias atravessam a virada', () => {
+        const ferias = [{ start_date: '2026-07-25', end_date: '2026-08-08', days: 15, abono: false }];
+        assert.equal(CLTDomain.diasGozoNoMes(ferias, '2026-07'), 7);
+        assert.equal(CLTDomain.diasGozoNoMes(ferias, '2026-08'), 8);
+        assert.equal(CLTDomain.diasGozoNoMes(ferias, '2026-09'), 0);
+        assert.equal(CLTDomain.diasSalarioNoMes(ferias, '2026-07'), 23);
+        assert.equal(CLTDomain.diasSalarioNoMes(ferias, '2026-08'), 22);
+        assert.equal(CLTDomain.diasSalarioNoMes([], '2026-08'), 30);
+    });
+
+    test('férias cobrindo o mês inteiro zeram o salário, inclusive em fevereiro', () => {
+        assert.equal(CLTDomain.diasSalarioNoMes([{ start_date: '2027-02-01', end_date: '2027-03-02', days: 30 }], '2027-02'), 0);
+        assert.equal(CLTDomain.diasSalarioNoMes([{ start_date: '2026-07-01', end_date: '2026-07-30', days: 30 }], '2026-07'), 0);
+    });
+});

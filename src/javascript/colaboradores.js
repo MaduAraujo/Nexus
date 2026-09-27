@@ -60,6 +60,10 @@ function dbToEmployee(row) {
     };
 }
 
+function localISODate(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function employeeToDb(emp) {
     const parseVal = (v) =>
         v
@@ -308,7 +312,7 @@ function getAvisoPrevioStatus(emp) {
 let expiringDocuments = [];
 
 async function fetchExpiringDocuments() {
-    const { data, error } = await sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null);
+    const { data, error } = await sb.from('documents').select('id,employee_id,name,tipo,data_validade').not('data_validade', 'is', null).is('deleted_at', null);
     if (error) {
         console.error('[Nexus] fetchExpiringDocuments:', error);
         expiringDocuments = [];
@@ -330,6 +334,7 @@ function getDocAlertInfo(dataValidade) {
 
 function computeEmployeeAlerts(emp) {
     const alerts = [];
+    if (emp.status === 'Inativo') return alerts;
     const probation = getProbationStatus(emp);
     if (probation && probation.cls) alerts.push({ type: 'experiencia', label: probation.label });
 
@@ -558,7 +563,7 @@ function renderTable(data, filter) {
         const bellHtml = empAlerts.length ? `<i class="fas fa-bell bell-alert-icon" title="${empAlerts.map((a) => a.label).join(' · ')}"></i>` : '';
         tr.innerHTML = `
             <td class="td-checkbox" data-click="noop" data-click-stop>
-                <input type="checkbox" class="row-checkbox" ${selectedIds.has(emp.id) ? 'checked' : ''} data-change="toggleRowSelection" data-change-args="${dargs(emp.id, { $: 'this.checked' })}">
+                <input type="checkbox" class="row-checkbox" aria-label="Selecionar ${escapeHtml(emp.name)}" ${selectedIds.has(emp.id) ? 'checked' : ''} data-change="toggleRowSelection" data-change-args="${dargs(emp.id, { $: 'this.checked' })}">
             </td>
             <td>#${start + index + 1}</td>
             <td class="employee-name-cell">
@@ -640,7 +645,7 @@ window.bulkUpdateStatus = async function (newStatus) {
         return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = localISODate();
     if (newStatus === 'Inativo') {
         const noTerminationIds = targets.filter((e) => !e.terminationDate).map((e) => e.id);
         if (noTerminationIds.length) {
@@ -792,7 +797,7 @@ function exportEmployeesCSV() {
     const body = rows.map((r) => [r.nome, r.cpf, r.email, r.cargo, r.dept, r.status, r.contrato, r.admissao, r.salario]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), 'Colaboradores');
-    XLSX.writeFile(wb, `colaboradores_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `colaboradores_${localISODate()}.xlsx`);
     NexusAuth.logExport('colaboradores.xlsx', rows.length);
     showToast('Exportação Concluída!', 'O arquivo Excel foi baixado.', 'success');
 }
@@ -1213,7 +1218,7 @@ window.openDrawer = function (id) {
     const avatarImgEl = document.getElementById('drawer-avatar-img');
     if (avatarEl) {
         avatarEl.textContent = getInitials(emp.name);
-        avatarEl.style.background = emp.avatarColor || '#6366f1';
+        avatarEl.style.background = window.nexusFundoLegivel(emp.avatarColor || '#6366f1');
     }
     if (avatarImgEl) {
         if (emp.avatarUrl) {
@@ -1319,7 +1324,7 @@ window.updateStatus = async function (newStatus) {
     const oldStatus = employees[index].status;
     const updateData = { status: newStatus };
     if (newStatus === 'Inativo' && !employees[index].terminationDate) {
-        updateData.termination_date = new Date().toISOString().split('T')[0];
+        updateData.termination_date = localISODate();
     }
 
     const { error } = await sb.from('employees').update(updateData).eq('id', currentEmployeeId);
@@ -1981,7 +1986,7 @@ function computeRegDocRetentionDate(tipo) {
     const years = REG_DOC_RETENTION_YEARS[tipo] ?? 5;
     const d = new Date();
     d.setFullYear(d.getFullYear() + years);
-    return d.toISOString().slice(0, 10);
+    return localISODate(d);
 }
 
 function formatFileSize(bytes) {
@@ -2081,11 +2086,15 @@ async function uploadPendingRegDocs(employeeId) {
     const user = await NexusAuth.getUser();
     const consent = !!document.getElementById('reg-doc-lgpd-consent')?.checked;
     let uploaded = 0;
+    const failed = [];
 
-    for (const doc of pendingRegDocs) {
-        const storagePath = `rh/${Date.now()}_${doc.file.name.replace(/\s/g, '_')}`;
+    for (const [i, doc] of pendingRegDocs.entries()) {
+        const storagePath = `rh/${Date.now()}_${i}_${NexusFiles.safeName(doc.file.name)}`;
         const { error: uploadError } = await NexusFiles.upload('documents', storagePath, doc.file, { employeeId });
-        if (uploadError) continue;
+        if (uploadError) {
+            failed.push(doc);
+            continue;
+        }
 
         const { error: docError } = await sb.from('documents').insert({
             name: doc.file.name,
@@ -2100,10 +2109,22 @@ async function uploadPendingRegDocs(employeeId) {
             lgpd_consentimento: consent,
             lgpd_consentimento_em: consent ? new Date().toISOString() : null,
         });
-        if (!docError) uploaded++;
+        if (docError) {
+            await sb.storage.from('documents').remove([storagePath]);
+            failed.push(doc);
+        } else {
+            uploaded++;
+        }
     }
 
     resetRegDocs();
+    if (failed.length) {
+        showToast(
+            'Documentos não anexados',
+            `${failed.length} documento${failed.length > 1 ? 's' : ''} não ${failed.length > 1 ? 'foram anexados' : 'foi anexado'}: ${failed.map((d) => d.file.name).join(', ')}. Anexe de novo pela tela de Arquivos.`,
+            'warning'
+        );
+    }
     return uploaded;
 }
 
@@ -2331,7 +2352,8 @@ function setupFormListener() {
         };
 
         const isEditing = !!idField;
-        const dbData = employeeToDb(empData);
+        const old = isEditing ? employees.find((e) => e.id === idField) : null;
+        const dbData = employeeToDb(old ? { ...empData, terminationDate: old.terminationDate, avatarColor: old.avatarColor } : empData);
 
         const btns = document.querySelectorAll('#btn-save, #btn-save-simple');
         btns.forEach((b) => (b.disabled = true));
@@ -2339,7 +2361,6 @@ function setupFormListener() {
         try {
             let successMsg = isEditing ? 'Os dados foram atualizados com sucesso.' : 'Colaborador registrado.';
             if (isEditing) {
-                const old = employees.find((e) => e.id === idField);
                 const TRACKED = [
                     { key: 'name', label: 'Nome' },
                     { key: 'role', label: 'Cargo' },
@@ -2903,10 +2924,7 @@ window.assignTraining = async function () {
 };
 
 window.approveTraining = async function (id) {
-    const { error } = await sb
-        .from('employee_trainings')
-        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id);
+    const { error } = await sb.from('employee_trainings').update({ status: 'concluido', completion_date: localISODate() }).eq('id', id);
     if (error) {
         showToast('Erro!', 'Não foi possível aprovar o treinamento.', 'error');
         return;
@@ -2928,10 +2946,7 @@ window.rejectTraining = async function (id) {
 };
 
 window.completeTraining = async function (id) {
-    const { error } = await sb
-        .from('employee_trainings')
-        .update({ status: 'concluido', completion_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id);
+    const { error } = await sb.from('employee_trainings').update({ status: 'concluido', completion_date: localISODate() }).eq('id', id);
     if (error) {
         showToast('Erro!', 'Não foi possível concluir o treinamento.', 'error');
         return;
@@ -3002,7 +3017,7 @@ window.handleOpenDisciplinary = async function () {
     document.getElementById('da-suspension-days').value = '';
     document.getElementById('da-suspension-days').classList.add('hidden');
     daTypeField?.setValue('');
-    setDateFieldValue(document.getElementById('da-occurred-date'), new Date().toISOString().slice(0, 10));
+    setDateFieldValue(document.getElementById('da-occurred-date'), localISODate());
     document.getElementById('disciplinary-modal')?.classList.add('open');
     document.body.style.overflow = 'hidden';
 
@@ -3037,7 +3052,7 @@ window.addDisciplinaryAction = async function () {
         }
     }
     const description = document.getElementById('da-description')?.value.trim() || null;
-    const occurredAt = getDateFieldValue('da-occurred-date') || new Date().toISOString().slice(0, 10);
+    const occurredAt = getDateFieldValue('da-occurred-date') || localISODate();
 
     const { error } = await sb.from('disciplinary_actions').insert({
         employee_id: disciplinaryEmployeeId,
@@ -3292,6 +3307,17 @@ window.closePerformanceModal = function () {
     document.body.style.overflow = '';
 };
 
+function maskedBRL(value) {
+    if (value === null || value === undefined || value === '') return '';
+    return (
+        'R$ ' +
+        Number(value)
+            .toFixed(2)
+            .replace('.', ',')
+            .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    );
+}
+
 window.editEmployee = function (id) {
     const emp = employees.find((e) => e.id === id);
     if (!emp) return;
@@ -3316,13 +3342,7 @@ window.editEmployee = function (id) {
     document.getElementById('dept').value = emp.dept || '';
     populateManagerSelect(emp.id);
     if (document.getElementById('manager-id')) document.getElementById('manager-id').value = emp.managerId || '';
-    const salaryRaw = emp.salary || 0;
-    document.getElementById('salary').value =
-        'R$ ' +
-        salaryRaw
-            .toFixed(2)
-            .replace('.', ',')
-            .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    document.getElementById('salary').value = maskedBRL(emp.salary || 0);
     if (document.getElementById('rg')) document.getElementById('rg').value = emp.rg || '';
     if (document.getElementById('telefone')) document.getElementById('telefone').value = emp.telefone || '';
     if (document.getElementById('raca-cor')) document.getElementById('raca-cor').value = emp.racaCor || '';
@@ -3348,11 +3368,11 @@ window.editEmployee = function (id) {
     }
     restoreConditionalField('vale-transporte', emp.valeTransporte, 'vale-transporte-details');
     if (emp.valeTransporte === 'sim') {
-        if (document.getElementById('valor-passagem')) document.getElementById('valor-passagem').value = emp.valorPassagem || '';
+        if (document.getElementById('valor-passagem')) document.getElementById('valor-passagem').value = maskedBRL(emp.valorPassagem);
         if (document.getElementById('conducoes-dia')) document.getElementById('conducoes-dia').value = emp.conducoesdia || '';
     }
-    if (document.getElementById('ben-vale-refeicao')) document.getElementById('ben-vale-refeicao').value = emp.valeRefeicao || '';
-    if (document.getElementById('ben-vale-alimentacao')) document.getElementById('ben-vale-alimentacao').value = emp.valeAlimentacao || '';
+    if (document.getElementById('ben-vale-refeicao')) document.getElementById('ben-vale-refeicao').value = maskedBRL(emp.valeRefeicao);
+    if (document.getElementById('ben-vale-alimentacao')) document.getElementById('ben-vale-alimentacao').value = maskedBRL(emp.valeAlimentacao);
     if (emp.formaPagamento) {
         const r = document.querySelector(`input[name="forma-pagamento"][value="${emp.formaPagamento}"]`);
         if (r) {

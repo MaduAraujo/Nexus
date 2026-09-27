@@ -15,7 +15,10 @@ let selfieStream = null,
     capturedSelfieDataUrl = null;
 let faceVerified = false;
 let faceModelsPromise = null;
-let referenceDescriptorPromise = null;
+let capturedDescriptor = null;
+let biometricToken = null;
+let biometriaStatus = null;
+let bioStream = null;
 let holidaysMap = {};
 let limiteExtraDiarioMin = CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
 let pendingExcessoLegalMin = 0;
@@ -60,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     isManager = !!(managed && managed.length);
 
     loadFaceModels().catch((e) => console.error('Falha ao carregar modelos de verificação facial:', e));
+    carregarStatusBiometria();
 
     await loadData();
     setupRealtimeSync();
@@ -784,7 +788,7 @@ window.enviarBankRequest = async function () {
     let anexoPath = null,
         anexoName = null;
     if (file) {
-        const storagePath = `${myEmployeeId}/banco-horas/${Date.now()}_${file.name}`;
+        const storagePath = `${myEmployeeId}/banco-horas/${Date.now()}_${NexusFiles.safeName(file.name)}`;
         const { error: upErr } = await NexusFiles.upload('documents', storagePath, file, { contentType: file.type, employeeId: myEmployeeId });
         if (upErr) {
             showToast('Erro ao enviar o anexo.', 'error');
@@ -792,16 +796,6 @@ window.enviarBankRequest = async function () {
         }
         anexoPath = storagePath;
         anexoName = file.name;
-        await sb.from('documents').insert({
-            name: file.name,
-            employee_id: myEmployeeId,
-            category: 'banco_horas',
-            tipo: 'Atestado/Comprovante',
-            size_label: `${Math.round(file.size / 1024)} KB`,
-            storage_path: storagePath,
-            source: 'colaborador',
-            status: 'aprovado',
-        });
     }
 
     const { data: inserted, error } = await sb
@@ -823,8 +817,21 @@ window.enviarBankRequest = async function () {
         .single();
 
     if (error) {
+        if (anexoPath) await sb.storage.from('documents').remove([anexoPath]);
         showToast('Erro ao enviar solicitação.', 'error');
         return;
+    }
+    if (file) {
+        await sb.from('documents').insert({
+            name: file.name,
+            employee_id: myEmployeeId,
+            category: 'banco_horas',
+            tipo: 'Atestado/Comprovante',
+            size_label: `${Math.round(file.size / 1024)} KB`,
+            storage_path: anexoPath,
+            source: 'colaborador',
+            status: 'aprovado',
+        });
     }
     bankRequests.unshift(inserted);
     closeModal('modal-bank-request');
@@ -962,7 +969,7 @@ function detectBurnout() {
 async function notificarRH(alertas) {
     if (!alertas.length) return;
     const hoje = todayKey();
-    const { data: existing } = await sb.from('burnout_alerts').select('id').eq('employee_id', myEmployeeId).eq('date', hoje).single();
+    const { data: existing } = await sb.from('burnout_alerts').select('id').eq('employee_id', myEmployeeId).eq('date', hoje).maybeSingle();
     if (existing) return;
     await sb.from('burnout_alerts').insert({
         employee_id: myEmployeeId,
@@ -1094,7 +1101,7 @@ window.abrirConfirmar = function () {
     const av = $('confirmar-avatar');
     if (av) {
         av.textContent = ini;
-        av.style.background = color;
+        av.style.background = window.nexusFundoLegivel(color);
     }
     const nm = $('confirmar-nome');
     if (nm) nm.textContent = myEmployee.name || '—';
@@ -1127,7 +1134,6 @@ window.abrirConfirmar = function () {
     window._confirmTimer = setInterval(tick, 1000);
     resetSelfieCapture();
     iniciarCameraSelfie();
-    getReferenceDescriptor().catch(() => {});
     setupExcessoLegalCheck(rec, step);
     openModal('modal-confirmar');
 };
@@ -1163,6 +1169,8 @@ function updateConfirmBtnState() {
 function resetSelfieCapture() {
     capturedSelfieDataUrl = null;
     faceVerified = false;
+    capturedDescriptor = null;
+    biometricToken = null;
     const video = $('selfie-video'),
         preview = $('selfie-preview');
     if (preview) {
@@ -1218,11 +1226,12 @@ async function iniciarCameraSelfie() {
     }
 }
 
-window.capturarSelfie = function () {
+window.capturarSelfie = async function () {
     const video = $('selfie-video'),
         canvas = $('selfie-canvas'),
         preview = $('selfie-preview');
     if (!video || !canvas || !video.videoWidth) return;
+    if (biometriaStatus?.enrolled && !(await exigirProvaDeVida(video, $('selfie-hint'), $('btn-selfie-shoot')))) return;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -1242,6 +1251,8 @@ window.capturarSelfie = function () {
 window.retomarSelfie = function () {
     capturedSelfieDataUrl = null;
     faceVerified = false;
+    capturedDescriptor = null;
+    biometricToken = null;
     const video = $('selfie-video'),
         preview = $('selfie-preview');
     if (preview) preview.classList.add('hidden');
@@ -1258,7 +1269,7 @@ window.retomarSelfie = function () {
 };
 
 const FACE_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
-const FACE_MATCH_THRESHOLD = 0.55;
+const BIOMETRIA_CONSENTIMENTO_VERSAO = 'biometria-ponto-v1';
 
 function loadFaceModels() {
     if (!faceModelsPromise) {
@@ -1271,27 +1282,87 @@ function loadFaceModels() {
     return faceModelsPromise;
 }
 
-function getReferenceDescriptor() {
-    if (!myEmployee?.avatar_url) return Promise.resolve(null);
-    if (!referenceDescriptorPromise) {
-        referenceDescriptorPromise = (async () => {
-            try {
-                await loadFaceModels();
-                const img = await faceapi.fetchImage(myEmployee.avatar_url);
-                const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                return det ? det.descriptor : null;
-            } catch (e) {
-                console.error('Falha ao processar a foto de referência:', e);
-                return null;
-            }
-        })();
+async function extrairDescritor(dataUrl) {
+    const img = await faceapi.fetchImage(dataUrl);
+    const det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    return det ? Array.from(det.descriptor, (v) => +Number(v).toFixed(6)) : null;
+}
+
+const EAR_ABERTO = 0.25;
+const EAR_FECHADO = 0.2;
+
+function razaoAspectoOlho(pontos) {
+    const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const [p1, p2, p3, p4, p5, p6] = pontos;
+    return (d(p2, p6) + d(p3, p5)) / (2 * d(p1, p4));
+}
+
+async function detectarPiscada(video, limiteMs = window.NEXUS_PROVA_DE_VIDA_MS || 8000) {
+    await loadFaceModels();
+    let etapa = 'aberto';
+    for (let quadro = 0; quadro < limiteMs / 100; quadro++) {
+        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+        if (det?.landmarks) {
+            const ear = (razaoAspectoOlho(det.landmarks.getLeftEye()) + razaoAspectoOlho(det.landmarks.getRightEye())) / 2;
+            if (etapa === 'aberto' && ear >= EAR_ABERTO) etapa = 'esperando-fechar';
+            else if (etapa === 'esperando-fechar' && ear <= EAR_FECHADO) etapa = 'fechado';
+            else if (etapa === 'fechado' && ear >= EAR_ABERTO) return true;
+        }
+        await new Promise((r) => setTimeout(r, 100));
     }
-    return referenceDescriptorPromise;
+    return false;
+}
+
+async function exigirProvaDeVida(video, hint, botao) {
+    if (botao) botao.disabled = true;
+    if (hint) {
+        hint.textContent = 'Prova de vida: olhe para a câmera e pisque os olhos devagar.';
+        hint.classList.remove('selfie-hint--erro');
+    }
+    let vivo = false;
+    try {
+        vivo = await detectarPiscada(video);
+    } catch (e) {
+        console.error('Prova de vida:', e);
+    }
+    if (botao) botao.disabled = false;
+    if (hint) {
+        hint.textContent = vivo ? 'Piscada detectada.' : 'Não detectamos a piscada. Fique de frente, com boa luz, e tente de novo.';
+        hint.classList.toggle('selfie-hint--erro', !vivo);
+    }
+    return vivo;
+}
+
+async function carregarStatusBiometria() {
+    const { data, error } = await sb.rpc('biometric_status');
+    biometriaStatus = error ? null : data;
+    renderBiometriaCard();
+    return biometriaStatus;
+}
+
+async function biometriaCadastrada() {
+    const status = biometriaStatus || (await carregarStatusBiometria());
+    return status?.enrolled !== false;
+}
+
+function renderBiometriaCard() {
+    const txt = $('biometria-status-text');
+    const btnCadastrar = $('btn-biometria-cadastrar');
+    const btnRevogar = $('btn-biometria-revogar');
+    if (!txt) return;
+    const cadastrada = !!biometriaStatus?.enrolled;
+    txt.textContent = cadastrada
+        ? `Biometria facial cadastrada em ${new Date(biometriaStatus.consent_at).toLocaleDateString('pt-BR')}`
+        : 'Biometria facial não cadastrada — seus registros não têm verificação de identidade.';
+    btnCadastrar?.classList.toggle('hidden', cadastrada);
+    btnRevogar?.classList.toggle('hidden', !cadastrada);
 }
 
 async function verificarIdentidadeSelfie(selfieDataUrl) {
     const statusEl = $('face-verify-status');
     faceVerified = false;
+    capturedDescriptor = null;
+    biometricToken = null;
     updateConfirmBtnState();
     if (!statusEl) return;
 
@@ -1299,56 +1370,141 @@ async function verificarIdentidadeSelfie(selfieDataUrl) {
         statusEl.className = `face-verify-status face-verify-status--${variant}`;
         statusEl.innerHTML = html;
     };
+    const liberar = (html) => {
+        faceVerified = true;
+        setStatus('info', html);
+        updateConfirmBtnState();
+    };
     statusEl.classList.remove('hidden');
     setStatus('checking', '<i class="fas fa-spinner fa-spin"></i> Verificando identidade...');
 
+    if (!(await biometriaCadastrada())) {
+        liberar('<i class="fas fa-circle-info"></i> Biometria facial não cadastrada — verificação de identidade não realizada.');
+        return;
+    }
+
     try {
         await loadFaceModels();
-    } catch {
-        faceVerified = true;
-        setStatus('info', '<i class="fas fa-circle-info"></i> Verificação de identidade indisponível no momento.');
-        updateConfirmBtnState();
-        return;
-    }
-
-    const refDescriptor = await getReferenceDescriptor();
-    if (!refDescriptor) {
-        faceVerified = true;
-        setStatus(
-            'info',
-            myEmployee?.avatar_url
-                ? '<i class="fas fa-circle-info"></i> Não foi possível ler a foto de perfil cadastrada — verificação pulada.'
-                : '<i class="fas fa-circle-info"></i> Sem foto de perfil cadastrada — verificação de identidade não realizada.'
-        );
-        updateConfirmBtnState();
-        return;
-    }
-
-    let det = null;
-    try {
-        const img = await faceapi.fetchImage(selfieDataUrl);
-        det = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        capturedDescriptor = await extrairDescritor(selfieDataUrl);
     } catch (e) {
         console.error('Falha ao processar a selfie para verificação facial:', e);
+        setStatus('erro', '<i class="fas fa-triangle-exclamation"></i> Verificação facial indisponível agora. Tente novamente em instantes.');
+        updateConfirmBtnState();
+        return;
     }
 
-    if (!det) {
-        faceVerified = false;
+    if (!capturedDescriptor) {
         setStatus('erro', '<i class="fas fa-triangle-exclamation"></i> Não identificamos seu rosto na foto. Tire novamente de frente, com boa iluminação.');
         updateConfirmBtnState();
         return;
     }
 
-    const distance = faceapi.euclideanDistance(refDescriptor, det.descriptor);
-    if (distance <= FACE_MATCH_THRESHOLD) {
+    if (!navigator.onLine) {
+        liberar('<i class="fas fa-circle-info"></i> Sem conexão: a identidade será verificada ao enviar o registro.');
+        return;
+    }
+
+    const { data, error } = await sb.rpc('biometric_verify', { p_descriptor: capturedDescriptor });
+    if (error) {
+        setStatus('erro', `<i class="fas fa-triangle-exclamation"></i> ${escapeHtml(error.message || 'Não foi possível verificar a identidade.')}`);
+    } else if (!data?.enrolled) {
+        liberar('<i class="fas fa-circle-info"></i> Biometria facial não cadastrada — verificação de identidade não realizada.');
+        return;
+    } else if (data.matched) {
         faceVerified = true;
+        biometricToken = data.verification_id;
         setStatus('ok', '<i class="fas fa-circle-check"></i> Identidade confirmada.');
     } else {
-        faceVerified = false;
         setStatus('erro', '<i class="fas fa-triangle-exclamation"></i> O rosto não confere com o cadastro deste colaborador. Tire a selfie novamente.');
     }
     updateConfirmBtnState();
 }
+
+function pararCameraBiometria() {
+    if (bioStream) {
+        bioStream.getTracks().forEach((t) => t.stop());
+        bioStream = null;
+    }
+}
+
+function updateBiometriaBtnState() {
+    const btn = $('btn-biometria-salvar');
+    if (btn) btn.disabled = !$('biometria-consentimento')?.checked || !$('bio-video')?.srcObject;
+}
+
+window.abrirCadastroBiometria = async function () {
+    const consent = $('biometria-consentimento');
+    if (consent) consent.checked = false;
+    const hint = $('biometria-hint');
+    if (hint) {
+        hint.textContent = '';
+        hint.className = 'selfie-hint';
+    }
+    openModal('modal-biometria');
+    pararCameraBiometria();
+    try {
+        bioStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        $('bio-video').srcObject = bioStream;
+    } catch {
+        if (hint) {
+            hint.textContent = 'Não foi possível acessar a câmera. Permita o acesso para cadastrar a biometria.';
+            hint.className = 'selfie-hint selfie-hint--erro';
+        }
+    }
+    updateBiometriaBtnState();
+};
+
+window.onBiometriaConsentimento = function () {
+    updateBiometriaBtnState();
+};
+
+window.salvarBiometria = async function () {
+    const video = $('bio-video'),
+        canvas = $('bio-canvas'),
+        hint = $('biometria-hint');
+    if (!$('biometria-consentimento')?.checked || !video?.videoWidth) return;
+    if (!(await exigirProvaDeVida(video, hint, $('btn-biometria-salvar')))) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const foto = canvas.toDataURL('image/jpeg', 0.9);
+    let descritor = null;
+    try {
+        await loadFaceModels();
+        descritor = await extrairDescritor(foto);
+    } catch (e) {
+        console.error('Falha ao extrair o modelo facial:', e);
+    }
+    canvas.width = 0;
+    if (!descritor) {
+        hint.textContent = 'Não identificamos seu rosto. Fique de frente para a câmera, com boa iluminação, e tente de novo.';
+        hint.className = 'selfie-hint selfie-hint--erro';
+        return;
+    }
+    const { error } = await sb.rpc('biometric_enroll', { p_descriptor: descritor, p_consent: true, p_consent_version: BIOMETRIA_CONSENTIMENTO_VERSAO });
+    if (error) {
+        hint.textContent = error.message || 'Não foi possível cadastrar a biometria.';
+        hint.className = 'selfie-hint selfie-hint--erro';
+        return;
+    }
+    closeModal('modal-biometria');
+    showToast('Biometria facial cadastrada. A foto não é guardada: só o modelo facial, cifrado.', 'success');
+    await carregarStatusBiometria();
+};
+
+window.revogarBiometria = async function () {
+    if (
+        !confirm('Revogar o consentimento e apagar sua biometria facial? Seus registros de ponto deixam de ter verificação de identidade até um novo cadastro.')
+    )
+        return;
+    const { error } = await sb.rpc('biometric_revoke');
+    if (error) {
+        showToast('Não foi possível revogar agora. Tente novamente.', 'error');
+        return;
+    }
+    showToast('Biometria facial apagada.', 'success');
+    await carregarStatusBiometria();
+};
 
 function dataUrlToBlob(dataUrl) {
     const [header, base64] = dataUrl.split(',');
@@ -1400,6 +1556,7 @@ window.confirmarRegistro = async function () {
 
     clearInterval(window._confirmTimer);
     pararCameraSelfie();
+    pararCameraBiometria();
     closeModal('modal-confirmar');
     const step = pendingStep;
     const key = todayKey();
@@ -1409,10 +1566,13 @@ window.confirmarRegistro = async function () {
         timestamp: nowISO(),
         loc: userCoords ? { lat: userCoords.lat, lng: userCoords.lng } : null,
         selfie: capturedSelfieDataUrl,
+        biometricToken,
         excessoLegalMin: pendingExcessoLegalMin > 0 ? pendingExcessoLegalMin : 0,
         justificativaExcesso,
     };
     capturedSelfieDataUrl = null;
+    capturedDescriptor = null;
+    biometricToken = null;
     pendingStep = null;
     pendingExcessoLegalMin = 0;
 
@@ -1432,6 +1592,11 @@ window.confirmarRegistro = async function () {
     }
 
     const ok = await syncPunch(entry);
+    if (ok === REJEITADO_BIOMETRIA) {
+        showToast('O rosto não confere com a biometria cadastrada. O ponto não foi registrado.', 'error');
+        renderUI();
+        return;
+    }
     if (!ok) {
         applyLocalPunch(entry);
         queueOfflinePunch(entry);
@@ -1472,8 +1637,29 @@ function applyLocalPunch({ step, date, timestamp, loc }) {
     recordsMap[date] = rec;
 }
 
-async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificativaExcesso }) {
+const REJEITADO_BIOMETRIA = 'rejeitado-biometria';
+
+async function tokenBiometrico({ biometricToken: token, selfie }) {
+    if (token || !selfie || !(await biometriaCadastrada())) return { token: token || null };
+    let descriptor = null;
     try {
+        await loadFaceModels();
+        descriptor = await extrairDescritor(selfie);
+    } catch {
+        return { falhou: true };
+    }
+    if (!descriptor) return { rejeitado: true };
+    const { data, error } = await sb.rpc('biometric_verify', { p_descriptor: descriptor });
+    if (error) return { falhou: true };
+    if (data?.enrolled && !data.matched) return { rejeitado: true };
+    return { token: data?.verification_id || null };
+}
+
+async function syncPunch({ step, date, loc, selfie, biometricToken: token, excessoLegalMin, justificativaExcesso }) {
+    try {
+        const bio = await tokenBiometrico({ biometricToken: token, selfie });
+        if (bio.rejeitado) return REJEITADO_BIOMETRIA;
+        if (bio.falhou) return false;
         let selfiePath = null;
         if (selfie) {
             selfiePath = `${myEmployeeId}/${date}_${step}_${Date.now()}.jpg`;
@@ -1489,6 +1675,7 @@ async function syncPunch({ step, date, loc, selfie, excessoLegalMin, justificati
                 p_step: step,
                 p_loc: loc,
                 p_selfie_path: selfiePath,
+                p_biometric_token: bio.token,
             })
             .single();
         if (error || !upserted) return false;
@@ -1525,12 +1712,21 @@ async function flushOfflineQueue() {
     const queue = loadOfflineQueue();
     if (!queue.length) return;
     let synced = 0;
+    let rejeitados = 0;
     while (queue.length) {
         const ok = await syncPunch(queue[0]);
         if (!ok) break;
         queue.shift();
         saveOfflineQueue(queue);
-        synced++;
+        if (ok === REJEITADO_BIOMETRIA) rejeitados++;
+        else synced++;
+    }
+    if (rejeitados) {
+        await loadData();
+        showToast(
+            `${rejeitados} registro${rejeitados > 1 ? 's' : ''} offline recusado${rejeitados > 1 ? 's' : ''}: o rosto não confere com a biometria cadastrada.`,
+            'error'
+        );
     }
     renderSyncStatus();
     if (synced) {
@@ -1959,7 +2155,7 @@ window.enviarSolicitacao = async function () {
         if (el) el.textContent = msg;
         if (msg) ok = false;
     };
-    setErr('err-ajuste-data', data ? '' : 'Informe a data.');
+    setErr('err-ajuste-data', !data ? 'Informe a data.' : data > todayKey() ? 'Não é possível pedir ajuste para uma data futura.' : '');
     setErr('err-ajuste-tipo', tipo ? '' : 'Selecione o tipo.');
     setErr('err-ajuste-horario', isFaltaType || hor ? '' : 'Informe o horário correto.');
     setErr('err-ajuste-just', just ? '' : 'A justificativa é obrigatória.');
@@ -2058,7 +2254,9 @@ function ensureLeafletMap() {
         iconAnchor: [15, 15],
     });
     EMPRESA.unidades.forEach((u) => {
-        L.marker([u.lat, u.lng], { icon: empresaIcon }).addTo(leafletMap).bindPopup(`${EMPRESA.nome} — ${u.endereco}`);
+        L.marker([u.lat, u.lng], { icon: empresaIcon, title: `Unidade ${u.endereco}`, alt: `Unidade ${u.endereco}` })
+            .addTo(leafletMap)
+            .bindPopup(`${EMPRESA.nome} — ${u.endereco}`);
         L.circle([u.lat, u.lng], {
             radius: u.raioM,
             color: '#6366f1',
@@ -2103,7 +2301,7 @@ function renderMapStatic(user) {
         iconSize: [22, 22],
         iconAnchor: [11, 11],
     });
-    userMarker = L.marker([user.lat, user.lng], { icon: userIcon })
+    userMarker = L.marker([user.lat, user.lng], { icon: userIcon, title: 'Sua localização', alt: 'Sua localização' })
         .addTo(map)
         .bindPopup(dentro ? `Você (dentro de ${nearest.endereco})` : `Você (fora — mais próxima: ${nearest.endereco})`);
     routeLine = L.polyline(
@@ -2162,6 +2360,7 @@ window.closeModal = function (id) {
         clearInterval(window._confirmTimer);
         pararCameraSelfie();
     }
+    if (id === 'modal-biometria') pararCameraBiometria();
 };
 function closeAllModals() {
     document.querySelectorAll('.modal-overlay').forEach((el) => el.classList.remove('open'));

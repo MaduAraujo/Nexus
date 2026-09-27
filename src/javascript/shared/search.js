@@ -39,7 +39,7 @@
                 sb.from('employees').select('id,name,dept,role,email').order('name'),
                 sb.from('vacations').select('id,employee_id,start_date,end_date,status').order('created_at', { ascending: false }).limit(200),
                 sb.from('bank_requests').select('id,employee_id,tipo,minutos,date,status').order('created_at', { ascending: false }).limit(200),
-                sb.from('documents').select('id,name,employee_id,category').order('created_at', { ascending: false }).limit(200),
+                sb.from('documents').select('id,name,employee_id,category').is('deleted_at', null).order('created_at', { ascending: false }).limit(200),
             ]);
             const empMap = {};
             (emps || []).forEach((e) => {

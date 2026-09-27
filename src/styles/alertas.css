@@ -1,5 +1,5 @@
 :root {
-    --accent: #6366f1;
+    --accent: #5d60e3;
     --accent-hover: #4f46e5;
     --accent-light: rgba(99, 102, 241, 0.1);
     --accent-dim: rgba(99, 102, 241, 0.06);
@@ -12,8 +12,8 @@
 
     --text-primary: #0f172a;
     --text-secondary: #475569;
-    --text-tertiary: #94a3b8;
-    --text-subtle: #94a3b8;
+    --text-tertiary: #606a77;
+    --text-subtle: #606a77;
     --text-on-dark: #f1f5f9;
 
     --border: #e2e8f0;
@@ -53,8 +53,8 @@
 
     --text-primary: #e8eaf0;
     --text-secondary: #9aa1b0;
-    --text-tertiary: #767c8a;
-    --text-subtle: #767c8a;
+    --text-tertiary: #7e8491;
+    --text-subtle: #7e8491;
 
     --border: rgba(255, 255, 255, 0.08);
 
@@ -64,6 +64,8 @@
     --red-text: #f87171;
     --blue-bg: rgba(59, 130, 246, 0.16);
     --amber-bg: rgba(245, 158, 11, 0.16);
+    --bg-soft: #16171d;
+    --accent-text: #a5b4fc;
 }
 
 *,
@@ -196,7 +198,7 @@ ul {
 }
 
 .logo-name .x {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sidebar-toggle {
@@ -271,7 +273,7 @@ ul {
 
 .nav-item.active .nav-icon i,
 .nav-link:hover .nav-icon i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .nav-item.active .nav-link,
@@ -495,7 +497,7 @@ ul {
 
 .last-analysis-label {
     font-size: 0.78rem;
-    color: #6b7280;
+    color: #9ca3af;
     white-space: nowrap;
 }
 
@@ -530,7 +532,7 @@ ul {
 .btn-report.active {
     background: var(--accent-light);
     border-color: rgba(99, 102, 241, 0.35);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .btn-notif-icon {
@@ -566,7 +568,7 @@ ul {
 .btn-notif-icon.active {
     background: var(--accent-light);
     border-color: rgba(99, 102, 241, 0.35);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .sr-only {
@@ -784,7 +786,7 @@ ul {
 
 .comunidade-subtab:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .comunidade-subtab.active {
@@ -816,7 +818,7 @@ ul {
 }
 
 .kudos-mod-names i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     margin: 0 4px;
     font-size: 0.68rem;
 }
@@ -831,7 +833,7 @@ ul {
     padding: 2px 7px;
     border-radius: 999px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .kudos-mod-msg {
@@ -895,7 +897,7 @@ ul {
 
 .af-chip:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .af-chip.active {
@@ -935,7 +937,7 @@ ul {
     padding: 2px 8px;
     border-radius: 999px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .af-item-time {
@@ -967,7 +969,7 @@ ul {
 
 .af-item-btn:hover {
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .af-empty,
@@ -1187,7 +1189,7 @@ ul {
     align-items: center;
     justify-content: center;
     font-size: 1.6rem;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.05);
 }
 
@@ -1257,7 +1259,7 @@ ul {
 }
 
 .summary-banner i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     margin-top: 2px;
     flex-shrink: 0;
 }
@@ -1490,7 +1492,7 @@ ul {
     gap: 5px;
     font-size: 0.74rem;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 7px;
@@ -1696,7 +1698,7 @@ ul {
     font-family: inherit;
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     background: var(--accent-light);
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 20px;
@@ -1981,7 +1983,7 @@ ul {
     gap: 7px;
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .action-confirm-header i {
@@ -2158,7 +2160,7 @@ ul {
 }
 
 .report-modal-title i {
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
 }
 
 .report-modal-actions {
@@ -2172,7 +2174,7 @@ ul {
     align-items: center;
     gap: 6px;
     background: var(--accent-light);
-    color: var(--accent);
+    color: var(--accent-text, var(--accent));
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 8px;
     padding: 6px 12px;

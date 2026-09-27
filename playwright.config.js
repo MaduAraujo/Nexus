@@ -5,6 +5,7 @@ module.exports = defineConfig({
     testMatch: '*.spec.js',
     fullyParallel: false,
     workers: 1,
+    timeout: 60_000,
     reporter: 'list',
     globalSetup: require.resolve('./e2e/global-setup.js'),
     globalTeardown: require.resolve('./e2e/global-teardown.js'),

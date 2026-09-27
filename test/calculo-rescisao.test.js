@@ -124,3 +124,37 @@ test('regra geral: custoTotal nunca é menor que a soma de verbas + encargos ind
     assert.equal(r.totalEncargos, +somaEncargos.toFixed(2));
     assert.equal(r.custoTotal, +(r.totalVerbas + r.totalEncargos).toFixed(2));
 });
+
+describe('estágio (Lei 11.788/08) — não é rescisão CLT', () => {
+    test('só saldo de bolsa e recesso proporcional; sem aviso, 13º, 1/3, FGTS ou multa', () => {
+        const r = calcularRescisao({
+            tipo: 'sem_justa_causa',
+            salario: 1500,
+            admissao: new Date(2025, 8, 1),
+            demissao: new Date(2026, 2, 15),
+            contractType: 'estagio',
+            saldoBancoHorasMin: 600,
+        });
+        assert.deepEqual(r.verbas, [
+            { descricao: 'Saldo de Bolsa', dias: 15, valor: 750 },
+            { descricao: 'Recesso Proporcional (Lei 11.788 art. 13)', dias: 15, valor: 750 },
+        ]);
+        assert.deepEqual([r.diasAviso, r.fgtsEstimado, r.totalEncargos, r.custoTotal], [0, 0, 0, 1500]);
+        assert.ok(!r.verbas.some((v) => /13º|1\/3|Aviso|Banco de Horas/.test(v.descricao)));
+    });
+
+    test('com "estágio" acentuado e ano completo, o recesso do ciclo já vencido não se repete', () => {
+        const r = calcularRescisao({
+            tipo: 'pedido_demissao',
+            salario: 1200,
+            admissao: new Date(2025, 0, 10),
+            demissao: new Date(2026, 0, 20),
+            contractType: 'estágio',
+        });
+        assert.deepEqual(
+            r.verbas.map((v) => v.descricao),
+            ['Saldo de Bolsa']
+        );
+        assert.equal(r.anosCompletos, 1);
+    });
+});

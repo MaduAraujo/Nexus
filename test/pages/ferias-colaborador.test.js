@@ -41,15 +41,15 @@ async function pickDate(p, prefix, iso) {
 }
 
 describe('ferias-colaborador.html — saldo', () => {
-    test('dois ciclos fechados sem faltas = 60 dias; aprovadas descontam o período inteiro (abono incluso)', async () => {
+    test('dois ciclos fechados sem faltas = 60 dias; o abono vendido também sai do saldo', async () => {
         const client = colabClient({
             vacations: [
                 {
                     id: 'v1',
                     employee_id: ANA.id,
                     start_date: '2025-03-03',
-                    end_date: '2025-04-01',
-                    days: 30,
+                    end_date: '2025-03-22',
+                    days: 20,
                     abono: true,
                     status: 'concluido',
                     created_at: '2025-01-10T10:00:00Z',
@@ -60,7 +60,7 @@ describe('ferias-colaborador.html — saldo', () => {
         assert.equal(page.text('#val-saldo'), '30 dias');
         assert.equal(page.text('#sub-saldo'), '60 ganhos · 30 utilizados');
         assert.equal(page.text('#val-periodo'), '01/02/2026 – 31/01/2027');
-        assert.match(page.text('#history-list'), /03\/03\/2025 → 01\/04\/2025.*30 dias.*Abono Pecuniário.*Concluído/);
+        assert.match(page.text('#history-list'), /03\/03\/2025 → 22\/03\/2025.*20 dias.*Abono Pecuniário.*Concluído/);
     });
 
     test('faltas reduzem o direito, mas férias, atestado e o período sem ponto no sistema não são faltas', async () => {
@@ -113,11 +113,11 @@ describe('ferias-colaborador.html — solicitar', () => {
         await page.click('#req-start-trigger');
 
         await pickDate(page, 'req-start', '2026-08-03');
-        await pickDate(page, 'req-end', '2026-09-01');
-        assert.equal(page.text('#days-count'), '30 dias selecionados');
+        await pickDate(page, 'req-end', '2026-08-22');
+        assert.equal(page.text('#days-count'), '20 dias de descanso');
         assert.equal(page.$('#req-abono').disabled, false);
         await page.check('#req-abono');
-        assert.equal(page.text('#days-count'), '30 dias selecionados · 20 de descanso + 10 de abono');
+        assert.equal(page.text('#days-count'), '20 dias de descanso + 10 vendidos (abono)');
         assert.match(page.text('#valor-ferias-total'), /5\.333,33/);
 
         await page.click('#btn-confirm');
@@ -127,8 +127,8 @@ describe('ferias-colaborador.html — solicitar', () => {
             {
                 employee_id: ANA.id,
                 start_date: '2026-08-03',
-                end_date: '2026-09-01',
-                days: 30,
+                end_date: '2026-08-22',
+                days: 20,
                 abono: true,
                 substituto_id: null,
                 obs: undefined,
@@ -137,6 +137,33 @@ describe('ferias-colaborador.html — solicitar', () => {
         );
         assert.ok(page.toasts().includes('Solicitação enviada! Aguardando aprovação do RH.'));
         assert.match(page.text('#history-list'), /Pendente/);
+    });
+
+    test('abono só com saldo para os 10 dias vendidos, além do descanso', async () => {
+        const client = colabClient({
+            vacations: [
+                {
+                    id: 'v1',
+                    employee_id: ANA.id,
+                    start_date: '2025-03-03',
+                    end_date: '2025-04-11',
+                    days: 40,
+                    abono: false,
+                    status: 'concluido',
+                    created_at: '2025-01-10T10:00:00Z',
+                },
+            ],
+        });
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.text('#val-saldo'), '20 dias');
+        await page.click('#btn-solicitar');
+        await pickDate(page, 'req-start', '2026-08-03');
+        await pickDate(page, 'req-end', '2026-08-22');
+        assert.equal(page.text('#days-count'), '20 dias de descanso');
+        assert.equal(page.$('#req-abono').disabled, true);
+        assert.match(page.text('#abono-hint'), /Saldo insuficiente para vender 10 dias/);
+        await pickDate(page, 'req-end', '2026-08-12');
+        assert.equal(page.$('#req-abono').disabled, false, '10 de descanso + 10 vendidos cabem nos 20');
     });
 
     test('mais dias do que o saldo bloqueia o envio', async () => {
