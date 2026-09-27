@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: public.ecr.aws/supabase/postgres:17.6.1.111
+        image: supabase/postgres:17.6.1.111
         env:
           POSTGRES_PASSWORD: postgres
         ports:
