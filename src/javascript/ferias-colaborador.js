@@ -148,14 +148,6 @@ function buildAcquisitiveCycles(admDate, today) {
     return cycles;
 }
 
-function idadeEm(birthDate, ref) {
-    if (!birthDate) return null;
-    const b = new Date(birthDate + 'T00:00:00');
-    let idade = ref.getFullYear() - b.getFullYear();
-    if (ref.getMonth() < b.getMonth() || (ref.getMonth() === b.getMonth() && ref.getDate() < b.getDate())) idade--;
-    return idade;
-}
-
 function countFractionsInCycle(cycle) {
     if (!cycle) return [];
     return myVacations.filter(
@@ -841,9 +833,6 @@ window.calcDays = function () {
         if (fractionNumber > 3) errors.push('Você já utilizou as 3 frações de férias permitidas neste período aquisitivo (art. 134 §1º CLT)');
         else if (fractionNumber === 3 && !others.some((v) => (v.days || 0) >= 14) && days < 14)
             errors.push('Ao menos uma fração deve ter 14 dias corridos ou mais — esta seria sua última fração disponível neste ciclo (art. 134 §1º CLT)');
-        const idade = idadeEm(myEmployee.birth_date, s);
-        if (idade !== null && (idade < 18 || idade >= 50) && fractionNumber > 1)
-            errors.push('Menores de 18 ou maiores de 50 anos devem gozar as férias em período único (art. 134 §2º CLT)');
     }
 
     if (abonoEl) {
@@ -916,11 +905,6 @@ window.submitRequest = async function () {
         }
         if (fractionNumber === 3 && !others.some((v) => (v.days || 0) >= 14) && days < 14) {
             showAlert('<i class="fas fa-exclamation-triangle"></i> Ao menos uma fração deve ter 14 dias corridos ou mais.');
-            return;
-        }
-        const idade = idadeEm(myEmployee.birth_date, s);
-        if (idade !== null && (idade < 18 || idade >= 50) && fractionNumber > 1) {
-            showAlert('<i class="fas fa-exclamation-triangle"></i> Menores de 18 ou maiores de 50 anos devem gozar as férias em período único.');
             return;
         }
     }

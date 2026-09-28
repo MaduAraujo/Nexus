@@ -54,6 +54,30 @@ describe('seguranca.html — alertas e regras', () => {
         assert.equal(page.text('#sec-mark-read'), 'Marcar 2 como lidas');
     });
 
+    test('todas as regras são descritas em português, em ordem alfabética do tipo; regra desconhecida aparece pelo nome, sem descrição', async () => {
+        const regras = [
+            { kind: 'login_after_failures', enabled: true, threshold: 3, window_minutes: 10, params: {} },
+            { kind: 'mass_export', enabled: true, threshold: 5, threshold_rows: 1000, window_minutes: 30, params: {} },
+            { kind: 'mass_export', enabled: true, threshold: 2, window_minutes: 5, params: {} },
+            { kind: 'mass_download', enabled: true, threshold: 20, window_minutes: 10, params: {} },
+            { kind: 'off_hours_access', enabled: true, threshold: 1, window_minutes: 60, params: { weekdays_only: false } },
+            { kind: 'mfa_recovery_used', enabled: true, threshold: 1, window_minutes: 1, params: {} },
+            { kind: 'regra_nova', enabled: true, threshold: 1, window_minutes: 1 },
+        ];
+        page = await openPage('seguranca', { client: rhClient({ security_rules: regras }) });
+        const linhas = page.$$('#sec-rules .sec-rule').map((r) => page.text(r.querySelector('.sec-rule-desc')));
+        assert.deepEqual(linhas, [
+            'login concluído após 3 ou mais falhas em 10 min',
+            '20 arquivos baixados em 10 min',
+            '5 exportações ou 1000 registros em 30 min',
+            '2 exportações em 5 min',
+            'sempre que alguém entra com um código de recuperação no lugar do app autenticador',
+            'fora de 8h–18h, todos os dias (todos os perfis)',
+            '',
+        ]);
+        assert.match(page.text(page.$$('#sec-rules .sec-rule').at(-1)), /regra_nova/);
+    });
+
     test('"marcar como lidas" manda só os ids não lidos e recarrega a lista', async () => {
         const client = rhClient();
         client.handlers.rpc.mark_security_alerts_read = ({ p_ids }, c) => {
@@ -73,10 +97,15 @@ describe('seguranca.html — alertas e regras', () => {
         assert.equal(page.$('#sec-mark-read').hidden, true);
     });
 
-    test('erro ao carregar alertas vira mensagem na tela (e toast de erro)', async () => {
+    test('erro ao carregar alertas vira mensagem na tela, sem repetir o aviso genérico do servidor', async () => {
         page = await openPage('seguranca', { client: rhClient({}, { errors: { 'security_alerts:select': { message: 'permission denied' } } }) });
         assert.match(page.text('#sec-alerts'), /Não foi possível carregar os alertas/);
-        assert.ok(page.toasts().some((t) => /permission denied/.test(t)));
+        assert.equal(page.$('#sec-alerts [role="alert"]').textContent, 'Não foi possível carregar os alertas agora.');
+        await new Promise((r) => setTimeout(r, 700));
+        assert.equal(
+            page.toasts().some((t) => /permission denied/.test(t)),
+            false
+        );
     });
 });
 

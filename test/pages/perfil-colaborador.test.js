@@ -328,3 +328,195 @@ describe('perfil-colaborador.html — falhas e casos de borda', () => {
         assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), '—');
     });
 });
+
+describe('perfil-colaborador.html — férias por período, push e menus', () => {
+    const ferias = () => ({ valor: page.text('#prof-highlight-ferias .prof-highlight-value'), nota: page.text('#prof-highlight-ferias .prof-highlight-note') });
+
+    test('férias: antes de 1 ano mostra o acumulado; no aniversário, 30 dias; tudo gozado mostra só o acumulado', async () => {
+        page = await openPage('perfil-colaborador', { client: client({ emp: { admission_date: '2026-01-10' } }), now: NOW });
+        assert.deepEqual(ferias(), { valor: '12 dias acumulados', nota: 'Faltam 7 mês(es)' });
+        page.close();
+
+        page = await openPage('perfil-colaborador', { client: client({ emp: { admission_date: '2025-06-17' } }), now: NOW });
+        assert.deepEqual(ferias(), { valor: '30 dias', nota: 'Próximo vencimento em 12 mês(es)' });
+        page.close();
+
+        const gozou = client({ emp: { admission_date: '2025-03-01' }, extra: { vacations: [{ employee_id: ANA.id, days: 30, status: 'concluido' }] } });
+        page = await openPage('perfil-colaborador', { client: gozou, now: NOW });
+        assert.deepEqual(ferias(), { valor: '7 dias acumulados', nota: 'Próximo vencimento em 8 mês(es)' });
+    });
+
+    test('navegador renovou a inscrição de push: a nova é gravada no servidor', async () => {
+        const ouvintes = [];
+        const c = client();
+        page = await openPage('perfil-colaborador', {
+            client: c,
+            now: NOW,
+            push: { permission: 'granted' },
+            before: (w) => {
+                w.navigator.serviceWorker.addEventListener = (tipo, cb) => ouvintes.push(cb);
+            },
+        });
+        const nova = { endpoint: 'https://push.test/sub-2', keys: { p256dh: 'k2', auth: 'a2' } };
+        for (const cb of ouvintes) {
+            cb({ data: { type: 'OUTRA_COISA', subscription: nova } });
+            cb({ data: { type: 'PUSH_SUBSCRIPTION_CHANGED' } });
+            cb({ data: null });
+        }
+        await page.settle();
+        assert.equal(c.writes('push_subscriptions', 'upsert').length, 0);
+        for (const cb of ouvintes) cb({ data: { type: 'PUSH_SUBSCRIPTION_CHANGED', subscription: nova } });
+        await page.settle();
+        assert.deepEqual(c.writes('push_subscriptions', 'upsert')[0].payload[0], {
+            employee_id: ANA.id,
+            endpoint: 'https://push.test/sub-2',
+            p256dh: 'k2',
+            auth: 'a2',
+        });
+    });
+
+    test('desativar push sem inscrição só confirma; falha do navegador ao desativar não quebra a tela', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW, push: { permission: 'granted' } });
+        await page.window.togglePushNotifications(false);
+        assert.equal(c.writes('push_subscriptions', 'delete').length, 0);
+        assert.ok(page.toasts().includes('Notificações push desativadas.'));
+
+        page.window.navigator.serviceWorker.ready.then((reg) => {
+            reg.pushManager.getSubscription = async () => {
+                throw new Error('serviço indisponível');
+            };
+        });
+        await page.settle();
+        await page.window.togglePushNotifications(false);
+        assert.equal(page.toasts().filter((t) => t === 'Notificações push desativadas.').length, 1);
+        assert.deepEqual(page.pageErrors.map(String), []);
+    });
+
+    test('ativar push sem suporte do navegador avisa e desmarca', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        page.$('#notif-push-browser').checked = true;
+        await page.window.togglePushNotifications(true);
+        assert.ok(page.toasts().some((t) => /Não suportado/.test(t)));
+        assert.equal(page.$('#notif-push-browser').checked, false);
+    });
+
+    test('se o servidor não gravar a inscrição, o push não fica como ativado', async () => {
+        const c = client();
+        c.errors['push_subscriptions:upsert'] = { message: 'RLS' };
+        page = await openPage('perfil-colaborador', { client: c, now: NOW, push: { permission: 'granted' } });
+        await page.check('#notif-push-browser');
+        assert.ok(page.toasts().includes('Erro ao ativar notificações push.'));
+        assert.equal(page.$('#notif-push-browser').checked, false);
+    });
+
+    test('sair encerra a sessão e volta ao login', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        await page.window.logout();
+        assert.ok(c.calls.some((x) => x.auth === 'signOut'));
+        assert.deepEqual(page.navigations, ['http://localhost:4173/src/screens/login.html']);
+    });
+
+    test('"Trocar foto" fecha o menu e abre o seletor de arquivo; Esc e clique fora fecham os menus', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        let abriu = 0;
+        page.$('#photo-input').addEventListener('click', () => abriu++);
+        page.window.toggleAvatarMenu();
+        await page.click('[data-click="triggerPhotoUpload"]');
+        assert.equal(abriu, 1);
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), false);
+
+        page.window.toggleAvatarMenu();
+        await page.key(page.document, 'a');
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), false);
+
+        page.window.openColorPicker();
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#color-picker').classList.contains('open'), false);
+
+        page.window.toggleAvatarMenu();
+        await page.click('#avatar-menu');
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), true, 'clique dentro do menu não fecha');
+        await page.click(page.document.body);
+        assert.equal(page.$('#avatar-menu').classList.contains('open'), false);
+    });
+
+    test('o aviso some sozinho depois de alguns segundos', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        const w = page.window;
+        const original = w.setTimeout;
+        w.setTimeout = (fn, ms, ...a) => (ms >= 400 && ms < 1000 ? (fn(...a), 0) : ms >= 4000 ? (fn(...a), 0) : original(fn, ms, ...a));
+        await w.togglePushNotifications(true);
+        w.setTimeout = original;
+        assert.deepEqual(page.toasts(), []);
+    });
+});
+
+describe('perfil-colaborador.html — cor, reposicionamento e tempo real', () => {
+    test('erro ao salvar a cor avisa e mantém a cor antiga', async () => {
+        const c = client({ emp: { avatar_color: '#6366f1' } });
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        c.errors['employees:update'] = { message: 'falhou' };
+        page.window.openColorPicker();
+        const outra = page.$$('#color-swatches .color-swatch').find((s) => !s.classList.contains('active'));
+        await page.click(outra);
+        assert.ok(page.toasts().includes('Erro ao salvar cor.'));
+        assert.equal(page.$('#color-swatches .color-swatch.active').title, '#6366f1');
+    });
+
+    test('rolar ou redimensionar a tela reposiciona o menu aberto junto do botão', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        const w = page.window;
+        const menu = page.$('#avatar-menu');
+        const picker = page.$('#color-picker');
+        let top = 100;
+        page.$('#avatar-edit-btn').getBoundingClientRect = () => ({ top, bottom: top + 30, left: 50, right: 80, width: 30, height: 30 });
+
+        w.dispatchEvent(new w.Event('scroll'));
+        assert.equal(menu.style.top, '', 'fechado não é reposicionado');
+
+        w.toggleAvatarMenu();
+        const antes = menu.style.top;
+        top = 300;
+        w.dispatchEvent(new w.Event('scroll'));
+        assert.notEqual(menu.style.top, antes);
+
+        w.openColorPicker();
+        const antesPicker = picker.style.top;
+        top = 20;
+        w.dispatchEvent(new w.Event('resize'));
+        assert.notEqual(picker.style.top, antesPicker);
+        w.dispatchEvent(new w.Event('resize'));
+    });
+
+    test('sem o botão do avatar, rolar e redimensionar não quebram', async () => {
+        page = await openPage('perfil-colaborador', { client: client(), now: NOW });
+        page.$('#avatar-edit-btn').remove();
+        page.window.dispatchEvent(new page.window.Event('scroll'));
+        page.window.dispatchEvent(new page.window.Event('resize'));
+        assert.deepEqual(page.pageErrors.map(String), []);
+    });
+
+    test('RH atualiza o cadastro: nome e cor mudam na hora', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        c.emit('employees', { new: { id: ANA.id, name: 'Ana Souza Lima', avatar_color: '#10b981', status: 'Ativo' } });
+        await page.settle(20);
+        assert.equal(page.text('#profile-hero-name'), 'Ana Souza Lima');
+        assert.equal(page.$('#color-swatches .color-swatch.active').title, '#10b981');
+    });
+
+    test('conta desativada pelo RH em tempo real desconecta', async () => {
+        const c = client();
+        page = await openPage('perfil-colaborador', { client: c, now: NOW });
+        c.emit('employees', { new: { id: ANA.id, status: 'Bloqueado' } });
+        await page.settle();
+        assert.ok(page.toasts().some((t) => /Conta desativada pelo RH/.test(t)));
+        await page.waitFor(() => page.navigations.length, { timeout: 4000 });
+        assert.ok(c.calls.some((x) => x.auth === 'signOut'));
+        assert.deepEqual(page.navigations, ['http://localhost:4173/src/screens/login.html']);
+    });
+});

@@ -1,11 +1,11 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { getJornadaMin, calcBancoHorasLedger, calcFeriasSnapshot } from "../_shared/employee-financial-snapshot.mjs";
 import { createPseudonymizer, createSseUnmaskStream } from "../_shared/pseudonymize.mjs";
 import { hojeSaoPaulo, inicioDoDia } from "../_shared/datas.mjs";
 
-async function gatherEmployeeSnapshot(caller: ReturnType<typeof createClient>, employeeId: string) {
+async function gatherEmployeeSnapshot(caller: SupabaseClient, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([
     caller.from("employees_decrypted").select("name,role,dept,admission_date,contract_type,work_load,salary").eq("id", employeeId).single(),
     caller.from("vacations").select("status,days,abono,start_date,end_date").eq("employee_id", employeeId),

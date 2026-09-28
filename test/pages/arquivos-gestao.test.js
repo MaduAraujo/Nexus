@@ -292,8 +292,10 @@ describe('arquivos.html — requisitos, notificações e filtro por período', (
         await page.click('#filter-calendar-prev');
         assert.equal(page.text('#filter-calendar-title'), 'Maio 2026');
         await page.click('#filter-calendar-grid [data-day="1"]');
+        assert.equal(page.$('#filter-calendar-popover').classList.contains('open'), true, 'escolher o início não fecha o calendário');
         await page.click('#filter-calendar-next');
         await page.click('#filter-calendar-grid [data-day="30"]');
+        assert.equal(page.$('#filter-calendar-popover').classList.contains('open'), true);
         await page.click('#filter-calendar-apply');
         assert.equal(page.$('#filter-date-start').value, '2026-05-01');
         assert.equal(page.$('#filter-date-end').value, '2026-06-30');

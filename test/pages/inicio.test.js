@@ -368,3 +368,175 @@ describe('comunicados-colaborador.html', () => {
         assert.equal(page.visible('#btn-marcar-todos'), false, 'só sobrou o urgente: o botão some');
     });
 });
+
+describe('inicio-rh.html — menu lateral e calendário', () => {
+    const rh = () => new FakeSupabase({ user: RH_USER, tables: baseTables() });
+    const largura = (px) => (w) => Object.defineProperty(w, 'innerWidth', { configurable: true, writable: true, value: px });
+
+    test('desktop: o botão recolhe e expande o menu e o conteúdo acompanha', async () => {
+        page = await openPage('inicio-rh', { client: rh(), before: largura(1280) });
+        await page.click('#sidebar-toggle');
+        assert.equal(page.$('#sidebar').classList.contains('collapsed'), true);
+        assert.equal(page.$('#main-wrapper').classList.contains('sidebar-collapsed'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#sidebar').classList.contains('collapsed'), true, 'Esc não mexe no menu do desktop');
+        await page.click('#sidebar-toggle');
+        assert.equal(page.$('#sidebar').classList.contains('collapsed'), false);
+        assert.equal(page.$('#main-wrapper').classList.contains('sidebar-collapsed'), false);
+    });
+
+    test('celular: abre pelo botão do topo, fecha pelo fundo escuro, pelo Esc e ao virar desktop', async () => {
+        page = await openPage('inicio-rh', { client: rh(), before: largura(390) });
+        const sidebar = page.$('#sidebar');
+        await page.click('#topbar-menu-btn');
+        assert.equal(sidebar.classList.contains('open'), true);
+        assert.equal(page.$('#sidebar-overlay').classList.contains('active'), true);
+        assert.equal(page.document.body.style.overflow, 'hidden');
+        await page.click('#topbar-menu-btn');
+        assert.equal(sidebar.classList.contains('open'), false);
+
+        await page.click('#sidebar-toggle');
+        assert.equal(sidebar.classList.contains('open'), true);
+        assert.equal(sidebar.classList.contains('collapsed'), false, 'no celular o botão abre em vez de recolher');
+        await page.click('#sidebar-toggle');
+        assert.equal(sidebar.classList.contains('open'), false);
+
+        await page.click('#topbar-menu-btn');
+        await page.click('#sidebar-overlay');
+        assert.equal(sidebar.classList.contains('open'), false);
+        assert.equal(page.document.body.style.overflow, '');
+
+        await page.click('#topbar-menu-btn');
+        await page.key(page.document, 'Enter');
+        assert.equal(sidebar.classList.contains('open'), true, 'outras teclas não fecham');
+        await page.key(page.document, 'Escape');
+        assert.equal(sidebar.classList.contains('open'), false);
+
+        await page.click('#topbar-menu-btn');
+        page.window.dispatchEvent(new page.window.Event('resize'));
+        assert.equal(sidebar.classList.contains('open'), true, 'continua celular');
+        page.window.innerWidth = 1280;
+        page.window.dispatchEvent(new page.window.Event('resize'));
+        assert.equal(sidebar.classList.contains('open'), false);
+        assert.equal(page.document.body.style.overflow, '');
+    });
+
+    test('calendário: teclado abre e fecha, vira o ano nos dois sentidos, clique dentro não fecha e clique fora fecha', async () => {
+        page = await openPage('inicio-rh', { client: rh(), now: '2026-01-10T10:00:00-03:00' });
+        const pop = page.$('#calendar-popover');
+        await page.key(page.$('#topbar-date'), 'Enter');
+        assert.equal(pop.classList.contains('open'), true);
+        assert.equal(page.$('#topbar-date').getAttribute('aria-expanded'), 'true');
+        assert.equal(page.text('#calendar-title'), 'Janeiro 2026');
+
+        await page.click('#calendar-prev');
+        assert.equal(page.text('#calendar-title'), 'Dezembro 2025');
+        assert.equal(page.$('#calendar-grid .calendar-day--today'), null, 'hoje só aparece no mês de hoje');
+        for (let i = 0; i < 13; i++) await page.click('#calendar-next');
+        assert.equal(page.text('#calendar-title'), 'Janeiro 2027');
+        assert.equal(pop.classList.contains('open'), true, 'navegar não fecha');
+
+        await page.click('#calendar-grid');
+        assert.equal(pop.classList.contains('open'), true, 'clique dentro não fecha');
+        await page.key(page.document, 'a');
+        assert.equal(pop.classList.contains('open'), true);
+
+        await page.click(page.document.body);
+        assert.equal(pop.classList.contains('open'), false);
+        assert.equal(page.$('#topbar-date').getAttribute('aria-expanded'), 'false');
+
+        await page.key(page.$('#topbar-date'), ' ');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.click('#topbar-date');
+        assert.equal(pop.classList.contains('open'), false, 'clicar de novo fecha');
+        await page.key(page.$('#topbar-date'), 'Tab');
+        assert.equal(pop.classList.contains('open'), false);
+    });
+});
+
+describe('comunicados-colaborador.html — teclado, busca, marcar todos e atualização', () => {
+    const NOW_C = '2026-06-17T10:00:00-03:00';
+    const msgs = () => [
+        { id: 'm1', texto: 'Feriado na sexta', destino: 'Todos', categoria: 'Institucional', created_at: '2026-06-16T10:00:00-03:00', anexos: [] },
+        { id: 'm2', texto: '<p>Nova política</p>', destino: 'Todos', categoria: 'Urgente', created_at: '2026-06-17T09:30:00-03:00', anexos: [] },
+        { id: 'm3', texto: 'Café da manhã', destino: 'Financeiro', categoria: 'Institucional', created_at: '2026-06-17T09:00:00-03:00', anexos: [] },
+    ];
+    const client = (reads = []) => new FakeSupabase({ user: COLAB_USER, tables: baseTables({ messages: msgs(), message_reads: reads }) });
+
+    test('Enter ou espaço no cartão abre o comunicado; outras teclas não', async () => {
+        page = await openPage('comunicados-colaborador', { client: client(), now: NOW_C });
+        const card = page.$('.comunicado-card[data-id="m1"]');
+        await page.key(card, 'a');
+        assert.equal(page.visible('#msg-modal'), false);
+        await page.key(card, 'Enter');
+        assert.equal(page.visible('#msg-modal'), true);
+        await page.key(page.document, 'Escape');
+        await page.key(card, ' ');
+        assert.equal(page.visible('#msg-modal'), true);
+    });
+
+    test('busca filtra pelo texto e o "x" limpa a busca', async () => {
+        page = await openPage('comunicados-colaborador', { client: client(), now: NOW_C });
+        await page.fill('#search-input', 'café');
+        assert.deepEqual(
+            page.$$('.comunicado-card').map((c) => c.dataset.id),
+            ['m3']
+        );
+        assert.equal(page.$('#search-clear').classList.contains('hidden'), false);
+        await page.click('#search-clear');
+        assert.equal(page.$('#search-input').value, '');
+        assert.equal(page.$('#search-clear').classList.contains('hidden'), true);
+        assert.equal(page.$$('.comunicado-card').length, 3);
+    });
+
+    test('"marcar todos como lidos" não confirma os urgentes, que exigem ciência individual', async () => {
+        const c = client();
+        page = await openPage('comunicados-colaborador', { client: c, now: NOW_C });
+        await page.click('#btn-marcar-todos');
+        const gravados = c
+            .writes('message_reads', 'upsert')[0]
+            .payload.map((r) => r.message_id)
+            .sort();
+        assert.deepEqual(gravados, ['m1', 'm3']);
+        assert.equal(page.text('#unread-count'), '1');
+        await page.click('#btn-marcar-todos');
+        assert.equal(c.writes('message_reads', 'upsert').length, 1, 'nada mais a marcar: não grava de novo');
+    });
+
+    test('comunicado novo chega em tempo real e também pela checagem periódica', async () => {
+        const c = client();
+        let periodico = null;
+        page = await openPage('comunicados-colaborador', {
+            client: c,
+            now: NOW_C,
+            before: (w) => {
+                const orig = w.setInterval;
+                w.setInterval = (fn, ms) => (ms === 60000 ? ((periodico = fn), 0) : orig(fn, ms));
+            },
+        });
+        c.tables.messages.push({
+            id: 'm4',
+            texto: 'Treinamento',
+            destino: 'Todos',
+            categoria: 'Institucional',
+            created_at: '2026-06-17T09:50:00-03:00',
+            anexos: [],
+        });
+        c.emit('messages', { new: { id: 'm4' } });
+        await page.settle(20);
+        assert.equal(page.$$('.comunicado-card').length, 4);
+
+        await periodico();
+        assert.equal(page.$$('.comunicado-card').length, 4, 'sem novidade, não redesenha');
+        c.tables.messages.push({
+            id: 'm5',
+            texto: 'Reunião geral',
+            destino: 'Todos',
+            categoria: 'Institucional',
+            created_at: '2026-06-17T09:55:00-03:00',
+            anexos: [],
+        });
+        await periodico();
+        assert.equal(page.$$('.comunicado-card').length, 5);
+    });
+});

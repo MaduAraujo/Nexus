@@ -81,17 +81,10 @@ function empAvatarHtml(emp) {
     return `<div class="emp-avatar" data-bg="${escHtml(emp?.avatarColor || nameToColor(emp?.name))}">${initials(emp?.name)}</div>`;
 }
 
-async function loadRhSidebar() {
+async function requireRhAccess() {
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return false;
     rhUserEmail = auth.user.email;
-
-    const nameEl = document.getElementById('rh-sidebar-name');
-    const roleEl = document.getElementById('rh-sidebar-role');
-    const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (nameEl) nameEl.textContent = 'Administrador';
-    if (roleEl) roleEl.textContent = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = 'ADM';
     return true;
 }
 
@@ -173,14 +166,6 @@ function countFractionsInCycle(empId, cycle) {
             new Date(v.startDate + 'T00:00:00') >= cycle.start &&
             new Date(v.startDate + 'T00:00:00') <= cycle.end
     );
-}
-
-function idadeEm(birthDate, ref) {
-    if (!birthDate) return null;
-    const b = new Date(birthDate + 'T00:00:00');
-    let idade = ref.getFullYear() - b.getFullYear();
-    if (ref.getMonth() < b.getMonth() || (ref.getMonth() === b.getMonth() && ref.getDate() < b.getDate())) idade--;
-    return idade;
 }
 
 function computeFeriasVencidas(emp, today) {
@@ -784,8 +769,6 @@ async function renderEmpFeriasInfo(empId) {
 
     const estagio = isEstagioOuAprendiz(emp);
     const fractions = countFractionsInCycle(empId, cycle);
-    const idade = idadeEm(emp.birthDate, today);
-    const singlePeriodOnly = !estagio && idade !== null && (idade < 18 || idade >= 50);
 
     let html = `<i class="fas fa-umbrella-beach"></i> Ciclo atual: <strong>${fractions.length}/3</strong> fraç${fractions.length === 1 ? 'ão utilizada' : 'ões utilizadas'}`;
     let negativo = false;
@@ -804,11 +787,6 @@ async function renderEmpFeriasInfo(empId) {
         negativo = direito < 30;
         if (abonoEl) abonoEl.disabled = false;
     }
-    if (singlePeriodOnly) {
-        html += `<br><i class="fas fa-triangle-exclamation"></i> Menor de 18 ou 50 anos ou mais: férias devem ser gozadas em período único (art. 134 §2º CLT).`;
-        negativo = true;
-    }
-
     el.innerHTML = html;
     el.className = `add-emp-ferias-info${negativo ? ' negativo' : ''}`;
     el.classList.remove('hidden');
@@ -940,15 +918,6 @@ window.submitAdd = async function () {
                 if (
                     !confirm(
                         'Nenhuma fração deste ciclo tem 14 dias corridos ou mais. A CLT exige que ao menos uma tenha no mínimo 14 dias (art. 134 §1º). Deseja registrar mesmo assim?'
-                    )
-                )
-                    return;
-            }
-            const idade = idadeEm(emp.birthDate, sDate);
-            if (!isEstagioOuAprendiz(emp) && idade !== null && (idade < 18 || idade >= 50) && fractionNumber > 1) {
-                if (
-                    !confirm(
-                        'Colaboradores com menos de 18 ou 50 anos ou mais devem gozar férias em período único (art. 134 §2º CLT). Deseja registrar mesmo assim?'
                     )
                 )
                     return;
@@ -1207,14 +1176,7 @@ function populateSubstitutoSelect(excludeId, selectedId) {
 const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function setDatePickerValue(fieldId, isoDate) {
-    if (calendarFields[fieldId]) {
-        calendarFields[fieldId].setValue(isoDate || '');
-        return;
-    }
-    const hidden = document.getElementById(fieldId);
-    const text = document.getElementById(`${fieldId}-text`);
-    if (hidden) hidden.value = isoDate;
-    if (text) text.textContent = isoDate ? formatDate(isoDate) : 'Selecionar data';
+    calendarFields[fieldId]?.setValue(isoDate || '');
 }
 
 function populateColetivaDeptSelect() {
@@ -1826,47 +1788,6 @@ function clearAlert(id) {
     el.textContent = '';
 }
 
-function setupSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const toggle = document.getElementById('sidebar-toggle');
-    const topbar = document.getElementById('topbar-menu-btn');
-    const overlay = document.getElementById('sidebar-overlay');
-    const wrapper = document.querySelector('.main-wrapper');
-    const isMobile = () => window.innerWidth <= 768;
-    const open = () => {
-        sidebar?.classList.add('open');
-        overlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
-    const close = () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    };
-    toggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMobile()
-            ? sidebar?.classList.contains('open')
-                ? close()
-                : open()
-            : (() => {
-                  const c = sidebar?.classList.toggle('collapsed');
-                  wrapper?.classList.toggle('sidebar-collapsed', c);
-              })();
-    });
-    topbar?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? close() : open();
-    });
-    overlay?.addEventListener('click', close);
-    window.addEventListener('resize', () => {
-        if (!isMobile()) close();
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isMobile()) close();
-    });
-}
-
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
@@ -1899,16 +1820,9 @@ function escHtml(str) {
     if (typeof str !== 'string') return str ?? '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function setTodayDate() {
-    const el = document.getElementById('today-date');
-    if (!el) return;
-    el.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
 
 document.addEventListener('DOMContentLoaded', async () => {
-    setTodayDate();
-    setupSidebar();
-    if (!(await loadRhSidebar())) return;
+    if (!(await requireRhAccess())) return;
     await fetchData();
     await autoExpireVacations();
     await sincronizarEventosDeFerias();

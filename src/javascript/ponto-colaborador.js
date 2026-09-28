@@ -315,16 +315,19 @@ function renderSaldo() {
         val = $('saldo-value'),
         sub = $('saldo-sub');
     if (jornadaMin === null) {
-        let totalWorked = 0;
+        let totalWorked = 0,
+            diasTrabalhados = 0;
         Object.values(recordsMap).forEach((rec) => {
-            if (!isFalta(rec) && rec.saida) totalWorked += calcWorkedMin(rec);
+            if (isFalta(rec) || !rec.saida) return;
+            totalWorked += calcWorkedMin(rec);
+            diasTrabalhados++;
         });
         if (icon) icon.className = 'saldo-icon positivo';
         if (val) {
             val.textContent = minToStr(totalWorked);
             val.className = 'saldo-value';
         }
-        if (sub) sub.textContent = `Total registrado em ${diasCompletos} dia(s) — PJ`;
+        if (sub) sub.textContent = `Total registrado em ${diasTrabalhados} dia(s) — PJ`;
         return;
     }
     if (diasCompletos === 0) {
@@ -2386,10 +2389,6 @@ window.showToast = function (title, type = 'success') {
         setTimeout(() => toast.remove(), 400);
     }, 4000);
 };
-
-function showToast(msg, type) {
-    window.showToast(msg, type);
-}
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {

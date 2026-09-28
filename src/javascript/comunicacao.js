@@ -52,11 +52,6 @@ function computeEngagementStats(relevantMsgs, employees, reads) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    const topbarMenuBtn = document.getElementById('topbar-menu-btn');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const mainWrapper = document.querySelector('.main-wrapper');
     const messageInput = document.getElementById('message-text');
     const editMessageText = document.getElementById('edit-message-text');
     const mainToggleBtn = document.getElementById('main-toggle-btn');
@@ -96,18 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
     const user = auth.user;
-
-    const nameEl = document.getElementById('rh-sidebar-name');
-    const roleEl = document.getElementById('rh-sidebar-role');
-    const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (nameEl) nameEl.textContent = 'Administrador';
-    if (roleEl) roleEl.textContent = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = 'ADM';
-
-    window.logout = async () => {
-        await sb.auth.signOut();
-        window.location.href = '../screens/login.html';
-    };
 
     let dbMensagens = [];
     let dbEmployees = [];
@@ -412,8 +395,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.execCommand('insertUnorderedList');
         } else if (type === 'link') {
             insertLink(editor);
-        } else {
-            return;
         }
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -527,35 +508,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function tryRestoreDraft() {
-        try {
-            const draft = loadDraftFromStorage();
-            const plainText = draft ? comunicadoPlainText(draft.html || '') : '';
-            if (!draft || (!plainText.trim() && !draft.destino)) return;
+        const draft = loadDraftFromStorage();
+        const plainText = draft ? comunicadoPlainText(draft.html || '') : '';
+        if (!draft || (!plainText.trim() && !draft.destino)) return;
 
-            suppressDraftSave = true;
-            if (messageInput) messageInput.innerHTML = sanitizeComunicadoHTML(draft.html || '');
-            const len = plainText.length;
-            if (charCount) charCount.textContent = `${len} caractere${len !== 1 ? 's' : ''}`;
-            if (draft.destino) {
-                selectedDest = draft.destino;
-                document.querySelectorAll('#dest-inline-grid .dest-inline-chip').forEach((c) => c.classList.toggle('active', c.dataset.dest === draft.destino));
-            }
-            selectedCategory = draft.categoria || 'Institucional';
-            document.querySelectorAll('#cat-inline-grid .cat-inline-chip').forEach((c) => c.classList.toggle('active', c.dataset.cat === selectedCategory));
-            checkSendReady();
-            checkTemplateSaveReady();
-            suppressDraftSave = false;
-
-            if (draftBanner && draftBannerText) {
-                const time = new Date(draft.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                draftBannerText.textContent = `Rascunho de ${time} restaurado automaticamente.`;
-                draftBanner.classList.remove('hidden');
-            }
-            updateDraftStatus(draft.savedAt);
-        } catch (err) {
-            console.error('[Nexus] draft restore:', err);
-            suppressDraftSave = false;
+        suppressDraftSave = true;
+        if (messageInput) messageInput.innerHTML = sanitizeComunicadoHTML(draft.html || '');
+        const len = plainText.length;
+        if (charCount) charCount.textContent = `${len} caractere${len !== 1 ? 's' : ''}`;
+        if (draft.destino) {
+            selectedDest = draft.destino;
+            document.querySelectorAll('#dest-inline-grid .dest-inline-chip').forEach((c) => c.classList.toggle('active', c.dataset.dest === draft.destino));
         }
+        selectedCategory = draft.categoria || 'Institucional';
+        document.querySelectorAll('#cat-inline-grid .cat-inline-chip').forEach((c) => c.classList.toggle('active', c.dataset.cat === selectedCategory));
+        checkSendReady();
+        checkTemplateSaveReady();
+        suppressDraftSave = false;
+
+        if (draftBanner && draftBannerText) {
+            const time = new Date(draft.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            draftBannerText.textContent = `Rascunho de ${time} restaurado automaticamente.`;
+            draftBanner.classList.remove('hidden');
+        }
+        updateDraftStatus(draft.savedAt);
     }
 
     draftBannerDiscard?.addEventListener('click', () => {
@@ -777,35 +753,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (elReads) elReads.textContent = reads;
         if (elUnread) elUnread.textContent = unread;
     }
-
-    const isMobile = () => window.innerWidth <= 768;
-    const openSide = () => {
-        sidebar?.classList.add('open');
-        sidebarOverlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
-    const closeSide = () => {
-        sidebar?.classList.remove('open');
-        sidebarOverlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    };
-    sidebarToggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isMobile()) {
-            sidebar?.classList.contains('open') ? closeSide() : openSide();
-        } else {
-            const c = sidebar?.classList.toggle('collapsed');
-            mainWrapper?.classList.toggle('sidebar-collapsed', c);
-        }
-    });
-    topbarMenuBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? closeSide() : openSide();
-    });
-    sidebarOverlay?.addEventListener('click', closeSide);
-    window.addEventListener('resize', () => {
-        if (!isMobile()) closeSide();
-    });
 
     function switchToHistory() {
         currentSection = 'history';
@@ -1529,10 +1476,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (currentSection === 'history') renderizarMensagens();
         })
         .subscribe();
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isMobile()) closeSide();
-    });
 
     window.addEventListener('beforeunload', () => {
         clearTimeout(draftSaveTimer);

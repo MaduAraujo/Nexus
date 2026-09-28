@@ -399,3 +399,109 @@ describe('códigos de recuperação', () => {
         assert.ok(buttonNamed('Copiado!'));
     });
 });
+
+describe('ativação: teclado e falhas da área de transferência', () => {
+    async function telaDoCodigo(verify) {
+        await mount({
+            listFactors: async () => ({ verified: [] }),
+            startEnroll: async () => ({ factorId: 'f1', qrCode: 'x', secret: 'CHAVE' }),
+            isValidCode: (v) => /^\d{6}$/.test(v),
+            verify,
+        });
+        container.querySelector('button').click();
+        await flush();
+        buttonNamed('Continuar').click();
+        return container.querySelector('input');
+    }
+
+    test('Enter no campo confirma quando o código é válido e não faz nada antes disso', async () => {
+        const verificados = [];
+        const input = await telaDoCodigo(async (c, id, code) => {
+            verificados.push(code);
+            return { error: { message: 'x' } };
+        });
+        input.value = '123';
+        input.dispatchEvent(new global.window.Event('input'));
+        input.dispatchEvent(new global.window.KeyboardEvent('keydown', { key: 'Enter' }));
+        await flush();
+        assert.deepEqual(verificados, []);
+        input.value = '123456';
+        input.dispatchEvent(new global.window.Event('input'));
+        input.dispatchEvent(new global.window.KeyboardEvent('keydown', { key: 'a' }));
+        input.dispatchEvent(new global.window.KeyboardEvent('keydown', { key: 'Enter' }));
+        await flush();
+        assert.deepEqual(verificados, ['123456']);
+    });
+
+    test('sem acesso à área de transferência, a chave fica selecionada para copiar à mão', async () => {
+        navigator.clipboard = {
+            writeText: async () => {
+                throw new Error('negado');
+            },
+        };
+        await mount({
+            listFactors: async () => ({ verified: [] }),
+            startEnroll: async () => ({ factorId: 'f1', qrCode: 'x', secret: 'CHAVE-MANUAL' }),
+        });
+        container.querySelector('button').click();
+        await flush();
+        container.querySelector('.mfa-copy').click();
+        await flush();
+        assert.equal(global.window.getSelection().toString(), 'CHAVE-MANUAL');
+        assert.equal(container.querySelector('.mfa-copy').title, 'Copiar chave');
+    });
+});
+
+describe('códigos de recuperação: copiar com falha e baixar', () => {
+    test('se não der para copiar, o botão avisa', async () => {
+        navigator.clipboard = {
+            writeText: async () => {
+                throw new Error('negado');
+            },
+        };
+        await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }) });
+        buttonNamed('Gerar novos códigos').click();
+        await flush();
+        buttonNamed('Copiar').click();
+        await flush();
+        assert.ok(buttonNamed('Não foi possível copiar'));
+    });
+
+    test('baixar gera um .txt com todos os códigos e libera a memória depois', async () => {
+        const criados = [];
+        const liberados = [];
+        const origCreate = URL.createObjectURL;
+        const origRevoke = URL.revokeObjectURL;
+        const origST = global.setTimeout;
+        const agendados = [];
+        URL.createObjectURL = (blob) => {
+            criados.push(blob);
+            return 'blob:codigos';
+        };
+        URL.revokeObjectURL = (u) => liberados.push(u);
+        let baixado = null;
+        const origClick = global.window.HTMLAnchorElement.prototype.click;
+        global.window.HTMLAnchorElement.prototype.click = function () {
+            baixado = { href: this.href, download: this.download };
+        };
+        try {
+            await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }) });
+            buttonNamed('Gerar novos códigos').click();
+            await flush();
+            global.setTimeout = (fn, ms) => (ms === 1000 ? agendados.push(fn) : origST(fn, ms));
+            buttonNamed('Baixar .txt').click();
+            global.setTimeout = origST;
+            assert.deepEqual(baixado, { href: 'blob:codigos', download: 'nexus-codigos-de-recuperacao.txt' });
+            const conteudo = await criados[0].text();
+            for (const code of RECOVERY_CODES) assert.ok(conteudo.includes(code));
+            assert.deepEqual(liberados, []);
+            agendados.forEach((f) => f());
+            assert.deepEqual(liberados, ['blob:codigos']);
+        } finally {
+            URL.createObjectURL = origCreate;
+            URL.revokeObjectURL = origRevoke;
+            global.setTimeout = origST;
+            global.window.HTMLAnchorElement.prototype.click = origClick;
+        }
+    });
+});

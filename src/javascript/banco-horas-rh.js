@@ -37,11 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!auth) return;
     rhUser = auth.user;
 
-    setText('rh-sidebar-name', 'Administrador');
-    setText('rh-sidebar-role', 'Recursos Humanos');
-    setText('rh-sidebar-avatar', 'ADM');
-
-    setupSidebar();
+    setupEscapeToClose();
 
     const now = new Date();
     currentMonth = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
@@ -1093,7 +1089,7 @@ function renderNotifPanel() {
         );
     if (pendentes.length)
         rows.push(
-            `<div class="notif-item" data-click="goToSolicitacoes"><div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-inbox"></i></div><div class="notif-item-body"><span class="notif-item-title">${pendentes.length} solicitação${pendentes.length > 1 ? 'ões' : ''} de banco de horas pendente${pendentes.length > 1 ? 's' : ''}</span><span class="notif-item-sub">Aguardando decisão</span></div></div>`
+            `<div class="notif-item" data-click="goToSolicitacoes"><div class="notif-item-icon notif-item-icon--checklist"><i class="fas fa-inbox"></i></div><div class="notif-item-body"><span class="notif-item-title">${pendentes.length} ${pendentes.length > 1 ? 'solicitações' : 'solicitação'} de banco de horas pendente${pendentes.length > 1 ? 's' : ''}</span><span class="notif-item-sub">Aguardando decisão</span></div></div>`
         );
 
     const total = criticos.length + vencidos.length + pendentes.length;
@@ -1145,7 +1141,7 @@ function renderRequestsTab() {
     }
     tbody.innerHTML = filtered.map(buildRequestRow).join('');
     const cnt = filtered.length;
-    setText('requests-count', `${cnt} solicitação${cnt !== 1 ? 'ões' : ''} exibida${cnt !== 1 ? 's' : ''}`);
+    setText('requests-count', `${cnt} ${cnt !== 1 ? 'solicitações' : 'solicitação'} exibida${cnt !== 1 ? 's' : ''}`);
 }
 
 function buildRequestRow(r) {
@@ -1765,10 +1761,6 @@ window.renderAuditTable = async function () {
     setText('audit-count', `${cnt} registro${cnt !== 1 ? 's' : ''} encontrado${cnt !== 1 ? 's' : ''}`);
 };
 
-async function renderAuditTable() {
-    await window.renderAuditTable();
-}
-
 function buildAuditRow(e) {
     const ACAO_LABEL = {
         entrada: 'Entrada',
@@ -2067,47 +2059,9 @@ function setupAuditMonthPicker() {
     };
 }
 
-function setupSidebar() {
-    const sidebar = $('sidebar'),
-        toggle = $('sidebar-toggle'),
-        topbar = $('topbar-menu-btn'),
-        overlay = $('sidebar-overlay'),
-        wrapper = document.querySelector('.main-wrapper');
-    const isMobile = () => window.innerWidth <= 768;
-    const openSide = () => {
-        sidebar?.classList.add('open');
-        overlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
-    const closeSide = () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    };
-    toggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMobile()
-            ? sidebar?.classList.contains('open')
-                ? closeSide()
-                : openSide()
-            : (() => {
-                  const c = sidebar?.classList.toggle('collapsed');
-                  wrapper?.classList.toggle('sidebar-collapsed', c);
-              })();
-    });
-    topbar?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? closeSide() : openSide();
-    });
-    overlay?.addEventListener('click', closeSide);
-    window.addEventListener('resize', () => {
-        if (!isMobile()) closeSide();
-    });
+function setupEscapeToClose() {
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeSide();
-            closeAllModals();
-        }
+        if (e.key === 'Escape') closeAllModals();
     });
 }
 

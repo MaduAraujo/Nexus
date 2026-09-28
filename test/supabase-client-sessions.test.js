@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const CODE = fs.readFileSync(path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js'), 'utf8');
+const FILE = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
+const CODE = fs.readFileSync(FILE, 'utf8');
 
 function loadClient({ file, storage = {} }) {
     const created = [];
@@ -37,7 +38,7 @@ function loadClient({ file, storage = {} }) {
 
     const ctx = { supabase, localStorage, location: { pathname: `/src/screens/${file}` }, window: {}, document: {}, URL, console };
     vm.createContext(ctx);
-    vm.runInContext(`${CODE}\n;globalThis.__api = { getSb: () => sb, nexusSlotFromPage, nexusUseProfileSession };`, ctx);
+    vm.runInContext(`${CODE}\n;globalThis.__api = { getSb: () => sb, nexusSlotFromPage, nexusUseProfileSession };`, ctx, { filename: FILE });
     return { api: ctx.__api, created, store };
 }
 

@@ -159,3 +159,289 @@ describe('equipe-colaborador.html', () => {
         assert.match(page.text('#medical-leaves-list'), /04\/05\/2026 → 05\/05\/2026 2 dias Aprovado/);
     });
 });
+
+describe('equipe-colaborador.html — erros, estados vazios e controles', () => {
+    const aberto = (id) => page.$(`#${id}`).classList.contains('open');
+
+    test('gestor sem ninguém na equipe não consulta férias; PJ mostra "PJ" em vez de saldo', async () => {
+        const c = gestorClient({ team_roster: [] });
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        assert.equal(c.calls.filter((x) => x.table === 'vacations').length, 0);
+        page.close();
+
+        const pj = gestorClient({
+            team_roster: [
+                { id: ANA.id, name: ANA.name, role: ANA.role, dept: ANA.dept, status: 'Ativo', contract_type: 'pj', work_load: '', manager_id: BIA.id },
+            ],
+        });
+        page = await openPage('equipe-colaborador', { client: pj, now: NOW });
+        assert.match(page.text('#team-grid .team-card-saldo'), /^PJ$/);
+    });
+
+    test('falha ao aprovar ou recusar férias avisa e mantém o pedido na lista', async () => {
+        const c = gestorClient();
+        c.errors['vacations:update'] = { message: 'RLS' };
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('[data-click="approveVacation"]');
+        assert.ok(page.toasts().includes('Não foi possível aprovar. Tente novamente.'));
+        await page.click('[data-click="openRejectModal"]');
+        await page.fill('#reject-reason-text', 'Pico');
+        await page.click('[data-click="confirmRejectVacation"]');
+        assert.ok(page.toasts().includes('Não foi possível recusar. Tente novamente.'));
+        assert.equal(c.tables.vacations[0].status, 'pendente');
+        assert.equal(page.text('#pending-count-label'), '1 pendente');
+    });
+
+    test('escalar ao RH: mensagem vazia é recusada; falha ao criar o chamado não grava mensagem', async () => {
+        const c = gestorClient();
+        c.errors['hr_tickets:insert'] = { message: 'RLS' };
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-escalate');
+        await page.click('[data-click="confirmEscalateToRh"]');
+        assert.equal(page.text('#err-escalate-message'), 'Descreva o que você quer levar ao RH.');
+        await page.fill('#escalate-message-text', 'Situação delicada');
+        await page.click('[data-click="confirmEscalateToRh"]');
+        assert.ok(page.toasts().includes('Não foi possível enviar. Tente novamente.'));
+        assert.equal(c.writes('hr_ticket_messages', 'insert').length, 0);
+    });
+
+    test('avaliação: sem registros mostra vazio; falhas ao concluir, salvar e criar meta avisam', async () => {
+        const c = gestorClient({ performance_reviews: [] });
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-evaluate');
+        assert.match(page.text('#performance-reviews-list'), /Nenhuma avaliação registrada ainda/);
+        await page.click('[data-click="closePerformanceModal"]');
+        assert.equal(aberto('modal-performance'), false);
+        page.close();
+
+        const e = gestorClient();
+        e.errors['performance_reviews:update'] = { message: 'RLS' };
+        e.errors['performance_reviews:insert'] = { message: 'RLS' };
+        e.errors['pdi_goals:insert'] = { message: 'RLS' };
+        page = await openPage('equipe-colaborador', { client: e, now: NOW });
+        await page.click('.team-card-evaluate');
+        await page.click('[data-click="completeReview"]');
+        assert.ok(page.toasts().includes('Não foi possível concluir a avaliação.'));
+        assert.equal(e.tables.performance_reviews[0].status, 'rascunho');
+
+        await page.click('[data-click="openReviewFormModal"]');
+        await page.fill('#review-cycle', '2026.2');
+        await page.click('#rating-overall .rating-star[data-value="3"]');
+        await page.click('[data-click="submitReview"][data-click-args*="concluida"]');
+        assert.ok(page.toasts().includes('Não foi possível salvar a avaliação.'));
+        assert.equal(e.writes('performance_review_competencies', 'insert').length, 0);
+
+        await page.fill('#pdi-goal-title', 'Meta');
+        await page.click('[data-click="addPdiGoal"]');
+        assert.ok(page.toasts().includes('Não foi possível criar a meta.'));
+        assert.equal(page.$('#pdi-goal-title').value, 'Meta', 'o texto digitado não se perde');
+    });
+
+    test('prazo da meta de PDI: calendário abre no mês atual, vira o ano, escolhe o dia e grava', async () => {
+        const c = gestorClient();
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-evaluate');
+        const pop = page.$('#pdi-goal-due-popover');
+        await page.click('#pdi-goal-due-trigger');
+        assert.equal(pop.classList.contains('open'), true);
+        assert.equal(page.text('#pdi-goal-due-title'), 'Junho 2026');
+        assert.equal(page.text('#pdi-goal-due-grid .calendar-day--today'), '17');
+
+        for (let i = 0; i < 6; i++) await page.click('#pdi-goal-due-prev');
+        assert.equal(page.text('#pdi-goal-due-title'), 'Dezembro 2025');
+        for (let i = 0; i < 8; i++) await page.click('#pdi-goal-due-next');
+        assert.equal(page.text('#pdi-goal-due-title'), 'Agosto 2026');
+        assert.equal(pop.classList.contains('open'), true, 'navegar não fecha');
+
+        await page.click(page.$('#pdi-goal-due-grid .calendar-day--muted'));
+        assert.equal(pop.classList.contains('open'), true, 'dia de outro mês não é escolhível');
+        await page.click('#pdi-goal-due-grid [data-iso="2026-08-31"]');
+        assert.equal(pop.classList.contains('open'), false);
+        assert.equal(page.text('#pdi-goal-due-text'), '31/08/2026');
+
+        await page.click('#pdi-goal-due-trigger');
+        assert.equal(page.text('#pdi-goal-due-title'), 'Agosto 2026', 'reabre no mês escolhido');
+        await page.click('#pdi-goal-due-trigger');
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#pdi-goal-due-trigger');
+        await page.key(page.document, 'a');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#pdi-goal-due-trigger');
+        await page.click('#pdi-goal-title');
+        assert.equal(pop.classList.contains('open'), false, 'clique fora fecha');
+
+        await page.fill('#pdi-goal-title', 'Certificação');
+        await page.click('[data-click="addPdiGoal"]');
+        assert.equal(c.writes('pdi_goals', 'insert')[0].payload[0].due_date, '2026-08-31');
+        assert.equal(page.text('#pdi-goal-due-text'), 'Prazo', 'limpa depois de criar');
+    });
+
+    test('treinamentos: sem registros mostra vazio; título obrigatório; digitado com carga horária; concluir e recusar', async () => {
+        const c = gestorClient({
+            employee_trainings: [
+                { id: 'et2', employee_id: ANA.id, title: 'Excel', status: 'pendente', category: 'TI', provider: 'Escola', hours: 8, created_at: '2026-06-01' },
+                {
+                    id: 'et3',
+                    employee_id: ANA.id,
+                    title: 'Oratória',
+                    status: 'aguardando_aprovacao',
+                    source: 'autodeclarado',
+                    certificate_url: 'https://cert.exemplo.com/1',
+                    created_at: '2026-06-03',
+                },
+            ],
+        });
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-trainings');
+        assert.match(page.text('#trainings-list'), /Excel.*TI · Escola · 8h/);
+        assert.ok(page.$('#trainings-list a[href="https://cert.exemplo.com/1"]'));
+
+        await page.click('[data-click="completeTraining"]');
+        assert.deepEqual([c.tables.employee_trainings[0].status, c.tables.employee_trainings[0].completion_date], ['concluido', '2026-06-17']);
+        await page.click('[data-click="rejectTraining"]');
+        assert.equal(c.tables.employee_trainings[1].status, 'recusado');
+        assert.ok(page.toasts().includes('Treinamento recusado.'));
+
+        await page.click('[data-click="assignTraining"]');
+        assert.ok(page.toasts().includes('Escolha um treinamento do catálogo ou digite o nome.'));
+        await page.fill('#tr-assign-title', 'Primeiros socorros');
+        await page.fill('#tr-assign-hours', '2,5');
+        await page.click('[data-click="assignTraining"]');
+        const t = c.writes('employee_trainings', 'insert')[0].payload[0];
+        assert.deepEqual([t.title, t.training_id, t.hours, t.category], ['Primeiros socorros', null, 2.5, null]);
+        assert.equal(page.$('#tr-assign-title').value, '');
+
+        await page.click('[data-click="closeTrainingsModal"]');
+        assert.equal(aberto('modal-trainings'), false);
+        page.close();
+
+        page = await openPage('equipe-colaborador', { client: gestorClient({ employee_trainings: [] }), now: NOW });
+        await page.click('.team-card-trainings');
+        assert.match(page.text('#trainings-list'), /Nenhum treinamento registrado ainda/);
+        await page.window.assignTraining();
+    });
+
+    test('treinamentos: falhas ao atribuir, aprovar, recusar e concluir avisam', async () => {
+        const c = gestorClient({
+            employee_trainings: [
+                { id: 'et1', employee_id: ANA.id, title: 'Power BI', source: 'autodeclarado', status: 'aguardando_aprovacao', created_at: '2026-06-02' },
+                { id: 'et2', employee_id: ANA.id, title: 'Excel', status: 'em_andamento', created_at: '2026-06-01' },
+            ],
+        });
+        c.errors['employee_trainings:insert'] = { message: 'RLS' };
+        c.errors['employee_trainings:update'] = { message: 'RLS' };
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-trainings');
+        await page.fill('#tr-assign-title', 'X');
+        await page.click('[data-click="assignTraining"]');
+        await page.click('[data-click="approveTraining"]');
+        await page.click('[data-click="rejectTraining"]');
+        await page.click('[data-click="completeTraining"]');
+        for (const msg of [
+            'Não foi possível atribuir o treinamento.',
+            'Não foi possível aprovar o treinamento.',
+            'Não foi possível recusar o treinamento.',
+            'Não foi possível concluir o treinamento.',
+        ]) {
+            assert.ok(page.toasts().includes(msg), msg);
+        }
+        assert.equal(page.$('#tr-assign-title').value, 'X');
+    });
+
+    test('seletor do catálogo: abre, fecha com clique fora ou Esc, e clique fora das opções não escolhe', async () => {
+        page = await openPage('equipe-colaborador', { client: gestorClient(), now: NOW });
+        await page.click('.team-card-trainings');
+        const pop = page.$('#tr-assign-catalog-popover');
+        await page.click('#tr-assign-catalog-trigger');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.click(pop);
+        assert.equal(pop.classList.contains('open'), true);
+        assert.equal(page.$('#tr-assign-catalog').value, '');
+        await page.click('#tr-assign-catalog-trigger');
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#tr-assign-catalog-trigger');
+        await page.click('#tr-assign-title');
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#tr-assign-catalog-trigger');
+        await page.key(page.document, 'Enter');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(pop.classList.contains('open'), false);
+
+        await page.click('#tr-assign-catalog-trigger');
+        await page.click('#tr-assign-catalog-popover .select-option[data-value="c1"]');
+        assert.equal(page.text('#tr-assign-catalog-label'), 'LGPD Básico');
+    });
+
+    test('medidas disciplinares e atestados: estados vazios e fechar os modais', async () => {
+        const c = gestorClient({ disciplinary_actions: [] });
+        c.handlers.rpc.medical_leaves_team = [];
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        await page.click('.team-card-disciplinary');
+        assert.match(page.text('#disciplinary-list'), /Nenhuma medida disciplinar registrada/);
+        await page.click('[data-click="closeDisciplinaryModal"]');
+        assert.equal(aberto('modal-disciplinary'), false);
+        await page.click('.team-card-medical');
+        assert.match(page.text('#medical-leaves-list'), /Nenhum atestado registrado ainda/);
+        await page.click('[data-click="closeMedicalLeavesModal"]');
+        assert.equal(aberto('modal-medical-leaves'), false);
+    });
+
+    test('tempo real: férias novas e mudança na equipe aparecem sem recarregar', async () => {
+        const c = gestorClient();
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        c.tables.vacations.push({
+            id: 'v2',
+            employee_id: ANA.id,
+            start_date: '2026-09-01',
+            end_date: '2026-09-10',
+            days: 10,
+            status: 'pendente',
+            created_at: '2026-06-17',
+        });
+        c.emit('vacations', { new: { id: 'v2' } });
+        await page.settle(20);
+        assert.equal(page.text('#pending-count-label'), '2 pendentes');
+
+        c.tables.team_roster.push({
+            id: 'emp-caio',
+            name: 'Caio Reis',
+            role: 'Dev',
+            dept: 'TI',
+            status: 'Ativo',
+            contract_type: 'clt',
+            work_load: '40h',
+            manager_id: BIA.id,
+        });
+        c.emit('employees', { new: { id: 'emp-caio', manager_id: BIA.id } });
+        await page.settle(20);
+        assert.match(page.text('#team-grid'), /Caio Reis/);
+    });
+
+    test('último liderado transferido com a tela aberta: férias pendentes dele somem', async () => {
+        const c = gestorClient();
+        page = await openPage('equipe-colaborador', { client: c, now: NOW });
+        assert.equal(page.text('#pending-count-label'), '1 pendente');
+        c.tables.team_roster.length = 0;
+        c.emit('employees', { new: { id: ANA.id, manager_id: null } });
+        await page.settle(20);
+        const consultas = c.calls.filter((x) => x.table === 'vacations').length;
+        c.emit('vacations', { new: { id: 'v1' } });
+        await page.settle(20);
+        assert.equal(c.calls.filter((x) => x.table === 'vacations').length, consultas, 'sem equipe não consulta férias');
+        assert.match(page.text('#pending-wrap'), /Nenhuma solicitação pendente/);
+    });
+
+    test('o aviso some sozinho depois de alguns segundos', async () => {
+        page = await openPage('equipe-colaborador', { client: gestorClient(), now: NOW });
+        const w = page.window;
+        const original = w.setTimeout;
+        w.setTimeout = (fn, ms, ...a) => (ms >= 400 ? (fn(...a), 0) : original(fn, ms, ...a));
+        await page.click('.team-card-trainings');
+        await page.click('[data-click="assignTraining"]');
+        w.setTimeout = original;
+        assert.deepEqual(page.toasts(), []);
+    });
+});

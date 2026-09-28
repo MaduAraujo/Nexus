@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const CODE = fs.readFileSync(path.join(__dirname, '..', 'src', 'javascript', 'shared', 'launch-route.js'), 'utf8');
+const FILE = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'launch-route.js');
+const CODE = fs.readFileSync(FILE, 'utf8');
 
 const b64url = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url');
 
@@ -34,7 +35,7 @@ function launch({ standalone = false, narrow = false, storage = {}, hash = '', s
     };
     const ctx = { window, localStorage, location, atob: (s) => Buffer.from(s, 'base64').toString('binary'), JSON };
     vm.createContext(ctx);
-    vm.runInContext(CODE, ctx);
+    vm.runInContext(CODE, ctx, { filename: FILE });
     return target;
 }
 
@@ -111,5 +112,15 @@ describe('abertura do app no celular', () => {
 
     test('localStorage corrompido não quebra a abertura', () => {
         assert.equal(launch({ standalone: true, storage: { 'sb-abc-colab-auth-token': '{oops' } }), LOGIN);
+    });
+
+    test('JWT ilegível não identifica o usuário: sessão é ignorada', () => {
+        const storage = { 'sb-abc-colab-auth-token': JSON.stringify({ access_token: 'sem-pontos' }) };
+        assert.equal(launch({ standalone: true, storage }), LOGIN);
+    });
+
+    test('última tela corrompida é ignorada: vai para o início do perfil', () => {
+        const storage = { ...session('rh', 'u1'), 'nexus:last-screen': '{oops' };
+        assert.equal(launch({ narrow: true, storage }), '/src/screens/inicio-rh.html');
     });
 });

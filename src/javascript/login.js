@@ -7,7 +7,6 @@ function passwordProblem(password) {
 }
 
 let selectedProfileType = null;
-let loginStep = 1;
 let _firstAccessSession = null;
 let _faDebounce = null;
 let _isPasswordRecovery = false;
@@ -144,7 +143,6 @@ window.goToLogin = function () {
         if (passSection) passSection.style.display = '';
         if (btnLoginText) btnLoginText.textContent = 'Entrar';
         if (loginUser) loginUser.placeholder = '';
-        loginStep = 2;
     } else {
         if (pill) pill.innerHTML = '';
         if (title) title.textContent = 'Olá, colaborador!';
@@ -152,7 +150,6 @@ window.goToLogin = function () {
         if (passSection) passSection.style.display = '';
         if (btnLoginText) btnLoginText.textContent = 'Entrar';
         if (loginUser) loginUser.placeholder = '';
-        loginStep = 2;
     }
 
     updateLoginBtnState();
@@ -186,7 +183,6 @@ window.goToProfileSelection = function () {
     if (profileSection) profileSection.classList.add('active');
     document.getElementById('login-user').value = '';
     document.getElementById('login-pass').value = '';
-    loginStep = 1;
     const passSection = document.getElementById('login-pass-section');
     if (passSection) passSection.style.display = '';
     selectedProfileType = null;
@@ -213,16 +209,6 @@ window.switchTab = function (tab) {
     if (target) target.classList.add('active');
     setNavBack(true, tab === 'login' ? goToProfileSelection : backToLogin);
 };
-
-function showPasswordStep() {
-    loginStep = 2;
-    const passSection = document.getElementById('login-pass-section');
-    const btnLoginText = document.getElementById('btn-login-text');
-    const loginPass = document.getElementById('login-pass');
-    if (passSection) passSection.style.display = '';
-    if (btnLoginText) btnLoginText.textContent = 'Entrar';
-    setTimeout(() => loginPass?.focus(), 50);
-}
 
 async function pendingMfaFactorId(profileType) {
     const level = await NexusMfa.assurance(sb);
@@ -405,11 +391,6 @@ window.handleLogin = async function () {
 
     if (!emailInput) {
         showToast('Informe seu e-mail.', 'error');
-        return;
-    }
-
-    if (loginStep === 1) {
-        showPasswordStep();
         return;
     }
 

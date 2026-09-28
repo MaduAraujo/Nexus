@@ -508,7 +508,7 @@
         setEl('prof-profile', myProfile === 'Administrador' ? 'Administrador' : 'Colaborador');
 
         if (myEmployee.admission_date) {
-            const adm = new Date(myEmployee.admission_date);
+            const adm = new Date(`${myEmployee.admission_date}T00:00:00`);
             const hoje = new Date();
             const days = Math.floor((hoje - adm) / 86400000);
             const months = Math.floor(days / 30);

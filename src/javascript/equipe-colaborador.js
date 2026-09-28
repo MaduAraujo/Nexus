@@ -61,31 +61,6 @@ async function loadTeam() {
     renderPendingList();
 }
 
-function getJornadaMin(emp) {
-    const tipo = (emp?.contract_type || 'clt').toLowerCase();
-    if (tipo === 'pj') return null;
-    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
-    const workLoad = emp?.work_load || '';
-    if (workLoad === '12x36') return 12 * 60;
-    const m = workLoad.match(/^(\d+)h/);
-    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
-    return 8 * 60;
-}
-
-function diffMinEquipe(a, b) {
-    return Math.round((new Date(b) - new Date(a)) / 60000);
-}
-
-function calcWorkedMinEquipe(rec) {
-    if (!rec.entrada) return 0;
-    if (rec.saida_almoco) {
-        const morning = diffMinEquipe(rec.entrada, rec.saida_almoco);
-        const afternoon = rec.retorno_almoco && rec.saida ? diffMinEquipe(rec.retorno_almoco, rec.saida) : 0;
-        return morning + afternoon;
-    }
-    return rec.saida ? diffMinEquipe(rec.entrada, rec.saida) : 0;
-}
-
 async function loadTeamBalances() {
     const ids = teamMembers.map((m) => m.id);
     teamBalances = {};
@@ -123,14 +98,14 @@ async function loadTeamBalances() {
     });
 
     teamMembers.forEach((m) => {
-        const jornadaMin = getJornadaMin(m);
+        const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: m.contract_type, workLoad: m.work_load });
         if (jornadaMin === null) {
             teamBalances[m.id] = null;
             return;
         }
         let saldo = 0;
         (timeByEmp[m.id] || []).forEach((rec) => {
-            if (rec.entrada && rec.saida) saldo += calcWorkedMinEquipe(rec) - jornadaMin;
+            if (rec.entrada && rec.saida) saldo += CLTDomain.calcWorkedMin(rec) - jornadaMin;
         });
         (adjByEmp[m.id] || []).forEach((a) => {
             saldo += a.tipo === 'credito' ? a.minutos : -a.minutos;
@@ -1004,8 +979,6 @@ if (typeof module !== 'undefined' && module.exports) {
         loadTeam,
         loadPendingVacations,
         loadTeamBalances,
-        getJornadaMin,
-        calcWorkedMinEquipe,
         minToStrEquipe,
         saldoBadgeHtml,
         getInitials,

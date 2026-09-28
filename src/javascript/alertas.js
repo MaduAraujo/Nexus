@@ -907,7 +907,7 @@ async function loadHistory() {
             .limit(20);
         renderHistoryTab(data || []);
     } catch {
-        if (list) list.innerHTML = `<p class="history-empty">Erro ao carregar histórico.</p>`;
+        if (list) list.innerHTML = `<p class="history-empty" role="alert">Erro ao carregar histórico.</p>`;
     }
 }
 
@@ -977,10 +977,6 @@ function renderTrendChart(items) {
         return `${d.getDate()}/${d.getMonth() + 1}`;
     });
     const scores = sorted.map((h) => h.health_score ?? null);
-    if (window._trendChart) {
-        window._trendChart.destroy();
-        window._trendChart = null;
-    }
     window._trendChart = new Chart(canvas, {
         type: 'line',
         data: {
@@ -1025,37 +1021,15 @@ const PESO_SINAL = {
 
 const BURNOUT_TREND_JANELA_SEMANAS = 6;
 
-function getJornadaMinRisco(emp) {
-    const tipo = (emp?.contractType || 'clt').toLowerCase();
-    if (tipo === 'pj') return null;
-    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
-    const workLoad = emp?.workLoad || '';
-    if (workLoad === '12x36') return 12 * 60;
-    const m = workLoad.match(/^(\d+)h/);
-    if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
-    return 8 * 60;
-}
-
-function calcWorkedMinRisco(rec) {
-    if (!rec || !rec.entrada) return 0;
-    const diffMin = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
-    if (rec.saida_almoco) {
-        const m = diffMin(rec.entrada, rec.saida_almoco);
-        const a = rec.retorno_almoco && rec.saida ? diffMin(rec.retorno_almoco, rec.saida) : 0;
-        return m + a;
-    }
-    return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
-}
-
 function calcSaldoBancoHorasMes(emp, timeRecords, adjustments, monthKey) {
-    const jornadaMin = getJornadaMinRisco(emp);
+    const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: emp?.contractType, workLoad: emp?.workLoad });
     if (jornadaMin === null) return null;
     let extrasMin = 0,
         faltaMin = 0;
     Object.entries(timeRecords).forEach(([dateKey, rec]) => {
         if (!dateKey.startsWith(monthKey)) return;
         if (!rec.entrada || !rec.saida) return;
-        const saldo = calcWorkedMinRisco(rec) - jornadaMin;
+        const saldo = CLTDomain.calcWorkedMin(rec) - jornadaMin;
         if (saldo > 0) extrasMin += saldo;
         else faltaMin += Math.abs(saldo);
     });
@@ -1169,7 +1143,7 @@ async function loadRiscoComposto() {
                     sinais.push({
                         tipo: 'ticket_rh',
                         nivel: critico ? 'critico' : 'atencao',
-                        label: `Ticket RH: ${esc(ticket.subject || (critico ? 'aguardando atendimento' : 'em atendimento'))}`,
+                        label: `Ticket RH: ${ticket.subject || (critico ? 'aguardando atendimento' : 'em atendimento')}`,
                     });
                     score += critico ? PESO_SINAL.ticket_aguardando : PESO_SINAL.ticket_em_atendimento;
                 }
@@ -1182,7 +1156,7 @@ async function loadRiscoComposto() {
         renderRiscoComposto(linhas);
     } catch (err) {
         console.error('Erro ao carregar risco composto:', err);
-        if (list) list.innerHTML = `<p class="history-empty">Erro ao cruzar os dados. Tente novamente.</p>`;
+        if (list) list.innerHTML = `<p class="history-empty" role="alert">Erro ao cruzar os dados. Tente novamente.</p>`;
     }
 }
 
@@ -1299,7 +1273,7 @@ async function loadRiscoJuridico() {
     } catch (err) {
         console.error('Erro ao calcular risco jurídico:', err);
         if (summaryEl) summaryEl.innerHTML = '';
-        if (list) list.innerHTML = `<p class="history-empty">Erro ao calcular o score. Tente novamente.</p>`;
+        if (list) list.innerHTML = `<p class="history-empty" role="alert">Erro ao calcular o score. Tente novamente.</p>`;
     }
 }
 
@@ -1409,7 +1383,7 @@ async function loadCompliance() {
         renderCompliance(linhas);
     } catch (err) {
         console.error('Erro ao carregar compliance:', err);
-        if (list) list.innerHTML = `<p class="history-empty">Erro ao verificar prazos. Tente novamente.</p>`;
+        if (list) list.innerHTML = `<p class="history-empty" role="alert">Erro ao verificar prazos. Tente novamente.</p>`;
     }
 }
 
@@ -1644,7 +1618,7 @@ async function loadGestores() {
         }
     } catch (err) {
         console.error('Erro ao carregar gestores:', err);
-        if (list) list.innerHTML = `<p class="history-empty">Erro ao levantar os gestores. Tente novamente.</p>`;
+        if (list) list.innerHTML = `<p class="history-empty" role="alert">Erro ao levantar os gestores. Tente novamente.</p>`;
     }
 }
 

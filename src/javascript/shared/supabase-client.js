@@ -105,7 +105,44 @@ function reportSupabaseError(error) {
     if (!error) return;
     if (error.code === 'PGRST116') return;
     console.error('[Nexus] Erro Supabase:', error.message || error, error);
-    showNexusErrorToast(error.message || 'Erro ao comunicar com o servidor.');
+    queueNexusErrorToast(error.message || 'Erro ao comunicar com o servidor.');
+}
+
+const NEXUS_SPECIFIC_FEEDBACK = '.toast-error, .toast-warning, .field-error, [id$="-err"], .e2e-error, [role="alert"]';
+const NEXUS_GLOBAL_ERROR_DELAY_MS = 600;
+let nexusSpecificFeedbackCount = 0;
+let nexusFeedbackObserver = null;
+
+function nexusHasSpecificFeedback(el) {
+    if (!el || el.nodeType !== 1) return false;
+    const own = el.closest(NEXUS_SPECIFIC_FEEDBACK);
+    if (own && own.textContent.trim()) return true;
+    return Array.from(el.querySelectorAll(NEXUS_SPECIFIC_FEEDBACK)).some((f) => f.textContent.trim());
+}
+
+function watchNexusSpecificFeedback() {
+    if (nexusFeedbackObserver || typeof document === 'undefined' || !document.body || typeof MutationObserver === 'undefined') return;
+    nexusFeedbackObserver = new MutationObserver((records) => {
+        const found = records.some((r) => {
+            const target = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+            return nexusHasSpecificFeedback(target) || Array.from(r.addedNodes).some(nexusHasSpecificFeedback);
+        });
+        if (found) nexusSpecificFeedbackCount++;
+    });
+    nexusFeedbackObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', watchNexusSpecificFeedback);
+    watchNexusSpecificFeedback();
+}
+
+function queueNexusErrorToast(message) {
+    watchNexusSpecificFeedback();
+    const before = nexusSpecificFeedbackCount;
+    setTimeout(() => {
+        if (nexusSpecificFeedbackCount === before) showNexusErrorToast(message);
+    }, NEXUS_GLOBAL_ERROR_DELAY_MS);
 }
 
 let nexusToastContainer = null;

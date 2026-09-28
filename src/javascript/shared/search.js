@@ -235,8 +235,6 @@
         } else if (e.key === 'Enter') {
             e.preventDefault();
             currentResults[activeIndex]?.action();
-        } else if (e.key === 'Escape') {
-            close();
         }
     }
 

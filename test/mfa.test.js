@@ -177,3 +177,23 @@ describe('códigos de recuperação', () => {
         assert.equal(await NexusMfa.recoveryRemaining(client), null);
     });
 });
+
+describe('cancelar ativação e desativar', () => {
+    test('cancelEnroll descarta o fator; disable devolve o erro do servidor ou null', async () => {
+        const chamadas = [];
+        const client = {
+            auth: {
+                mfa: {
+                    unenroll: async ({ factorId }) => {
+                        chamadas.push(factorId);
+                        return { error: factorId === 'f-erro' ? { message: 'aal2 required' } : null };
+                    },
+                },
+            },
+        };
+        await NexusMfa.cancelEnroll(client, 'f1');
+        assert.deepEqual(await NexusMfa.disable(client, 'f2'), { error: null });
+        assert.deepEqual(await NexusMfa.disable(client, 'f-erro'), { error: { message: 'aal2 required' } });
+        assert.deepEqual(chamadas, ['f1', 'f2', 'f-erro']);
+    });
+});

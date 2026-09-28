@@ -157,14 +157,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updatePendingBadge() {
         const waiting = allTickets.filter((t) => t.status === 'aguardando_rh').length;
-        const badge = $('sidebar-pending-badge');
         const pill = $('pending-pill');
         const cnt = $('pending-count');
 
-        if (badge) {
-            badge.textContent = waiting;
-            badge.style.display = waiting > 0 ? 'inline-flex' : 'none';
-        }
         if (pill) {
             pill.style.display = waiting > 0 ? 'flex' : 'none';
         }

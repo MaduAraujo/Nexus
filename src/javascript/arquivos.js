@@ -318,7 +318,9 @@
     }
 
     function fmtDate(iso) {
-        return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+        if (!iso) return '—';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso.split('-').reverse().join('/');
+        return new Date(iso).toLocaleDateString('pt-BR');
     }
 
     function esc(str) {
@@ -504,9 +506,7 @@
         return pool
             .map((emp) => {
                 const reqTipos = RequisitosDocumentos.requiredTipos(requirements, category, emp.contract_type);
-                const rhTipos = rhDocs.filter((d) => d.employee_id === emp.id && d.category === category).map((d) => d.tipo);
-                const colabTipos = colabDocs.filter((d) => d.employee_id === emp.id && d.status === 'aprovado').map((d) => d.tipo);
-                const empTipos = rhTipos.concat(colabTipos);
+                const empTipos = rhDocs.filter((d) => d.employee_id === emp.id && d.category === category).map((d) => d.tipo);
                 const missing = reqTipos.filter((t) => !empTipos.includes(t));
                 return { emp, missing };
             })
@@ -766,10 +766,6 @@
         if (!filterDateTriggerText) return;
         if (filterDateStart?.value && filterDateEnd?.value) {
             filterDateTriggerText.textContent = `${fmtShort(parseISODate(filterDateStart.value))} – ${fmtShort(parseISODate(filterDateEnd.value))}`;
-        } else if (filterDateStart?.value) {
-            filterDateTriggerText.textContent = `A partir de ${fmtShort(parseISODate(filterDateStart.value))}`;
-        } else if (filterDateEnd?.value) {
-            filterDateTriggerText.textContent = `Até ${fmtShort(parseISODate(filterDateEnd.value))}`;
         } else {
             filterDateTriggerText.textContent = 'Período';
         }
@@ -857,6 +853,7 @@
         e.stopPropagation();
         filterCalendarPopover?.classList.contains('open') ? closeFilterCalendar() : openFilterCalendar();
     });
+    filterCalendarPopover?.addEventListener('click', (e) => e.stopPropagation());
 
     filterCalendarGrid?.addEventListener('click', (e) => {
         const btn = e.target.closest('.calendar-day[data-day]');
@@ -1442,7 +1439,6 @@
             trigger.classList.add('active');
             trigger.setAttribute('aria-expanded', 'true');
             document.addEventListener('click', onOutsideClick);
-            document.addEventListener('keydown', onEscape);
         }
         function close() {
             releasePopover(close);
@@ -1450,13 +1446,9 @@
             trigger.classList.remove('active');
             trigger.setAttribute('aria-expanded', 'false');
             document.removeEventListener('click', onOutsideClick);
-            document.removeEventListener('keydown', onEscape);
         }
         function onOutsideClick(e) {
             if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
-        }
-        function onEscape(e) {
-            if (e.key === 'Escape') close();
         }
 
         trigger.addEventListener('click', (e) => {

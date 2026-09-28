@@ -358,3 +358,35 @@ describe('ponta a ponta (NexusE2E presente)', () => {
         assert.deepEqual(E2E.fileRecipients(storage.get('documents/e1/z.pdf').bytes).sort(), [me.fingerprint, org.fingerprint].sort());
     });
 });
+
+describe('NexusFiles.download — queda de rede', () => {
+    afterEach(() => {
+        delete global.window.NexusE2E;
+        delete global.sb.storage;
+    });
+
+    test('rede caindo no caminho antigo (nexus-files) vira erro de conexão, não exceção', async () => {
+        fetchImpl = async () => {
+            throw new TypeError('Failed to fetch');
+        };
+        const { blob, error } = await NexusFiles.download('documents', 'x.pdf');
+        assert.equal(blob, null);
+        assert.equal(error.status, 0);
+        assert.match(error.message, /Erro de conexão/);
+    });
+
+    test('rede caindo ao baixar do Storage no caminho ponta a ponta também vira erro de conexão', async () => {
+        global.window.NexusE2E = { isEncryptedFile: () => true, decryptFile: async () => ({ bytes: new Uint8Array(), mime: 'application/pdf' }) };
+        global.sb.storage = {
+            from: () => ({
+                download: async () => {
+                    throw new TypeError('Failed to fetch');
+                },
+            }),
+        };
+        const { blob, error } = await NexusFiles.download('documents', 'emp/x.pdf');
+        assert.equal(blob, null);
+        assert.equal(error.status, 0);
+        assert.equal(fetchCalls.length, 0, 'não tenta outro caminho depois da falha');
+    });
+});

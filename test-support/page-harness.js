@@ -297,6 +297,7 @@ function installStubs(w, opts, rec) {
         static register() {}
         constructor(ctx, config) {
             this.ctx = ctx;
+            this.canvas = ctx?.tagName === 'CANVAS' ? ctx : ctx?.canvas;
             this.config = config;
             this.data = config?.data;
             this.options = config?.options;

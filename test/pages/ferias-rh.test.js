@@ -461,15 +461,15 @@ describe('ferias.html (RH) — painel do cadastro manual e validações', () => 
         await page.settle(30);
     }
 
-    test('painel mostra frações do ciclo e o direito; 50 anos ou mais exige período único', async () => {
+    test('painel mostra frações do ciclo e o direito; idade não impede fracionar (art. 134 §2º revogado em 2017)', async () => {
         const client = rhClient([]);
         setEmp(client, ANA.id, { birth_date: '1970-03-01' });
         await abrirCadastro(client, ANA.id);
         const info = page.$('#add-emp-ferias-info');
         assert.match(page.text(info), /Ciclo atual: 0\/3 frações utilizadas/);
         assert.match(page.text(info), /direito a 30 dias neste ciclo/);
-        assert.match(page.text(info), /50 anos ou mais: férias devem ser gozadas em período único/);
-        assert.ok(info.classList.contains('negativo'));
+        assert.doesNotMatch(page.text(info), /período único/);
+        assert.ok(!info.classList.contains('negativo'));
     });
 
     test('estagiário: recesso sem abono no painel e abono desabilitado', async () => {

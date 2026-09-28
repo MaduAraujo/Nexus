@@ -110,3 +110,21 @@ describe('diálogos de ponta a ponta (e2e-ui.js)', () => {
         assert.equal(client.writes('e2e_keys', 'upsert').length, 2, 'identidade nova');
     });
 });
+
+describe('chave de recuperação: copiar sem acesso à área de transferência', () => {
+    test('se o navegador negar a cópia, o botão avisa e a chave continua na tela para anotar', async () => {
+        page = await openPage('login', { client: new FakeSupabase({ tables: baseTables() }) });
+        page.window.navigator.clipboard.writeText = async () => {
+            throw new Error('negado');
+        };
+        const mostrou = page.window.NexusE2EUI.showRecoveryKey('ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567');
+        const copiar = await page.waitFor(() => botao(page, 'Copiar'));
+        await page.click(copiar);
+        await page.settle();
+        assert.equal(copiar.textContent, 'Não foi possível copiar');
+        assert.match(page.text('.e2e-recovery'), /ABCD-EFGH/);
+        await page.check('#e2e-saved-check');
+        await page.click(botao(page, 'Continuar'));
+        await mostrou;
+    });
+});

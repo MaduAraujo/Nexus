@@ -137,8 +137,7 @@ function horizontalGradient(colorLeft, colorRight) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     setupChartTheme();
-    setupSidebar();
-    if (!(await loadRhSidebar())) return;
+    if (!(await requireRhAccess())) return;
     await loadData();
     refreshAll();
     setupRealtimeSync();
@@ -162,13 +161,8 @@ function setupSectionToggle(btnId, gridId) {
     });
 }
 
-async function loadRhSidebar() {
-    const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return false;
-    setText('rh-sidebar-name', 'Administrador');
-    setText('rh-sidebar-role', 'Recursos Humanos');
-    setText('rh-sidebar-avatar', 'ADM');
-    return true;
+async function requireRhAccess() {
+    return !!(await NexusAuth.requireProfile('Administrador'));
 }
 
 async function loadData() {
@@ -188,7 +182,7 @@ async function loadData() {
     ] = await Promise.all([
         sb.from('employees_decrypted').select('id,name,dept,status,contract_type,admission_date,termination_date,email,birth_date,gender,salary,pcd,raca_cor'),
         sb.from('vacations').select('id,employee_id,start_date,end_date,status'),
-        sb.from('payslips_decrypted').select('mes,total_proventos,salario_liquido'),
+        sb.from('payslips_decrypted').select('mes,total_proventos'),
         sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null),
         sb.from('messages').select('id,texto,destino,categoria,created_at,scheduled_at'),
         sb.from('message_reads').select('message_id,employee_id,read_at'),
@@ -962,7 +956,7 @@ function updateRaceChart() {
 function updatePayrollChart() {
     const canvas = document.getElementById('chart-payroll');
     if (!canvas || typeof Chart === 'undefined') return;
-    const { labels, values } = last6Months((y, m, key) => payslips.filter((p) => p.mes === key).reduce((s, p) => s + (Number(p.salario_liquido) || 0), 0));
+    const { labels, values } = last6Months((y, m, key) => payslips.filter((p) => p.mes === key).reduce((s, p) => s + (Number(p.total_proventos) || 0), 0));
     const withData = values.filter((v) => v > 0);
     const avg = withData.length ? withData.reduce((s, v) => s + v, 0) / withData.length : 0;
     const fmt = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -1419,46 +1413,6 @@ function setupRealtimeSync() {
             refreshAll();
         })
         .subscribe();
-}
-
-function setupSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const toggleBtn = document.getElementById('sidebar-toggle');
-    const menuBtn = document.getElementById('topbar-menu-btn');
-    const overlay = document.getElementById('sidebar-overlay');
-    const wrapper = document.getElementById('main-wrapper');
-    if (!sidebar) return;
-    const isMobile = () => window.innerWidth <= 768;
-    const openMob = () => {
-        sidebar.classList.add('open');
-        overlay?.classList.add('active');
-    };
-    const closeMob = () => {
-        sidebar.classList.remove('open');
-        overlay?.classList.remove('active');
-    };
-    toggleBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMobile()
-            ? sidebar.classList.contains('open')
-                ? closeMob()
-                : openMob()
-            : (() => {
-                  const c = sidebar.classList.toggle('collapsed');
-                  wrapper?.classList.toggle('sidebar-collapsed', c);
-              })();
-    });
-    menuBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar.classList.contains('open') ? closeMob() : openMob();
-    });
-    overlay?.addEventListener('click', closeMob);
-    window.addEventListener('resize', () => {
-        if (!isMobile()) closeMob();
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && isMobile()) closeMob();
-    });
 }
 
 function setupExportButton() {

@@ -103,7 +103,9 @@ async function loadSecurityAlerts() {
     ]);
 
     if (alertsRes.error) {
-        list.replaceChildren(el('p', 'sec-empty', 'Não foi possível carregar os alertas agora.'));
+        const erro = el('p', 'sec-empty', 'Não foi possível carregar os alertas agora.');
+        erro.setAttribute('role', 'alert');
+        list.replaceChildren(erro);
     } else {
         const alerts = alertsRes.data || [];
         renderAlerts(list, alerts);

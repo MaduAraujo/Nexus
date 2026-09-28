@@ -219,3 +219,120 @@ describe('chat-rh.html — tempo real', () => {
         assert.equal(page.$('.ticket-item[data-ticket-id="t1"]').classList.contains('active'), true, 'continua selecionado');
     });
 });
+
+describe('chat-rh.html — painel, histórico, teclado e tempo real', () => {
+    test('no celular, o botão abre a fila e o fundo escuro fecha', async () => {
+        page = await openPage('chat-rh', { client: client(), now: NOW });
+        await page.click('#topbar-panels-btn');
+        assert.ok(page.$('#chat-left').classList.contains('open'));
+        await page.click('#chat-overlay');
+        assert.equal(page.$('#chat-left').classList.contains('open'), false);
+    });
+
+    test('foto do colaborador aparece no cabeçalho; respostas antigas do RH aparecem no histórico', async () => {
+        const c = client();
+        c.tables.hr_tickets[0].employees = { ...anaEmb, avatar_url: 'https://cdn.exemplo.com/ana.png' };
+        c.tables.hr_ticket_messages_decrypted.push({
+            id: 'x4',
+            ticket_id: 't1',
+            role: 'rh',
+            employee_id: 'outro-analista',
+            content: 'Já estou vendo, Ana.',
+            created_at: '2026-06-15T09:10:00-03:00',
+        });
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        assert.match(page.$('#colab-avatar').style.background, /ana\.png/);
+        assert.equal(page.text('#colab-avatar'), '');
+        assert.match(page.text('#messages-list'), /Já estou vendo, Ana\./);
+        assert.ok(page.$('#messages-list .rh-avatar'), 'resposta de outro analista aparece com o ícone do RH');
+    });
+
+    test('Enter envia a resposta, Shift+Enter não; o botão acompanha o texto', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        const input = page.$('#hr-reply-input');
+        await page.fill(input, '   ');
+        assert.equal(page.$('#hr-reply-send').disabled, true);
+        await page.fill(input, 'Vou verificar agora.');
+        assert.equal(page.$('#hr-reply-send').disabled, false);
+        await page.key(input, 'Enter', { shiftKey: true });
+        assert.equal(c.writes('hr_ticket_messages', 'insert').length, 0);
+        await page.key(input, 'Enter');
+        await page.settle();
+        assert.equal(c.writes('hr_ticket_messages', 'insert')[0].payload[0].content, 'Vou verificar agora.');
+    });
+
+    test('resposta de outro analista chega em tempo real na conversa aberta', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        c.tables.hr_ticket_messages_decrypted.push({
+            id: 'x8',
+            ticket_id: 't1',
+            role: 'rh',
+            employee_id: 'outro-analista',
+            content: 'Assumi daqui.',
+            created_at: '2026-06-17T09:40:00-03:00',
+        });
+        c.emit('hr_ticket_messages', { eventType: 'INSERT', new: { id: 'x8', ticket_id: 't1', role: 'rh', employee_id: 'outro-analista' } });
+        await page.waitFor(() => /Assumi daqui/.test(page.text('#messages-list')));
+    });
+
+    test('feedback anônimo novo chega em tempo real com aviso; o modal abre e fecha', async () => {
+        const c = client();
+        page = await openPage('chat-rh', { client: c, now: NOW });
+        await page.click('#btn-open-anon-feedback');
+        assert.ok(page.$('#anon-feedback-modal').classList.contains('open'));
+        c.tables.anonymous_feedback_decrypted.push({
+            id: 'f3',
+            categoria: 'clima',
+            message: 'Barulho no andar',
+            status: 'novo',
+            created_at: '2026-06-17T09:45:00-03:00',
+        });
+        c.emit('anonymous_feedback', { eventType: 'INSERT', new: { id: 'f3' } });
+        await page.waitFor(() => /Barulho no andar/.test(page.text('#anon-feedback-modal')));
+        assert.ok(page.toasts().some((t) => /Novo feedback anônimo recebido/.test(t)));
+        await page.click('[data-click="closeAnonFeedbackModal"]');
+        assert.equal(page.$('#anon-feedback-modal').classList.contains('open'), false);
+    });
+
+    test('a cada minuto a fila recalcula o SLA, inclusive do ticket aberto', async () => {
+        let periodico = null;
+        page = await openPage('chat-rh', {
+            client: client(),
+            now: NOW,
+            before: (w) => {
+                const orig = w.setInterval;
+                w.setInterval = (fn, ms) => (ms === 60000 ? ((periodico = fn), 0) : orig(fn, ms));
+            },
+        });
+        const fila = page.text('#ticket-list');
+        periodico();
+        assert.equal(page.text('#ticket-list'), fila);
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.settle();
+        periodico();
+        assert.deepEqual(page.pageErrors.map(String), []);
+    });
+
+    test('fila sem tickets explica que não há nada', async () => {
+        page = await openPage('chat-rh', { client: client({ hr_tickets: [] }), now: NOW });
+        assert.match(page.text('#ticket-list'), /Nenhum ticket encontrado/);
+    });
+
+    test('o aviso some sozinho depois de alguns segundos', async () => {
+        page = await openPage('chat-rh', { client: client(), now: NOW });
+        const w = page.window;
+        const st = w.setTimeout;
+        w.setTimeout = (fn, ms, ...a) => (ms === 4000 || ms === 400 ? (fn(...a), 0) : st(fn, ms, ...a));
+        w.showToast('Aviso de teste', 'info');
+        w.setTimeout = st;
+        assert.deepEqual(page.toasts(), []);
+    });
+});

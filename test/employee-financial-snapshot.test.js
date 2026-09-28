@@ -7,7 +7,7 @@ before(async () => {
     sfx = await import('../supabase/functions/_shared/employee-financial-snapshot.mjs');
 });
 
-describe('getJornadaMin / calcWorkedMin (mesma regra de equipe-colaborador.js)', () => {
+describe('getJornadaMin / calcWorkedMin (paridade com o CLTDomain em test/jornada-paridade.test.js)', () => {
     test('PJ não tem jornada; CLT 40h dá 480min; estágio dá 360min fixos', () => {
         assert.equal(sfx.getJornadaMin({ contract_type: 'pj' }), null);
         assert.equal(sfx.getJornadaMin({ contract_type: 'clt', work_load: '40h' }), 480);

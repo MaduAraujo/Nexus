@@ -7,70 +7,13 @@ let equipe;
 before(() => {
     global.window = global;
     global.document = { addEventListener: () => {}, getElementById: () => null };
+    require('../src/javascript/domain/clt-domain.js');
     equipe = require('../src/javascript/equipe-colaborador.js');
 });
 
 beforeEach(() => {
     equipe.__setStateForTest({ myEmployeeId: 'gestor1', myEmployee: { id: 'gestor1', name: 'Gestora', email: 'g@nexus.test' } });
     global.document.getElementById = () => null;
-});
-
-describe('getJornadaMin (minutos de jornada esperada por dia, conforme contrato)', () => {
-    test('PJ não tem jornada — banco de horas não se aplica', () => {
-        assert.equal(equipe.getJornadaMin({ contract_type: 'pj' }), null);
-    });
-
-    test('estágio e aprendiz são fixos em 6h (360min), com ou sem acento', () => {
-        assert.equal(equipe.getJornadaMin({ contract_type: 'estagio' }), 360);
-        assert.equal(equipe.getJornadaMin({ contract_type: 'estágio' }), 360);
-        assert.equal(equipe.getJornadaMin({ contract_type: 'aprendiz' }), 360);
-    });
-
-    test('escala 12x36 vale 12h (720min) no dia trabalhado', () => {
-        assert.equal(equipe.getJornadaMin({ contract_type: 'clt', work_load: '12x36' }), 720);
-    });
-
-    test('carga semanal "Xh" é dividida em 5 dias úteis', () => {
-        assert.equal(equipe.getJornadaMin({ contract_type: 'clt', work_load: '40h' }), 480);
-        assert.equal(equipe.getJornadaMin({ contract_type: 'clt', work_load: '20h' }), 240);
-    });
-
-    test('sem carga informada, cai no padrão de 8h (480min)', () => {
-        assert.equal(equipe.getJornadaMin({ contract_type: 'clt' }), 480);
-    });
-
-    test('contrato ausente é tratado como CLT', () => {
-        assert.equal(equipe.getJornadaMin({}), 480);
-    });
-});
-
-describe('calcWorkedMinEquipe (minutos trabalhados em um registro de ponto)', () => {
-    test('sem entrada, não trabalhou nada', () => {
-        assert.equal(equipe.calcWorkedMinEquipe({}), 0);
-    });
-
-    test('entrada e saída sem intervalo de almoço', () => {
-        assert.equal(equipe.calcWorkedMinEquipe({ entrada: '2026-06-01T08:00:00', saida: '2026-06-01T17:00:00' }), 540);
-    });
-
-    test('com almoço, desconta o intervalo (soma manhã + tarde)', () => {
-        const rec = {
-            entrada: '2026-06-01T08:00:00',
-            saida_almoco: '2026-06-01T12:00:00',
-            retorno_almoco: '2026-06-01T13:00:00',
-            saida: '2026-06-01T17:00:00',
-        };
-        assert.equal(equipe.calcWorkedMinEquipe(rec), 480);
-    });
-
-    test('saiu para o almoço mas ainda não voltou: só conta a manhã', () => {
-        const rec = { entrada: '2026-06-01T08:00:00', saida_almoco: '2026-06-01T12:00:00' };
-        assert.equal(equipe.calcWorkedMinEquipe(rec), 240);
-    });
-
-    test('entrada sem saída (dia em aberto) conta zero', () => {
-        assert.equal(equipe.calcWorkedMinEquipe({ entrada: '2026-06-01T08:00:00' }), 0);
-    });
 });
 
 describe('minToStrEquipe / saldoBadgeHtml', () => {

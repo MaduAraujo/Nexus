@@ -405,3 +405,221 @@ describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
         assert.doesNotMatch(page.text('#hr-messages-list'), /Obrigado pela avaliação/);
     });
 });
+
+describe('chat-colaborador.html — painel, teclado, cifra e atendimentos', () => {
+    test('no celular, o botão abre a lista de canais e o fundo escuro fecha', async () => {
+        page = await openPage('chat-colaborador', { client: client() });
+        await page.click('#topbar-panels-btn');
+        assert.ok(page.$('#chat-left').classList.contains('open'));
+        assert.ok(page.$('#chat-overlay').classList.contains('active'));
+        await page.click('#chat-overlay');
+        assert.equal(page.$('#chat-left').classList.contains('open'), false);
+    });
+
+    test('abrir um canal público de outro departamento faz a pessoa entrar nele', async () => {
+        const c = client();
+        page = await openPage('chat-colaborador', { client: c });
+        const antes = c.writes('chat_channel_members', 'upsert').length;
+        await page.click('.channel-item[data-channel-id="ch-ti"]');
+        const novos = c.writes('chat_channel_members', 'upsert').slice(antes);
+        assert.deepEqual(
+            novos.map((w) => w.payload[0].channel_id),
+            ['ch-ti']
+        );
+        assert.equal(page.text('#chat-area-name'), '#ti');
+        assert.match(page.text('#channel-list'), /Meus canais .*ti/);
+    });
+
+    test('mensagem cifrada: abre com a chave deste acesso; sem a chave, avisa em vez de mostrar lixo', async () => {
+        const c = client({
+            chat_messages_decrypted: [
+                { id: 'e1', channel_id: 'ch-geral', employee_id: BIA.id, content: 'e2e:v1:1:aaa:bbb', created_at: '2026-06-17T09:00:00-03:00' },
+                { id: 'e2', channel_id: 'ch-geral', employee_id: BIA.id, content: 'e2e:v1:1:ccc:ddd', created_at: '2026-06-17T09:01:00-03:00' },
+            ],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        page.window.NexusE2E.decryptMessage = async (content) => (content.includes('aaa') ? 'Reunião às 15h' : null);
+        await page.click('.channel-item[data-channel-id="ch-geral"]');
+        await page.settle();
+        const t = page.text('#messages-list');
+        assert.match(t, /Reunião às 15h/);
+        assert.match(t, /Mensagem cifrada de ponta a ponta que não abre com as chaves deste acesso/);
+        assert.doesNotMatch(t, /e2e:v1/);
+    });
+
+    test('"digitando" some sozinho; Enter envia e Shift+Enter não', async () => {
+        const c = client();
+        const agendados = [];
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('.channel-item[data-channel-id="ch-geral"]');
+        const w = page.window;
+        const st = w.setTimeout;
+        w.setTimeout = (fn, ms) => (ms === 2500 ? (agendados.push(fn), 0) : st(fn, ms));
+        c.emitBroadcast('typing:ch-geral', 'typing', { employee_id: ANA.id, name: 'Eu mesma' });
+        assert.equal(page.$('#typing-indicator').classList.contains('hidden'), true, 'a própria digitação não aparece');
+        c.emitBroadcast('typing:ch-geral', 'typing', { employee_id: CAIO.id });
+        assert.equal(page.text('#typing-text'), 'alguém está digitando...');
+        w.setTimeout = st;
+        agendados.forEach((f) => f());
+        assert.equal(page.$('#typing-indicator').classList.contains('hidden'), true);
+
+        await page.fill('#chat-input', 'linha 1');
+        await page.key(page.$('#chat-input'), 'Enter', { shiftKey: true });
+        assert.equal(c.writes('chat_messages', 'insert').length, 0);
+        await page.key(page.$('#chat-input'), 'Enter');
+        assert.equal(c.writes('chat_messages', 'insert')[0].payload[0].content, 'linha 1');
+    });
+
+    test('DM aberta mostra se o colega está online; busca sem resultado avisa', async () => {
+        const c = client({
+            chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('.dm-item[data-other-id="' + BIA.id + '"]');
+        const offline = page.text('#chat-area-desc');
+        c.emitPresence({ [ANA.id]: [{}], [BIA.id]: [{}] });
+        assert.notEqual(page.text('#chat-area-desc'), offline);
+        assert.match(page.text('#chat-area-desc'), /online/i);
+        assert.ok(page.$(`.dm-item[data-other-id="${BIA.id}"]`).classList.contains('online'));
+
+        await page.click('#dm-new-btn');
+        await page.fill('#dm-search', 'ninguém com esse nome');
+        assert.match(page.text('#dm-picker-list'), /Nenhum colega encontrado/);
+    });
+
+    test('menu do atendimento abre e fecha; apagar o atendimento aberto volta à tela inicial', async () => {
+        const c = client({
+            hr_tickets: [
+                { id: 't1', employee_id: ANA.id, subject: 'A', status: 'bot', updated_at: '2026-06-11' },
+                { id: 't2', employee_id: ANA.id, subject: 'B', status: 'bot', updated_at: '2026-06-10' },
+            ],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-rh');
+        const menu = (id) => page.$(`.ticket-item[data-ticket-id="${id}"] .ticket-menu-dropdown`);
+        await page.click('.ticket-item[data-ticket-id="t1"] .ticket-menu-btn');
+        assert.ok(menu('t1').classList.contains('open'));
+        await page.click('.ticket-item[data-ticket-id="t2"] .ticket-menu-btn');
+        assert.equal(menu('t1').classList.contains('open'), false, 'abrir um fecha o outro');
+        assert.ok(menu('t2').classList.contains('open'));
+        await page.click('.ticket-item[data-ticket-id="t2"] .ticket-menu-btn');
+        assert.equal(menu('t2').classList.contains('open'), false);
+
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        await page.click('.ticket-item[data-ticket-id="t1"] [data-action="me"]');
+        assert.equal(page.$('.ticket-item[data-ticket-id="t1"]'), null);
+        assert.equal(page.$$('.ticket-item.active').length, 0);
+        assert.ok(page.toasts().some((t) => /Conversa apagada para você/.test(t)));
+    });
+
+    test('apagar atendimento: cancelar não apaga; erro do banco avisa e mantém na lista', async () => {
+        const c = client({ hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'A', status: 'bot', updated_at: '2026-06-11' }] });
+        page = await openPage('chat-colaborador', { client: c, confirm: false });
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"] [data-action="me"]');
+        assert.equal(c.writes('hr_ticket_hidden', 'upsert').length, 0);
+        page.close();
+
+        const e = client({ hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'A', status: 'bot', updated_at: '2026-06-11' }] });
+        e.errors['hr_ticket_hidden:upsert'] = { message: 'RLS' };
+        page = await openPage('chat-colaborador', { client: e });
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"] [data-action="me"]');
+        assert.ok(page.toasts().some((t) => /Erro ao apagar conversa/.test(t)));
+        assert.ok(page.$('.ticket-item[data-ticket-id="t1"]'));
+    });
+
+    test('avaliação: passar o mouse acende as estrelas até a escolhida; sair apaga', async () => {
+        const c = client({
+            hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'Dúvida', status: 'resolvido', created_at: '2026-06-10', updated_at: '2026-06-11' }],
+        });
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        const estrelas = page.$$('.csat-star');
+        estrelas[2].dispatchEvent(new page.window.MouseEvent('mouseenter'));
+        assert.deepEqual(
+            estrelas.map((s) => s.classList.contains('active')),
+            [true, true, true, false, false]
+        );
+        estrelas[2].closest('.csat-prompt').dispatchEvent(new page.window.MouseEvent('mouseleave'));
+        assert.deepEqual(
+            estrelas.map((s) => s.classList.contains('active')),
+            [false, false, false, false, false]
+        );
+    });
+});
+
+describe('chat-colaborador.html — estados vazios, histórico do bot e digitação no atendimento', () => {
+    test('sem canais e sem reconhecimentos, as listas explicam que estão vazias', async () => {
+        page = await openPage('chat-colaborador', { client: client({ chat_channels: [], kudos: [] }) });
+        assert.match(page.text('#channel-list'), /Nenhum canal disponível/);
+        await page.click('#tab-kudos');
+        assert.match(page.text('#kudos-wall'), /Nenhum reconhecimento ainda/);
+    });
+
+    test('reabrir um atendimento mostra também as respostas antigas do bot', async () => {
+        const c = client({ hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'Férias', status: 'bot', updated_at: '2026-06-11' }] });
+        c.tables.hr_ticket_messages_decrypted.push(
+            { id: 'a', ticket_id: 't1', role: 'user', content: 'Quando posso tirar férias?', created_at: '2026-06-11T10:00:00Z' },
+            { id: 'b', ticket_id: 't1', role: 'bot', content: 'Você pode pedir com **30 dias** de antecedência.', created_at: '2026-06-11T10:00:05Z' }
+        );
+        page = await openPage('chat-colaborador', { client: c });
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"]');
+        assert.match(page.text('#hr-messages-list'), /Quando posso tirar férias\?.*Você pode pedir com 30 dias de antecedência/);
+    });
+
+    test('digitar e Enter envia a pergunta; Shift+Enter não; depois da resposta dá para chamar um analista', async () => {
+        const c = client();
+        const perguntas = [];
+        page = await openPage('chat-colaborador', {
+            client: c,
+            fetch: async (url, init) => {
+                perguntas.push(JSON.parse(init.body).message);
+                return sse('Resposta da IA.');
+            },
+        });
+        await page.click('#tab-rh');
+        const input = page.$('#hr-input');
+        await page.fill(input, 'x');
+        page.$('#hr-send-btn').click();
+        assert.equal(perguntas.length, 0, 'sem atendimento aberto, nada é enviado');
+
+        await page.click('#new-ticket-btn');
+        await page.fill(input, '   ');
+        assert.equal(page.$('#hr-send-btn').disabled, true);
+        await page.fill(input, 'Como peço adiantamento?');
+        assert.equal(page.$('#hr-send-btn').disabled, false);
+        await page.key(input, 'Enter', { shiftKey: true });
+        assert.equal(perguntas.length, 0);
+        await page.key(input, 'Enter');
+        await page.waitFor(() => /Resposta da IA/.test(page.text('#hr-messages-list')));
+        assert.deepEqual(perguntas, ['Como peço adiantamento?']);
+        assert.equal(input.value, '');
+
+        const botoes = page.$$('.qr-btn[data-qr="Falar com analista"]');
+        await page.click(botoes[botoes.length - 1]);
+        await page.waitFor(() => c.tables.hr_tickets[0].status === 'aguardando_rh', { timeout: 3000 });
+        assert.ok(
+            page.$$('.qr-btn').every((b) => b.disabled),
+            'as respostas rápidas ficam desabilitadas'
+        );
+    });
+
+    test('o aviso some sozinho depois de alguns segundos', async () => {
+        const c = client({ hr_tickets: [{ id: 't1', employee_id: ANA.id, subject: 'A', status: 'bot', updated_at: '2026-06-11' }] });
+        c.errors['hr_ticket_hidden:upsert'] = { message: 'RLS' };
+        page = await openPage('chat-colaborador', { client: c });
+        const w = page.window;
+        const st = w.setTimeout;
+        w.setTimeout = (fn, ms, ...a) => (ms >= 400 && ms <= 4000 ? (fn(...a), 0) : st(fn, ms, ...a));
+        await page.click('#tab-rh');
+        await page.click('.ticket-item[data-ticket-id="t1"] [data-action="me"]');
+        w.setTimeout = st;
+        assert.equal(
+            page.toasts().some((t) => /Erro ao apagar conversa/.test(t)),
+            false
+        );
+    });
+});

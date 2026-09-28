@@ -202,3 +202,299 @@ describe('documentos-colaborador.html', () => {
         assert.ok(page.fetches.some((f) => /nexus-files/.test(f.url)) || page.client.calls.some((x) => x.storage === 'documents' && x.op === 'download'));
     });
 });
+
+describe('documentos-colaborador.html — seleção, teclado e erros', () => {
+    test('documento sem arquivo avisa em vez de tentar abrir; Enter e espaço na prévia abrem o arquivo', async () => {
+        const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').storage_path = null;
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        await page.window.viewSelectedDoc();
+        assert.ok(page.toasts().some((t) => /Arquivo indisponível/.test(t)));
+
+        const abertos = [];
+        page.window.NexusFiles.open = async (bucket, path) => {
+            abertos.push(path);
+            return { error: abertos.length > 1 ? new Error('sem permissão') : null };
+        };
+        await page.click('.doc-card-item[data-click-args*="d2"]');
+        const previa = page.$('.doc-preview-area--clickable');
+        await page.key(previa, 'Enter');
+        await page.key(previa, 'a');
+        await page.key(previa, ' ');
+        assert.deepEqual(abertos, ['emp-ana/contrato.pdf', 'emp-ana/contrato.pdf']);
+        assert.ok(page.toasts().some((t) => /Erro ao abrir.*sem permissão/.test(t)));
+        await page.key(page.$('#doc-card'), 'Enter');
+        assert.equal(abertos.length, 2, 'Enter fora da prévia não abre');
+    });
+
+    test('selecionar documento inexistente ou vazio volta para o painel vazio', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        assert.equal(page.$('#doc-empty').classList.contains('hidden'), true);
+        page.window.selectDocById('nao-existe');
+        assert.equal(page.$('#doc-empty').classList.contains('hidden'), false);
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        page.window.selectDocById(null);
+        assert.equal(page.$('#doc-empty').classList.contains('hidden'), false);
+        await page.window.deleteSelectedDoc();
+        assert.deepEqual(page.toasts(), [], 'sem seleção, remover não faz nada');
+    });
+
+    test('documento do RH não é removido pelo colaborador mesmo chamando a função direto', async () => {
+        const c = client();
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d2"]');
+        await page.window.deleteSelectedDoc();
+        assert.ok(page.toasts().some((t) => /enviado pelo RH e só pode ser removido por ele/.test(t)));
+        assert.equal(c.writes('documents', 'delete').length, 0);
+    });
+
+    test('cancelar a confirmação não remove', async () => {
+        const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').status = 'pendente';
+        page = await openPage('documentos-colaborador', { client: c, now: NOW, confirm: false });
+        await page.click('.doc-card-item[data-click-args*="d1"]');
+        await page.click('#btn-delete-doc');
+        assert.equal(c.writes('documents', 'delete').length, 0);
+    });
+
+    test('assinatura: nome vazio é recusado; erro da RPC avisa e não audita; fundo escuro e Esc fecham o modal', async () => {
+        const c = client();
+        c.errors['rpc:sign_document'] = { message: 'x' };
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('.doc-card-item[data-click-args*="d2"]');
+        await page.click('#btn-sign-doc');
+        await page.fill('#sign-name-input', '   ');
+        await page.click('[data-click="confirmSignature"]');
+        assert.ok(page.toasts().some((t) => /Campo obrigatório.*nome completo/.test(t)));
+
+        await page.fill('#sign-name-input', 'Ana Souza');
+        await page.check('#sign-agree-check');
+        await page.click('[data-click="confirmSignature"]');
+        assert.ok(page.toasts().some((t) => /Erro ao assinar/.test(t)));
+        assert.equal(c.writes('document_audit_log', 'insert').length, 0);
+        assert.equal(page.$('#sign-modal').classList.contains('open'), true, 'continua aberto para tentar de novo');
+
+        await page.click(page.$('#sign-modal .modal, #sign-modal > *'));
+        assert.equal(page.$('#sign-modal').classList.contains('open'), true, 'clique dentro não fecha');
+        await page.click('#sign-modal');
+        assert.equal(page.$('#sign-modal').classList.contains('open'), false);
+
+        await page.click('#btn-sign-doc');
+        await page.key(page.document, 'Escape');
+        assert.equal(page.$('#sign-modal').classList.contains('open'), false);
+        page.window.selectDocById(null);
+        await page.window.confirmSignature();
+        assert.equal(c.rpcCalls('sign_document').length, 1, 'sem documento selecionado não assina');
+    });
+
+    test('seletor de tipo: abre, escolhe, fecha com clique fora ou Esc', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        await page.click('#btn-upload');
+        const pop = page.$('#upload-tipo-popover');
+        await page.click('#upload-tipo-trigger');
+        assert.equal(pop.classList.contains('open'), true);
+        assert.equal(page.$('#upload-tipo-trigger').getAttribute('aria-expanded'), 'true');
+        await page.click(pop);
+        assert.equal(pop.classList.contains('open'), true, 'clique fora das opções não escolhe');
+        await page.click(pop.querySelector('[data-value="Diploma"]'));
+        assert.equal(pop.classList.contains('open'), false);
+        assert.equal(page.$('#upload-tipo').value, 'Diploma');
+        assert.equal(page.text('#upload-tipo-text'), 'Diploma');
+        assert.ok(pop.querySelector('[data-value="Diploma"]').classList.contains('selected'));
+
+        await page.click('#upload-tipo-trigger');
+        await page.click('#upload-tipo-trigger');
+        assert.equal(pop.classList.contains('open'), false, 'clicar de novo fecha');
+        await page.click('#upload-tipo-trigger');
+        await page.click('#upload-tipo-text');
+        await page.click(page.$('#upload-modal .modal-title, #upload-modal h3, #upload-modal label'));
+        assert.equal(pop.classList.contains('open'), false, 'clique fora fecha');
+        await page.click('#upload-tipo-trigger');
+        await page.key(page.document, 'Tab');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(pop.classList.contains('open'), false);
+
+        page.window.setUploadTipo('');
+        assert.equal(page.text('#upload-tipo-text'), 'Selecione');
+        assert.ok(page.$('#upload-tipo-text').classList.contains('date-trigger-placeholder'));
+    });
+
+    test('seletor do celular: lista os documentos, abre, escolhe e fecha', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        const pop = page.$('#doc-select-mobile-popover');
+        assert.equal(page.text('#doc-select-mobile-text'), 'Selecione um documento...');
+        await page.click('#doc-select-mobile-trigger');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.click(pop);
+        assert.equal(pop.classList.contains('open'), true);
+        await page.click(pop.querySelector('[data-value="d2"]'));
+        assert.equal(pop.classList.contains('open'), false);
+        assert.equal(page.text('#doc-select-mobile-text'), 'contrato.pdf');
+        assert.equal(page.text('#action-doc-name'), 'contrato.pdf');
+
+        await page.click('#doc-select-mobile-trigger');
+        await page.click('#doc-select-mobile-trigger');
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#doc-select-mobile-trigger');
+        await page.click(page.document.body);
+        assert.equal(pop.classList.contains('open'), false);
+        await page.click('#doc-select-mobile-trigger');
+        await page.key(page.document, 'a');
+        assert.equal(pop.classList.contains('open'), true);
+        await page.key(page.document, 'Escape');
+        assert.equal(pop.classList.contains('open'), false);
+    });
+
+    test('arrastar e soltar arquivo na área de envio; clicar na área abre o seletor', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        await page.click('#btn-upload');
+        const zona = page.$('#drop-zone');
+        const w = page.window;
+        let cliques = 0;
+        page.$('#file-input').addEventListener('click', () => cliques++);
+        await page.click(zona);
+        assert.equal(cliques, 1);
+
+        const arrastar = (tipo, files) => {
+            const e = new w.Event(tipo, { bubbles: true, cancelable: true });
+            e.dataTransfer = { files };
+            zona.dispatchEvent(e);
+            return e;
+        };
+        assert.equal(arrastar('dragover', []).defaultPrevented, true);
+        assert.ok(zona.classList.contains('dragover'));
+        arrastar('dragleave', []);
+        assert.equal(zona.classList.contains('dragover'), false);
+
+        arrastar('dragover', []);
+        arrastar('drop', []);
+        assert.equal(zona.classList.contains('dragover'), false);
+        assert.equal(page.$('#file-selected').classList.contains('hidden'), true, 'soltar sem arquivo não seleciona');
+
+        arrastar('drop', [page.file('rg.pdf', '%PDF', 'application/pdf')]);
+        assert.equal(page.text('#file-selected-name'), 'rg.pdf');
+        assert.equal(zona.classList.contains('hidden'), true);
+
+        await page.click('[data-click="clearFileInput"]');
+        assert.equal(zona.classList.contains('hidden'), false);
+        await page.setFiles('#file-input', []);
+        assert.equal(page.$('#file-selected').classList.contains('hidden'), true);
+    });
+
+    test('envio sem tipo ou sem arquivo é recusado antes de subir qualquer coisa', async () => {
+        const c = client();
+        page = await openPage('documentos-colaborador', { client: c, now: NOW, fetch: filesOk });
+        await page.click('#btn-upload');
+        await page.window.submitUpload();
+        assert.ok(page.toasts().some((t) => /Selecione o tipo de documento/.test(t)));
+        page.window.setUploadTipo('CPF');
+        await page.window.submitUpload();
+        assert.ok(page.toasts().some((t) => /Selecione um arquivo para enviar/.test(t)));
+        assert.equal(page.fetches.length, 0);
+    });
+
+    test('falha ao subir o arquivo avisa e não cria registro; tamanho em MB é gravado', async () => {
+        const c = client();
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        await page.click('#btn-upload');
+        page.window.setUploadTipo('CPF');
+        const arquivo = page.file('cpf.pdf', '%PDF', 'application/pdf');
+        Object.defineProperty(arquivo, 'size', { value: 3 * 1024 * 1024 });
+        await page.setFiles('#file-input', [arquivo]);
+        page.window.NexusFiles.upload = async () => ({ error: { message: 'rede caiu' } });
+        await page.click('#btn-submit-upload');
+        assert.ok(page.toasts().some((t) => /Erro ao enviar o arquivo.*rede caiu/.test(t)));
+        assert.equal(c.writes('documents', 'insert').length, 0);
+
+        page.window.NexusFiles.upload = async () => ({ error: null });
+        await page.click('#btn-submit-upload');
+        assert.equal(c.writes('documents', 'insert')[0].payload[0].size_label, '3.0 MB');
+    });
+
+    test('se o registro falhar depois do envio, o arquivo enviado é apagado', async () => {
+        const c = client();
+        c.errors['documents:insert'] = { message: 'RLS' };
+        page = await openPage('documentos-colaborador', { client: c, now: NOW, fetch: filesOk });
+        await page.click('#btn-upload');
+        page.window.setUploadTipo('CPF');
+        await page.setFiles('#file-input', [page.file('cpf.pdf', '%PDF', 'application/pdf')]);
+        await page.click('#btn-submit-upload');
+        assert.ok(page.toasts().some((t) => /Erro ao enviar documento/.test(t)));
+        assert.match(c.calls.find((x) => x.storage === 'documents' && x.op === 'remove').path[0], /^emp-ana\/\d+_cpf\.pdf$/);
+        assert.equal(c.writes('document_audit_log', 'insert').length, 0);
+    });
+
+    test('documento aprovado pelo RH em tempo real atualiza a lista sem recarregar', async () => {
+        const c = client();
+        c.tables.documents.find((d) => d.id === 'd1').status = 'pendente';
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        c.tables.documents.push({
+            id: 'd9',
+            employee_id: ANA.id,
+            name: 'cpf.pdf',
+            tipo: 'CPF',
+            source: 'colaborador',
+            status: 'aprovado',
+            created_at: '2026-06-17T12:00:00Z',
+        });
+        c.emit('documents', { new: { id: 'd9' } });
+        await page.settle(20);
+        assert.equal(page.text('#doc-count-badge'), '3');
+        assert.match(page.text('#doc-list'), /cpf\.pdf/);
+    });
+
+    test('colaborador sem documentos vê a lista vazia; com tudo entregue o banner de pendências some', async () => {
+        page = await openPage('documentos-colaborador', { client: client({ documents: [] }), now: NOW });
+        assert.match(page.text('#doc-list'), /Nenhum documento/);
+        assert.equal(page.text('#doc-count-badge'), '0');
+        assert.equal(page.$('#doc-empty').classList.contains('hidden'), false);
+        page.close();
+
+        const tudo = ['CPF', 'Exame Admissional'].map((tipo, i) => ({
+            id: `ok${i}`,
+            employee_id: ANA.id,
+            name: `${tipo}.pdf`,
+            tipo,
+            source: 'colaborador',
+            status: 'aprovado',
+            created_at: '2026-03-01T10:00:00Z',
+        }));
+        page = await openPage('documentos-colaborador', { client: client({ documents: [...DOCS.map((d) => ({ ...d })), ...tudo] }), now: NOW });
+        assert.equal(page.$('#pending-docs-banner').classList.contains('hidden'), true);
+    });
+
+    test('ícone do documento segue a extensão do arquivo', async () => {
+        const docs = ['a.docx', 'b.JPG', 'c.png', 'd.xlsx', 'semextensao'].map((name, i) => ({
+            id: `x${i}`,
+            employee_id: ANA.id,
+            name,
+            tipo: 'Outros',
+            source: 'colaborador',
+            status: 'pendente',
+            created_at: `2026-03-0${i + 1}T10:00:00Z`,
+        }));
+        page = await openPage('documentos-colaborador', { client: client({ documents: docs }), now: NOW });
+        const icone = async (id) => {
+            await page.click(`.doc-card-item[data-click-args*="${id}"]`);
+            return page.$('.doc-preview-icon').className;
+        };
+        assert.match(await icone('x0'), /--doc/);
+        assert.match(await icone('x1'), /--img/);
+        assert.match(await icone('x2'), /--img/);
+        assert.match(await icone('x3'), /--other/);
+        assert.match(await icone('x4'), /--other/);
+    });
+
+    test('o aviso some sozinho depois de alguns segundos', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        const w = page.window;
+        const original = w.setTimeout;
+        w.setTimeout = (fn, ms, ...a) => (ms >= 400 ? (fn(...a), 0) : original(fn, ms, ...a));
+        await w.submitUpload();
+        w.setTimeout = original;
+        assert.deepEqual(page.toasts(), []);
+    });
+});

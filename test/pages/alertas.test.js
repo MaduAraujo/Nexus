@@ -253,6 +253,63 @@ describe('alertas.html — painéis com dados', () => {
         assert.match(t, /Ticket RH: .*Assédio/);
         assert.doesNotMatch(t, /Bia Lima/, 'um sinal só não é risco composto');
         assert.equal(page.$$('#risco-list b').length, 0, 'assunto do ticket não vira HTML');
+        assert.match(t, /Ticket RH: Assédio <b>moral<\/b>/, 'assunto aparece literal, escapado uma vez só');
+    });
+
+    test('risco composto: "&" no assunto do ticket não vira "&amp;" na tela', async () => {
+        const c = client({
+            burnout_alerts: [
+                { employee_id: ANA.id, lido: false, created_at: '2026-06-15T10:00:00Z', date: '2026-06-15', alertas: [{ nivel: 'critico', titulo: 'X' }] },
+            ],
+            hr_tickets: [{ employee_id: ANA.id, subject: 'Férias & 13º', status: 'em_atendimento' }],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'risco');
+        const t = page.text('#risco-list');
+        assert.match(t, /Ticket RH: Férias & 13º/);
+        assert.doesNotMatch(t, /&amp;/);
+    });
+
+    const semanas = (employee_id, datas) =>
+        datas.map((date, i) => ({
+            employee_id,
+            lido: true,
+            created_at: '2026-01-01T10:00:00Z',
+            date,
+            alertas: Array.from({ length: i + 1 }, () => ({ nivel: 'atencao', titulo: 'Extras' })),
+        }));
+
+    test('risco composto: tendência de burnout de 3 a 4 semanas é atenção, 5 ou mais é crítica', async () => {
+        const c = client({
+            burnout_alerts: [
+                ...semanas(ANA.id, ['2026-05-18', '2026-05-25', '2026-06-01', '2026-06-08', '2026-06-15']),
+                ...semanas(BIA.id, ['2026-05-25', '2026-06-01', '2026-06-08', '2026-06-15']),
+            ],
+            hr_tickets: [
+                { employee_id: ANA.id, subject: 'Dúvida', status: 'em_atendimento' },
+                { employee_id: BIA.id, subject: 'Dúvida', status: 'em_atendimento' },
+            ],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'risco');
+        const cards = page.$$('#risco-list .alert-card');
+        assert.equal(cards.length, 2);
+        assert.match(page.text(cards[0]), /Ana Souza.*Score de risco composto: 50\/100.*Tendência de piora há 5 semanas seguidas/);
+        assert.match(page.text(cards[1]), /Bia Lima.*Score de risco composto: 35\/100.*Tendência de piora há 4 semanas seguidas/);
+        assert.doesNotMatch(page.text('#risco-list'), /Burnout (crítico|em atenção)/, 'alertas lidos não contam como sinal de burnout atual');
+    });
+
+    test('risco composto: burnout melhorando na última semana não gera sinal de tendência', async () => {
+        const c = client({
+            burnout_alerts: [
+                ...semanas(ANA.id, ['2026-05-25', '2026-06-01', '2026-06-08']),
+                { employee_id: ANA.id, lido: true, created_at: '2026-01-01T10:00:00Z', date: '2026-06-15', alertas: [{ nivel: 'atencao', titulo: 'Extras' }] },
+            ],
+            hr_tickets: [{ employee_id: ANA.id, subject: 'Dúvida', status: 'aguardando_rh' }],
+        });
+        page = await openPage('alertas', { client: c, now: NOW });
+        await abrirAba(page, 'risco');
+        assert.match(page.text('#risco-list'), /Nenhum risco composto/);
     });
 
     test('compliance: documento vencido é crítico e vem antes; contador no resumo', async () => {

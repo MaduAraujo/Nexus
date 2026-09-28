@@ -40,6 +40,14 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check Edge Functions
+        run: npm run check:edge
+
       - name: Run unit and screen tests (fails below the coverage floor)
         run: npm run test:coverage
 

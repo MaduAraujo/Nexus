@@ -22,11 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!auth) return;
         rhUser = auth.user;
 
-        setText('rh-sidebar-name', 'Administrador');
-        setText('rh-sidebar-role', 'Recursos Humanos');
-        setText('rh-sidebar-avatar', 'ADM');
-
-        setupSidebar();
         setupExportDropdown();
         setupDeptFilterDropdown('dept-filter-dropdown', 'btn-dept-filter', 'dept-filter-menu', 'dept-filter-chevron');
         setupDeptFilterDropdown('dept-hol-filter-dropdown', 'btn-dept-hol-filter', 'dept-hol-filter-menu', 'dept-hol-filter-chevron');
@@ -1853,6 +1848,10 @@ window.printCurrentSlip = function () {
 
     const cssHref = new URL('../styles/holerite-print.css', window.location.href).href;
     const win = window.open('', '_blank', 'width=820,height=700');
+    if (!win) {
+        showToast('Permita pop-ups para imprimir o holerite.', 'error');
+        return;
+    }
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
         <meta charset="UTF-8">
         <title>Holerite — ${escHtml(emp.name)} — ${escapeHtml(slip.competencia)}</title>
@@ -2040,11 +2039,6 @@ async function exportCSV() {
             slip.proventos.forEach((p) => body.push([...common, 'Provento', p.cod, p.descricao, p.referencia, p.valor]));
             slip.descontos.forEach((d) => body.push([...common, 'Desconto', d.cod, d.descricao, d.referencia, d.valor]));
         });
-
-        if (!body.length) {
-            showToast('Nenhuma verba calculada para este mês.', 'warning');
-            return;
-        }
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
@@ -2263,43 +2257,6 @@ document.addEventListener('keydown', (e) => {
         document.body.style.overflow = '';
     }
 });
-
-function setupSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const toggle = document.getElementById('sidebar-toggle');
-    const topbar = document.getElementById('topbar-menu-btn');
-    const overlay = document.getElementById('sidebar-overlay');
-    const wrapper = document.getElementById('main-wrapper');
-    const isMobile = () => window.innerWidth <= 768;
-    const open = () => {
-        sidebar?.classList.add('open');
-        overlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
-    const close = () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    };
-
-    toggle?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isMobile()) {
-            sidebar?.classList.contains('open') ? close() : open();
-        } else {
-            const c = sidebar?.classList.toggle('collapsed');
-            wrapper?.classList.toggle('sidebar-collapsed', c);
-        }
-    });
-    topbar?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sidebar?.classList.contains('open') ? close() : open();
-    });
-    overlay?.addEventListener('click', close);
-    window.addEventListener('resize', () => {
-        if (!isMobile()) close();
-    });
-}
 
 function setText(id, val) {
     const el = document.getElementById(id);

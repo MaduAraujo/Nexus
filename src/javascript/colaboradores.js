@@ -192,17 +192,8 @@ function setupRealtimeSync() {
         .subscribe();
 }
 
-async function loadRhSidebar() {
-    const auth = await NexusAuth.requireProfile('Administrador');
-    if (!auth) return false;
-
-    const nameEl = document.getElementById('rh-sidebar-name');
-    const roleEl = document.getElementById('rh-sidebar-role');
-    const avatarEl = document.getElementById('rh-sidebar-avatar');
-    if (nameEl) nameEl.textContent = 'Administrador';
-    if (roleEl) roleEl.textContent = 'Recursos Humanos';
-    if (avatarEl) avatarEl.textContent = 'ADM';
-    return true;
+async function requireRhAccess() {
+    return !!(await NexusAuth.requireProfile('Administrador'));
 }
 
 function getInitials(name) {
@@ -915,6 +906,41 @@ async function readImportFile(file) {
     return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 }
 
+const CAMPOS_DE_OPCAO = {
+    contractType: {
+        opcoes: ['CLT', 'PJ', 'Estágio', 'Aprendiz', 'Temporário'],
+        apelidos: { estagiario: 'Estágio', temporario: 'Temporário' },
+        erro: 'Tipo de contrato inválido (use CLT, PJ, Estágio, Aprendiz ou Temporário).',
+    },
+    workLoad: {
+        opcoes: ['44h', '40h', '30h', '20h', '12x36'],
+        apelidos: {
+            44: '44h',
+            40: '40h',
+            30: '30h',
+            20: '20h',
+            '44hsemanais': '44h',
+            '40hsemanais': '40h',
+            '30hsemanais': '30h',
+            '20hsemanais': '20h',
+            escala12x36: '12x36',
+        },
+        erro: 'Jornada inválida (use 44h, 40h, 30h, 20h ou 12x36).',
+    },
+    salaryType: {
+        opcoes: ['Mensal Fixo', 'Quinzenal', 'Comissao'],
+        apelidos: { mensal: 'Mensal Fixo', porcomissao: 'Comissao' },
+        erro: 'Tipo de salário inválido (use Mensal Fixo, Quinzenal ou Comissão).',
+    },
+};
+
+function opcaoCanonica(campo, valor) {
+    const { opcoes, apelidos } = CAMPOS_DE_OPCAO[campo];
+    const chave = normalizeHeader(valor);
+    if (!chave) return '';
+    return opcoes.find((o) => normalizeHeader(o) === chave) || apelidos[chave] || '';
+}
+
 function buildImportRow(rawRow, headerMap, index) {
     const get = (field) => {
         const idx = Object.keys(headerMap).find((k) => headerMap[k] === field);
@@ -938,20 +964,23 @@ function buildImportRow(rawRow, headerMap, index) {
     const admissionDate = parseImportDate(get('admissionDate'));
     if (!admissionDate) errors.push('Data de admissão inválida.');
 
-    const contractType = get('contractType');
-    if (!contractType) errors.push('Tipo de contrato é obrigatório.');
+    const contractType = opcaoCanonica('contractType', get('contractType'));
+    if (!get('contractType')) errors.push('Tipo de contrato é obrigatório.');
+    else if (!contractType) errors.push(CAMPOS_DE_OPCAO.contractType.erro);
 
     const dept = get('dept');
     if (!dept) errors.push('Departamento é obrigatório.');
 
-    const workLoad = get('workLoad');
-    if (!workLoad) errors.push('Jornada de trabalho é obrigatória.');
+    const workLoad = opcaoCanonica('workLoad', get('workLoad'));
+    if (!get('workLoad')) errors.push('Jornada de trabalho é obrigatória.');
+    else if (!workLoad) errors.push(CAMPOS_DE_OPCAO.workLoad.erro);
 
     const salary = parseImportSalary(get('salary'));
     if (!salary || salary <= 0) errors.push('Salário inválido.');
 
-    const salaryType = get('salaryType');
-    if (!salaryType) errors.push('Tipo de salário é obrigatório.');
+    const salaryType = opcaoCanonica('salaryType', get('salaryType'));
+    if (!get('salaryType')) errors.push('Tipo de salário é obrigatório.');
+    else if (!salaryType) errors.push(CAMPOS_DE_OPCAO.salaryType.erro);
 
     const role = get('role');
 
@@ -2134,8 +2163,7 @@ async function uploadPendingRegDocs(employeeId) {
 window.switchTab = function (event, tabId) {
     document.querySelectorAll('.tab-btn').forEach((btn) => btn.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.remove('active'));
-    if (event && event.currentTarget) event.currentTarget.classList.add('active');
-    else document.querySelector(`[onclick*="${tabId}"]`)?.classList.add('active');
+    document.querySelector(`.tab-btn[data-click-args*="${tabId}"]`)?.classList.add('active');
     document.getElementById(tabId)?.classList.add('active');
 };
 
@@ -3168,13 +3196,14 @@ window.viewTrainingCertificate = async function (id) {
     const training = employeeTrainings.find((t) => t.id === id);
     if (!training?.certificate_path) return;
     const { error } = await NexusFiles.open('documents', training.certificate_path, { name: 'Certificado' });
-    if (error) showToast('Não foi possível abrir o certificado.', 'error');
+    if (error) showToast('Erro!', 'Não foi possível abrir o certificado.', 'error');
 };
 
 window.viewLeaveAttachment = async function (id) {
     const leave = medicalLeaves.find((l) => l.id === id);
     if (!leave?.storage_path) return;
-    await NexusFiles.open('documents', leave.storage_path, { name: 'Atestado' });
+    const { error } = await NexusFiles.open('documents', leave.storage_path, { name: 'Atestado' });
+    if (error) showToast('Erro!', 'Não foi possível abrir o atestado.', 'error');
 };
 
 window.approveLeave = async function (id) {
@@ -3327,7 +3356,7 @@ window.editEmployee = function (id) {
     toggleForm();
 
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-    document.querySelector('.tab-btn[onclick*="tab-obrigatorios"]')?.classList.add('active');
+    document.querySelector('.tab-btn[data-click-args*="tab-obrigatorios"]')?.classList.add('active');
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('tab-obrigatorios')?.classList.add('active');
 
@@ -3339,9 +3368,9 @@ window.editEmployee = function (id) {
     document.getElementById('cpf').value = emp.cpf || '';
     document.getElementById('email').value = emp.email || '';
     setDateFieldValue(document.getElementById('admission-date'), emp.admissionDate || '');
-    document.getElementById('contract-type').value = emp.contractType || '';
-    document.getElementById('salary-type').value = emp.salaryType || '';
-    document.getElementById('work-load').value = emp.workLoad || '';
+    document.getElementById('contract-type').value = opcaoCanonica('contractType', emp.contractType);
+    document.getElementById('salary-type').value = opcaoCanonica('salaryType', emp.salaryType);
+    document.getElementById('work-load').value = opcaoCanonica('workLoad', emp.workLoad);
     document.getElementById('dept').value = emp.dept || '';
     populateManagerSelect(emp.id);
     if (document.getElementById('manager-id')) document.getElementById('manager-id').value = emp.managerId || '';
@@ -3618,43 +3647,6 @@ function restoreConditionalField(radioName, value, detailsId) {
     }
 }
 
-function setupSidebarToggle() {
-    const sidebar = document.getElementById('sidebar');
-    const toggleBtn = document.getElementById('sidebar-toggle');
-    const topbarMenuBtn = document.getElementById('topbar-menu-btn');
-    const overlay = document.getElementById('sidebar-overlay');
-    if (!sidebar) return;
-    const isMobile = () => window.innerWidth <= 768;
-    toggleBtn &&
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isMobile()) {
-                sidebar.classList.toggle('open');
-                overlay && overlay.classList.toggle('active', sidebar.classList.contains('open'));
-            } else {
-                sidebar.classList.toggle('collapsed');
-                document.querySelector('.main-wrapper')?.classList.toggle('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-            }
-        });
-    topbarMenuBtn &&
-        topbarMenuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            sidebar.classList.toggle('open');
-            overlay && overlay.classList.toggle('active', sidebar.classList.contains('open'));
-        });
-    overlay &&
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
-        });
-    window.addEventListener('resize', () => {
-        if (!isMobile()) {
-            sidebar.classList.remove('open');
-            overlay && overlay.classList.remove('active');
-        }
-    });
-}
-
 function setupCpfMask() {
     const input = document.getElementById('cpf');
     if (!input) return;
@@ -3807,7 +3799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     daTypeField = createSelectField('da-type', () => {
         document.getElementById('da-suspension-days')?.classList.toggle('hidden', document.getElementById('da-type')?.value !== 'suspensao');
     });
-    if (!(await loadRhSidebar())) return;
+    if (!(await requireRhAccess())) return;
     await fetchEmployees();
     await fetchJobTitlesPublic();
     await fetchTrainingsCatalogPublic();
@@ -3843,7 +3835,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupValidationListeners();
     setupConditionalFields();
     setupDeselectableRadios();
-    setupSidebarToggle();
     setupRealtimeSync();
     setupDocumentsAlertSync();
     setupImportDropzone();

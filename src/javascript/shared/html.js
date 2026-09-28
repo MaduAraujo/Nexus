@@ -68,7 +68,7 @@ window.sanitizeHtml = function sanitizeHtml(html, allowedTags = MARKDOWN_TAGS) {
                 continue;
             }
             clean(node);
-            const tag = node.tagName;
+            const tag = node.tagName.toUpperCase();
             if (SANITIZE_DROP_WITH_CONTENT.has(tag)) {
                 node.remove();
                 continue;
