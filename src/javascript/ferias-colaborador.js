@@ -618,8 +618,7 @@ function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } =
                 const cls = ['calendar-day'];
                 if (c.isToday) cls.push('calendar-day--today');
                 if (c.isSelected) cls.push('calendar-day--selected');
-                const titulo = c.bloqueio ? ` title="${escHtml(c.bloqueio)}"` : '';
-                return `<button type="button" class="${cls.join(' ')}" data-date="${toISO(c.date)}"${titulo} ${c.disabled ? 'disabled' : ''}>${c.day}</button>`;
+                return `<button type="button" class="${cls.join(' ')}" data-date="${toISO(c.date)}" title="${escapeHtml(c.bloqueio || '')}" ${c.disabled ? 'disabled' : ''}>${c.day}</button>`;
             })
             .join('');
     }
