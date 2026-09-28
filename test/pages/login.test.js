@@ -35,6 +35,22 @@ async function confirmarChaveDeRecuperacao(p) {
     await p.click(p.$$('.e2e-dialog button').find((b) => b.textContent === 'Continuar'));
 }
 
+describe('login.html — voltar para a home', () => {
+    test('na escolha de perfil o botão voltar leva à home', async () => {
+        const client = loginClient(COLAB_USER);
+        page = await openPage('login', { client });
+        assert.equal(page.$('#nav-back-btn').style.display, 'flex');
+        await page.click('#nav-back-btn');
+        assert.deepEqual(page.navigations, ['http://localhost:4173/index.html']);
+
+        await page.click(page.$(`#form-profile .profile-card[data-click-args*='"colaborador"']`));
+        await page.click('#btn-continue');
+        await page.click('#nav-back-btn');
+        assert.ok(page.$('#form-profile').classList.contains('active'));
+        assert.equal(page.$('#nav-back-btn').style.display, 'flex');
+    });
+});
+
 describe('login.html — colaborador', () => {
     test('entra, cria as chaves de ponta a ponta, registra o acesso e vai para o início', async () => {
         const client = loginClient(COLAB_USER);

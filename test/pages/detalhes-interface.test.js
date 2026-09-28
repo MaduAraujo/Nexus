@@ -37,6 +37,48 @@ describe('index.html — barra de navegação e brilho dos cartões', () => {
     });
 });
 
+describe('index.html — carrossel de funcionalidades', () => {
+    test('as setas aparecem só quando há cards escondidos e rolam um card por clique', async () => {
+        page = await openPage('/index.html', { client: new FakeSupabase({}) });
+        const w = page.window;
+        const grid = page.$('#feat-grid');
+        let left = 0;
+        Object.defineProperty(grid, 'scrollLeft', { configurable: true, get: () => left, set: (v) => (left = Math.max(0, Math.min(v, 300))) });
+        Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(grid, 'scrollWidth', { configurable: true, value: 1300 });
+        grid.querySelector('.feat-card').getBoundingClientRect = () => ({ width: 276 });
+        grid.style.columnGap = '24px';
+        w.dispatchEvent(new w.Event('resize'));
+
+        assert.equal(page.$('#feat-prev').hidden, true);
+        assert.equal(page.$('#feat-next').hidden, false);
+
+        await page.click('#feat-next');
+        grid.dispatchEvent(new w.Event('scroll'));
+        assert.equal(left, 300);
+        assert.equal(page.$('#feat-prev').hidden, false);
+        assert.equal(page.$('#feat-next').hidden, true);
+
+        await page.click('#feat-prev');
+        grid.dispatchEvent(new w.Event('scroll'));
+        assert.equal(left, 0);
+        assert.equal(page.$('#feat-prev').hidden, true);
+        assert.equal(page.$('#feat-next').hidden, false);
+    });
+
+    test('sem espaçamento definido a seta rola só a largura do card', async () => {
+        page = await openPage('/index.html', { client: new FakeSupabase({}) });
+        const grid = page.$('#feat-grid');
+        let left = 0;
+        Object.defineProperty(grid, 'scrollLeft', { configurable: true, get: () => left, set: (v) => (left = v) });
+        grid.querySelector('.feat-card').getBoundingClientRect = () => ({ width: 250 });
+        grid.style.columnGap = '';
+        page.$('#feat-next').hidden = false;
+        await page.click('#feat-next');
+        assert.equal(left, 250);
+    });
+});
+
 describe('holerite-colaborador.html — comparativo, informe e impressão', () => {
     const slip = (id, mes, liquido) => ({
         id,

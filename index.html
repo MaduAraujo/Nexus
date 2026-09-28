@@ -116,54 +116,73 @@
                     </p>
                 </div>
 
-                <div class="feat-grid">
-                    <article class="feat-card reveal">
-                        <div class="feat-icon ic-blue" aria-hidden="true">
-                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                                <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.75"/>
-                                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <h3>Gestão de colaboradores</h3>
-                        <p>Perfis completos, documentos e avaliações em um único painel.</p>
-                    </article>
+                <div class="feat-carousel">
+                    <button type="button" class="feat-nav feat-nav--prev" id="feat-prev" aria-label="Ver funcionalidades anteriores" aria-controls="feat-grid" hidden>
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <div class="feat-grid" id="feat-grid">
+                        <article class="feat-card reveal">
+                            <div class="feat-icon ic-blue" aria-hidden="true">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.75"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3>Gestão de colaboradores</h3>
+                            <p>Perfis completos, documentos e avaliações em um único painel.</p>
+                        </article>
 
-                    <article class="feat-card reveal reveal-delay-1">
-                        <div class="feat-icon ic-teal" aria-hidden="true">
-                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.75"/>
-                                <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                                <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                                <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.75"/>
-                            </svg>
-                        </div>
-                        <h3>Jornada e férias</h3>
-                        <p>Controle de ponto, banco de horas e férias totalmente integrados.</p>
-                    </article>
+                        <article class="feat-card reveal reveal-delay-1">
+                            <div class="feat-icon ic-teal" aria-hidden="true">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.75"/>
+                                    <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.75"/>
+                                </svg>
+                            </div>
+                            <h3>Jornada e férias</h3>
+                            <p>Controle de ponto, banco de horas e férias totalmente integrados.</p>
+                        </article>
 
-                    <article class="feat-card reveal reveal-delay-2">
-                        <div class="feat-icon ic-amber" aria-hidden="true">
-                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                                <polyline points="16 7 22 7 22 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                        <h3>Análises e relatórios</h3>
-                        <p>Dashboards em tempo real.</p>
-                    </article>
+                        <article class="feat-card reveal reveal-delay-2">
+                            <div class="feat-icon ic-amber" aria-hidden="true">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <polyline points="16 7 22 7 22 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <h3>Análises e relatórios</h3>
+                            <p>Dashboards em tempo real.</p>
+                        </article>
 
-                    <article class="feat-card reveal reveal-delay-3">
-                        <div class="feat-icon ic-purple" aria-hidden="true">
-                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                                <line x1="9" y1="10" x2="15" y2="10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                                <line x1="9" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <h3>Comunicação interna</h3>
-                        <p>Avisos e comunicados entre equipes em tempo real.</p>
-                    </article>
+                        <article class="feat-card reveal reveal-delay-3">
+                            <div class="feat-icon ic-purple" aria-hidden="true">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="9" y1="10" x2="15" y2="10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    <line x1="9" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3>Comunicação interna</h3>
+                            <p>Avisos e comunicados entre equipes em tempo real.</p>
+                        </article>
+
+                        <article class="feat-card reveal reveal-delay-4">
+                            <div class="feat-icon ic-green" aria-hidden="true">
+                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+                                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3>E muito mais...</h3>
+                            <p>Folha de pagamento, treinamentos e outros módulos.</p>
+                        </article>
+                    </div>
+                    <button type="button" class="feat-nav feat-nav--next" id="feat-next" aria-label="Ver mais funcionalidades" aria-controls="feat-grid" hidden>
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
                 </div>
             </div>
         </section>

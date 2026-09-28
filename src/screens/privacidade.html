@@ -13,39 +13,20 @@
 <body>
 <main class="wrap">
     <div class="top">
-        <div class="logo-name">Ne<span class="x">x</span>us</div>
-        <a href="./login.html">Voltar ao login</a>
-    </div>
-
-    <div class="demo-notice" role="note">
-        <strong>Versão de demonstração (Trabalho de Conclusão de Curso)</strong>
-        <p>
-            Esta política descreve como o Nexus trata dados pessoais. A empresa empregadora, o encarregado e o e-mail de contato são
-            <span class="demo">fictícios</span> e aparecem destacados assim. Para uso real, a empresa que adotar o Nexus deve colocar os
-            próprios dados no lugar deles e confirmar os prazos de guarda com o jurídico.
-        </p>
+        <a class="back-btn" href="../../index.html" aria-label="Voltar para a página inicial">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
     </div>
 
     <h1>Política de Privacidade</h1>
-    <p class="meta">Versão 1.0 · em vigor desde 23/09/2026 · Lei Geral de Proteção de Dados (Lei nº 13.709/2018)</p>
-
-    <div class="summary">
-        <strong>Em resumo</strong>
-        <ul>
-            <li>O Nexus é o sistema de RH da sua empresa. Tratamos seus dados para gerir o vínculo de trabalho: ponto, férias, holerites, documentos, desenvolvimento profissional e comunicação com o RH.</li>
-            <li>Não vendemos seus dados, não usamos cookies de rastreamento nem ferramentas de publicidade ou análise de comportamento.</li>
-            <li>Dados sensíveis (como CPF, dados bancários, saúde e holerites) ficam cifrados no banco de dados.</li>
-            <li>Um recurso de inteligência artificial usa parte dos seus dados. Ele sugere; quem decide é uma pessoa do RH.</li>
-            <li>Você pode pedir acesso, correção e outros direitos a qualquer momento (seção 8).</li>
-        </ul>
-    </div>
+    <p class="meta">Versão 1.1 · em vigor desde 28/09/2026 · LGPD (Lei nº 13.709/2018)</p>
 
     <h2>1. Quem é responsável pelos seus dados</h2>
     <p>
-        <strong>Controladora:</strong> <span class="demo">Empresa Demonstração Nexus Ltda. (empresa fictícia, sem CNPJ)</span>, empregadora que decide para que e como seus dados são tratados.<br />
+        <strong>Controladora:</strong> <span class="demo">Nexus Ltda. (empresa fictícia, sem CNPJ)</span><br />
         <strong>Operador da plataforma:</strong> equipe do projeto Nexus, que desenvolve e mantém o sistema e trata os dados em nome da controladora.<br />
-        <strong>Encarregado(a) pelo tratamento de dados (DPO):</strong> <span class="demo">Encarregado(a) de Proteção de Dados da Empresa Demonstração</span> —
-        <span class="demo">privacidade@nexus.example</span>.
+        <strong>Encarregado(a) pelo tratamento de dados (DPO):</strong> Maria Eduarda Macedo —
+        <a href="mailto:mariaaraujo4830@gmail.com">mariaaraujo4830@gmail.com</a>
     </p>
 
     <h2>2. Quais dados tratamos</h2>
@@ -65,6 +46,7 @@
                 <tr><td>Medidas disciplinares</td><td>Advertências e suspensões, com motivo, descrição e registro de ciência</td></tr>
                 <tr><td>Comunicação</td><td>Mensagens de chat, chamados ao RH, comunicados lidos, elogios</td></tr>
                 <tr><td>Dados pessoais sensíveis</td><td>Raça/cor (autodeclarada), deficiência (PcD), pensão alimentícia e informações de saúde de atestados médicos, inclusive o CID quando você o informar</td></tr>
+                <tr><td>Biometria facial (dado sensível)</td><td>Se você ativar, um modelo matemático do seu rosto (128 números, não a foto) usado para conferir que é você quem registra o ponto</td></tr>
                 <tr><td>Segurança e uso</td><td>Registros de acesso, endereço IP em eventos de segurança, ações feitas no sistema e inscrição para notificações no navegador</td></tr>
             </tbody>
         </table>
@@ -88,6 +70,8 @@
                 <tr><td>Chat interno, chamados, comunicados e elogios</td><td>Execução de contrato e legítimo interesse (art. 7º, V e IX)</td></tr>
                 <tr><td>Assistente de IA e alertas de bem-estar (por exemplo, excesso de horas extras)</td><td>Legítimo interesse (art. 7º, IX); você pode se opor (seção 8)</td></tr>
                 <tr><td>Notificações no navegador</td><td>Consentimento (art. 7º, I), que você liga e desliga no seu perfil</td></tr>
+                <tr><td>Biometria facial no registro de ponto</td><td>Consentimento específico e destacado (art. 11, I), pedido antes do cadastro e revogável a qualquer momento</td></tr>
+                <tr><td>Uso dos dados reais no trabalho acadêmico e na validação do sistema (seção 12)</td><td>Consentimento livre, prévio e esclarecido (art. 7º, I, e art. 11, I, para dados sensíveis)</td></tr>
             </tbody>
         </table>
     </div>
@@ -125,8 +109,10 @@
 
     <h2>6. Como protegemos seus dados</h2>
     <ul>
-        <li>Acesso por perfil: você só vê os seus dados; o RH vê o necessário para a função; o gestor não vê salário nem dados bancários da equipe. Conversas diretas entre colaboradores não são visíveis ao RH.</li>
-        <li>Dados sensíveis e arquivos cifrados (AES-256), com rotação de chaves; backups cifrados.</li>
+        <li>Acesso por perfil, aplicado no próprio banco de dados (Row-Level Security): você só vê os seus dados; o RH vê o necessário para a função; o gestor não vê salário nem dados bancários da equipe. Conversas diretas entre colaboradores não são visíveis ao RH.</li>
+        <li>Criptografia em repouso: dados sensíveis e arquivos cifrados (AES-256), com rotação de chaves; backups cifrados.</li>
+        <li>Criptografia de ponta a ponta: documentos, selfies do ponto, conversas diretas e canais de grupo são cifrados no seu aparelho e só abrem com as chaves de quem tem direito de acesso; nem o servidor consegue lê-los.</li>
+        <li>A biometria facial fica isolada: nem o RH consegue consultá-la, e ela é apagada quando você revoga o consentimento.</li>
         <li>Verificação em duas etapas obrigatória para o RH e opcional para você.</li>
         <li>Alertas de comportamento anormal, limite de tentativas de login e registro de acessos a dados pessoais.</li>
         <li>Conexão protegida (HTTPS) e proteções contra ataques comuns na web.</li>
@@ -140,7 +126,7 @@
                 <tr><th>Dado</th><th>Prazo</th></tr>
             </thead>
             <tbody>
-                <tr><td>Cadastro, ponto, férias, holerites e documentos do vínculo</td><td>Enquanto durar o vínculo e depois dele pelos prazos legais trabalhistas, previdenciários e fiscais. <span class="demo">Referência adotada nesta demonstração: 5 anos após o desligamento</span></td></tr>
+                <tr><td>Cadastro, ponto, férias, holerites e documentos do vínculo</td><td>Enquanto durar o vínculo e depois dele pelos prazos legais trabalhistas, previdenciários e fiscais. Referência adotada: 5 anos após o desligamento.</td></tr>
                 <tr><td>Registros de segurança (tentativas de login, exportações, downloads)</td><td>180 dias, com exclusão automática</td></tr>
                 <tr><td>Chat interno, conversas com a IA e chamados ao RH já resolvidos</td><td>12 meses após a última mensagem, com exclusão automática. Chamados ainda em atendimento ficam até serem resolvidos</td></tr>
                 <tr><td>Após o prazo</td><td>Eliminação ou anonimização. O RH anonimiza os dados de ex-colaboradores desligados</td></tr>
@@ -154,14 +140,13 @@
         <li>confirmação de que tratamos seus dados e acesso a eles (o RH consegue lhe informar quem acessou seus dados, pelo registro de acessos);</li>
         <li>correção de dados incompletos, inexatos ou desatualizados (nome, telefone, bio e foto você altera direto no perfil);</li>
         <li>anonimização, bloqueio ou eliminação de dados desnecessários ou tratados fora da lei;</li>
-        <li>portabilidade dos seus dados;</li>
         <li>informação sobre com quem compartilhamos;</li>
         <li>revisão de decisões apoiadas por IA;</li>
         <li>oposição a tratamentos baseados em legítimo interesse e revogação de consentimento (por exemplo, notificações).</li>
     </ul>
     <p>
-        Para exercer seus direitos, fale com o RH pelo chamado no Nexus ou escreva para <span class="demo">privacidade@nexus.example</span>. Respondemos em até 15 dias.
-        Alguns dados precisam ser mantidos por obrigação legal, e nesse caso explicaremos por quê. Se não ficar satisfeito(a), você pode reclamar à ANPD (<a href="https://www.gov.br/anpd" rel="noopener noreferrer">gov.br/anpd</a>).
+        Para exercer seus direitos, escreva para <a href="mailto:mariaaraujo4830@gmail.com">mariaaraujo4830@gmail.com</a>. Respondemos em até 7 dias.
+        Alguns dados precisam ser mantidos por obrigação legal, e nesse caso explicaremos por quê. Se não ficar satisfeito(a), você pode reclamar à ANPD (<a href="https://www.gov.br/anpd/pt-br" rel="noopener noreferrer">gov.br/anpd/pt-br</a>).
     </p>
 
     <h2>9. Cookies e armazenamento no navegador</h2>
@@ -173,7 +158,20 @@
     <p>O Nexus foi desenhado para respeitar o seu descanso: notificações e alertas só são enviados em horário comercial (dias úteis, das 8h às 18h, horário de Brasília). O que surge fora desse horário aguarda o próximo expediente.</p>
 
     <h2>11. Mudanças nesta política</h2>
-    <p>Se mudarmos como tratamos seus dados, atualizaremos esta página e avisaremos pelo Nexus. A versão e a data de vigência estão no topo.</p>
+    <p>Se mudarmos como tratamos seus dados, atualizaremos esta página. A versão e a data de vigência estão no topo.</p>
+
+    <h2>12. Uso acadêmico e participantes do projeto</h2>
+    <p>
+        O Nexus foi desenvolvido como Trabalho de Conclusão de Curso. Nas fases de desenvolvimento, testes e validação, o sistema usa dados reais de
+        voluntários e colaboradores do grupo do projeto, que participam da construção do sistema desde a sua concepção.
+    </p>
+    <ul>
+        <li><strong>Consentimento:</strong> cada participante cedeu seus dados com consentimento livre, prévio e esclarecido, antes de qualquer uso. Para dados sensíveis, como saúde e biometria facial, o consentimento é específico e destacado (art. 11, I, da LGPD).</li>
+        <li><strong>Finalidade restrita:</strong> os dados são usados apenas para fins acadêmicos e de validação técnica do sistema. Não são usados para decisões reais de trabalho, como pagamento, promoção ou desligamento, nem para fins comerciais.</li>
+        <li><strong>Proteção:</strong> os dados cedidos contam com todas as medidas da seção 6: criptografia em repouso e de ponta a ponta, acesso por perfil aplicado no banco de dados (Row-Level Security) e verificação em duas etapas obrigatória para quem administra o sistema.</li>
+        <li><strong>Revogação:</strong> o participante pode revogar o consentimento a qualquer momento, sem prejuízo, e pedir a eliminação dos seus dados (art. 8º, §5º, e art. 18, VI e IX, da LGPD).</li>
+        <li><strong>Fim do projeto:</strong> encerrada a avaliação do trabalho acadêmico, os dados reais dos participantes serão eliminados ou anonimizados.</li>
+    </ul>
 </main>
 </body>
 </html>

@@ -135,6 +135,29 @@
         });
     }
 
+    function initFeatCarousel() {
+        const grid = document.getElementById('feat-grid');
+        const prev = document.getElementById('feat-prev');
+        const next = document.getElementById('feat-next');
+        if (!grid || !prev || !next) return;
+
+        const update = () => {
+            prev.hidden = grid.scrollLeft <= 1;
+            next.hidden = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 1;
+        };
+        const step = () => grid.querySelector('.feat-card').getBoundingClientRect().width + (parseFloat(getComputedStyle(grid).columnGap) || 0);
+
+        prev.addEventListener('click', () => {
+            grid.scrollLeft -= step();
+        });
+        next.addEventListener('click', () => {
+            grid.scrollLeft += step();
+        });
+        grid.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+        update();
+    }
+
     function initActiveNavLinks() {
         const sections = document.querySelectorAll('section[id]');
         const links = document.querySelectorAll('.nav-link[href^="#"]');
@@ -163,6 +186,7 @@
         initStatCounters();
         initSmoothScroll();
         initCardHoverGlow();
+        initFeatCarousel();
         initActiveNavLinks();
 
         document.querySelectorAll('.reveal').forEach((el) => {

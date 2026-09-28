@@ -192,8 +192,12 @@ window.goToProfileSelection = function () {
     });
     const continueBtn = document.getElementById('btn-continue');
     if (continueBtn) continueBtn.disabled = true;
-    setNavBack(false);
+    setNavBack(true, goToHome);
 };
+
+function goToHome() {
+    window.location.href = '../../index.html';
+}
 
 function setNavBack(visible, onClick) {
     const btn = document.getElementById('nav-back-btn');
@@ -564,6 +568,7 @@ window.togglePw = function (inputId, btn) {
 
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
+    setNavBack(true, goToHome);
 
     const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
 
@@ -623,6 +628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!authSession?.user || _firstAccessSession) return;
         document.querySelectorAll('.form-section').forEach((s) => s.classList.remove('active'));
         document.getElementById('form-first-access')?.classList.add('active');
+        setNavBack(false);
         const faEmailInput = document.getElementById('first-access-email');
         if (faEmailInput) faEmailInput.value = authSession.user.email ?? '';
         _firstAccessSession = authSession;
