@@ -501,14 +501,14 @@ describe('banco-horas-rh.html — vencimento próximo e seus avisos', () => {
             ['Ana Souza']
         );
         await page.click(rowOf(page, 'Ana Souza').querySelector('[data-click="openDetailModal"]'));
-        assert.match(page.text('#detail-body'), /2h 30min do banco vencem em ate 14 dias/);
+        assert.match(page.text('#detail-body'), /2h 30min do banco vencem em até 14 dias/);
     });
 
     test('crédito vencido aparece no detalhe como passivo trabalhista', async () => {
         const c = client({ time_records: [dia(ANA.id, '2025-10-06', '20:00'), dia(ANA.id, '2026-06-15', '17:00')] });
         page = await openPage('banco-horas-rh', { client: c, now: NOW });
         await page.click(rowOf(page, 'Ana Souza').querySelector('[data-click="openDetailModal"]'));
-        assert.match(page.text('#detail-body'), /Banco de horas vencido\. 2h 30min ultrapassaram o prazo de compensacao de 6 meses/);
+        assert.match(page.text('#detail-body'), /Banco de horas vencido\. 2h 30min ultrapassaram o prazo de compensação de 6 meses \(art\. 59 §2º da CLT\)/);
     });
 });
 
@@ -1068,5 +1068,58 @@ describe('banco-horas-rh.html — regras que aparecem na tabela, no CSV e nas so
         assert.ok(linhas.some((l) => /Ana Souza.*Banco.*Débito.*-0h 45min.*rh@empresa\.com RH/.test(l)));
         assert.ok(linhas.some((l) => /Ex-colaborador — Banco Exclusão de Ajuste — Ex-colaborador Colaborador/.test(l)));
         assert.ok(linhas.some((l) => /Ponto intervalo_extra — — Colaborador —$/.test(l)));
+    });
+});
+
+describe('banco-horas-rh.html — ramos de regra que faltavam', () => {
+    test('sem configuração do RH vale o padrão da CLT: 2h de extra por dia', async () => {
+        const c = client({ hr_settings: [] });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        await page.click(rowOf(page, 'Bia Lima').querySelector('[data-click="openAdjustModal"]'));
+        await page.fill('#adjust-horas', '2');
+        await page.fill('#adjust-min', '30');
+        await page.fill('#adjust-just', 'Inventário');
+        await page.click('#adjust-submit-btn');
+        assert.match(page.text('#adjust-alert'), /Limite legal de horas extras diárias excedido/);
+        assert.equal(c.writes('bank_requests', 'insert').length, 0);
+    });
+
+    test('ajuste manual: data, valor maior que zero e justificativa são obrigatórios', async () => {
+        const c = client();
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        await page.click(rowOf(page, 'Bia Lima').querySelector('[data-click="openAdjustModal"]'));
+        const data = page.$('#adjust-data').value;
+        page.$('#adjust-data').value = '';
+        await page.window.submitAdjust();
+        assert.match(page.text('#adjust-alert'), /Informe a data de referência/);
+        page.$('#adjust-data').value = data;
+        await page.window.submitAdjust();
+        assert.match(page.text('#adjust-alert'), /valor de horas\/minutos maior que zero/);
+        await page.fill('#adjust-min', '15');
+        await page.window.submitAdjust();
+        assert.match(page.text('#adjust-alert'), /justificativa é obrigatória/);
+        assert.equal(c.writes('bank_requests', 'insert').length, 0);
+    });
+
+    test('crédito manual soma no saldo e aparece no detalhe com o sinal de mais', async () => {
+        const c = client({
+            bank_adjustments: [
+                { id: 'cred', employee_id: BIA.id, tipo: 'credito', minutos: 90, date: '2026-06-11', justificativa: 'Evento sábado', deleted_at: null },
+            ],
+        });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        assert.match(page.text(rowOf(page, 'Bia Lima')), /-0h 30min/, '-2h do dia 15 + 1h30 de crédito');
+        await page.click(rowOf(page, 'Bia Lima').querySelector('[data-click="openDetailModal"]'));
+        const item = page.$$('#detail-body .ajuste-item').find((el) => /Evento sábado/.test(el.textContent));
+        assert.ok(item.querySelector('.fa-plus'));
+    });
+
+    test('um único dia sem intervalo: aviso no singular com a indenização de 50%', async () => {
+        const semAlmoco = { ...dia(BIA.id, '2026-06-16', '17:00'), saida_almoco: null, retorno_almoco: null };
+        const c = client({ time_records: [semAlmoco] });
+        page = await openPage('banco-horas-rh', { client: c, now: NOW });
+        await page.click(rowOf(page, 'Bia Lima').querySelector('[data-click="openDetailModal"]'));
+        assert.match(page.text('#detail-body'), /Intervalo intrajornada \(art\. 71 CLT\) não cumprido em 1 dia de /);
+        assert.match(page.text('#detail-body'), /1h 00min suprimidos — cerca de 1h 30min indenizáveis/);
     });
 });

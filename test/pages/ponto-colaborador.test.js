@@ -270,3 +270,141 @@ describe('ponto-colaborador.html — gestor', () => {
         assert.ok(decided.length, 'a aprovação chega ao banco');
     });
 });
+
+describe('ponto-colaborador.html — ramos de regra que faltavam', () => {
+    const ontem = '2026-06-16';
+
+    test('em almoço: o próximo passo é o retorno e o status mostra desde quando', async () => {
+        const records = [{ employee_id: ANA.id, date: HOJE, entrada: `${HOJE}T08:00:00-03:00`, saida_almoco: `${HOJE}T12:05:00-03:00` }];
+        page = await openPage('ponto-colaborador', { client: colabClient({ records }), now: `${HOJE}T12:30:00-03:00` });
+        assert.equal(page.text('#btn-ponto-text'), 'Retorno do Almoço');
+        assert.equal(page.text('#ponto-status-text'), 'Em almoço desde 12:05');
+    });
+
+    test('jornada encerrada com horas a menos mostra o que ficou em falta', async () => {
+        const records = [
+            {
+                employee_id: ANA.id,
+                date: HOJE,
+                entrada: `${HOJE}T08:00:00-03:00`,
+                saida_almoco: `${HOJE}T12:00:00-03:00`,
+                retorno_almoco: `${HOJE}T13:00:00-03:00`,
+                saida: `${HOJE}T16:00:00-03:00`,
+            },
+        ];
+        page = await openPage('ponto-colaborador', { client: colabClient({ records }), now: `${HOJE}T16:30:00-03:00` });
+        assert.equal(page.text('#ponto-status-text'), 'Jornada encerrada — 1h 00min em falta');
+    });
+
+    test('PJ: jornada encerrada mostra só as horas registradas, sem saldo', async () => {
+        const client = colabClient({
+            records: [
+                {
+                    employee_id: ANA.id,
+                    date: HOJE,
+                    entrada: `${HOJE}T09:00:00-03:00`,
+                    saida_almoco: `${HOJE}T12:00:00-03:00`,
+                    retorno_almoco: `${HOJE}T13:00:00-03:00`,
+                    saida: `${HOJE}T15:30:00-03:00`,
+                },
+            ],
+        });
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'pj';
+        page = await openPage('ponto-colaborador', { client, now: `${HOJE}T16:00:00-03:00` });
+        assert.equal(page.text('#ponto-status-text'), 'Jornada encerrada — 5h 30min registradas');
+    });
+
+    test('histórico: dia sem entrada é falta; dia corrigido pelo RH aparece como ajustado', async () => {
+        const records = [
+            { employee_id: ANA.id, date: '2026-06-15', entrada: null, saida: null },
+            {
+                employee_id: ANA.id,
+                date: ontem,
+                entrada: `${ontem}T08:00:00-03:00`,
+                saida_almoco: `${ontem}T12:00:00-03:00`,
+                retorno_almoco: `${ontem}T13:00:00-03:00`,
+                saida: `${ontem}T17:00:00-03:00`,
+                ajustado: true,
+                entrada_ajustado: true,
+            },
+        ];
+        page = await openPage('ponto-colaborador', { client: colabClient({ records }), now: `${HOJE}T08:00:00-03:00` });
+        const linha = (d) => page.$$('#historico-tbody tr').find((tr) => tr.textContent.includes(d));
+        assert.match(page.text(linha('15/06/2026')), /Falta/);
+        assert.match(page.text(linha('16/06/2026')), /Ajustado/);
+        assert.ok(linha('16/06/2026').querySelector('.td-time.ajustado'), 'o horário corrigido fica marcado');
+    });
+
+    test('pedidos de banco de horas: débito aparece com sinal de menos; recusado mostra o motivo do gestor', async () => {
+        const client = colabClient({
+            extra: {
+                bank_requests: [
+                    {
+                        id: 'b1',
+                        employee_id: ANA.id,
+                        tipo: 'debito',
+                        minutos: 45,
+                        date: '2026-06-10',
+                        status: 'rejeitado',
+                        decision_obs: 'Sem saldo',
+                        created_at: '2026-06-10T10:00:00Z',
+                    },
+                    {
+                        id: 'b2',
+                        employee_id: ANA.id,
+                        tipo: 'credito',
+                        minutos: 30,
+                        date: '2026-06-11',
+                        status: 'rejeitado',
+                        decision_obs: null,
+                        created_at: '2026-06-11T10:00:00Z',
+                    },
+                ],
+            },
+        });
+        page = await openPage('ponto-colaborador', { client, now: `${HOJE}T08:00:00-03:00` });
+        const texto = page.text('#bank-requests-list');
+        assert.match(texto, /Débito.*-0h 45min|-0h 45min.*Débito/);
+        assert.match(texto, /Sem saldo/);
+        assert.equal(page.$$('#bank-requests-list .sol-obs').length, 1, 'recusa sem motivo não mostra caixa vazia');
+    });
+
+    test('duas batidas guardadas offline: aviso e confirmação no plural', async () => {
+        const fila = [
+            { step: 'entrada', date: ontem, loc: null, selfie: null },
+            { step: 'saida_almoco', date: ontem, loc: null, selfie: null },
+        ];
+        const client = colabClient();
+        page = await openPage('ponto-colaborador', {
+            client,
+            now: `${HOJE}T08:00:00-03:00`,
+            online: false,
+            localStorage: { [QUEUE_KEY]: fila },
+        });
+        assert.match(page.text('#ponto-sync-status'), /2 registros salvos offline/);
+        await page.setOnline(true);
+        await page.waitFor(() => page.toasts().some((t) => /2 registros de ponto sincronizados/.test(t)));
+        assert.equal(client.rpcCalls('punch_time_record').length, 2);
+    });
+
+    test('erros de GPS têm mensagens próprias: indisponível, tempo esgotado e negado', async () => {
+        for (const [codigo, texto] of [
+            [2, 'GPS indisponível'],
+            [3, 'Tempo esgotado'],
+            [1, 'Localização negada'],
+        ]) {
+            page = await openPage('ponto-colaborador', {
+                client: colabClient(),
+                now: `${HOJE}T08:00:00-03:00`,
+                before: (w) =>
+                    Object.defineProperty(w.navigator, 'geolocation', {
+                        configurable: true,
+                        value: { getCurrentPosition: (ok, fail) => setTimeout(() => fail({ code: codigo }), 0), watchPosition: () => 1, clearWatch() {} },
+                    }),
+            });
+            await page.waitFor(() => page.text('#loc-status-text') === texto, { message: texto });
+            page.close();
+            page = null;
+        }
+    });
+});

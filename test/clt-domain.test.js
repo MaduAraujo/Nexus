@@ -135,6 +135,12 @@ describe('computeBankLedgerStatus (consumo FIFO e vencimento do banco de horas)'
         assert.equal(r.minutosVencidos, 0);
     });
 
+    test('débito maior que o crédito mais antigo esgota esse lote e continua no seguinte', () => {
+        const r = CLTDomain.computeBankLedgerStatus({ '2025-11': 60, '2025-12': 50, '2026-01': -80 }, 6, new Date('2026-05-20'));
+        assert.equal(r.minutosVencidos, 0, 'o lote de novembro foi todo compensado');
+        assert.equal(r.minutosVencendo, 30, 'sobram 30 min de dezembro, perto de vencer');
+    });
+
     test('débito de um mês consome o crédito mais antigo primeiro (FIFO)', () => {
         const r = CLTDomain.computeBankLedgerStatus({ '2025-11': 100, '2025-12': 50, '2026-01': -80 }, 6, new Date('2026-04-15'));
         assert.equal(r.status, 'atencao');
@@ -320,5 +326,32 @@ describe('motivoInicioFeriasVedado (art. 134 §3º: início vedado nos 2 dias an
         ];
         assert.deepEqual(CLTDomain.feriadosQueContam(tabela), ['2026-04-21', '2026-07-09', '2026-01-25']);
         assert.deepEqual(CLTDomain.feriadosQueContam(), []);
+    });
+});
+
+describe('avos (1/12) de 13º e de férias proporcionais: fração de 15 dias ou mais vale um mês', () => {
+    const d = (y, m, dia) => new Date(y, m - 1, dia);
+
+    test('13º: conta cada mês do calendário com 15 dias ou mais de trabalho', () => {
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 1, 1), d(2026, 12, 31)), 12, 'ano inteiro');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 1, 1), d(2026, 6, 3)), 5, 'junho com 3 dias não conta');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 1, 1), d(2026, 6, 15)), 6, 'junho com 15 dias conta');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 3, 18), d(2026, 12, 31)), 9, 'admitido em 18/03: março tem 14 dias e não conta');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 3, 17), d(2026, 12, 31)), 10, 'admitido em 17/03: março tem 15 dias e conta');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 2, 14), d(2026, 2, 28)), 1, 'fevereiro de 28 dias: 14 a 28 são 15 dias');
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 1, 1), d(2026, 1, 14)), 0);
+        assert.equal(CLTDomain.avosDecimoTerceiro(d(2026, 5, 1), d(2026, 4, 1)), 0, 'período invertido');
+        assert.equal(CLTDomain.avosDecimoTerceiro(null, d(2026, 4, 1)), 0);
+    });
+
+    test('férias: conta do aniversário da admissão; a sobra final de 15 dias ou mais vale um mês', () => {
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 1, 10), d(2026, 2, 25)), 2, '10/01 a 09/02 + 16 dias');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 1, 10), d(2026, 2, 23)), 1, '10/01 a 09/02 + 14 dias');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 1, 10), d(2026, 2, 9)), 1, 'um mês exato');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 1, 10), d(2026, 1, 23)), 0, '14 dias');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2025, 10, 10), d(2026, 6, 3)), 8);
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2025, 1, 1), d(2026, 3, 1)), 12, 'nunca passa de 12');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 3, 1), d(2026, 2, 1)), 0, 'período invertido');
+        assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 3, 1), undefined), 0);
     });
 });

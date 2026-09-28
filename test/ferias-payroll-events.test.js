@@ -27,6 +27,7 @@ before(() => {
     global.requestAnimationFrame = (cb) => cb();
     global.setTimeout = (cb) => cb();
     global.dargs = (...values) => JSON.stringify(values);
+    require('../src/javascript/domain/clt-domain.js');
     require('../src/javascript/domain/tabelas-fiscais.js');
     require('../src/javascript/domain/eventos-folha.js');
     global.showToast = () => {};

@@ -56,12 +56,6 @@ function diffInMonths(start, end) {
     return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
 }
 
-function calcAvos(inicio, fimProjetado) {
-    let meses = diffInMonths(inicio, fimProjetado);
-    if (fimProjetado.getDate() < 15) meses -= 1;
-    return Math.max(0, Math.min(12, meses));
-}
-
 function diasAvisoPrevioIntegral(anosCompletos) {
     return CLTDomain.diasAvisoPrevioIntegral(anosCompletos);
 }
@@ -130,7 +124,8 @@ function calcularRescisao({
     let avos13 = 0,
         decimoTerceiroProporcional = 0;
     if (config.direito13Proporcional) {
-        avos13 = calcAvos(new Date(demissao.getFullYear(), 0, 1), dataProjetada);
+        const inicioAno = new Date(demissao.getFullYear(), 0, 1);
+        avos13 = CLTDomain.avosDecimoTerceiro(admissao > inicioAno ? admissao : inicioAno, dataProjetada);
         decimoTerceiroProporcional = +((baseFerias13 / 12) * avos13).toFixed(2);
     }
 
@@ -139,7 +134,7 @@ function calcularRescisao({
         tercoConstitucional = 0;
     if (config.direitoFeriasProporcional) {
         const inicioAquisitivo = inicioPeriodoAquisitivoFerias(admissao, demissao);
-        avosFerias = calcAvos(inicioAquisitivo, dataProjetada);
+        avosFerias = CLTDomain.avosPeriodoAquisitivo(inicioAquisitivo, dataProjetada);
         feriasProporcionais = +((baseFerias13 / 12) * avosFerias).toFixed(2);
         tercoConstitucional = +(feriasProporcionais / 3).toFixed(2);
     }

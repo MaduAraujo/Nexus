@@ -952,7 +952,8 @@ window.submitRequest = async function () {
     if (btn) btn.disabled = false;
 
     if (error) {
-        showAlert('<i class="fas fa-exclamation-triangle"></i> Erro ao enviar solicitação. Tente novamente.');
+        const motivo = error.code === '23514' && error.message ? error.message : 'Erro ao enviar solicitação. Tente novamente.';
+        showAlert(`<i class="fas fa-exclamation-triangle"></i> ${escapeHtml(motivo)}`);
         return;
     }
 

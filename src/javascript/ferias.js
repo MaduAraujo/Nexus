@@ -344,7 +344,7 @@ function buildActions(v) {
         html += `<button class="btn-action btn-action--approve" title="Aprovar" data-click="approveRequest" data-click-args="${dargs(v.id)}"><i class="fas fa-check"></i></button>`;
         html += `<button class="btn-action btn-action--reject"  title="Recusar" data-click="openRejectModal" data-click-args="${dargs(v.id)}"><i class="fas fa-times"></i></button>`;
     }
-    if ((v.status === 'aprovado' || v.status === 'concluido') && !v.coletiva) {
+    if (v.status === 'aprovado' || v.status === 'concluido') {
         html += `<button class="btn-action btn-action--receipt" title="Gerar recibo" data-click="generateReceipt" data-click-args="${dargs(v.id)}"><i class="fas fa-file-invoice"></i></button>`;
     }
     if (v.status === 'aprovado' || v.status === 'pendente') {

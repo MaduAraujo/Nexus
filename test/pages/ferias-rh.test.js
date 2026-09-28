@@ -547,3 +547,43 @@ describe('ferias.html (RH) — painel do cadastro manual e validações', () => 
         assert.ok(page.toasts().includes('Nenhuma solicitação para exportar com o filtro atual.'));
     });
 });
+
+describe('ferias.html (RH) — ramos de regra que faltavam', () => {
+    test('férias coletivas também têm recibo (CLT art. 145), identificado como coletivas', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-12-21', '2026-12-31', 'aprovado', { coletiva: true })]);
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click(rowOf(page, 'v1').querySelector('[data-click="generateReceipt"]'));
+        const recibo = page.opened[0].text();
+        assert.match(recibo, /Ana Souza/);
+        assert.match(recibo, /Férias coletivas/);
+        assert.match(recibo, /21\/12\/2026 a 31\/12\/2026 \(11 dias corridos\)/);
+    });
+
+    test('pedido coletivo ainda pendente não tem recibo', async () => {
+        page = await openPage('ferias', { client: rhClient([vac('v1', ANA.id, '2026-12-21', '2026-12-31', 'pendente', { coletiva: true })]), now: NOW });
+        assert.equal(rowOf(page, 'v1').querySelector('[data-click="generateReceipt"]'), null);
+    });
+
+    test('recibo de férias individuais com abono informa os 10 dias vendidos', async () => {
+        const client = rhClient([vac('v1', ANA.id, '2026-07-01', '2026-07-20', 'aprovado', { abono: true })]);
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click(rowOf(page, 'v1').querySelector('[data-click="generateReceipt"]'));
+        const recibo = page.opened[0].text();
+        assert.match(recibo, /Sim — 10 dias vendidos/);
+        assert.match(recibo, /Férias individuais/);
+    });
+
+    test('cobertura: pedidos pendentes ou recusados não contam; férias que atravessam o ano contam só dentro dele', async () => {
+        const client = rhClient([
+            vac('v1', ANA.id, '2026-12-20', '2027-01-10', 'aprovado'),
+            vac('v2', BIA.id, '2026-12-22', '2027-01-05', 'pendente'),
+            vac('v3', BIA.id, '2026-12-26', '2026-12-30', 'recusado'),
+        ]);
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('.tab-btn[data-tab="calendar"]');
+        await page.settle();
+        const fin = page.$$('#cobertura-wrap .cobertura-item').find((el) => /Financeiro/.test(el.textContent));
+        assert.match(page.text(fin), /1\/2/, 'só a Ana, aprovada, conta');
+        assert.deepEqual(page.pageErrors.map(String), []);
+    });
+});

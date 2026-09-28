@@ -672,3 +672,75 @@ describe('ferias-colaborador.html — art. 134 §3º (início nos 2 dias antes d
         assert.equal(dia('2026-08-07').disabled, false);
     });
 });
+
+describe('ferias-colaborador.html — recusa vinda do banco', () => {
+    test('se a regra do banco recusar o pedido, a tela mostra o motivo dado pelo banco', async () => {
+        const client = colabClient();
+        client.errors['vacations:insert'] = { code: '23514', message: 'O abono já foi pedido neste período aquisitivo.' };
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = '2026-08-03';
+        page.$('#req-end').value = '2026-08-12';
+        await page.window.submitRequest();
+        await page.settle();
+        assert.match(page.text('#modal-alert'), /O abono já foi pedido neste período aquisitivo\./);
+    });
+
+    test('outros erros do banco continuam com a mensagem genérica, sem expor detalhes técnicos', async () => {
+        const client = colabClient();
+        client.errors['vacations:insert'] = { code: '42501', message: 'new row violates row-level security policy for table "vacations"' };
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = '2026-08-03';
+        page.$('#req-end').value = '2026-08-12';
+        await page.window.submitRequest();
+        await page.settle();
+        assert.match(page.text('#modal-alert'), /Erro ao enviar solicitação/);
+        assert.doesNotMatch(page.text('#modal-alert'), /row-level security/);
+    });
+});
+
+describe('ferias-colaborador.html — avisos ao vivo enquanto escolhe as datas', () => {
+    async function prever(client, inicio, fim) {
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = inicio;
+        page.$('#req-end').value = fim;
+        page.window.calcDays();
+        return page.text('#modal-alert');
+    }
+    const fr = (id, ini, fim, days) => ({
+        id,
+        employee_id: ANA.id,
+        start_date: ini,
+        end_date: fim,
+        days,
+        status: 'aprovado',
+        created_at: '2026-01-10T10:00:00Z',
+    });
+
+    test('menos de 30 dias de antecedência e menos de 5 dias aparecem juntos, e o botão fica bloqueado', async () => {
+        const alerta = await prever(colabClient(), '2026-07-06', '2026-07-08');
+        assert.match(alerta, /Antecedência mínima de 30 dias \(a partir de 17\/07\/2026\)/);
+        assert.match(alerta, /período mínimo de férias é de 5 dias corridos/);
+        assert.equal(page.$('#btn-confirm').disabled, true);
+        assert.equal(page.text('#days-count'), '3 dias de descanso');
+    });
+
+    test('um dia só usa o singular', async () => {
+        await prever(colabClient(), '2026-08-03', '2026-08-03');
+        assert.equal(page.text('#days-count'), '1 dia de descanso');
+    });
+
+    test('terceira fração sem nenhuma de 14 dias e quarta fração são avisadas antes de enviar', async () => {
+        const duas = colabClient({ vacations: [fr('f1', '2026-02-02', '2026-02-06', 5), fr('f2', '2026-03-02', '2026-03-06', 5)] });
+        assert.match(await prever(duas, '2026-08-03', '2026-08-12'), /Ao menos uma fração deve ter 14 dias corridos/);
+        page.close();
+
+        const tres = colabClient({
+            vacations: [fr('f1', '2026-02-02', '2026-02-06', 5), fr('f2', '2026-03-02', '2026-03-06', 5), fr('f3', '2026-04-06', '2026-04-19', 14)],
+        });
+        assert.match(await prever(tres, '2026-08-03', '2026-08-12'), /já utilizou as 3 frações/);
+        assert.equal(page.$('#btn-confirm').disabled, true);
+    });
+});

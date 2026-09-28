@@ -202,3 +202,35 @@ describe('holerite-colaborador.html', () => {
         await page.waitFor(() => page.navigations.some((u) => /login\.html/.test(u)), { timeout: 5000 });
     });
 });
+
+describe('holerite-colaborador.html — 1ª parcela do 13º', () => {
+    const primeira = slip('d1', ANA.id, '2026-11', 'Novembro 2026', 'publicado', 2000, {
+        mes: '2026-13-1',
+        competencia: '13/2026',
+        mes_formatado: '13º Salário — 1ª Parcela 2026',
+        proventos: [{ cod: '030', descricao: '13º Salário (1ª Parcela)', referencia: '12/12', valor: 2000 }],
+        descontos: [],
+        total_proventos: 2000,
+        total_descontos: 0,
+    });
+
+    test('holerite sem descontos diz isso em vez de mostrar tabela vazia', async () => {
+        page = await openPage('holerite-colaborador', {
+            client: new FakeSupabase({ user: COLAB_USER, tables: baseTables({ payslips_decrypted: [primeira] }) }),
+        });
+        assert.match(page.text('#payslip-wrap'), /Nenhum desconto/);
+        assert.match(page.text('#payslip-wrap'), /13º Salário \(1ª Parcela\)/);
+    });
+
+    test('informe impresso mostra o 13º em quadro próprio (tributação exclusiva)', async () => {
+        const client = new FakeSupabase({
+            user: COLAB_USER,
+            tables: baseTables({ payslips_decrypted: [...SLIPS.filter((s) => s.employee_id === ANA.id), primeira] }),
+        });
+        page = await openPage('holerite-colaborador', { client });
+        await page.click('[data-click="openInformeModal"]');
+        await page.click('[data-click="printInforme"]');
+        await page.waitFor(() => page.printed === 1);
+        assert.match(page.text('#informe-print-doc'), /13º Salário \(Tributação Exclusiva\)/);
+    });
+});

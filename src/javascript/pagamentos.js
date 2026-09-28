@@ -491,12 +491,12 @@ function renderFolha() {
 }
 
 function buildFolhaRow(r) {
-    const { emp, calc, pago } = r;
+    const { emp, calc } = r;
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
-    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ ? `<span class="badge badge--pj">PJ</span>` : `<span class="ct-label">${ct}</span>`;
 
@@ -516,12 +516,12 @@ function buildFolhaRow(r) {
 }
 
 function buildFolhaCard(r) {
-    const { emp, calc, pago } = r;
+    const { emp, calc } = r;
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
     const ct = (emp.contractType || 'CLT').toUpperCase();
 
-    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = `<span class="badge badge--pendente">Pendente</span>`;
 
     const ctBadge = calc.isPJ ? `<span class="badge badge--pj">PJ</span>` : `<span class="ct-label ct-label--sm">${ct}</span>`;
 
@@ -733,19 +733,19 @@ function renderHolerites(q = '', dept = '') {
 }
 
 function buildHolRow(r, competLabel) {
-    const { emp, calc, slip, pago } = r;
+    const { emp, slip } = r;
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
 
-    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = `<span class="badge badge--pago">Pago</span>`;
 
     return `<tr>
         <td data-label="Colaborador"><div class="emp-cell">${empAvatarHtml(emp, ini, color)}<div><p class="emp-name">${escHtml(emp.name)}</p><p class="emp-dept">${escHtml(emp.dept || '—')}</p></div></div></td>
         <td data-label="Competência">${competLabel}</td>
-        <td data-label="Líquido"><span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span></td>
+        <td data-label="Líquido"><span class="val-green">${fmtCurrency(slip.salario_liquido)}</span></td>
         <td data-label="Status">${statusBadge}</td>
         <td data-label="Ações"><div class="actions-cell">
-            <button class="btn-action btn-action--view" data-click="verHolerite" data-click-args="${dargs(emp.id)}" title="Ver holerite" ${!pago ? 'disabled' : ''}>
+            <button class="btn-action btn-action--view" data-click="verHolerite" data-click-args="${dargs(emp.id)}" title="Ver holerite">
                 <i class="fas fa-eye"></i>
             </button>
         </div></td>
@@ -753,11 +753,11 @@ function buildHolRow(r, competLabel) {
 }
 
 function buildHolCard(r, competLabel) {
-    const { emp, calc, slip, pago } = r;
+    const { emp, slip } = r;
     const ini = initials(emp.name);
     const color = nameToColor(emp.name);
 
-    const statusBadge = pago ? `<span class="badge badge--pago">Pago</span>` : `<span class="badge badge--pendente">Pendente</span>`;
+    const statusBadge = `<span class="badge badge--pago">Pago</span>`;
 
     return `<div class="folha-card-item">
         <div class="folha-card-top">
@@ -778,9 +778,9 @@ function buildHolCard(r, competLabel) {
         </div>
         <div class="folha-card-total">
             <span>Líquido</span>
-            <span class="val-green">${fmtCurrency(pago ? slip.salario_liquido : calc.liquido)}</span>
+            <span class="val-green">${fmtCurrency(slip.salario_liquido)}</span>
         </div>
-        <button type="button" class="btn-secondary folha-card-btn" data-click="verHolerite" data-click-args="${dargs(emp.id)}" ${!pago ? 'disabled' : ''}>
+        <button type="button" class="btn-secondary folha-card-btn" data-click="verHolerite" data-click-args="${dargs(emp.id)}">
             <i class="fas fa-eye"></i> Ver Holerite
         </button>
     </div>`;

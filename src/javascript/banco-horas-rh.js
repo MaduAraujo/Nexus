@@ -722,10 +722,10 @@ function renderDetailModal(emp, monthKey) {
     let ledgerHTML = '';
     if (!isPJ) {
         if (ledger.status === 'vencido') {
-            ledgerHTML = `<div class="compliance-banner compliance-banner--vencido"><i class="fas fa-circle-exclamation"></i><div><strong>Banco de horas vencido.</strong> ${minToStr(ledger.minutosVencidos)} ultrapassaram o prazo de compensacao de ${vencMeses} meses (CLT art. 59 par.2) e devem ser quitadas em folha como passivo trabalhista.</div></div>`;
+            ledgerHTML = `<div class="compliance-banner compliance-banner--vencido"><i class="fas fa-circle-exclamation"></i><div><strong>Banco de horas vencido.</strong> ${minToStr(ledger.minutosVencidos)} ultrapassaram o prazo de compensação de ${vencMeses} meses (art. 59 §2º da CLT) e devem ser quitadas em folha como passivo trabalhista.</div></div>`;
         } else if (ledger.status === 'atencao') {
             const dias = Math.max(0, Math.round((ledger.proxExpira - new Date()) / 86400000));
-            ledgerHTML = `<div class="compliance-banner compliance-banner--atencao"><i class="fas fa-hourglass-half"></i><div><strong>${minToStr(ledger.minutosVencendo)} do banco vencem em ate ${dias} dia${dias !== 1 ? 's' : ''}.</strong> Programe a compensacao antes do prazo de ${vencMeses} meses.</div></div>`;
+            ledgerHTML = `<div class="compliance-banner compliance-banner--atencao"><i class="fas fa-hourglass-half"></i><div><strong>${minToStr(ledger.minutosVencendo)} do banco vencem em até ${dias} dia${dias !== 1 ? 's' : ''}.</strong> Programe a compensação antes do prazo de ${vencMeses} meses.</div></div>`;
         }
         if (diasIntervaloIrregular > 0) {
             const indenizacaoMin = Math.round(intervaloDeficitMin * CLTDomain.INTERVALO_INDENIZACAO_MULTIPLICADOR);

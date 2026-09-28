@@ -2,6 +2,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 global.window = global;
+require('../src/javascript/domain/clt-domain.js');
 require('../src/javascript/domain/tabelas-fiscais.js');
 
 const {
@@ -207,5 +208,40 @@ describe('estágio: recesso pago com a bolsa, sem 1/3 nem recibo de férias', ()
         assert.equal(calcINSSContrato(1500, 'estagio'), 0);
         assert.equal(calcINSSContrato(1500, 'pj'), 0);
         assert.ok(calcINSSContrato(1500, 'clt') > 0);
+    });
+});
+
+describe('13º da folha: mês de admissão com menos de 15 dias não conta', () => {
+    test('admitido em 20/03 recebe 9/12 (abril a dezembro), não 10/12', () => {
+        const r = calcDecimoTerceiroIntegral({ salario: 1200, admissaoISO: '2026-03-20', anoBase: 2026 });
+        assert.equal(r.avos, 9);
+        assert.equal(r.valorIntegral, 900);
+    });
+
+    test('admitido em 10/03 recebe 10/12 (março tem 22 dias trabalhados)', () => {
+        const r = calcDecimoTerceiroIntegral({ salario: 1200, admissaoISO: '2026-03-10', anoBase: 2026 });
+        assert.equal(r.avos, 10);
+    });
+});
+
+describe('recibo de férias: quem não tem direito e competência inválida', () => {
+    const { inicioDoReciboFerias, mesReciboFerias } = require('../src/javascript/domain/eventos-folha.js');
+
+    test('PJ, estagiário, salário zerado e período sem dias não geram recibo', () => {
+        const base = { salario: 3000, startDate: '2026-08-03', dias: 20, abono: false };
+        assert.equal(proventosFerias({ ...base, contractType: 'pj' }), null);
+        assert.equal(proventosFerias({ ...base, contractType: 'Estagio' }), null);
+        assert.equal(proventosFerias({ ...base, contractType: 'clt', salario: 0 }), null);
+        assert.equal(proventosFerias({ ...base, contractType: 'clt', dias: 0 }), null);
+        assert.ok(proventosFerias({ ...base, contractType: undefined }), 'sem tipo informado é CLT e tem direito');
+    });
+
+    test('a competência do recibo guarda o dia de início e só é lida se estiver no formato certo', () => {
+        const mes = mesReciboFerias('2026-08-03');
+        assert.equal(mes, '2026-08-F03');
+        assert.equal(inicioDoReciboFerias(mes), '2026-08-03');
+        assert.equal(inicioDoReciboFerias('2026-08'), null);
+        assert.equal(inicioDoReciboFerias(''), null);
+        assert.equal(inicioDoReciboFerias(undefined), null);
     });
 });

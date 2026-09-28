@@ -625,3 +625,63 @@ describe('pagamentos.html — carregamento, ordenação e ajustes', () => {
         assert.ok(page.saved.includes('folha-pagamento-2026-07-contabilidade.csv'));
     });
 });
+
+describe('pagamentos.html — ramos de regra da folha', () => {
+    test('1ª parcela do 13º sai com o código 030 e sem INSS/IRRF (os descontos ficam para a 2ª)', async () => {
+        const c = rhClient();
+        page = await openPage('pagamentos', { client: c, now: NOW });
+        await page.click('[data-click="openDecimoTerceiroModal"]');
+        page.$('#dt-ano').value = '2026';
+        page.$('#dt-parcela').value = '1';
+        await page.click('[data-click="calcularDecimoTerceiroModal"]');
+        await page.click('#btn-gerar-decimo-terceiro');
+        const slips = c.writes('payslips', 'upsert')[0].payload;
+        assert.ok(slips.length >= 1);
+        for (const s of slips) {
+            assert.equal(s.mes, '2026-13-1');
+            assert.equal(s.proventos[0].cod, '030');
+            assert.match(s.proventos[0].descricao, /1ª Parcela/);
+            assert.deepEqual(s.descontos, []);
+        }
+        assert.ok(toastCom(page, /13º Salário \(1ª Parcela\) gerado/));
+    });
+
+    test('banco de horas do holerite: crédito manual soma e dia sem saída não entra na conta', async () => {
+        const c = rhClient({
+            payslips_decrypted: [holeritePago(ANA.id)],
+            time_records: [
+                ponto(ANA.id, '2026-07-01', '08:00', '17:00'),
+                { employee_id: ANA.id, date: '2026-07-02', entrada: '2026-07-02T08:00:00-03:00', saida_almoco: null, retorno_almoco: null, saida: null },
+            ],
+            bank_adjustments: [{ employee_id: ANA.id, tipo: 'credito', minutos: 45, date: '2026-07-03', deleted_at: null }],
+        });
+        page = await openPage('pagamentos', { client: c, now: NOW });
+        await page.window.verHolerite(ANA.id);
+        await page.waitFor(() => /banco de horas/.test(page.text('#slip-bank-info')));
+        assert.match(
+            page.text('#slip-bank-info'),
+            /: \+0h 45min/,
+            'jornada de 8h (40h): o dia completo zera, o dia sem saída é ignorado e o crédito soma 45min'
+        );
+    });
+
+    test('exportação da folha marca "Pago", "Gerado" (holerite ainda em aberto) e "Pendente" corretamente', async () => {
+        const c = rhClient({
+            payslips_decrypted: [holeritePago(ANA.id), holeritePago(BIA.id, { status: 'publicado' })],
+        });
+        page = await openPage('pagamentos', { client: c, now: NOW });
+        let planilha = null;
+        const original = page.window.XLSX.writeFile;
+        page.window.XLSX.writeFile = (wb, nome) => {
+            planilha = wb;
+            original(wb, nome);
+        };
+        await page.click('#export-excel');
+        await page.settle(20);
+        const linhas = planilha.Sheets[planilha.SheetNames[0]].rows.slice(1);
+        const status = Object.fromEntries(linhas.map((l) => [l[0], l[l.length - 1]]));
+        assert.equal(status['Ana Souza'], 'Pago');
+        assert.equal(status['Bia Lima'], 'Gerado');
+        assert.equal(status['Caio Prado'], 'Pendente');
+    });
+});

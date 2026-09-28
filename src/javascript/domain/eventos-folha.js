@@ -5,14 +5,8 @@ function isElegivel13(contractType) {
     return !SEM_DIREITO_13.includes(ct);
 }
 
-function diffInMonths13(start, end) {
-    return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-}
-
 function calcAvos13(inicio, fim) {
-    let meses = diffInMonths13(inicio, fim) + 1;
-    if (fim.getDate() < 15) meses -= 1;
-    return Math.max(0, Math.min(12, meses));
+    return Math.min(12, CLTDomain.avosDecimoTerceiro(inicio, fim));
 }
 
 function calcDecimoTerceiroIntegral({ salario, admissaoISO, anoBase, mediaAdicionaisHabituais = 0 }) {

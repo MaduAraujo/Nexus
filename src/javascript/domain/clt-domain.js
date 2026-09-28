@@ -165,6 +165,37 @@ const CLTDomain = {
         return (Number(days) || 0) + (abono ? CLTDomain.DIAS_ABONO_PECUNIARIO : 0);
     },
 
+    DIAS_MINIMOS_PARA_AVO: 15,
+
+    diasCorridosInclusive(inicio, fim) {
+        const a = Date.UTC(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+        const b = Date.UTC(fim.getFullYear(), fim.getMonth(), fim.getDate());
+        return Math.round((b - a) / 86400000) + 1;
+    },
+
+    avosDecimoTerceiro(inicio, fim) {
+        if (!(inicio instanceof Date) || !(fim instanceof Date) || fim < inicio) return 0;
+        let avos = 0;
+        let mes = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+        while (mes <= fim) {
+            const ultimoDoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0);
+            const de = mes < inicio ? inicio : mes;
+            const ate = ultimoDoMes > fim ? fim : ultimoDoMes;
+            if (CLTDomain.diasCorridosInclusive(de, ate) >= CLTDomain.DIAS_MINIMOS_PARA_AVO) avos++;
+            mes = new Date(mes.getFullYear(), mes.getMonth() + 1, 1);
+        }
+        return avos;
+    },
+
+    avosPeriodoAquisitivo(inicio, fim) {
+        if (!(inicio instanceof Date) || !(fim instanceof Date) || fim < inicio) return 0;
+        const aniversarioMensal = (n) => new Date(inicio.getFullYear(), inicio.getMonth() + n, inicio.getDate());
+        let meses = (fim.getFullYear() - inicio.getFullYear()) * 12 + (fim.getMonth() - inicio.getMonth());
+        if (aniversarioMensal(meses) > fim) meses--;
+        if (CLTDomain.diasCorridosInclusive(aniversarioMensal(meses), fim) >= CLTDomain.DIAS_MINIMOS_PARA_AVO) meses++;
+        return Math.min(12, meses);
+    },
+
     DIAS_VEDADOS_ANTES_DE_FOLGA: 2,
 
     motivoInicioFeriasVedado(inicioISO, { feriados = [], contractType, workLoad } = {}) {

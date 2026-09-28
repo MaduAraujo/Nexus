@@ -43,9 +43,15 @@ describe('sem_justa_causa', () => {
         assert.ok(multa, 'deveria ter multa de 40% sobre o FGTS');
         assert.equal(multa.valor, 2400);
 
-        assert.equal(r.totalVerbas, 6183.33);
+        assert.equal(
+            r.verbas.find((v) => v.descricao === '13º Salário Proporcional').dias,
+            '2/12',
+            'janeiro cheio + 25 dias de fevereiro (aviso projetado até 25/02)'
+        );
+        assert.equal(r.verbas.find((v) => v.descricao === 'Férias Proporcionais').dias, '2/12', '10/01 a 09/02 + 16 dias a partir de 10/02');
+        assert.equal(r.totalVerbas, 6766.67);
         assert.equal(r.totalEncargos, 2400);
-        assert.equal(r.custoTotal, 8583.33);
+        assert.equal(r.custoTotal, 9166.67);
     });
 });
 
@@ -65,7 +71,8 @@ describe('pedido_demissao', () => {
         const descontoBanco = r.verbas.find((v) => v.descricao.includes('Desconto de Saldo Negativo'));
         assert.ok(descontoBanco, 'saldo negativo de banco de horas deveria ser descontado neste tipo');
         assert.equal(descontoBanco.valor, -30);
-        assert.equal(r.custoTotal, 1970);
+        assert.equal(r.verbas.find((v) => v.descricao === '13º Salário Proporcional').dias, '1/12', '20 dias trabalhados em janeiro fecham 1/12');
+        assert.equal(r.custoTotal, 2220);
     });
 });
 
@@ -93,7 +100,9 @@ describe('acordo_mutuo', () => {
         assert.ok(saldoBanco, 'saldo positivo de banco de horas deveria ser pago neste tipo');
         assert.equal(saldoBanco.valor, 30);
 
-        assert.equal(r.custoTotal, 4982);
+        assert.equal(r.verbas.find((v) => v.descricao === '13º Salário Proporcional').dias, '1/12', 'no acordo o aviso não projeta: 20 dias de janeiro');
+        assert.equal(r.verbas.find((v) => v.descricao === 'Férias Proporcionais').dias, '0/12', '10/01 a 20/01 são só 11 dias');
+        assert.equal(r.custoTotal, 5232);
     });
 });
 
@@ -156,5 +165,65 @@ describe('estágio (Lei 11.788/08) — não é rescisão CLT', () => {
             ['Saldo de Bolsa']
         );
         assert.equal(r.anosCompletos, 1);
+    });
+});
+
+describe('ramos de regra que faltavam', () => {
+    test('estágio: desligado antes do "dia de aniversário" no mês não conta o mês incompleto no recesso', () => {
+        const antes = calcularRescisao({
+            tipo: 'sem_justa_causa',
+            contractType: 'estagio',
+            salario: 1500,
+            admissao: new Date(2025, 0, 20),
+            demissao: new Date(2025, 6, 10),
+        });
+        const depois = calcularRescisao({
+            tipo: 'sem_justa_causa',
+            contractType: 'estagio',
+            salario: 1500,
+            admissao: new Date(2025, 0, 20),
+            demissao: new Date(2025, 6, 25),
+        });
+        const dias = (r) => r.verbas.find((v) => /Recesso Proporcional/.test(v.descricao))?.dias;
+        assert.equal(dias(antes), 13, '5 meses completos (20/01 a 19/06) = 12,5 dias, arredondado');
+        assert.equal(dias(depois), 15, '6 meses completos = 15 dias');
+    });
+
+    test('tipo de rescisão desconhecido é calculado como sem justa causa (o caso mais protetivo)', () => {
+        const base = { salario: 3000, admissao: new Date(2024, 0, 10), demissao: new Date(2026, 0, 20), jornadaMin: 480 };
+        const desconhecido = calcularRescisao({ ...base, tipo: 'tipo_que_nao_existe' });
+        const semJusta = calcularRescisao({ ...base, tipo: 'sem_justa_causa' });
+        assert.deepEqual(desconhecido.verbas, semJusta.verbas);
+        assert.equal(desconhecido.custoTotal, semJusta.custoTotal);
+    });
+
+    test('férias proporcionais contam do último aniversário da admissão, mesmo quando o deste ano ainda não chegou', () => {
+        const r = calcularRescisao({
+            tipo: 'sem_justa_causa',
+            salario: 3000,
+            admissao: new Date(2024, 9, 10),
+            demissao: new Date(2026, 4, 1),
+            jornadaMin: 480,
+        });
+        const prop = r.verbas.find((v) => /Férias Proporcionais/.test(v.descricao));
+        assert.ok(prop, 'há férias proporcionais');
+        assert.equal(prop.dias, '8/12', 'aviso de 33 dias projeta até 03/06/2026: 7 meses de 10/10 a 09/05 + 25 dias a partir de 10/05');
+    });
+});
+
+describe('13º proporcional na rescisão de quem entrou no próprio ano', () => {
+    test('conta a partir da admissão, não de 1º de janeiro', () => {
+        const r = calcularRescisao({
+            tipo: 'pedido_demissao',
+            salario: 3000,
+            admissao: new Date(2026, 2, 20),
+            demissao: new Date(2026, 7, 10),
+            jornadaMin: 480,
+        });
+        assert.equal(
+            r.verbas.find((v) => v.descricao === '13º Salário Proporcional').dias,
+            '4/12',
+            'março (12 dias) e agosto (10 dias) não fecham 15; abril a julho são 4'
+        );
     });
 });
