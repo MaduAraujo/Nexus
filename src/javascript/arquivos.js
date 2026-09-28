@@ -399,8 +399,9 @@
         if (filterEmployeeId && doc.employee_id !== filterEmployeeId) return false;
         const dept = empDept(doc.employee_id);
         if (filterDept?.value && dept !== filterDept.value) return false;
-        if (filterDateStart?.value && doc.created_at && doc.created_at.slice(0, 10) < filterDateStart.value) return false;
-        if (filterDateEnd?.value && doc.created_at && doc.created_at.slice(0, 10) > filterDateEnd.value) return false;
+        const enviadoEm = doc.created_at ? localISODate(new Date(doc.created_at)) : null;
+        if (filterDateStart?.value && enviadoEm && enviadoEm < filterDateStart.value) return false;
+        if (filterDateEnd?.value && enviadoEm && enviadoEm > filterDateEnd.value) return false;
         return true;
     }
 

@@ -402,3 +402,57 @@ describe('alertas.html — relatório, histórico e abas com erro', () => {
         await page.waitFor(() => perguntas.length === 1);
     });
 });
+
+describe('alertas.html — um aviso por falha no chat da IA', () => {
+    const esperarAvisoGlobal = () => new Promise((r) => setTimeout(r, 700));
+
+    test('falha ao executar a ação da IA aparece só no cartão, sem o aviso genérico do servidor', async () => {
+        const c = client({ vacations: [{ id: 'v1', employee_id: ANA.id, start_date: '2026-07-01', end_date: '2026-07-10', days: 10, status: 'pendente' }] });
+        c.errors['vacations:update'] = { message: 'permission denied' };
+        page = await openPage('alertas', {
+            client: c,
+            now: NOW,
+            fetch: async () => sse('ACTION:' + JSON.stringify({ type: 'approve_vacation', ids: ['v1'], message: 'Aprovar' })),
+        });
+        await page.fill('#chat-input', 'Aprove');
+        await page.click('#btn-send');
+        await page.waitFor(() => !page.$('.btn-do-action')?.disabled);
+        await page.click('.btn-do-action');
+        await page.waitFor(() => /Erro ao executar/.test(page.text('.action-confirm-btns')));
+        assert.ok(page.$('.action-status.fail[role="alert"]'));
+        await esperarAvisoGlobal();
+        assert.equal(
+            page.toasts().some((t) => /Erro ao comunicar com o servidor/.test(t)),
+            false
+        );
+    });
+
+    test('servidor recusa a inscrição de push: só a mensagem do chat, anunciada como alerta', async () => {
+        const c = client();
+        c.errors['admin_push_subscriptions:upsert'] = { message: 'rls' };
+        page = await openPage('alertas', { client: c, now: NOW, push: { permission: 'granted' } });
+        await page.settle(20);
+        await page.click('#btn-notif-toggle');
+        await page.settle(20);
+        const aviso = page.$$('#chat-messages .chat-message[role="alert"]').at(-1);
+        assert.match(page.text(aviso), /Não foi possível ativar as notificações/);
+        await esperarAvisoGlobal();
+        assert.equal(
+            page.toasts().some((t) => /Erro ao comunicar com o servidor/.test(t)),
+            false
+        );
+    });
+
+    test('resposta normal da IA não é marcada como alerta; erro da pergunta é', async () => {
+        const respostas = [sse('Tudo certo por aqui.'), new Response(JSON.stringify({ error: 'fora do ar' }), { status: 503 })];
+        page = await openPage('alertas', { client: client(), now: NOW, fetch: async () => respostas.shift() });
+        await page.fill('#chat-input', 'Oi');
+        await page.click('#btn-send');
+        await page.waitFor(() => /Tudo certo por aqui/.test(page.text('#chat-messages')));
+        assert.equal(page.$$('#chat-messages .chat-message[role="alert"]').length, 0);
+        await page.fill('#chat-input', 'De novo');
+        await page.click('#btn-send');
+        await page.waitFor(() => /Erro ao processar sua pergunta: fora do ar/.test(page.text('#chat-messages')));
+        assert.equal(page.$$('#chat-messages .chat-message[role="alert"]').length, 1);
+    });
+});

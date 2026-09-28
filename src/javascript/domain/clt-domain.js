@@ -165,6 +165,28 @@ const CLTDomain = {
         return (Number(days) || 0) + (abono ? CLTDomain.DIAS_ABONO_PECUNIARIO : 0);
     },
 
+    DIAS_VEDADOS_ANTES_DE_FOLGA: 2,
+
+    motivoInicioFeriasVedado(inicioISO, { feriados = [], contractType, workLoad } = {}) {
+        if (!inicioISO || CLTDomain.isEstagio(contractType)) return null;
+        const [y, m, d] = inicioISO.split('-').map(Number);
+        const datasFeriado = new Set(feriados.map((f) => (typeof f === 'string' ? f : f.date)));
+        const dsrNoDomingo = workLoad !== '12x36';
+        for (let i = 1; i <= CLTDomain.DIAS_VEDADOS_ANTES_DE_FOLGA; i++) {
+            const dia = new Date(y, m - 1, d + i);
+            const iso = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+            const ddmm = `${String(dia.getDate()).padStart(2, '0')}/${String(dia.getMonth() + 1).padStart(2, '0')}`;
+            if (datasFeriado.has(iso)) return `As férias não podem começar nos 2 dias antes de um feriado (${ddmm}) — art. 134 §3º da CLT.`;
+            if (dsrNoDomingo && dia.getDay() === 0)
+                return `As férias não podem começar nos 2 dias antes do descanso semanal (domingo, ${ddmm}) — art. 134 §3º da CLT.`;
+        }
+        return null;
+    },
+
+    feriadosQueContam(holidays = []) {
+        return holidays.filter((h) => h.abrangencia !== 'facultativo').map((h) => h.date);
+    },
+
     diasGozoNoMes(ferias = [], monthKey) {
         const [y, m] = monthKey.split('-').map(Number);
         const primeiro = new Date(y, m - 1, 1, 12);

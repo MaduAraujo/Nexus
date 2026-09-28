@@ -267,3 +267,58 @@ describe('férias no salário do mês (sem pagar os dias de gozo em dobro)', () 
         assert.equal(CLTDomain.diasSalarioNoMes([{ start_date: '2026-07-01', end_date: '2026-07-30', days: 30 }], '2026-07'), 0);
     });
 });
+
+describe('motivoInicioFeriasVedado (art. 134 §3º: início vedado nos 2 dias antes de feriado ou DSR)', () => {
+    const vedado = (iso, opts) => CLTDomain.motivoInicioFeriasVedado(iso, opts);
+
+    test('sexta e sábado antecedem o domingo (DSR) e são vedados; segunda a quinta são livres', () => {
+        assert.match(vedado('2026-08-07'), /2 dias antes do descanso semanal \(domingo, 09\/08\)/);
+        assert.match(vedado('2026-08-08'), /domingo, 09\/08/);
+        for (const livre of ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06']) assert.equal(vedado(livre), null, livre);
+    });
+
+    test('começar no próprio domingo não é vedado pela regra', () => {
+        assert.equal(vedado('2026-08-09'), null);
+    });
+
+    test('os 2 dias antes de um feriado são vedados, mesmo no meio da semana', () => {
+        const feriados = ['2026-09-07'];
+        assert.match(vedado('2026-09-05', { feriados }), /descanso semanal|feriado/);
+        assert.match(vedado('2026-09-03', { feriados: ['2026-09-05'] }), /feriado \(05\/09\)/);
+        assert.match(vedado('2026-09-04', { feriados: ['2026-09-05'] }), /feriado \(05\/09\)/);
+        assert.equal(vedado('2026-09-02', { feriados: ['2026-09-05'] }), null, 'três dias antes pode');
+        assert.match(vedado('2026-11-13', { feriados: [{ date: '2026-11-15' }] }), /feriado \(15\/11\)/, 'aceita a linha da tabela');
+    });
+
+    test('feriado na virada de mês e de ano', () => {
+        assert.match(vedado('2026-12-30', { feriados: ['2027-01-01'] }), /feriado \(01\/01\)/);
+        assert.match(vedado('2026-03-31', { feriados: ['2026-04-02'] }), /feriado \(02\/04\)/);
+    });
+
+    test('escala 12x36 não tem domingo fixo de descanso: só os feriados valem', () => {
+        assert.equal(vedado('2026-08-07', { workLoad: '12x36' }), null);
+        assert.match(vedado('2026-08-05', { workLoad: '12x36', feriados: ['2026-08-07'] }), /feriado/);
+    });
+
+    test('estagiário segue a Lei do Estágio (recesso), não a CLT; aprendiz é CLT e segue a regra', () => {
+        assert.equal(vedado('2026-08-07', { contractType: 'estagio' }), null);
+        assert.equal(vedado('2026-08-07', { contractType: 'estágio' }), null);
+        assert.match(vedado('2026-08-07', { contractType: 'aprendiz' }), /descanso semanal/);
+    });
+
+    test('sem data não há o que vedar', () => {
+        assert.equal(vedado(''), null);
+        assert.equal(vedado(null), null);
+    });
+
+    test('ponto facultativo não é feriado e não conta', () => {
+        const tabela = [
+            { date: '2026-02-17', abrangencia: 'facultativo' },
+            { date: '2026-04-21', abrangencia: 'nacional' },
+            { date: '2026-07-09', abrangencia: 'estadual' },
+            { date: '2026-01-25', abrangencia: 'municipal' },
+        ];
+        assert.deepEqual(CLTDomain.feriadosQueContam(tabela), ['2026-04-21', '2026-07-09', '2026-01-25']);
+        assert.deepEqual(CLTDomain.feriadosQueContam(), []);
+    });
+});

@@ -1,12 +1,19 @@
 const { test, expect, login, switchUser, pickDate, iso, resetE2EData, COLAB, ADMIN } = require('./support.js');
 const { withServiceRole, withUser } = require('../test-support/pg-rls-client.js');
 
+globalThis.window ??= globalThis;
+const { CLTDomain } = require('../src/javascript/domain/clt-domain.js');
+
 test.describe('Fluxos de RH de ponta a ponta (Supabase local real)', () => {
     test.beforeEach(resetE2EData);
 
     test('férias: colaborador pede, RH aprova e sai o recibo de férias com INSS, separado da folha do mês', async ({ page }) => {
+        const feriados = await withServiceRole(async (db) =>
+            (await db.query("SELECT to_char(date, 'YYYY-MM-DD') AS d FROM holidays WHERE abrangencia <> 'facultativo'")).rows.map((r) => r.d)
+        );
         const inicio = new Date();
         inicio.setDate(inicio.getDate() + 40);
+        while (CLTDomain.motivoInicioFeriasVedado(iso(inicio), { feriados })) inicio.setDate(inicio.getDate() + 1);
         const fim = new Date(inicio);
         fim.setDate(fim.getDate() + 9);
 

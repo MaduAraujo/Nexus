@@ -4,6 +4,7 @@ let rejectingId = null;
 let editingId = null;
 let vacations = [];
 let employees = [];
+let feriados = [];
 let rhUserEmail = null;
 
 function dbToVacation(row) {
@@ -48,12 +49,14 @@ function isEstagioOuAprendiz(emp) {
 }
 
 async function fetchData() {
-    const [{ data: vData }, { data: eData }] = await Promise.all([
+    const [{ data: vData }, { data: eData }, { data: hData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
         sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,work_load,status,avatar_url,avatar_color,salary'),
+        sb.from('holidays').select('date,abrangencia'),
     ]);
     vacations = (vData || []).map(dbToVacation);
     employees = (eData || []).map(dbToEmp);
+    feriados = CLTDomain.feriadosQueContam(hData || []);
 }
 
 function getEmployee(empId) {
@@ -902,6 +905,10 @@ window.submitAdd = async function () {
     }
 
     const emp = getEmployee(empId);
+    if (status !== 'recusado' && status !== 'cancelado') {
+        const vedado = CLTDomain.motivoInicioFeriasVedado(start, { feriados, contractType: emp?.contractType, workLoad: emp?.workLoad });
+        if (vedado && !confirm(`${vedado} Deseja registrar mesmo assim?`)) return;
+    }
     if (emp?.admissionDate && status !== 'recusado' && status !== 'cancelado') {
         const cycle = currentCycleOf(emp, sDate) || currentCycleOf(emp, new Date());
         if (cycle) {
@@ -1238,6 +1245,10 @@ window.submitColetiva = async function () {
         showAlert('coletiva-alert', 'Nenhum colaborador elegível encontrado para este filtro.', 'error');
         return;
     }
+    const vedadoColetiva = targets
+        .map((e) => CLTDomain.motivoInicioFeriasVedado(start, { feriados, contractType: e.contractType, workLoad: e.workLoad }))
+        .find(Boolean);
+    if (vedadoColetiva && !confirm(`${vedadoColetiva} Deseja registrar as férias coletivas mesmo assim?`)) return;
 
     const skipped = [];
     const rows = [];

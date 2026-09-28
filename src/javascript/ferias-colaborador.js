@@ -2,6 +2,7 @@ let myEmployee = null;
 let myEmployeeId = null;
 let myVacations = [];
 let colleagues = [];
+let feriados = [];
 let availableDays = 0;
 let acquisitivePeriod = null;
 
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSubstitutoSelect();
     await loadMyVacations();
     await loadColleagues();
+    await loadHolidays();
     await autoExpireVacations();
     await loadSummary();
     renderHistory();
@@ -43,6 +45,15 @@ function applyContractTypeUI() {
 async function loadMyVacations() {
     const { data } = await sb.from('vacations').select('*').eq('employee_id', myEmployeeId).order('created_at', { ascending: false });
     myVacations = data || [];
+}
+
+async function loadHolidays() {
+    const { data } = await sb.from('holidays').select('date,abrangencia');
+    feriados = CLTDomain.feriadosQueContam(data || []);
+}
+
+function motivoInicioVedado(inicioISO) {
+    return CLTDomain.motivoInicioFeriasVedado(inicioISO, { feriados, contractType: myEmployee?.contract_type, workLoad: myEmployee?.work_load });
 }
 
 async function loadColleagues() {
@@ -554,7 +565,7 @@ let startPicker = null;
 let endPicker = null;
 const allDatePickers = [];
 
-function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
+function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } = {}) {
     const trigger = document.getElementById(`${prefix}-trigger`);
     const textEl = document.getElementById(`${prefix}-text`);
     const hidden = document.getElementById(prefix);
@@ -586,13 +597,16 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
         for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
         for (let d = 1; d <= daysInMonth; d++) {
             const date = new Date(viewYear, viewMonth, d);
+            const foraDoIntervalo = (min && date < min) || (max && date > max);
+            const bloqueio = foraDoIntervalo ? null : motivoBloqueio?.(toISO(date)) || null;
             cells.push({
                 day: d,
                 muted: false,
                 date,
                 isToday: sameDay(date, today),
                 isSelected: sameDay(date, selected),
-                disabled: (min && date < min) || (max && date > max),
+                disabled: foraDoIntervalo || !!bloqueio,
+                bloqueio,
             });
         }
         let next = 1;
@@ -604,7 +618,8 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
                 const cls = ['calendar-day'];
                 if (c.isToday) cls.push('calendar-day--today');
                 if (c.isSelected) cls.push('calendar-day--selected');
-                return `<button type="button" class="${cls.join(' ')}" data-date="${toISO(c.date)}" ${c.disabled ? 'disabled' : ''}>${c.day}</button>`;
+                const titulo = c.bloqueio ? ` title="${escHtml(c.bloqueio)}"` : '';
+                return `<button type="button" class="${cls.join(' ')}" data-date="${toISO(c.date)}"${titulo} ${c.disabled ? 'disabled' : ''}>${c.day}</button>`;
             })
             .join('');
     }
@@ -695,6 +710,7 @@ function createDatePicker(prefix, { getMin, getMax, onSelect } = {}) {
 function setupDatePickers() {
     startPicker = createDatePicker('req-start', {
         getMin: () => addDays(new Date(new Date().setHours(0, 0, 0, 0)), 30),
+        motivoBloqueio: motivoInicioVedado,
         onSelect: () => calcDays(),
     });
     endPicker = createDatePicker('req-end', {
@@ -822,6 +838,8 @@ window.calcDays = function () {
     const advance = Math.round((s - today) / 86400000);
     const errors = [];
     if (advance < 30) errors.push(`Antecedência mínima de 30 dias (a partir de ${fmtBR(addDays(today, 30))})`);
+    const vedado = motivoInicioVedado(startVal);
+    if (vedado) errors.push(vedado);
     if (days > availableDays) errors.push(`Saldo insuficiente — você tem apenas ${availableDays} dias disponíveis`);
     if (days < 5) errors.push('O período mínimo de férias é de 5 dias corridos');
 
@@ -879,6 +897,11 @@ window.submitRequest = async function () {
     today.setHours(0, 0, 0, 0);
     if (Math.round((s - today) / 86400000) < 30) {
         showAlert('<i class="fas fa-exclamation-triangle"></i> Antecedência mínima de 30 dias.');
+        return;
+    }
+    const vedado = motivoInicioVedado(startVal);
+    if (vedado) {
+        showAlert(`<i class="fas fa-exclamation-triangle"></i> ${escHtml(vedado)}`);
         return;
     }
     if (days > availableDays) {

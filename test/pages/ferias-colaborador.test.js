@@ -612,3 +612,63 @@ describe('ferias-colaborador.html — vencimento, substituto, calendário e vali
         assert.deepEqual(page.toasts(), []);
     });
 });
+
+describe('ferias-colaborador.html — art. 134 §3º (início nos 2 dias antes de feriado ou DSR)', () => {
+    async function abrirPedido(client) {
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        await page.click('#btn-solicitar');
+        await page.click('#req-start-trigger');
+        for (let i = 0; i < 24 && !page.$('#req-start-grid button[data-date="2026-08-07"]'); i++) await page.click('#req-start-next');
+    }
+    const dia = (iso) => page.$(`#req-start-grid button[data-date="${iso}"]`);
+
+    test('no calendário, sexta e sábado ficam desabilitados e explicam o motivo', async () => {
+        await abrirPedido(colabClient());
+        assert.equal(dia('2026-08-07').disabled, true);
+        assert.equal(dia('2026-08-08').disabled, true);
+        assert.match(dia('2026-08-07').title, /descanso semanal \(domingo, 09\/08\).*art\. 134 §3º/);
+        assert.equal(dia('2026-08-06').disabled, false);
+        assert.equal(dia('2026-08-06').title, '');
+        assert.equal(dia('2026-08-09').disabled, false, 'o próprio domingo pode');
+    });
+
+    test('feriado cadastrado pelo RH bloqueia os 2 dias antes; ponto facultativo não', async () => {
+        await abrirPedido(
+            colabClient({
+                extra: {
+                    holidays: [
+                        { date: '2026-08-20', name: 'Feriado municipal', abrangencia: 'municipal' },
+                        { date: '2026-08-13', name: 'Ponto facultativo', abrangencia: 'facultativo' },
+                    ],
+                },
+            })
+        );
+        assert.equal(dia('2026-08-18').disabled, true);
+        assert.equal(dia('2026-08-19').disabled, true);
+        assert.match(dia('2026-08-18').title, /feriado \(20\/08\)/);
+        assert.equal(dia('2026-08-17').disabled, false);
+        assert.equal(dia('2026-08-11').disabled, false, 'facultativo não conta');
+        assert.equal(dia('2026-08-12').disabled, false);
+    });
+
+    test('mesmo burlando o calendário, o envio é barrado e nada é gravado', async () => {
+        const client = colabClient();
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = '2026-08-07';
+        page.$('#req-end').value = '2026-08-16';
+        page.window.calcDays();
+        assert.match(page.text('#modal-alert'), /descanso semanal/);
+        assert.equal(page.$('#btn-confirm').disabled, true);
+        await page.window.submitRequest();
+        assert.match(page.text('#modal-alert'), /art\. 134 §3º/);
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+    });
+
+    test('estagiário (recesso da Lei do Estágio) pode começar numa sexta', async () => {
+        const client = colabClient();
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'estagio';
+        await abrirPedido(client);
+        assert.equal(dia('2026-08-07').disabled, false);
+    });
+});

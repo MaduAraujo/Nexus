@@ -150,7 +150,7 @@ async function toggleAdminPushNotifications() {
         if (!(await syncAdminSubscriptionToServer(subscription.toJSON()))) {
             await subscription.unsubscribe();
             updateAdminNotifButtonState(false);
-            appendChatMessage('ai', 'Não foi possível ativar as notificações agora. Tente novamente em instantes.');
+            appendChatMessage('ai', 'Não foi possível ativar as notificações agora. Tente novamente em instantes.', { erro: true });
             return;
         }
         updateAdminNotifButtonState(true);
@@ -160,7 +160,8 @@ async function toggleAdminPushNotifications() {
             'ai',
             err?.name === 'NotAllowedError'
                 ? 'As notificações estão bloqueadas neste navegador. Libere nas configurações do site para ativar.'
-                : 'Não foi possível ativar as notificações agora. Tente novamente em instantes.'
+                : 'Não foi possível ativar as notificações agora. Tente novamente em instantes.',
+            { erro: true }
         );
     } finally {
         if (btn) btn.disabled = false;
@@ -288,6 +289,7 @@ async function sendChat() {
 
     const bubble = document.getElementById(bubbleId);
     let fullText = '';
+    let falhou = false;
 
     try {
         const {
@@ -341,6 +343,7 @@ async function sendChat() {
         chatHistory.push({ role: 'assistant', content: fullText });
         saveChatMessages(message, fullText).catch(() => {});
     } catch (err) {
+        falhou = true;
         fullText = `Erro ao processar sua pergunta: ${err.message}`;
         chatHistory.push({ role: 'assistant', content: fullText });
     } finally {
@@ -351,11 +354,12 @@ async function sendChat() {
                 try {
                     showActionConfirmation(JSON.parse(trimmed.slice(7)), message);
                 } catch {
-                    appendChatMessage('ai', 'Não foi possível processar a ação solicitada.');
+                    appendChatMessage('ai', 'Não foi possível processar a ação solicitada.', { erro: true });
                 }
             } else {
                 bubble.removeAttribute('id');
                 bubble.innerHTML = mdToHtml(fullText);
+                if (falhou) bubble.closest('.chat-message')?.setAttribute('role', 'alert');
             }
         }
         isLoading = false;
@@ -410,7 +414,7 @@ function showActionConfirmation(actionData, originalMessage) {
             if (actionData.type === 'reject_adjustment' && validIds.length) showRejectionImpact(validIds);
         })
         .catch(() => {
-            div.querySelector('.action-targets').innerHTML = '<li class="action-targets-empty">Não foi possível conferir os registros.</li>';
+            div.querySelector('.action-targets').innerHTML = '<li class="action-targets-empty" role="alert">Não foi possível conferir os registros.</li>';
         });
 
     doBtn.addEventListener('click', async () => {
@@ -419,7 +423,7 @@ function showActionConfirmation(actionData, originalMessage) {
         const ok = await executeAction(actionData);
         btns.innerHTML = ok
             ? '<span class="action-status ok"><i class="fas fa-check-circle"></i> Concluído!</span>'
-            : '<span class="action-status fail"><i class="fas fa-times-circle"></i> Erro ao executar.</span>';
+            : '<span class="action-status fail" role="alert"><i class="fas fa-times-circle"></i> Erro ao executar.</span>';
         if (ok) saveChatMessages(originalMessage, `✓ ${actionData.message}`).catch(() => {});
     });
     div.querySelector('.btn-cancel-action').addEventListener('click', () => div.remove());
@@ -593,7 +597,7 @@ async function generateReport() {
         const data = await callEdgeFunction({ action: 'report' });
         openReportModal(data.content);
     } catch (err) {
-        appendChatMessage('ai', `Não foi possível gerar o relatório: ${err.message}`);
+        appendChatMessage('ai', `Não foi possível gerar o relatório: ${err.message}`, { erro: true });
     } finally {
         btn.disabled = false;
         btn.innerHTML = orig;
@@ -768,11 +772,12 @@ function getDynamicChips(alerts) {
     return chips.slice(0, 4);
 }
 
-function appendChatMessage(role, text) {
+function appendChatMessage(role, text, { erro = false } = {}) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
     const div = document.createElement('div');
     div.className = `chat-message ${role}`;
+    if (erro) div.setAttribute('role', 'alert');
     if (role === 'ai') {
         div.innerHTML = `
             <div class="ai-avatar-sm"><i class="fas fa-robot"></i></div>

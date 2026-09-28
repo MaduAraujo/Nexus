@@ -308,3 +308,59 @@ describe('ferias.html (RH) — frações no detalhe e ordem da exportação', ()
         assert.match(linhas[1], /02\/02\/2026/);
     });
 });
+
+describe('ferias.html (RH) — art. 134 §3º (início nos 2 dias antes de feriado ou DSR)', () => {
+    test('registrar começando numa sexta pede confirmação citando a lei; recusar não grava', async () => {
+        const c = rhClient([]);
+        const respostas = [false, true];
+        page = await openPage('ferias', { client: c, now: NOW, confirm: () => respostas.shift() });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', BIA.id);
+        await escolherData(page, 'add-start', '2026-08-07');
+        await escolherData(page, 'add-end', '2026-08-26');
+        await page.click('[data-click="submitAdd"]');
+        assert.match(page.confirms[0], /2 dias antes do descanso semanal \(domingo, 09\/08\) — art\. 134 §3º da CLT\. Deseja registrar mesmo assim\?/);
+        assert.equal(c.writes('vacations', 'insert').length, 0);
+        await page.click('[data-click="submitAdd"]');
+        assert.equal(c.writes('vacations', 'insert').length, 1);
+    });
+
+    test('feriado cadastrado conta; ponto facultativo não; início permitido não pergunta nada', async () => {
+        const c = rhClient([]);
+        c.tables.holidays = [
+            { date: '2026-08-20', name: 'Municipal', abrangencia: 'municipal' },
+            { date: '2026-08-13', name: 'Facultativo', abrangencia: 'facultativo' },
+        ];
+        page = await openPage('ferias', { client: c, now: NOW, confirm: () => false });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', BIA.id);
+        await escolherData(page, 'add-start', '2026-08-18');
+        await escolherData(page, 'add-end', '2026-08-31');
+        await page.click('[data-click="submitAdd"]');
+        assert.match(page.confirms[0], /feriado \(20\/08\)/);
+        page.close();
+
+        const livre = rhClient([]);
+        livre.tables.holidays = [{ date: '2026-08-13', name: 'Facultativo', abrangencia: 'facultativo' }];
+        page = await openPage('ferias', { client: livre, now: NOW, confirm: () => false });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', BIA.id);
+        await escolherData(page, 'add-start', '2026-08-11');
+        await escolherData(page, 'add-end', '2026-08-30');
+        await page.click('[data-click="submitAdd"]');
+        assert.deepEqual(page.confirms, []);
+        assert.equal(livre.writes('vacations', 'insert').length, 1);
+    });
+
+    test('coletivas começando antes do domingo pedem confirmação; recusar não grava', async () => {
+        const c = rhClient([]);
+        page = await openPage('ferias', { client: c, now: NOW, confirm: () => false });
+        await page.click('[data-click="openColetivaModal"]');
+        await escolherData(page, 'coletiva-start', '2026-12-19');
+        await escolherData(page, 'coletiva-end', '2026-12-31');
+        await pick(page, 'coletiva-dept', 'Financeiro');
+        await page.click('[data-click="submitColetiva"]');
+        assert.match(page.confirms[0], /descanso semanal \(domingo, 20\/12\).*Deseja registrar as férias coletivas mesmo assim\?/);
+        assert.equal(c.writes('vacations', 'insert').length, 0);
+    });
+});
