@@ -22,8 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const initials = (name) =>
         (name || '?')
             .split(' ')
+            .filter(Boolean)
             .slice(0, 2)
-            .map((w) => w[0]?.toUpperCase() || '')
+            .map((w) => w[0].toUpperCase())
             .join('');
 
     const fmtTime = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -170,7 +171,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderTicketList() {
         const list = $('ticket-list');
-        if (!list) return;
 
         let filtered = allTickets;
         if (currentFilter === 'escalacao') {
@@ -274,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateStatusChip(status) {
         const dot = $('status-chip-dot');
         const label = $('status-chip-label');
-        if (!dot || !label) return;
 
         dot.className = 'presence-dot';
         const dotMap = { bot: 'offline', aguardando_rh: 'away', em_atendimento: 'online', resolvido: 'offline' };
@@ -346,7 +345,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadTicketMessages(ticketId) {
         const list = $('messages-list');
-        if (!list) return;
         list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: rows } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
@@ -362,9 +360,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function appendMessage(msg, doScroll = true) {
-        const list = $('messages-list');
-        if (!list) return;
-
         if (msg.role === 'bot') {
             appendBotMessage(msg);
         } else if (msg.role === 'user') {
@@ -378,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendBotMessage(msg) {
         const list = $('messages-list');
-        if (!list) return;
 
         if (msg.content.startsWith('—')) {
             appendSystemMessage(msg.content);
@@ -409,7 +403,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendColabMessage(msg) {
         const list = $('messages-list');
-        if (!list) return;
         const e = msg.employees || {};
 
         const avatarHtml = e.avatar_url
@@ -434,7 +427,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendRhMessage(msg) {
         const list = $('messages-list');
-        if (!list) return;
 
         const isMine = msg.employee_id === analystEmpId;
 
@@ -462,7 +454,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendSystemMessage(content) {
         const list = $('messages-list');
-        if (!list) return;
         const group = document.createElement('div');
         group.className = 'msg-group is-system';
         group.innerHTML = `<div class="msg-system"><i class="fas fa-info-circle system-icon"></i>${esc(content)}</div>`;
@@ -640,7 +631,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateAnonBadge() {
         const badge = $('anon-feedback-badge');
-        if (!badge) return;
         const novos = allAnonFeedback.filter((f) => f.status === 'novo').length;
         badge.textContent = novos;
         badge.classList.toggle('hidden', novos === 0);
@@ -648,7 +638,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderAnonFeedback() {
         const list = $('anon-feedback-list');
-        if (!list) return;
         const filtered = anonFilter === 'all' ? allAnonFeedback : allAnonFeedback.filter((f) => f.status === anonFilter);
         if (!filtered.length) {
             list.innerHTML = `<p class="af-empty">Nenhum feedback ${anonFilter === 'all' ? '' : `com status "${anonFilter}"`} encontrado.</p>`;
@@ -709,11 +698,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.showToast = function (title, type = 'success', msg = '') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = $('toast-container');
-        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${esc(title)}</p>
                 ${msg ? `<p class="toast-msg">${esc(msg)}</p>` : ''}

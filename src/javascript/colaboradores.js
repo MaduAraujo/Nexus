@@ -76,14 +76,14 @@ function employeeToDb(emp) {
         rg: emp.rg || null,
         telefone: emp.telefone || null,
         email: emp.email,
-        admission_date: emp.admissionDate || null,
-        contract_type: emp.contractType || null,
-        salary_type: emp.salaryType || null,
-        work_load: emp.workLoad || null,
-        dept: emp.dept || null,
+        admission_date: emp.admissionDate,
+        contract_type: emp.contractType,
+        salary_type: emp.salaryType,
+        work_load: emp.workLoad,
+        dept: emp.dept,
         manager_id: emp.managerId || null,
         salary: emp.salary || null,
-        status: emp.status || 'Ativo',
+        status: emp.status,
         termination_date: emp.terminationDate || null,
         seguro_vida: emp.seguroVida === 'sim',
         seguradora: emp.seguroVida === 'sim' ? emp.seguradora || null : null,
@@ -121,7 +121,7 @@ async function fetchEmployees() {
         console.error('[Nexus] fetchEmployees:', error);
         return;
     }
-    employees = (data || []).map(dbToEmployee);
+    employees = data.map(dbToEmployee);
 }
 
 async function insertEmployee(dbData) {
@@ -177,14 +177,14 @@ async function fetchEmployeeAudit(employeeId) {
         console.error('[Nexus] fetchEmployeeAudit:', error);
         return [];
     }
-    return data || [];
+    return data;
 }
 
 function setupRealtimeSync() {
     sb.channel('employees-rt')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => {
             await fetchEmployees();
-            const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+            const activeFilter = activeStatusFilter();
             applyStatusFilter(activeFilter);
             renderAlertsBanner();
             renderStatsRow();
@@ -197,7 +197,7 @@ async function requireRhAccess() {
 }
 
 function getInitials(name) {
-    return (name || '')
+    return name
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
@@ -237,11 +237,10 @@ function isValidCPF(cpf) {
 function showToast(title, msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(title)}</p>
             ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
@@ -305,11 +304,10 @@ async function fetchExpiringDocuments() {
         expiringDocuments = [];
         return;
     }
-    expiringDocuments = data || [];
+    expiringDocuments = data;
 }
 
 function getDocAlertInfo(dataValidade) {
-    if (!dataValidade) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const end = new Date(dataValidade + 'T00:00:00');
@@ -363,7 +361,6 @@ function renderStatsRow() {
 
 function renderAlertsBanner() {
     const banner = document.getElementById('alerts-banner');
-    if (!banner) return;
 
     let countExperiencia = 0,
         countAniversario = 0,
@@ -408,7 +405,7 @@ window.filterTable = function () {
     const input = document.getElementById('search-input');
     const clearBtn = document.getElementById('search-clear');
     const query = input.value.toLowerCase().trim();
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     if (clearBtn) clearBtn.classList.toggle('hidden', query.length === 0);
     currentPage = 1;
     let filtered = getFilteredByStatus(activeFilter);
@@ -449,7 +446,6 @@ function getFilteredByStatus(filter) {
 
 function populateDeptFilterOptions() {
     const container = document.getElementById('dept-filter-list');
-    if (!container) return;
 
     const depts = [...new Set(employees.map((e) => e.dept).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     if (!depts.includes(currentDeptFilter)) currentDeptFilter = '';
@@ -461,7 +457,7 @@ function populateDeptFilterOptions() {
 
     container.querySelectorAll('.btn-filter-dept').forEach((btn) => {
         btn.addEventListener('click', () => {
-            currentDeptFilter = btn.getAttribute('data-dept') || '';
+            currentDeptFilter = btn.getAttribute('data-dept');
             container.querySelectorAll('.btn-filter-dept').forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
             filterTable();
@@ -474,7 +470,6 @@ window.toggleFilterMenu = function (event) {
     event.stopPropagation();
     const btn = document.getElementById('btn-filter-trigger');
     const menu = document.getElementById('filter-menu');
-    if (!btn || !menu) return;
     const opening = !menu.classList.contains('open');
     if (opening) closeExportMenu();
     menu.classList.toggle('open', opening);
@@ -489,9 +484,9 @@ function closeFilterMenu() {
 function setupFilters() {
     document.getElementById('filter-menu')?.addEventListener('click', (e) => e.stopPropagation());
     document.addEventListener('click', closeFilterMenu);
-    document.querySelectorAll('.btn-filter').forEach((btn) => {
+    document.querySelectorAll('.btn-filter[data-filter]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.btn-filter').forEach((b) => b.classList.remove('active'));
+            document.querySelectorAll('.btn-filter[data-filter]').forEach((b) => b.classList.remove('active'));
             btn.classList.add('active');
             clearSearch();
             applyStatusFilter(btn.getAttribute('data-filter'));
@@ -505,6 +500,10 @@ function applyStatusFilter(filter) {
     renderTable(getFilteredByStatus(filter), filter);
 }
 
+function activeStatusFilter() {
+    return document.querySelector('.btn-filter[data-filter].active')?.dataset.filter ?? 'todos';
+}
+
 const EMPTY_STATES = {
     todos: { icon: 'fa-users-slash', title: 'Nenhum colaborador cadastrado', sub: 'Clique em "Novo Colaborador" para começar' },
     ativos: { icon: 'fa-user-check', title: 'Nenhum colaborador ativo', sub: '' },
@@ -515,11 +514,10 @@ const EMPTY_STATES = {
 
 function renderTable(data, filter) {
     const tbody = document.getElementById('employee-list-body');
-    if (!tbody) return;
     lastRenderedEmployees = data;
     tbody.innerHTML = '';
     if (data.length === 0) {
-        const activeFilter = filter || document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+        const activeFilter = filter || activeStatusFilter();
         const es = EMPTY_STATES[activeFilter] || EMPTY_STATES.todos;
         tbody.innerHTML = `
             <tr class="empty-row" id="empty-row">
@@ -576,7 +574,6 @@ function getCurrentPageData() {
 
 function updateSelectAllCheckboxState(pageData) {
     const headerCb = document.getElementById('select-all-checkbox');
-    if (!headerCb) return;
     if (!pageData.length) {
         headerCb.checked = false;
         headerCb.indeterminate = false;
@@ -589,7 +586,6 @@ function updateSelectAllCheckboxState(pageData) {
 
 function renderBulkActionsBar() {
     const bar = document.getElementById('bulk-actions-bar');
-    if (!bar) return;
     bar.classList.toggle('hidden', selectedIds.size === 0);
     const countEl = document.getElementById('bulk-selected-count');
     if (countEl) countEl.textContent = selectedIds.size;
@@ -617,7 +613,6 @@ window.clearSelection = function () {
 
 window.bulkUpdateStatus = async function (newStatus) {
     const ids = Array.from(selectedIds);
-    if (!ids.length) return;
     const targets = employees.filter((e) => ids.includes(e.id) && e.status !== newStatus);
     if (!targets.length) {
         showToast('Nada a Fazer', 'Os colaboradores selecionados já estão com este status.', 'warning');
@@ -656,13 +651,12 @@ window.bulkUpdateStatus = async function (newStatus) {
 
     targets.forEach((e) => {
         const idx = employees.findIndex((x) => x.id === e.id);
-        if (idx === -1) return;
         employees[idx].status = newStatus;
         if (newStatus === 'Inativo' && !employees[idx].terminationDate) employees[idx].terminationDate = today;
     });
 
     selectedIds.clear();
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     applyStatusFilter(activeFilter);
     renderStatsRow();
     renderAlertsBanner();
@@ -684,7 +678,6 @@ function deleteErrorMessage(error, fallback) {
 
 window.bulkDeleteEmployees = async function () {
     const ids = Array.from(selectedIds);
-    if (!ids.length) return;
     if (!confirm(`Tem certeza que deseja excluir ${ids.length} colaborador(es)?\n\nO acesso ao sistema também será removido.`)) return;
 
     const { error } = await sb.from('employees').delete().in('id', ids);
@@ -695,7 +688,7 @@ window.bulkDeleteEmployees = async function () {
 
     employees = employees.filter((e) => !ids.includes(e.id));
     selectedIds.clear();
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     applyStatusFilter(activeFilter);
     renderStatsRow();
     showToast('Colaboradores Excluídos!', `${ids.length} colaborador(es) removido(s) do sistema.`, 'error');
@@ -708,7 +701,6 @@ window.goToPage = function (page) {
 
 function renderPagination(totalItems) {
     const container = document.getElementById('table-pagination');
-    if (!container) return;
     const totalPages = Math.ceil(totalItems / PAGE_SIZE);
     if (totalPages <= 1) {
         container.innerHTML = '';
@@ -726,16 +718,16 @@ function renderPagination(totalItems) {
         </div>`;
 }
 
-const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function buildExportRows() {
     return lastRenderedEmployees.map((emp) => ({
         nome: emp.name,
-        cpf: emp.cpf || '',
-        email: emp.email || '',
+        cpf: emp.cpf,
+        email: emp.email,
         cargo: emp.role || '',
         dept: emp.dept || '',
-        status: emp.status || '',
+        status: emp.status,
         contrato: emp.contractType || '',
         admissao: formatDateBR(emp.admissionDate),
         salario: formatCurrency(emp.salary),
@@ -750,7 +742,6 @@ function closeExportMenu() {
 function setupExportDropdown() {
     const btn = document.getElementById('btn-export');
     const menu = document.getElementById('export-menu');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const opening = !menu.classList.contains('open');
@@ -862,7 +853,7 @@ function normalizeHeader(h) {
 
 function mapImportHeaders(headerRow) {
     const map = {};
-    (headerRow || []).forEach((h, idx) => {
+    headerRow.forEach((h, idx) => {
         const norm = normalizeHeader(h);
         for (const [field, aliases] of Object.entries(IMPORT_COLUMN_ALIASES)) {
             if (aliases.includes(norm)) {
@@ -954,12 +945,12 @@ function buildImportRow(rawRow, headerMap, index) {
     const cpfRaw = get('cpf');
     if (!cpfRaw) errors.push('CPF é obrigatório.');
     else if (!isValidCPF(cpfRaw)) errors.push('CPF inválido.');
-    else if (employees.some((e) => (e.cpf || '').replace(/\D/g, '') === cpfRaw.replace(/\D/g, ''))) errors.push('CPF já cadastrado.');
+    else if (employees.some((e) => e.cpf.replace(/\D/g, '') === cpfRaw.replace(/\D/g, ''))) errors.push('CPF já cadastrado.');
 
     const email = get('email').toLowerCase();
     if (!email) errors.push('Email é obrigatório.');
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email inválido.');
-    else if (employees.some((e) => (e.email || '').toLowerCase() === email)) errors.push('Email já cadastrado.');
+    else if (employees.some((e) => e.email.toLowerCase() === email)) errors.push('Email já cadastrado.');
 
     const admissionDate = parseImportDate(get('admissionDate'));
     if (!admissionDate) errors.push('Data de admissão inválida.');
@@ -1015,7 +1006,6 @@ function dedupeImportRows(rows) {
 }
 
 async function processImportFile(file) {
-    if (!file) return;
     try {
         const rows = await readImportFile(file);
         if (!rows.length) {
@@ -1055,7 +1045,6 @@ async function processImportFile(file) {
 function renderImportPreview() {
     const body = document.getElementById('import-preview-body');
     const summary = document.getElementById('import-summary');
-    if (!body) return;
 
     const okCount = importRows.filter((r) => r.status === 'ok').length;
     const errorCount = importRows.length - okCount;
@@ -1112,7 +1101,6 @@ window.handleImportFileSelected = function (event) {
 
 function setupImportDropzone() {
     const dropzone = document.getElementById('import-dropzone');
-    if (!dropzone) return;
     ['dragenter', 'dragover'].forEach((evt) =>
         dropzone.addEventListener(evt, (e) => {
             e.preventDefault();
@@ -1193,7 +1181,6 @@ window.closeImportModal = function () {
 
 window.confirmImport = async function () {
     const okRows = importRows.filter((r) => r.status === 'ok');
-    if (!okRows.length) return;
 
     const confirmBtn = document.getElementById('btn-import-confirm');
     const progressEl = document.getElementById('import-progress');
@@ -1229,7 +1216,7 @@ window.confirmImport = async function () {
     if (confirmBtn) confirmBtn.disabled = false;
     progressEl?.classList.add('hidden');
 
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     applyStatusFilter(activeFilter);
     renderStatsRow();
     closeImportModal();
@@ -1269,7 +1256,7 @@ window.openDrawer = function (id) {
     document.getElementById('view-salary').textContent = formatCurrency(emp.salary);
     document.getElementById('view-date').textContent = formatDateBR(emp.admissionDate);
     document.getElementById('view-contract').textContent = emp.contractType || '—';
-    document.getElementById('view-email').textContent = emp.email || '—';
+    document.getElementById('view-email').textContent = emp.email;
     document.getElementById('view-raca-cor').textContent = emp.racaCor || '—';
 
     const probationWrap = document.getElementById('view-probation-wrap');
@@ -1308,7 +1295,6 @@ window.toggleDropdown = function (event) {
     event.stopPropagation();
     const dd = document.getElementById('drawer-dropdown');
     const btn = document.getElementById('btn-drawer-options');
-    if (!dd || !btn) return;
     if (!dd.classList.contains('show')) {
         const rect = btn.getBoundingClientRect();
         dd.style.top = `${rect.bottom + 6}px`;
@@ -1331,7 +1317,6 @@ window.showStatusSubmenu = function () {
     const emp = employees.find((e) => e.id === currentEmployeeId);
     if (!emp) return;
     const dynamicOptions = document.getElementById('dynamic-status-options');
-    if (!dynamicOptions) return;
     dynamicOptions.innerHTML = '';
     if (emp.status === 'Ativo') {
         dynamicOptions.innerHTML =
@@ -1381,7 +1366,7 @@ window.updateStatus = async function (newStatus) {
     openDrawer(currentEmployeeId);
     document.getElementById('drawer-dropdown').classList.remove('show');
     setTimeout(backToMainMenu, 300);
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     applyStatusFilter(activeFilter);
     renderStatsRow();
     renderAlertsBanner();
@@ -1391,7 +1376,7 @@ window.updateStatus = async function (newStatus) {
         Férias: 'Colaborador marcado como em Férias.',
         Afastado: 'Colaborador marcado como Afastado.',
     };
-    showToast('Status Atualizado!', msgs[newStatus] || `Status: ${newStatus}`, 'success');
+    showToast('Status Atualizado!', msgs[newStatus], 'success');
 };
 
 window.handleDeleteEmployee = async function () {
@@ -1404,7 +1389,7 @@ window.handleDeleteEmployee = async function () {
         return;
     }
     employees = employees.filter((e) => e.id !== currentEmployeeId);
-    const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+    const activeFilter = activeStatusFilter();
     applyStatusFilter(activeFilter);
     renderStatsRow();
     closeDrawer();
@@ -1413,7 +1398,6 @@ window.handleDeleteEmployee = async function () {
 
 function renderAuditTimeline(entries) {
     const body = document.getElementById('audit-history-body');
-    if (!body) return;
     if (!entries.length) {
         body.innerHTML = `<div class="empty-state"><i class="fas fa-clock-rotate-left"></i><p>Nenhuma alteração registrada</p></div>`;
         return;
@@ -1421,7 +1405,7 @@ function renderAuditTimeline(entries) {
     body.innerHTML = entries
         .map((entry) => {
             const when = new Date(entry.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-            const changesHtml = (entry.changes || [])
+            const changesHtml = entry.changes
                 .map(
                     (c) =>
                         `<div class="audit-timeline-field"><strong>${escapeHtml(c.label)}:</strong> ${escapeHtml(c.oldValue) || '—'} → ${escapeHtml(c.newValue) || '—'}</div>`
@@ -1470,12 +1454,11 @@ async function fetchDataAccessLog(employeeId) {
         console.error('[Nexus] fetchDataAccessLog:', error);
         return [];
     }
-    return data || [];
+    return data;
 }
 
 function renderAccessLogTimeline(entries) {
     const body = document.getElementById('lgpd-access-log-body');
-    if (!body) return;
     if (!entries.length) {
         body.innerHTML = `<div class="empty-state"><i class="fas fa-eye-slash"></i><p>Nenhum acesso registrado ainda</p></div>`;
         return;
@@ -1513,12 +1496,11 @@ async function fetchAiDecisionLog(employeeId) {
         console.error('[Nexus] fetchAiDecisionLog:', error);
         return [];
     }
-    return data || [];
+    return data;
 }
 
 function renderAiDecisionLogTimeline(entries) {
     const body = document.getElementById('lgpd-ai-decisions-body');
-    if (!body) return;
     if (!entries.length) {
         body.innerHTML = `<div class="empty-state"><i class="fas fa-robot"></i><p>Nenhuma decisão da IA registrada ainda</p></div>`;
         return;
@@ -1589,7 +1571,7 @@ window.exportEmployeeDataLGPD = function () {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dados-${(emp.name || 'colaborador').replace(/\s+/g, '_')}.json`;
+    a.download = `dados-${emp.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1662,7 +1644,6 @@ function createSelectField(id, onChange) {
     const popover = document.getElementById(`${id}-popover`);
     const label = document.getElementById(`${id}-label`);
     const hidden = document.getElementById(id);
-    if (!trigger || !popover || !label || !hidden) return null;
 
     function open() {
         popover.classList.add('open');
@@ -1715,7 +1696,6 @@ let orgDeptField = null;
 function populateOrgChartDeptFilter() {
     const popover = document.getElementById('orgchart-dept-filter-popover');
     const hidden = document.getElementById('orgchart-dept-filter');
-    if (!popover || !hidden) return;
     const current = hidden.value;
     const depts = [...new Set(employees.map((e) => e.dept).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     popover.innerHTML =
@@ -1726,13 +1706,12 @@ function populateOrgChartDeptFilter() {
 
 window.renderOrgChart = function () {
     const container = document.getElementById('orgchart-container');
-    if (!container) return;
     const dept = document.getElementById('orgchart-dept-filter')?.value || '';
     const list = dept ? employees.filter((e) => e.dept === dept) : employees;
     const roots = buildOrgTree(list);
     container.innerHTML = roots.length
         ? `<ul class="org-tree">${roots.map(renderOrgNode).join('')}</ul>`
-        : `<div class="empty-state"><i class="fas fa-sitemap"></i><p>${dept ? 'Nenhum colaborador neste departamento' : 'Nenhum colaborador cadastrado'}</p></div>`;
+        : `<div class="empty-state"><i class="fas fa-sitemap"></i><p>Nenhum colaborador cadastrado</p></div>`;
 };
 
 window.openOrgChart = function () {
@@ -1761,12 +1740,11 @@ async function fetchOnboardingTasks() {
         onboardingTasksCache = [];
         return;
     }
-    onboardingTasksCache = data || [];
+    onboardingTasksCache = data;
 }
 
 function renderOnboardingTasksGroup(dias) {
     const container = document.getElementById(`onb-tasks-${dias}`);
-    if (!container) return;
     const items = onboardingTasksCache.filter((t) => t.dias === dias);
     if (!items.length) {
         container.innerHTML = `<p class="onb-empty">Nenhuma tarefa cadastrada para esta etapa.</p>`;
@@ -1838,7 +1816,6 @@ window.removeOnboardingTask = async function (id) {
 const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function setDateFieldValue(input, iso) {
-    if (!input) return;
     input.dataset.value = iso || '';
     if (!iso) {
         input.value = '';
@@ -1863,7 +1840,6 @@ function initDateField(field) {
     const gridEl = field.querySelector('[data-cal-grid]');
     const prevBtn = field.querySelector('[data-cal-prev]');
     const nextBtn = field.querySelector('[data-cal-next]');
-    if (!input || !popover) return;
 
     const today = new Date();
     let viewYear = today.getFullYear();
@@ -2006,7 +1982,7 @@ async function fetchAdmissionalDocTypes() {
         console.error('[Nexus] fetchAdmissionalDocTypes:', error);
         return;
     }
-    admissionalReqs = data || [];
+    admissionalReqs = data;
 }
 
 function getAdmissionalDocTypes() {
@@ -2029,7 +2005,6 @@ function formatFileSize(bytes) {
 function renderRegDocList() {
     const list = document.getElementById('reg-doc-list');
     const consentWrap = document.getElementById('reg-doc-consent-wrap');
-    if (!list) return;
     const tipoOptions = [...getAdmissionalDocTypes(), 'Outros'];
     list.innerHTML = pendingRegDocs
         .map(
@@ -2054,7 +2029,6 @@ function renderRegDocList() {
 
 function renderRegDocTypeList() {
     const list = document.getElementById('reg-doc-type-list');
-    if (!list) return;
     const types = [...getAdmissionalDocTypes(), 'Outros'];
     list.innerHTML = types
         .map((tipo) => {
@@ -2089,8 +2063,8 @@ window.selectRegDocType = function (tipo) {
 };
 
 window.handleRegDocSelect = function (event) {
-    const files = Array.from(event.target.files || []);
-    files.forEach((file) => pendingRegDocs.push({ file, tipo: pendingRegDocTipo || 'Outros' }));
+    const files = Array.from(event.target.files);
+    files.forEach((file) => pendingRegDocs.push({ file, tipo: pendingRegDocTipo }));
     event.target.value = '';
     pendingRegDocTipo = 'Outros';
     renderRegDocList();
@@ -2132,7 +2106,7 @@ async function uploadPendingRegDocs(employeeId) {
             name: doc.file.name,
             employee_id: employeeId,
             category: 'admissional',
-            tipo: doc.tipo || 'Outros',
+            tipo: doc.tipo,
             size_label: formatFileSize(doc.file.size),
             storage_path: storagePath,
             source: 'Administrador',
@@ -2169,13 +2143,12 @@ window.switchTab = function (event, tabId) {
 
 function populateManagerSelect(excludeId) {
     const sel = document.getElementById('manager-id');
-    if (!sel) return;
     const current = sel.value;
     sel.innerHTML =
         '<option value="">Selecione</option>' +
         employees
             .filter((e) => e.status !== 'Inativo' && e.id !== excludeId)
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            .sort((a, b) => a.name.localeCompare(b.name))
             .map((e) => `<option value="${e.id}">${escapeHtml(e.name)}${e.role ? ' — ' + escapeHtml(e.role) : ''}</option>`)
             .join('');
     sel.value = current;
@@ -2237,7 +2210,6 @@ window.toggleForm = function () {
 
 function setupFormListener() {
     const form = document.getElementById('employee-form');
-    if (!form) return;
     document.getElementById('btn-save')?.addEventListener('click', () => form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })));
     document.getElementById('btn-save-simple')?.addEventListener('click', () => form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })));
 
@@ -2264,7 +2236,7 @@ function setupFormListener() {
             showToast('CPF Duplicado!', 'Já existe um colaborador com este CPF.', 'error');
             return;
         }
-        const emailDuplicado = employees.some((emp) => (emp.email || '').toLowerCase() === emailDigitado && emp.id !== idField);
+        const emailDuplicado = employees.some((emp) => emp.email.toLowerCase() === emailDigitado && emp.id !== idField);
         if (emailDuplicado) {
             showToast('Email Duplicado!', 'Já existe um colaborador com este email.', 'error');
             return;
@@ -2402,19 +2374,19 @@ function setupFormListener() {
                     { key: 'admissionDate', label: 'Data de Admissão' },
                 ];
                 const changes = TRACKED.reduce((acc, { key, label, fmt }) => {
-                    if (String(old?.[key] ?? '') !== String(empData[key] ?? '')) {
+                    if (String(old[key] ?? '') !== String(empData[key])) {
                         acc.push({
                             field: key,
                             label,
-                            oldValue: fmt ? fmt(old?.[key]) : String(old?.[key] ?? '—'),
-                            newValue: fmt ? fmt(empData[key]) : String(empData[key] ?? '—'),
+                            oldValue: fmt ? fmt(old[key]) : String(old[key] ?? '—'),
+                            newValue: fmt ? fmt(empData[key]) : String(empData[key]),
                         });
                     }
                     return acc;
                 }, []);
 
-                if (!confirmSalaryReduction(old?.salary, empData.salary)) return;
-                dbData.status = old?.status || 'Ativo';
+                if (!confirmSalaryReduction(old.salary, empData.salary)) return;
+                dbData.status = old.status;
                 const { error } = await sb.from('employees').update(dbData).eq('id', idField);
                 if (error) throw error;
                 await logEmployeeEdit(idField, empData.name, changes);
@@ -2452,7 +2424,7 @@ function setupFormListener() {
                 if (docsUploaded) successMsg += ` ${docsUploaded} documento${docsUploaded > 1 ? 's' : ''} de admissão anexado${docsUploaded > 1 ? 's' : ''}.`;
             }
 
-            const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+            const activeFilter = activeStatusFilter();
             applyStatusFilter(activeFilter);
             renderStatsRow();
             showToast(isEditing ? 'Colaborador Atualizado!' : 'Colaborador Cadastrado!', successMsg, 'success');
@@ -2513,15 +2485,14 @@ window.closePromoteModal = function () {
 
 window.updatePromoteBtnState = function () {
     const btn = document.getElementById('btn-promote-submit');
-    if (!btn) return;
     const emp = employees.find((e) => e.id === currentEmployeeId);
     if (!emp) {
         btn.disabled = true;
         return;
     }
-    const newRole = document.getElementById('promote-role')?.value.trim() || '';
-    const newContractType = document.getElementById('promote-contract-type')?.value || '';
-    const newSalaryCents = Number((document.getElementById('promote-salary')?.value || '').replace(/\D/g, ''));
+    const newRole = document.getElementById('promote-role').value.trim();
+    const newContractType = document.getElementById('promote-contract-type').value;
+    const newSalaryCents = Number(document.getElementById('promote-salary').value.replace(/\D/g, ''));
     const roleChanged = newRole && newRole !== (emp.role || '');
     const contractChanged = newContractType && newContractType !== (emp.contractType || '');
     btn.disabled = !((roleChanged || contractChanged) && newSalaryCents > 0);
@@ -2531,7 +2502,7 @@ window.submitPromotion = async function () {
     const btn = document.getElementById('btn-promote-submit');
     const id = currentEmployeeId;
     const emp = employees.find((e) => e.id === id);
-    if (!emp || !id) return;
+    if (!emp) return;
 
     const newRole = document.getElementById('promote-role').value.trim();
     const newContractType = document.getElementById('promote-contract-type').value;
@@ -2571,7 +2542,7 @@ window.submitPromotion = async function () {
         const idx = employees.findIndex((e) => e.id === id);
         if (idx !== -1) employees[idx] = { ...employees[idx], role: newRole, contractType: newContractType, salary: newSalary };
 
-        const activeFilter = document.querySelector('.btn-filter.active')?.getAttribute('data-filter') || 'todos';
+        const activeFilter = activeStatusFilter();
         applyStatusFilter(activeFilter);
         renderStatsRow();
         window.openDrawer(id);
@@ -2603,7 +2574,6 @@ async function fetchJobTitlesPublic() {
 
 function populateRoleDropdown(popoverId, currentValue) {
     const popover = document.getElementById(popoverId);
-    if (!popover) return;
     const titles = jobTitlesPublic.map((t) => t.title);
     const extra = currentValue && !titles.includes(currentValue) ? [currentValue] : [];
     popover.innerHTML = [...extra, ...titles]
@@ -2618,7 +2588,6 @@ async function fetchJobTitlesFull() {
 
 function renderJobTitlesList() {
     const wrap = document.getElementById('job-titles-list');
-    if (!wrap) return;
     if (!jobTitles.length) {
         wrap.innerHTML = `<p class="onb-empty">Nenhum cargo cadastrado ainda.</p>`;
         return;
@@ -2749,7 +2718,6 @@ async function fetchTrainingsCatalogFull() {
 
 function renderTrainingsCatalogList() {
     const wrap = document.getElementById('trainings-catalog-list');
-    if (!wrap) return;
     if (!trainingsCatalogFull.length) {
         wrap.innerHTML = `<p class="onb-empty">Nenhum treinamento cadastrado ainda.</p>`;
         return;
@@ -2856,7 +2824,6 @@ async function fetchEmployeeTrainings(employeeId) {
 
 function renderTrainingsList() {
     const wrap = document.getElementById('trainings-list');
-    if (!wrap) return;
     if (!employeeTrainings.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhum treinamento registrado ainda.</p>`;
         return;
@@ -3004,14 +2971,13 @@ async function fetchDisciplinaryActions(employeeId) {
 
 function renderDisciplinaryList() {
     const wrap = document.getElementById('disciplinary-list');
-    if (!wrap) return;
     if (!disciplinaryActions.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma medida disciplinar registrada.</p>`;
         return;
     }
     wrap.innerHTML = disciplinaryActions
         .map((d) => {
-            const label = DISCIPLINARY_TYPE_LABEL[d.type] || d.type;
+            const label = DISCIPLINARY_TYPE_LABEL[d.type];
             const bits = [formatDateBR(d.occurred_at), d.suspension_days ? `${d.suspension_days} dia${d.suspension_days > 1 ? 's' : ''}` : null].filter(
                 Boolean
             );
@@ -3083,7 +3049,7 @@ window.addDisciplinaryAction = async function () {
         }
     }
     const description = document.getElementById('da-description')?.value.trim() || null;
-    const occurredAt = getDateFieldValue('da-occurred-date') || localISODate();
+    const occurredAt = getDateFieldValue('da-occurred-date');
 
     const { error } = await sb.from('disciplinary_actions').insert({
         employee_id: disciplinaryEmployeeId,
@@ -3107,7 +3073,7 @@ window.addDisciplinaryAction = async function () {
     renderDisciplinaryList();
     showToast(
         'Medida Registrada!',
-        `"${DISCIPLINARY_TYPE_LABEL[type]}" foi registrada para ${employees.find((e) => e.id === disciplinaryEmployeeId)?.name || 'o colaborador'}.`,
+        `"${DISCIPLINARY_TYPE_LABEL[type]}" foi registrada para ${employees.find((e) => e.id === disciplinaryEmployeeId).name}.`,
         'success'
     );
 };
@@ -3129,14 +3095,13 @@ async function fetchMedicalLeaves(employeeId) {
 
 function renderMedicalLeavesList() {
     const wrap = document.getElementById('medical-leaves-list');
-    if (!wrap) return;
     if (!medicalLeaves.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhum atestado enviado ainda.</p>`;
         return;
     }
     wrap.innerHTML = medicalLeaves
         .map((l) => {
-            const label = LEAVE_STATUS_LABEL[l.status] || l.status;
+            const label = LEAVE_STATUS_LABEL[l.status];
             const bits = [
                 `${formatDateBR(l.start_date)} → ${formatDateBR(l.end_date)}`,
                 `${l.days} dia${l.days > 1 ? 's' : ''}`,
@@ -3201,7 +3166,6 @@ window.viewTrainingCertificate = async function (id) {
 
 window.viewLeaveAttachment = async function (id) {
     const leave = medicalLeaves.find((l) => l.id === id);
-    if (!leave?.storage_path) return;
     const { error } = await NexusFiles.open('documents', leave.storage_path, { name: 'Atestado' });
     if (error) showToast('Erro!', 'Não foi possível abrir o atestado.', 'error');
 };
@@ -3271,7 +3235,6 @@ async function fetchPerformanceData(employeeId) {
 
 function renderPerformanceReviews() {
     const wrap = document.getElementById('performance-reviews-list');
-    if (!wrap) return;
     if (!performanceReviews.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma avaliação registrada ainda.</p>`;
         return;
@@ -3293,14 +3256,13 @@ function renderPerformanceReviews() {
 
 function renderPerformanceGoals() {
     const wrap = document.getElementById('performance-goals-list');
-    if (!wrap) return;
     if (!performanceGoals.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma meta de desenvolvimento cadastrada.</p>`;
         return;
     }
     wrap.innerHTML = performanceGoals
         .map((g) => {
-            const label = GOAL_STATUS_LABEL[g.status] || g.status;
+            const label = GOAL_STATUS_LABEL[g.status];
             const due = g.due_date ? ` · prazo ${formatDateBR(g.due_date)}` : '';
             return `<div class="pdi-goal-item">
                 <div class="pdi-goal-info">
@@ -3362,11 +3324,11 @@ window.editEmployee = function (id) {
 
     setFormHeader('fa-edit', 'Editar Colaborador');
     document.getElementById('employee-id').value = emp.id;
-    document.getElementById('name').value = emp.name || '';
+    document.getElementById('name').value = emp.name;
     populateRoleDropdown('role-popover', emp.role || '');
     roleField?.setValue(emp.role || '');
-    document.getElementById('cpf').value = emp.cpf || '';
-    document.getElementById('email').value = emp.email || '';
+    document.getElementById('cpf').value = emp.cpf;
+    document.getElementById('email').value = emp.email;
     setDateFieldValue(document.getElementById('admission-date'), emp.admissionDate || '');
     document.getElementById('contract-type').value = opcaoCanonica('contractType', emp.contractType);
     document.getElementById('salary-type').value = opcaoCanonica('salaryType', emp.salaryType);
@@ -3542,7 +3504,6 @@ function setupToggleField(radioName, triggerValue, detailsId) {
     document.querySelectorAll(`input[name="${radioName}"]`).forEach((radio) => {
         radio.addEventListener('change', () => {
             const details = document.getElementById(detailsId);
-            if (!details) return;
             const checked = document.querySelector(`input[name="${radioName}"]:checked`);
             if (checked?.value === triggerValue) {
                 details.style.display = 'block';
@@ -3568,7 +3529,6 @@ function setupPaymentMethodToggle() {
         radio.addEventListener('change', () => {
             const pixDetails = document.getElementById('pix-details');
             const contaDetails = document.getElementById('conta-details');
-            if (!pixDetails || !contaDetails) return;
             const checked = document.querySelector('input[name="forma-pagamento"]:checked');
             if (checked?.value === 'pix') {
                 pixDetails.style.display = 'block';
@@ -3603,10 +3563,8 @@ function setupDeselectableRadios() {
 
 function setupBancoOutroToggle() {
     const bancoSelect = document.getElementById('banco');
-    if (!bancoSelect) return;
     bancoSelect.addEventListener('change', () => {
         const bancoOutroDiv = document.getElementById('banco-outro-details');
-        if (!bancoOutroDiv) return;
         bancoOutroDiv.style.display = bancoSelect.value === 'outro' ? 'block' : 'none';
         if (bancoSelect.value !== 'outro') {
             const input = bancoOutroDiv.querySelector('input');
@@ -3638,7 +3596,6 @@ function resetConditionalFields() {
 }
 
 function restoreConditionalField(radioName, value, detailsId) {
-    if (!value) return;
     const radio = document.querySelector(`input[name="${radioName}"][value="${value}"]`);
     if (radio) {
         radio.checked = true;
@@ -3649,7 +3606,6 @@ function restoreConditionalField(radioName, value, detailsId) {
 
 function setupCpfMask() {
     const input = document.getElementById('cpf');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g, '');
         if (v.length > 11) v = v.slice(0, 11);
@@ -3663,7 +3619,6 @@ function setupCpfMask() {
 
 function setupRgMask() {
     const input = document.getElementById('rg');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.toUpperCase().replace(/[^0-9X]/g, '');
         if (v.length > 9) v = v.slice(0, 9);
@@ -3676,7 +3631,6 @@ function setupRgMask() {
 
 function setupPhoneMask() {
     const input = document.getElementById('telefone');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g, '');
         if (v.length > 11) v = v.slice(0, 11);
@@ -3689,7 +3643,6 @@ function setupPhoneMask() {
 
 function setupAgenciaMask() {
     const input = document.getElementById('agencia');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g, '');
         if (v.length > 4) v = v.slice(0, 4);
@@ -3699,7 +3652,6 @@ function setupAgenciaMask() {
 
 function setupContaMask() {
     const input = document.getElementById('conta');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.toUpperCase().replace(/[^0-9X]/g, '');
         if (v.length > 7) v = v.slice(0, 7);
@@ -3709,7 +3661,6 @@ function setupContaMask() {
 
 function setupCepMask() {
     const input = document.getElementById('cep');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g, '');
         if (v.length > 8) v = v.slice(0, 8);
@@ -3720,14 +3671,12 @@ function setupCepMask() {
 
 function setupCepListener() {
     const input = document.getElementById('cep');
-    if (!input) return;
     input.addEventListener('blur', (e) => window.pesquisacep(e.target.value));
 }
 
 function setupSalaryMask() {
     ['salary', 'rem-salario', 'promote-salary', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
         const input = document.getElementById(id);
-        if (!input) return;
         input.type = 'text';
         input.inputMode = 'numeric';
         input.addEventListener('input', (e) => {
@@ -3744,7 +3693,6 @@ function setupSalaryMask() {
 
 function setupPisPasepMask() {
     const input = document.getElementById('pis-pasep');
-    if (!input) return;
     input.addEventListener('input', (e) => {
         let v = e.target.value.replace(/\D/g, '');
         if (v.length > 11) v = v.slice(0, 11);
@@ -3757,7 +3705,6 @@ function setupPisPasepMask() {
 
 function setupCurrencyMask(id) {
     const input = document.getElementById(id);
-    if (!input) return;
     input.type = 'text';
     input.inputMode = 'numeric';
     input.addEventListener('input', (e) => {

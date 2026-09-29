@@ -68,4 +68,48 @@ describe('index.html (página pública)', () => {
         });
         assert.deepEqual(page.navigations, []);
     });
+
+    test('observadores: fora da tela não anima; contador só começa uma vez; alvo inválido e âncoras vazias ou sem destino são ignorados', async () => {
+        const observados = [];
+        page = await openPage('/index.html', {
+            client: new FakeSupabase({}),
+            before(w) {
+                w.IntersectionObserver = class {
+                    constructor(cb) {
+                        this.cb = cb;
+                    }
+                    observe(target) {
+                        observados.push({ target, cb: this.cb, obs: this });
+                    }
+                    unobserve() {}
+                    disconnect() {}
+                };
+                const item = w.document.querySelector('.stat-item');
+                const invalido = w.document.createElement('span');
+                invalido.className = 'stat-num';
+                invalido.dataset.target = 'abc';
+                invalido.textContent = '0';
+                item.appendChild(invalido);
+                const semDestino = w.document.createElement('a');
+                semDestino.href = '#nao-existe';
+                semDestino.id = 'link-sem-destino';
+                w.document.body.appendChild(semDestino);
+            },
+        });
+        const disparar = (isIntersecting) => observados.forEach(({ target, cb, obs }) => cb([{ target, isIntersecting }], obs));
+        disparar(false);
+        await page.settle();
+        assert.equal(page.$('.stat-num[data-target="3"]').textContent, '0');
+        disparar(true);
+        disparar(true);
+        await page.waitFor(() => page.$('.stat-num[data-target="3"]').textContent === '3');
+        assert.equal(page.$('.stat-num[data-target="abc"]').textContent, '0');
+
+        const logo = page.$('a.logo[href="#"]');
+        const e1 = new page.window.MouseEvent('click', { bubbles: true, cancelable: true });
+        logo.dispatchEvent(e1);
+        const e2 = new page.window.MouseEvent('click', { bubbles: true, cancelable: true });
+        page.$('#link-sem-destino').dispatchEvent(e2);
+        assert.deepEqual([e1.defaultPrevented, e2.defaultPrevented], [false, false]);
+    });
 });

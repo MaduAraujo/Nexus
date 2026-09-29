@@ -135,7 +135,6 @@ async function loadBankLedger() {
         if (jornadaMin === null) return;
         if (isFalta(r) || !r.saida) return;
         const s = calcSaldoMin(r, jornadaMin);
-        if (s === null) return;
         const mk = r.date.slice(0, 7);
         byEmpMonth[r.employee_id] = byEmpMonth[r.employee_id] || {};
         byEmpMonth[r.employee_id][mk] = (byEmpMonth[r.employee_id][mk] || 0) + s;
@@ -150,7 +149,7 @@ async function loadBankLedger() {
         byEmpMonth[a.employee_id][mk] = (byEmpMonth[a.employee_id][mk] || 0) + delta;
     });
 
-    const vencMeses = hrSettings.banco_horas_vencimento_meses || 6;
+    const vencMeses = hrSettings.banco_horas_vencimento_meses;
     const hoje = new Date();
     ledgerMap = {};
 
@@ -261,7 +260,7 @@ function computeBalance(emp, monthKey) {
     const records = getPontoRecords(emp.id);
     const ajustes = getBancoAjustes(emp.id);
     const isPJ = jornadaMin === null;
-    const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+    const limiteExtra = hrSettings.limite_extra_diario_min;
     let extrasMin = 0,
         faltaMin = 0,
         diasCompletos = 0,
@@ -349,7 +348,6 @@ function getFilteredData() {
 
 function renderTable() {
     const tbody = $('banco-tbody');
-    if (!tbody) return;
     const filtered = getFilteredData();
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty"><i class="fas fa-clock-rotate-left"></i><p>Nenhum colaborador encontrado.</p></div></td></tr>`;
@@ -370,7 +368,6 @@ function setupExportButton() {
     const btn = $('btn-export'),
         menu = $('export-menu'),
         chevron = $('export-chevron');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const opening = !menu.classList.contains('open');
@@ -545,18 +542,18 @@ function buildComplianceBadges(d) {
 }
 
 function initials(name) {
-    return (name || '?')
+    return name
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
+        .map((w) => w[0].toUpperCase())
         .join('');
 }
 
 function nameToColor(name) {
     const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
     let h = 0;
-    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+    for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
     return p[Math.abs(h) % p.length];
 }
 
@@ -596,7 +593,7 @@ const FILTER_LABELS_BH = {
 function updateFilterBtn() {
     const label = $('filter-label');
     const btn = $('btn-filter');
-    if (label) label.textContent = FILTER_LABELS_BH[currentFilter] ?? 'Filtro';
+    if (label) label.textContent = FILTER_LABELS_BH[currentFilter];
     btn?.classList.toggle('filtered', currentFilter !== 'todos');
 }
 
@@ -616,7 +613,6 @@ function closeFilterDropdown() {
 function setupFilterDropdown() {
     const btn = $('btn-filter');
     const menu = $('filter-dropdown-menu');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.contains('open') ? closeFilterDropdown() : openFilterDropdown();
@@ -634,8 +630,7 @@ window.setFilter = function (btn) {
     renderTable();
 };
 window.applyFilters = function () {
-    const inp = $('search-input');
-    currentSearch = inp ? inp.value.trim() : '';
+    currentSearch = $('search-input').value.trim();
     const clr = $('search-clear');
     if (clr) clr.classList.toggle('hidden', !currentSearch);
     renderTable();
@@ -651,7 +646,6 @@ window.clearSearch = function () {
 
 window.openDetailModal = function (empId) {
     const data = allData.find((d) => d.emp.id === empId);
-    if (!data) return;
     detailEmpId = empId;
     detailMonth = currentMonth;
     renderDetailModal(data.emp, detailMonth);
@@ -665,7 +659,6 @@ window.closeDetailModal = function () {
 window.changeDetailMonth = async function (empId, monthKey) {
     detailMonth = monthKey;
     const emp = allEmps.find((e) => e.id === empId);
-    if (!emp) return;
     const mStart = `${monthKey}-01`,
         mEnd = nextMonthKey(monthKey);
     const { data } = await sb.from('time_records').select('*').eq('employee_id', empId).gte('date', mStart).lt('date', mEnd);
@@ -678,7 +671,6 @@ window.changeDetailMonth = async function (empId, monthKey) {
 
 function renderDetailModal(emp, monthKey) {
     const body = $('detail-body');
-    if (!body) return;
     const jornadaMin = getJornadaMin(emp),
         isPJ = jornadaMin === null;
     const records = getPontoRecords(emp.id),
@@ -718,7 +710,7 @@ function renderDetailModal(emp, monthKey) {
     const saldoCls = saldoLiquido === null ? 'zero' : saldoLiquido > 0 ? 'positivo' : saldoLiquido < 0 ? 'negativo' : 'zero';
     const monthOptions = buildMonthOptions(monthKey);
     const ledger = ledgerMap[emp.id] || { status: 'ok', minutosVencendo: 0, minutosVencidos: 0, proxExpira: null };
-    const vencMeses = hrSettings.banco_horas_vencimento_meses || 6;
+    const vencMeses = hrSettings.banco_horas_vencimento_meses;
     let ledgerHTML = '';
     if (!isPJ) {
         if (ledger.status === 'vencido') {
@@ -790,7 +782,6 @@ async function renderSaldoTrendChart(emp) {
         (recs || []).forEach((r) => {
             if (isFalta(r) || !r.saida) return;
             const s = calcSaldoMin(r, jornadaMin);
-            if (s === null) return;
             const mk = r.date.slice(0, 7);
             if (mk in monthly) monthly[mk] += s;
         });
@@ -911,7 +902,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
             saldoStr = (saldo >= 0 ? '+' : '-') + minToStr(saldo);
             saldoCls = saldo > 0 ? 'positivo' : saldo < 0 ? 'negativo' : 'zero';
         }
-        const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+        const limiteExtra = hrSettings.limite_extra_diario_min;
         if (rec.ajustado) badgeHTML = `<span class="badge-sm badge-sm-incompleto">Ajustado</span>`;
         else if (saldo > limiteExtra)
             badgeHTML = `<span class="badge-sm badge-sm-excesso" title="Excede o limite legal de 2h de horas extras diárias (art. 59 CLT)">Excesso 2h+</span>`;
@@ -938,7 +929,6 @@ function buildMonthOptions(selected) {
 
 window.openAdjustModal = function (empId) {
     const data = allData.find((d) => d.emp.id === empId);
-    if (!data) return;
     adjustingEmpId = empId;
     const sub = $('adjust-sub');
     if (sub) sub.textContent = data.emp.name;
@@ -959,10 +949,9 @@ window.openAdjustModal = function (empId) {
 
 window.updateAdjustSubmitState = function () {
     const btn = $('adjust-submit-btn');
-    if (!btn) return;
     const horas = parseInt($('adjust-horas')?.value || '0', 10);
     const mins = parseInt($('adjust-min')?.value || '0', 10);
-    const data = $('adjust-data')?.value || '';
+    const data = $('adjust-data').value;
     const just = $('adjust-just')?.value?.trim() || '';
     const total = horas * 60 + mins;
     btn.disabled = !(total > 0 && data && just);
@@ -977,10 +966,10 @@ window.closeAdjustModal = function () {
 };
 
 window.submitAdjust = async function () {
-    const tipo = $('adjust-tipo')?.value || 'credito';
+    const tipo = $('adjust-tipo').value;
     const horas = parseInt($('adjust-horas')?.value || '0', 10);
     const mins = parseInt($('adjust-min')?.value || '0', 10);
-    const data = $('adjust-data')?.value || '';
+    const data = $('adjust-data').value;
     const just = $('adjust-just')?.value?.trim() || '';
     const al = $('adjust-alert');
     const showErr = (msg) => {
@@ -995,7 +984,7 @@ window.submitAdjust = async function () {
     if (!just) return showErr('A justificativa é obrigatória.');
 
     if (tipo === 'credito') {
-        const limiteExtra = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+        const limiteExtra = hrSettings.limite_extra_diario_min;
         const { data: dayCredits } = await sb
             .from('bank_adjustments')
             .select('minutos')
@@ -1012,7 +1001,6 @@ window.submitAdjust = async function () {
     }
 
     const empData = allData.find((d) => d.emp.id === adjustingEmpId);
-    if (!empData) return;
     const requiresApprovalFrom = empData.emp.managerId ? 'gestor' : 'rh';
 
     const { error } = await sb.from('bank_requests').insert({
@@ -1024,7 +1012,7 @@ window.submitAdjust = async function () {
         justificativa: just,
         requires_approval_from: requiresApprovalFrom,
         manager_id_snapshot: empData.emp.managerId || null,
-        created_by_name: rhUser?.email?.split('@')[0] || 'RH',
+        created_by_name: rhUser.email.split('@')[0],
         created_by_email: rhUser?.email,
     });
 
@@ -1073,7 +1061,6 @@ function setupNotifPanel() {
 function renderNotifPanel() {
     const badge = $('notif-badge'),
         body = $('notif-panel-body');
-    if (!badge || !body) return;
     const criticos = allData.filter((d) => !d.isPJ && d.saldoLiquido !== null && d.saldoLiquido <= -1200);
     const vencidos = allData.filter((d) => !d.isPJ && d.ledger?.status === 'vencido');
     const pendentes = bankRequestsAll.filter((r) => r.status === 'pendente');
@@ -1132,7 +1119,6 @@ const REQ_STATUS_META = {
 
 function renderRequestsTab() {
     const tbody = $('requests-tbody');
-    if (!tbody) return;
     const filtered = reqFilter === 'todos' ? bankRequestsAll : bankRequestsAll.filter((r) => r.status === reqFilter);
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="table-empty"><i class="fas fa-inbox"></i><p>Nenhuma solicitação encontrada.</p></div></td></tr>`;
@@ -1185,7 +1171,7 @@ window.approveRequest = async function (id) {
     const { error } = await sb.rpc('approve_bank_request', {
         p_request_id: id,
         p_decision: 'aprovado',
-        p_decided_by_name: rhUser?.email?.split('@')[0] || 'RH',
+        p_decided_by_name: rhUser.email.split('@')[0],
         p_decided_by_email: rhUser?.email,
     });
     if (error) {
@@ -1228,7 +1214,7 @@ window.confirmRejectRequest = async function () {
         p_request_id: rejectingRequestId,
         p_decision: 'rejeitado',
         p_obs: obs,
-        p_decided_by_name: rhUser?.email?.split('@')[0] || 'RH',
+        p_decided_by_name: rhUser.email.split('@')[0],
         p_decided_by_email: rhUser?.email,
     });
     if (error) {
@@ -1258,7 +1244,7 @@ window.deleteAjuste = async function (empId, adjId) {
         acao: 'exclusao',
         date: isoDate(new Date()),
         operator_email: rhUser?.email,
-        operator_name: rhUser?.email?.split('@')[0] || 'RH',
+        operator_name: rhUser.email.split('@')[0],
         operator_profile: 'Administrador',
         justificativa: `Exclusão do ajuste #${adjId}`,
     });
@@ -1285,7 +1271,6 @@ function createSelectField(id, onChange) {
     const popover = $(`${id}-popover`);
     const label = $(`${id}-label`);
     const hidden = $(id);
-    if (!trigger || !popover || !label || !hidden) return null;
 
     function open() {
         claimPopover(close);
@@ -1313,8 +1298,8 @@ function createSelectField(id, onChange) {
     function setValue(value) {
         const opts = Array.from(popover.querySelectorAll('.select-option'));
         const opt = opts.find((o) => o.dataset.value === value);
-        hidden.value = opt ? opt.dataset.value : '';
-        label.textContent = opt ? opt.dataset.label || opt.textContent : 'Selecione';
+        hidden.value = opt.dataset.value;
+        label.textContent = opt.dataset.label || opt.textContent;
         label.classList.toggle('select-placeholder', !opt);
         opts.forEach((o) => o.classList.toggle('selected', o === opt));
         close();
@@ -1344,7 +1329,6 @@ function createCalendarField(id, onChange) {
     const prevBtn = $(`${id}-prev`);
     const nextBtn = $(`${id}-next`);
     const hidden = $(id);
-    if (!trigger || !popover || !textEl || !gridEl || !hidden) return null;
 
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -1462,7 +1446,6 @@ window.openHolidaysModal = function () {
 
 function renderHolidaysList() {
     const wrap = $('holidays-list');
-    if (!wrap) return;
     const list = Object.entries(holidaysMap).sort(([a], [b]) => a.localeCompare(b));
     if (!list.length) {
         wrap.innerHTML = `<p class="no-ajustes">Nenhum feriado cadastrado.</p>`;
@@ -1471,14 +1454,14 @@ function renderHolidaysList() {
     wrap.innerHTML = list
         .map(
             ([date, h]) =>
-                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia] || h.abrangencia}</span><div class="ajuste-info"><p class="ajuste-valor ajuste-valor--date">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" data-click="deleteHoliday" data-click-args="${dargs(h.id)}" title="Excluir"><i class="fas fa-trash"></i></button></div>`
+                `<div class="ajuste-item"><span class="ajuste-tipo-badge credito">${HOLIDAY_ABR_LABEL[h.abrangencia]}</span><div class="ajuste-info"><p class="ajuste-valor ajuste-valor--date">${fmtDate(date)}</p><p class="ajuste-just">${escapeHtml(h.name)}</p></div><button class="btn-delete-ajuste" data-click="deleteHoliday" data-click-args="${dargs(h.id)}" title="Excluir"><i class="fas fa-trash"></i></button></div>`
         )
         .join('');
 }
 
 window.submitHoliday = async function () {
     const date = $('holiday-date')?.value || '';
-    const abrangencia = $('holiday-abrangencia')?.value || 'nacional';
+    const abrangencia = $('holiday-abrangencia').value;
     const name = $('holiday-name')?.value?.trim() || '';
     if (!date || !name) {
         showToast('Informe a data e o nome do feriado.', 'error');
@@ -1525,10 +1508,9 @@ window.deleteHoliday = async function (id) {
 
 window.stepNumber = function (id, direction) {
     const input = $(id);
-    if (!input) return;
     const step = Number(input.step) || 1;
-    const min = input.min === '' ? -Infinity : Number(input.min);
-    const max = input.max === '' ? Infinity : Number(input.max);
+    const min = Number(input.min);
+    const max = Number(input.max);
     const current = parseFloat(input.value);
     const next = Number.isNaN(current) ? Math.max(min, 0) : current + direction * step;
     input.value = Math.min(max, Math.max(min, next));
@@ -1537,9 +1519,9 @@ window.stepNumber = function (id, direction) {
 
 window.openSettingsModal = function () {
     const v = $('settings-vencimento');
-    if (v) v.value = hrSettings.banco_horas_vencimento_meses || 6;
+    if (v) v.value = hrSettings.banco_horas_vencimento_meses;
     const l = $('settings-limite-extra');
-    if (l) l.value = hrSettings.limite_extra_diario_min ?? CLTDomain.LIMITE_EXTRA_DIARIO_MIN_PADRAO;
+    if (l) l.value = hrSettings.limite_extra_diario_min;
     const al = $('settings-alert');
     if (al) {
         al.className = 'modal-alert';
@@ -1618,7 +1600,7 @@ const AUDIT_TIPO_LABELS = {
 function updateAuditFilterBtn() {
     const label = $('audit-filter-label');
     const btn = $('audit-btn-filter');
-    if (label) label.textContent = AUDIT_TIPO_LABELS[auditTipoFilter] ?? 'Filtro';
+    if (label) label.textContent = AUDIT_TIPO_LABELS[auditTipoFilter];
     btn?.classList.toggle('filtered', auditTipoFilter !== 'todos');
 }
 
@@ -1648,7 +1630,6 @@ function closeAuditFilterDropdown() {
 function setupAuditFilterDropdown() {
     const btn = $('audit-btn-filter');
     const menu = $('audit-filter-dropdown-menu');
-    if (!btn || !menu) return;
     document.body.appendChild(menu);
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1710,7 +1691,6 @@ function closeAuditEmpDropdown() {
 function setupAuditEmpDropdown() {
     const btn = $('audit-emp-btn');
     const menu = $('audit-emp-dropdown-menu');
-    if (!btn || !menu) return;
     document.body.appendChild(menu);
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1738,9 +1718,8 @@ window.setAuditEmp = function (btn) {
 
 window.renderAuditTable = async function () {
     const tbody = $('audit-tbody');
-    if (!tbody) return;
-    const empFilter = auditEmpFilter || 'all';
-    const month = $('audit-month')?.value || '';
+    const empFilter = auditEmpFilter;
+    const month = $('audit-month').value;
 
     let query = sb.from('activity_logs').select('*, employees(name, dept)').order('created_at', { ascending: false });
     if (empFilter !== 'all') query = query.eq('employee_id', empFilter);
@@ -1836,7 +1815,6 @@ function setupCustomMonthPicker() {
     const gridEl = $('mpd-grid');
     const prevBtn = $('mpd-prev-month');
     const nextBtn = $('mpd-next-month');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear, viewMonth;
@@ -1945,7 +1923,6 @@ function setupAuditMonthPicker() {
     const nextBtn = $('audit-month-next');
     const hidden = $('audit-month');
     const label = $('audit-month-label');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -2090,11 +2067,10 @@ window.handleOverlayClick = function (e, id) {
 function showToast(title, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = $('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(title)}</p>
         </div>
@@ -2118,19 +2094,16 @@ function setText(id, val) {
     if (el) el.textContent = val;
 }
 function fmtDate(key) {
-    if (!key) return '—';
     const [y, m, d] = key.split('-');
     return `${d}/${m}/${y}`;
 }
 function fmtMonthShort(key) {
-    if (!key) return '';
     const [y, m] = key.split('-');
     const mon = new Date(+y, +m - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
     return `${mon.charAt(0).toUpperCase() + mon.slice(1)}/${y}`;
 }
 
 function fmtMonthLabel(key) {
-    if (!key) return '';
     const [y, m] = key.split('-');
     const d = new Date(+y, +m - 1, 1);
     const lbl = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });

@@ -185,3 +185,11 @@ describe('approveVacation / confirmRejectVacation / confirmEscalateToRh', () => 
         global.document.getElementById = () => null;
     });
 });
+
+describe('bordas das funções auxiliares', () => {
+    test('iniciais ignoram espaços repetidos; escHtml aceita vazio; saldo de quem não foi calculado fica em branco', () => {
+        assert.equal(equipe.getInitials('Ana  Souza'), 'AS');
+        assert.equal(equipe.escHtml(null), '');
+        assert.equal(equipe.saldoBadgeHtml('ninguem'), '');
+    });
+});

@@ -137,3 +137,23 @@ describe('arquivos', () => {
         assert.deepEqual(opened.bytes, PDF);
     });
 });
+
+describe('entradas inválidas', () => {
+    test('chave de recuperação vazia normaliza para texto vazio e não é válida', () => {
+        assert.equal(E2E.isValidRecoveryKey(null), false);
+        assert.equal(E2E.isValidRecoveryKey(undefined), false);
+    });
+
+    test('abrir algo que não é arquivo cifrado ou com cabeçalho corrompido falha com mensagem clara', async () => {
+        await assert.rejects(
+            E2E.decryptFile(enc('%PDF-1.4 texto puro'), { bucket: 'documents', path: 'a.pdf', identities: [] }),
+            /não é um arquivo cifrado de ponta a ponta/
+        );
+        const eu = await identity();
+        const cifrado = await E2E.encryptFile(enc('conteudo'), { bucket: 'documents', path: 'a.pdf', mime: 'application/pdf', recipients: [eu] });
+        const corrompido = new Uint8Array(cifrado);
+        new DataView(corrompido.buffer).setUint32(4, 70000);
+        await assert.rejects(E2E.decryptFile(corrompido, { bucket: 'documents', path: 'a.pdf', identities: [eu] }), /cabeçalho inválido/);
+        await assert.rejects(E2E.decryptFile(corrompido.slice(0, 12), { bucket: 'documents', path: 'a.pdf', identities: [eu] }), /cabeçalho inválido/);
+    });
+});

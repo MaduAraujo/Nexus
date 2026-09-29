@@ -505,3 +505,11 @@ describe('códigos de recuperação: copiar com falha e baixar', () => {
         }
     });
 });
+
+describe('status com códigos de recuperação indisponíveis', () => {
+    test('se não der para consultar quantos códigos restam, diz isso em vez de afirmar que não há nenhum', async () => {
+        await mount({ listFactors: async () => ({ verified: [{ id: 'f1' }] }), recoveryRemaining: async () => null });
+        assert.match(text(), /Códigos de recuperação: não foi possível consultar\./);
+        assert.doesNotMatch(text(), /Você não tem códigos de recuperação/);
+    });
+});

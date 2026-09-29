@@ -98,3 +98,11 @@ describe('backfill: cifrar arquivos que já estavam em claro', () => {
         assert.deepEqual(client.objects.get('avatars/e1').bytes, JPEG);
     });
 });
+
+describe('listagem do Storage que falha', () => {
+    test('para a cifragem com a mensagem do Storage, sem fingir que terminou', async () => {
+        const client = fakeClient({});
+        client.storage.from = () => ({ list: async () => ({ data: null, error: { message: 'bucket inexistente' } }) });
+        await assert.rejects(run(client, { buckets: ['documents'] }), /Não foi possível listar documents\/: bucket inexistente/);
+    });
+});

@@ -71,18 +71,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dateFormatted = now.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
     const dateEl = document.getElementById('topbar-date-text');
     if (dateEl) dateEl.textContent = dateFormatted.replace('.', '').replace(/^\w/, (c) => c.toUpperCase());
-    const welcomeDateEl = document.getElementById('welcome-date-text');
-    if (welcomeDateEl) welcomeDateEl.textContent = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
     setupCalendar();
 
     const PINK = '#ec4899';
 
     const getInitials = (name) =>
-        (name || '?')
+        name
             .split(' ')
+            .filter(Boolean)
             .slice(0, 2)
-            .map((w) => w[0]?.toUpperCase() || '')
+            .map((w) => w[0].toUpperCase())
             .join('');
 
     const formatDate = (str) => {
@@ -121,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sidebarAvatar.textContent = ini;
             }
         }
-        if (sidebarName) sidebarName.textContent = e.name || '—';
+        if (sidebarName) sidebarName.textContent = e.name;
         if (sidebarRole) sidebarRole.textContent = e.role || 'Colaborador';
 
         const welcomeAvatar = document.getElementById('welcome-avatar');
@@ -141,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (welcomeGreeting) welcomeGreeting.textContent = greeting + ',';
-        if (welcomeName) welcomeName.textContent = e.name || '—';
+        if (welcomeName) welcomeName.textContent = e.name;
         if (welcomeStatus) welcomeStatus.textContent = e.status || 'Ativo';
 
         if (welcomeBadge) {
@@ -169,7 +168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadOnboarding(employeeId, admissionDate) {
         const card = document.getElementById('onboarding-card');
-        if (!card) return;
         const dias = daysSinceAdmission(admissionDate);
         if (dias === null || dias < 0 || dias > 100) {
             card.classList.add('hidden');
@@ -195,11 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const stagesEl = document.getElementById('onboarding-stages');
         const fillEl = document.getElementById('onboarding-progress-fill');
         const labelEl = document.getElementById('onboarding-progress-label');
-        if (!stagesEl) return;
 
         const total = onboardingTasks.length;
         const done = onboardingTasks.filter((t) => onboardingDoneIds.has(t.id)).length;
-        if (fillEl) fillEl.style.width = `${total ? Math.round((done / total) * 100) : 0}%`;
+        if (fillEl) fillEl.style.width = `${Math.round((done / total) * 100)}%`;
         if (labelEl) labelEl.textContent = `${done}/${total}`;
 
         const stages = [30, 60, 90]
@@ -262,7 +259,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadDocsAlert() {
         const alertEl = document.getElementById('docs-alert');
-        if (!alertEl) return;
         const { data } = await sb
             .from('documents')
             .select('id,name,tipo,requer_assinatura,assinado_em,created_at')
@@ -330,18 +326,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '../screens/login.html';
     };
 
-    window.showToast = function (title, type = 'success', msg = '') {
+    window.showToast = function (title, type, msg) {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = document.getElementById('toast-container');
-        if (!container) return;
-
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${escapeHtml(title)}</p>
-                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
+                <p class="toast-msg">${escapeHtml(msg)}</p>
             </div>
             <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>
@@ -365,8 +359,6 @@ function setupCalendar() {
     const gridEl = document.getElementById('calendar-grid');
     const prevBtn = document.getElementById('calendar-prev');
     const nextBtn = document.getElementById('calendar-next');
-    if (!trigger || !popover) return;
-
     const today = new Date();
     let viewYear = today.getFullYear();
     let viewMonth = today.getMonth();

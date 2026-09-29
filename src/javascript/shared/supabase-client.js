@@ -47,7 +47,7 @@ async function nexusCheckPassword(email, password) {
 
 let sb = nexusCreateClient(nexusSlotFromPage());
 
-(function interceptSupabaseErrors() {
+function interceptSupabaseErrors() {
     const probe = sb.from('__nexus_error_probe__').select();
     const BuilderProto = Object.getPrototypeOf(probe);
     if (!BuilderProto || typeof BuilderProto.then !== 'function' || BuilderProto.__nexusPatched) return;
@@ -68,9 +68,11 @@ let sb = nexusCreateClient(nexusSlotFromPage());
         );
     };
     BuilderProto.__nexusPatched = true;
-})();
+}
 
-(function interceptStorageErrors() {
+interceptSupabaseErrors();
+
+function interceptStorageErrors() {
     const storageProbe = sb.storage.from('__nexus_storage_error_probe__');
     const StorageProto = Object.getPrototypeOf(storageProbe);
     if (!StorageProto || StorageProto.__nexusPatched) return;
@@ -99,7 +101,9 @@ let sb = nexusCreateClient(nexusSlotFromPage());
         } catch {}
     });
     StorageProto.__nexusPatched = true;
-})();
+}
+
+interceptStorageErrors();
 
 function reportSupabaseError(error) {
     if (!error) return;
@@ -132,10 +136,13 @@ function watchNexusSpecificFeedback() {
     nexusFeedbackObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
-if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+function ligarAvisoDeErroDaTela() {
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
     document.addEventListener('DOMContentLoaded', watchNexusSpecificFeedback);
     watchNexusSpecificFeedback();
 }
+
+ligarAvisoDeErroDaTela();
 
 function queueNexusErrorToast(message) {
     watchNexusSpecificFeedback();

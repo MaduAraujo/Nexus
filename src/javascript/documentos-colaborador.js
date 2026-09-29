@@ -89,12 +89,12 @@ async function loadRequirements() {
 
 async function logAudit(action, doc) {
     await sb.from('document_audit_log').insert({
-        document_id: doc.id || null,
+        document_id: doc.id,
         document_name: doc.name,
         employee_id: myEmployeeId,
         action,
         actor_id: user.id,
-        actor_name: emp?.name || 'Colaborador',
+        actor_name: emp.name,
         actor_profile: 'colaborador',
         details: { email: user.email },
     });
@@ -131,7 +131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderPendingDocsBanner() {
         const banner = document.getElementById('pending-docs-banner');
-        if (!banner) return;
         const haveTipos = myDocs.filter((d) => d.source === 'Administrador' || d.status === 'aprovado').map((d) => d.tipo);
         const missing = missingRequiredTipos(requiredTipos, haveTipos);
         if (!missing.length) {
@@ -174,8 +173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 mobileSelectText.classList.toggle('date-trigger-placeholder', !current);
             }
         }
-
-        if (!docList) return;
 
         if (myDocs.length === 0) {
             docList.innerHTML = `
@@ -240,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const el = document.getElementById(id);
             if (el) el.textContent = val || '—';
         };
-        set('detail-employee', emp?.name || '—');
+        set('detail-employee', emp.name);
         set('detail-tipo2', doc.tipo);
         set('detail-date', date);
         set('detail-size', doc.size_label);
@@ -256,7 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const signBtn = document.getElementById('btn-sign-doc');
         if (signArea) {
             if (doc.assinado_em) {
-                signArea.innerHTML = `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${escapeHtml(doc.assinado_por) || escapeHtml(emp?.name) || ''} em ${new Date(doc.assinado_em).toLocaleString('pt-BR')}</p>`;
+                signArea.innerHTML = `<p class="assinatura-done"><i class="fas fa-signature"></i> Assinado por ${escapeHtml(doc.assinado_por || emp.name)} em ${new Date(doc.assinado_em).toLocaleString('pt-BR')}</p>`;
             } else if (doc.requer_assinatura) {
                 signArea.innerHTML = `<div class="assinatura-line"></div><p class="assinatura-label">Assinatura do Colaborador — pendente</p>`;
             } else {
@@ -359,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.openSignModal = () => {
         if (!selectedId) return;
-        if (signNameInput) signNameInput.value = emp?.name || '';
+        if (signNameInput) signNameInput.value = emp.name;
         if (signAgreeCheck) signAgreeCheck.checked = false;
         signModal?.classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -401,8 +398,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const textEl = document.getElementById('upload-tipo-text');
         const hidden = document.getElementById('upload-tipo');
         const popover = document.getElementById('upload-tipo-popover');
-        if (!trigger || !popover || !hidden) return;
-
         function open() {
             popover.classList.add('open');
             trigger.classList.add('active');
@@ -418,7 +413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.removeEventListener('keydown', onEscape);
         }
         function onOutsideClick(e) {
-            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+            if (!popover.contains(e.target)) close();
         }
         function onEscape(e) {
             if (e.key === 'Escape') close();
@@ -450,8 +445,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function setupMobileDocSelect() {
         const trigger = mobileSelectTrigger;
         const popover = mobileSelectPopover;
-        if (!trigger || !popover) return;
-
         function open() {
             popover.classList.add('open');
             trigger.classList.add('active');
@@ -467,7 +460,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.removeEventListener('keydown', onEscape);
         }
         function onOutsideClick(e) {
-            if (!popover.contains(e.target) && !trigger.contains(e.target)) close();
+            if (!popover.contains(e.target)) close();
         }
         function onEscape(e) {
             if (e.key === 'Escape') close();
@@ -625,14 +618,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showToast(title, msg, type = 'success') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = document.getElementById('toast-container');
-        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${escapeHtml(title)}</p>
-                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
+                <p class="toast-msg">${escapeHtml(msg)}</p>
             </div>
             <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>

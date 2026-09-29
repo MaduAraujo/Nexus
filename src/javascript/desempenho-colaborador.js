@@ -59,7 +59,6 @@ function buildCareerTrackGroups(titles, currentRole) {
 
 function renderCareerTrack() {
     const wrap = document.getElementById('career-track-list');
-    if (!wrap) return;
     if (!jobTitlesPublic.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-route"></i><p>O RH ainda não cadastrou o catálogo de cargos.</p></div>`;
         return;
@@ -137,7 +136,6 @@ function fmtDateBR(iso) {
 
 function renderReviews() {
     const wrap = document.getElementById('reviews-list');
-    if (!wrap) return;
     if (!reviews.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-star"></i><p>Nenhuma avaliação.</p></div>`;
         return;
@@ -176,7 +174,6 @@ window.toggleReviewCard = function (reviewId) {
 
 function renderGoals() {
     const wrap = document.getElementById('goals-list');
-    if (!wrap) return;
     if (!goals.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-bullseye"></i><p>Nenhuma meta cadastrada.</p></div>`;
         return;
@@ -239,7 +236,6 @@ async function loadTrainings() {
 
 function renderTrainings() {
     const wrap = document.getElementById('trainings-list');
-    if (!wrap) return;
     if (!trainings.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-graduation-cap"></i><p>Nenhum treinamento registrado ainda.</p></div>`;
         return;
@@ -429,7 +425,6 @@ async function loadDisciplinaryActions() {
 
 function renderDisciplinaryActions() {
     const wrap = document.getElementById('disciplinary-list');
-    if (!wrap) return;
     if (!disciplinaryActions.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-gavel"></i><p>Nenhuma medida disciplinar registrada.</p></div>`;
         return;
@@ -468,7 +463,6 @@ window.acknowledgeDisciplinary = async function (id) {
 const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 function setDateFieldValue(input, iso) {
-    if (!input) return;
     input.dataset.value = iso || '';
     if (iso) {
         const [y, m, d] = iso.split('-');
@@ -490,8 +484,6 @@ function initDateField(field) {
     const gridEl = field.querySelector('[data-cal-grid]');
     const prevBtn = field.querySelector('[data-cal-prev]');
     const nextBtn = field.querySelector('[data-cal-next]');
-    if (!input || !popover) return;
-
     const today = new Date();
     let viewYear = today.getFullYear();
     let viewMonth = today.getMonth();
@@ -606,7 +598,6 @@ async function loadMedicalLeaves() {
 
 function renderMedicalLeaves() {
     const wrap = document.getElementById('medical-leaves-list');
-    if (!wrap) return;
     if (!medicalLeaves.length) {
         wrap.innerHTML = `<div class="empty-state"><i class="fas fa-file-medical"></i><p>Nenhum atestado enviado.</p></div>`;
         return;
@@ -715,11 +706,10 @@ window.withdrawLeave = async function (id) {
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(msg)}</p>
         </div>

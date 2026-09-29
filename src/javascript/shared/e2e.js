@@ -63,8 +63,7 @@ window.NexusE2E = (function () {
     }
 
     (function wrapSignOut() {
-        const proto = typeof sb !== 'undefined' ? Object.getPrototypeOf(sb.auth) : null;
-        if (!proto || proto === Object.prototype || typeof proto.signOut !== 'function' || proto.__nexusE2EPatched) return;
+        const proto = Object.getPrototypeOf(sb.auth);
         const original = proto.signOut;
         proto.signOut = async function (...args) {
             try {
@@ -75,7 +74,6 @@ window.NexusE2E = (function () {
             } catch {}
             return original.apply(this, args);
         };
-        proto.__nexusE2EPatched = true;
     })();
 
     async function identityFromPkcs8(userId, pkcs8, row) {
@@ -257,7 +255,7 @@ window.NexusE2E = (function () {
     async function recipientsFor(employeeId) {
         if (!employeeId) return null;
         const [{ data: emp }, org] = await Promise.all([sb.rpc('e2e_employee_key', { p_employee_id: employeeId }), orgPublic()]);
-        const employee = Array.isArray(emp) ? emp[0] : emp;
+        const employee = emp?.[0];
         if (!employee?.public_key || !org) return null;
         return [{ publicJwk: employee.public_key, fingerprint: employee.fingerprint }, org];
     }

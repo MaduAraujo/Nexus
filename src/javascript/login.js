@@ -16,11 +16,10 @@ let _loginPassword = null;
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(msg)}</p>
         </div>
@@ -47,7 +46,6 @@ function setLoginLoading(on) {
     const btn = document.getElementById('btn-login');
     const text = document.getElementById('btn-login-text');
     const spin = document.getElementById('spinner-login');
-    if (!btn) return;
     btn.disabled = on;
     if (text) text.style.opacity = on ? '0' : '1';
     if (spin) spin.style.display = on ? 'block' : 'none';
@@ -201,7 +199,6 @@ function goToHome() {
 
 function setNavBack(visible, onClick) {
     const btn = document.getElementById('nav-back-btn');
-    if (!btn) return;
     btn.style.display = visible ? 'flex' : 'none';
     btn.onclick = visible ? onClick : null;
 }
@@ -272,7 +269,7 @@ async function reportSecurity(rpcName, args) {
 async function setupEndToEnd(profile) {
     const password = _loginPassword;
     _loginPassword = null;
-    if (!password || !window.NexusE2E) return;
+    if (!password) return;
     const isAdmin = profile.profile === 'Administrador';
     try {
         const result = await NexusE2E.afterLogin({ password, isAdmin });
@@ -302,7 +299,7 @@ async function finishLogin(profile) {
     if (profile.profile === 'colaborador' && profile.employee_id) {
         await sb.from('employees').update({ last_access: new Date().toISOString() }).eq('id', profile.employee_id);
     }
-    window.location.href = PROFILE_HOME[profile.profile] || PROFILE_HOME.colaborador;
+    window.location.href = PROFILE_HOME[profile.profile];
 }
 
 window.updateMfaBtnState = function () {
@@ -325,7 +322,7 @@ function setMfaLoading(on) {
 
 window.submitMfaCode = async function () {
     if (!_mfaPending || document.getElementById('btn-mfa')?.disabled) return;
-    const code = document.getElementById('mfa-code')?.value || '';
+    const code = document.getElementById('mfa-code').value;
     setMfaLoading(true);
     if (_mfaPending.recovery) {
         await submitRecoveryCode(code);
@@ -528,7 +525,7 @@ window.forgotSendCode = async function () {
 };
 
 window.forgotValidatePass = function () {
-    const np = document.getElementById('new-pass')?.value || '';
+    const np = document.getElementById('new-pass').value;
     const cp = document.getElementById('confirm-pass')?.value || '';
     const btn = document.getElementById('btn-reset');
     const err = document.getElementById('confirm-pass-err');
@@ -539,7 +536,7 @@ window.forgotValidatePass = function () {
 };
 
 window.forgotReset = async function () {
-    const np = document.getElementById('new-pass')?.value || '';
+    const np = document.getElementById('new-pass').value;
     if (document.getElementById('btn-reset')?.disabled) return;
 
     setForgotBtnLoading('btn-reset', 'btn-reset-text', 'spin-reset', true);
@@ -574,21 +571,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.openCreatePasswordModal = function () {
         const modal = document.getElementById('create-pass-modal');
-        if (!modal) return;
         modal.style.display = 'flex';
         requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('fam-visible')));
         setTimeout(() => document.getElementById('create-pass-new')?.focus(), 150);
     };
 
     window.validateCreatePass = function () {
-        const np = document.getElementById('create-pass-new')?.value || '';
+        const np = document.getElementById('create-pass-new').value;
         const cp = document.getElementById('create-pass-confirm')?.value || '';
         const err = document.getElementById('create-pass-err');
         const btn = document.getElementById('btn-create-pass');
         const problem = passwordProblem(np);
         const valid = !problem && np === cp;
         if (btn) btn.disabled = !valid;
-        if (!err) return;
         if (!cp) err.textContent = '';
         else if (problem) err.textContent = problem;
         else if (np !== cp) err.textContent = 'As senhas não coincidem.';
@@ -596,7 +591,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.submitCreatePass = async function () {
-        const np = document.getElementById('create-pass-new')?.value || '';
+        const np = document.getElementById('create-pass-new').value;
         const btn = document.getElementById('btn-create-pass');
         const text = document.getElementById('btn-create-pass-text');
         const spin = document.getElementById('spin-create-pass');

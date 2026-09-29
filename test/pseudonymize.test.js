@@ -149,3 +149,41 @@ describe('pseudonymizeRows + shapeSnapshot', () => {
         assert.equal(ps.unmask(snap.recent_decisions[0].description), 'Férias de Ana Lima aprovadas');
     });
 });
+
+describe('pseudonimização — casos de borda', () => {
+    test('pessoa sem nome recebe apelido, mas não vira padrão de busca; lista sem nomes não mascara nada', () => {
+        const ps = createPseudonymizer([{ id: 'x1', name: null }, { id: 'x2', name: '   ' }, { id: 'x1', name: 'Duplicada' }, null, { name: 'Sem id' }]);
+        assert.equal(ps.aliasOf('x1'), '[P1]');
+        assert.equal(ps.aliasOf('x2'), '[P2]');
+        assert.equal(ps.mask('Texto com Duplicada e Sem id'), 'Texto com Duplicada e Sem id');
+        assert.equal(ps.unmask('[P1] e [P2]'), ' e    ');
+    });
+
+    test('valores que não são texto passam intactos em mask e unmask', () => {
+        const ps = createPseudonymizer(PEOPLE);
+        assert.equal(ps.mask(42), 42);
+        assert.equal(ps.unmask(null), null);
+        assert.deepEqual(ps.maskDeep({ n: 1, ok: true, vazio: null }), { n: 1, ok: true, vazio: null });
+    });
+
+    test('variante Unicode rara que casa pela caixa mas não pelo nome normalizado é devolvida sem troca', () => {
+        const ps = createPseudonymizer([{ id: 's1', name: 'Sara Nunes' }]);
+        assert.equal(ps.mask('ſara nunes'), 'ſara nunes');
+        assert.equal(ps.mask('sara nunes'), '[P1]');
+    });
+
+    test('linha de streaming com JSON inválido passa como veio; stream que termina sem quebra de linha é processado', async () => {
+        const ps = createPseudonymizer(PEOPLE);
+        const enc = new TextEncoder();
+        const source = new ReadableStream({
+            start(c) {
+                c.enqueue(enc.encode('data: {quebrado\n'));
+                c.enqueue(enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Oi [P1]' } }] })}`));
+                c.close();
+            },
+        });
+        const text = await new Response(source.pipeThrough(createSseUnmaskStream(ps.unmask))).text();
+        assert.match(text, /data: \{quebrado/);
+        assert.match(text, /Oi João Silva/);
+    });
+});

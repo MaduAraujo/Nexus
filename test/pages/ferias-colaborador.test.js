@@ -744,3 +744,15 @@ describe('ferias-colaborador.html — avisos ao vivo enquanto escolhe as datas',
         assert.equal(page.$('#btn-confirm').disabled, true);
     });
 });
+
+describe('ferias-colaborador.html — falha ao conferir as faltas', () => {
+    test('saldo aparece como indisponível e o pedido fica bloqueado, em vez de mostrar um saldo errado', async () => {
+        const client = colabClient();
+        client.errors['time_records:select'] = { message: 'rede' };
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.text('#val-saldo'), '—');
+        assert.match(page.text('#sub-saldo'), /Não foi possível conferir as faltas agora/);
+        assert.equal(page.$('#btn-solicitar').disabled, true);
+        assert.match(page.text('#history-list'), /Nenhuma|Solicitações|férias/i, 'o resto da tela continua carregando');
+    });
+});

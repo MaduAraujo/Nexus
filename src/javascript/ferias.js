@@ -44,7 +44,7 @@ function dbToEmp(row) {
 }
 
 function isEstagioOuAprendiz(emp) {
-    const t = emp?.contractType || '';
+    const t = emp.contractType;
     return t === 'estagio' || t === 'estágio' || t === 'aprendiz';
 }
 
@@ -64,18 +64,18 @@ function getEmployee(empId) {
 }
 
 function initials(name) {
-    return (name || '?')
+    return name
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
+        .map((w) => w[0].toUpperCase())
         .join('');
 }
 
 function nameToColor(name) {
     const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
     let h = 0;
-    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+    for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
     return p[Math.abs(h) % p.length];
 }
 
@@ -153,14 +153,12 @@ function buildAcquisitiveCycles(admDate, today) {
 }
 
 function currentCycleOf(emp, today) {
-    if (!emp?.admissionDate) return null;
     const admDate = new Date(emp.admissionDate + 'T00:00:00');
     const cycles = buildAcquisitiveCycles(admDate, today);
     return cycles.length ? cycles[cycles.length - 1] : null;
 }
 
 function countFractionsInCycle(empId, cycle) {
-    if (!cycle) return [];
     return vacations.filter(
         (v) =>
             v.employeeId === empId &&
@@ -199,14 +197,12 @@ function computeFeriasVencidas(emp, today) {
     return expiredDays > 0 ? { days: expiredDays, since: oldestConcessivo } : null;
 }
 
-async function calcFaltasInjustificadas(empId, cycleStart, cycleEnd) {
+async function calcFaltasInjustificadas(empId, cycleStart) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const rangeEnd = cycleEnd < today ? cycleEnd : today;
-    if (rangeEnd < cycleStart) return 0;
     const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const inicio = fmt(cycleStart),
-        fim = fmt(rangeEnd);
+        fim = fmt(today);
 
     return (await window.NexusFaltas.listar(empId, inicio, fim, { workLoad: getEmployee(empId)?.workLoad })).length;
 }
@@ -229,19 +225,19 @@ function renderTable() {
         return;
     }
 
-    filtered.sort((a, b) => new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate));
+    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     filtered.forEach((v) => {
         const emp = getEmployee(v.employeeId);
-        const name = emp ? emp.name : '—';
-        const dept = emp ? emp.dept || '—' : '—';
+        const name = emp.name;
+        const dept = emp.dept || '—';
         const tr = document.createElement('tr');
         tr.dataset.id = v.id;
         tr.innerHTML = `
             <td class="select-cell">${v.status === 'pendente' ? `<label class="checkbox-label row-check"><input type="checkbox" data-id="${v.id}" ${selectedIds.has(v.id) ? 'checked' : ''} data-change="toggleRowSelect" data-change-args="${dargs(v.id, { $: 'this.checked' })}"><span class="checkbox-box"></span></label>` : ''}</td>
             <td class="col-employee"><div class="emp-cell">${empAvatarHtml(emp)}<div><div class="emp-name">${escHtml(name)}</div><div class="emp-dept">${escHtml(dept)}</div></div></div></td>
             <td><div class="period-dates">${formatDate(v.startDate)} → ${formatDate(v.endDate)}</div></td>
-            <td><strong>${v.days || '—'}</strong></td>
+            <td><strong>${v.days}</strong></td>
             <td>${v.abono ? '<span class="badge-abono"><i class="fas fa-coins"></i> Abono</span>' : '<span class="badge-no-abono">—</span>'}</td>
             <td>${buildBadge(v.status)}${v.coletiva ? ' <span class="badge-coletiva" title="Férias coletivas">Coletiva</span>' : ''}</td>
             <td class="col-actions"><div class="actions-cell">${buildActions(v)}</div></td>`;
@@ -276,7 +272,6 @@ function updateBulkBar() {
         selectAll.checked = rowChecks.length > 0 && [...rowChecks].every((cb) => cb.checked);
         selectAll.disabled = rowChecks.length === 0;
     }
-    if (!bar) return;
     if (selectedIds.size > 0) {
         bar.classList.add('open');
         if (countEl) countEl.textContent = `${selectedIds.size} selecionada${selectedIds.size === 1 ? '' : 's'}`;
@@ -292,7 +287,7 @@ window.bulkApprove = async function () {
     const conflicts = targets.filter((v) => checkDeptConflict(v));
     if (conflicts.length > 0) {
         const names = conflicts
-            .map((v) => getEmployee(v.employeeId)?.name || '?')
+            .map((v) => getEmployee(v.employeeId).name)
             .slice(0, 5)
             .join(', ');
         if (
@@ -335,7 +330,7 @@ window.bulkReject = function () {
 
 function buildBadge(status) {
     const map = { pendente: 'Pendente', aprovado: 'Aprovado', concluido: 'Concluído', recusado: 'Recusado', cancelado: 'Cancelado' };
-    return `<span class="badge badge--${status}">${map[status] || status}</span>`;
+    return `<span class="badge badge--${status}">${map[status]}</span>`;
 }
 
 function buildActions(v) {
@@ -402,9 +397,9 @@ window.openKpiModal = function (type) {
             .map((v) => {
                 const emp = getEmployee(v.employeeId);
                 return {
-                    name: emp?.name || '—',
-                    dept: `${emp?.dept || '—'} · ${formatDate(v.startDate)} → ${formatDate(v.endDate)}`,
-                    badge: `${v.days || '—'}d`,
+                    name: emp.name,
+                    dept: `${emp.dept || '—'} · ${formatDate(v.startDate)} → ${formatDate(v.endDate)}`,
+                    badge: `${v.days}d`,
                 };
             });
     } else if (type === 'upcoming') {
@@ -412,7 +407,7 @@ window.openKpiModal = function (type) {
             .filter((v) => v.status === 'aprovado' && new Date(v.startDate + 'T00:00:00') > today && new Date(v.startDate + 'T00:00:00') <= in15)
             .map((v) => {
                 const emp = getEmployee(v.employeeId);
-                return { name: emp?.name || '—', dept: `${emp?.dept || '—'} · sai em ${formatDate(v.startDate)}`, badge: `${v.days || '—'}d` };
+                return { name: emp.name, dept: `${emp.dept || '—'} · sai em ${formatDate(v.startDate)}`, badge: `${v.days}d` };
             });
     } else if (type === 'ativas') {
         items = vacations
@@ -420,7 +415,7 @@ window.openKpiModal = function (type) {
             .map((v) => {
                 const emp = getEmployee(v.employeeId);
                 const daysLeft = Math.ceil((new Date(v.endDate + 'T00:00:00') - today) / 86400000);
-                return { name: emp?.name || '—', dept: `${emp?.dept || '—'} · volta em ${formatDate(v.endDate)}`, badge: `${daysLeft}d` };
+                return { name: emp.name, dept: `${emp.dept || '—'} · volta em ${formatDate(v.endDate)}`, badge: `${daysLeft}d` };
             });
     }
 
@@ -453,7 +448,7 @@ window.closeKpiInfoModal = function () {
 function updateFilterBtn() {
     const label = document.getElementById('filter-label');
     const btnEl = document.getElementById('btn-filter');
-    if (label) label.textContent = FILTER_LABELS[currentFilter] ?? 'Filtro';
+    if (label) label.textContent = FILTER_LABELS[currentFilter];
     btnEl?.classList.toggle('filtered', currentFilter !== 'todos');
 }
 
@@ -473,7 +468,6 @@ function closeFilterDropdown() {
 function setupFilterDropdown() {
     const btn = document.getElementById('btn-filter');
     const menu = document.getElementById('filter-dropdown-menu');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.classList.contains('open') ? closeFilterDropdown() : openFilterDropdown();
@@ -491,7 +485,6 @@ function setupExportDropdown() {
     const btn = document.getElementById('btn-export');
     const menu = document.getElementById('export-dropdown-menu');
     const chevron = document.getElementById('export-chevron');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const opening = !menu.classList.contains('open');
@@ -521,7 +514,6 @@ window.clearSearch = function () {
 function setupSearchListeners() {
     const input = document.getElementById('search-input');
     const clear = document.getElementById('search-clear');
-    if (!input) return;
     input.addEventListener('input', () => {
         currentSearch = input.value.trim();
         clear.classList.toggle('hidden', !currentSearch);
@@ -548,13 +540,12 @@ function checkDeptConflict(vacation) {
     const end = new Date(vacation.endDate + 'T00:00:00');
     const conflicts = vacations.filter((v) => {
         if (v.id === vacation.id || v.status !== 'aprovado') return false;
-        const otherEmp = getEmployee(v.employeeId);
-        if (otherEmp?.dept !== dept) return false;
+        if (getEmployee(v.employeeId).dept !== dept) return false;
         const vStart = new Date(v.startDate + 'T00:00:00');
         const vEnd = new Date(v.endDate + 'T00:00:00');
         return start <= vEnd && end >= vStart;
     });
-    return conflicts.length > 0 ? { dept, count: conflicts.length, names: conflicts.map((v) => getEmployee(v.employeeId)?.name || '?') } : null;
+    return conflicts.length > 0 ? { dept, count: conflicts.length, names: conflicts.map((v) => getEmployee(v.employeeId).name) } : null;
 }
 
 async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
@@ -596,7 +587,7 @@ window.cancelApprovedVacation = async function (id) {
     if (!vac) return;
     const emp = getEmployee(vac.employeeId);
     const ok = confirm(
-        `Cancelar as férias aprovadas de ${emp?.name || 'colaborador'}?\n\nSe já houver um evento de adiantamento de férias gravado no holerite do mês, ele será removido.`
+        `Cancelar as férias aprovadas de ${emp.name}?\n\nSe já houver um evento de adiantamento de férias gravado no holerite do mês, ele será removido.`
     );
     if (!ok) return;
 
@@ -614,7 +605,6 @@ window.cancelApprovedVacation = async function (id) {
 
 window.approveRequest = async function (id) {
     const vac = vacations.find((v) => v.id === id);
-    if (!vac) return;
     const conflict = checkDeptConflict(vac);
     if (conflict) {
         const names = conflict.names.slice(0, 3).join(', ') + (conflict.names.length > 3 ? '…' : '');
@@ -642,9 +632,8 @@ window.approveRequest = async function (id) {
 
 window.openRejectModal = function (id) {
     rejectingId = id;
-    const v = vacations.find((v) => v.id === id);
-    const emp = v ? getEmployee(v.employeeId) : null;
-    document.getElementById('reject-sub').textContent = emp ? `Colaborador: ${emp.name}` : 'Informe o motivo da recusa';
+    const emp = getEmployee(vacations.find((v) => v.id === id).employeeId);
+    document.getElementById('reject-sub').textContent = `Colaborador: ${emp.name}`;
     document.getElementById('reject-reason').value = '';
     clearAlert('reject-alert');
     openModal('reject-modal');
@@ -749,7 +738,6 @@ window.onAddEmployeeChange = function () {
 
 async function renderEmpFeriasInfo(empId) {
     const el = document.getElementById('add-emp-ferias-info');
-    if (!el) return;
     const abonoEl = document.getElementById('add-abono');
     if (!empId) {
         el.classList.add('hidden');
@@ -783,11 +771,16 @@ async function renderEmpFeriasInfo(empId) {
             abonoEl.disabled = true;
         }
     } else {
-        const faltas = await calcFaltasInjustificadas(empId, cycle.start, cycle.end);
-        const direito = diasDireitoPorFaltas(faltas);
-        html += ` · direito a <strong>${direito} dias</strong> neste ciclo`;
-        if (faltas > 0) html += ` (${faltas} falta${faltas === 1 ? '' : 's'} injustificada${faltas === 1 ? '' : 's'})`;
-        negativo = direito < 30;
+        try {
+            const faltas = await calcFaltasInjustificadas(empId, cycle.start);
+            const direito = diasDireitoPorFaltas(faltas);
+            html += ` · direito a <strong>${direito} dias</strong> neste ciclo`;
+            if (faltas > 0) html += ` (${faltas} falta${faltas === 1 ? '' : 's'} injustificada${faltas === 1 ? '' : 's'})`;
+            negativo = direito < 30;
+        } catch {
+            html += ' · não foi possível conferir as faltas agora, confira o direito antes de registrar';
+            negativo = true;
+        }
         if (abonoEl) abonoEl.disabled = false;
     }
     el.innerHTML = html;
@@ -797,19 +790,18 @@ async function renderEmpFeriasInfo(empId) {
 
 async function renderEmpSaldoBanco() {
     const el = document.getElementById('add-emp-saldo-info');
-    if (!el) return;
     const empId = document.getElementById('add-employee')?.value;
     if (!empId) {
         el.classList.add('hidden');
         return;
     }
     const emp = getEmployee(empId);
-    const tipo = (emp?.contractType || 'clt').toLowerCase();
+    const tipo = emp.contractType;
     if (tipo === 'pj') {
         el.classList.add('hidden');
         return;
     }
-    const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: tipo, workLoad: emp?.workLoad });
+    const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: tipo, workLoad: emp.workLoad });
 
     const now = new Date();
     const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -841,7 +833,6 @@ window.closeAddModal = function () {
 
 function updateAddSubmitState() {
     const btn = document.getElementById('btn-add-submit');
-    if (!btn) return;
     const empId = document.getElementById('add-employee')?.value;
     const start = document.getElementById('add-start')?.value;
     const end = document.getElementById('add-end')?.value;
@@ -921,7 +912,7 @@ window.submitAdd = async function () {
                     )
                 )
                     return;
-            } else if (fractionNumber === 3 && !others.some((v) => (v.days || 0) >= 14) && days < 14) {
+            } else if (fractionNumber === 3 && !others.some((v) => v.days >= 14) && days < 14) {
                 if (
                     !confirm(
                         'Nenhuma fração deste ciclo tem 14 dias corridos ou mais. A CLT exige que ao menos uma tenha no mínimo 14 dias (art. 134 §1º). Deseja registrar mesmo assim?'
@@ -980,7 +971,6 @@ function createSelectField(id, onChange) {
     const popover = document.getElementById(`${id}-popover`);
     const label = document.getElementById(`${id}-label`);
     const hidden = document.getElementById(id);
-    if (!trigger || !popover || !label || !hidden) return null;
 
     function open() {
         claimPopover(close);
@@ -1046,7 +1036,6 @@ function createCalendarField(id) {
     const prevBtn = document.getElementById(`${id}-prev`);
     const nextBtn = document.getElementById(`${id}-next`);
     const hidden = document.getElementById(id);
-    if (!trigger || !popover || !textEl || !gridEl || !hidden) return null;
 
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
@@ -1153,7 +1142,6 @@ function createCalendarField(id) {
 
 function populateEmployeeSelect() {
     const popover = document.getElementById('add-employee-popover');
-    if (!popover) return;
     popover.innerHTML = employees
         .filter((e) => e.status !== 'Inativo')
         .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
@@ -1166,7 +1154,6 @@ function populateEmployeeSelect() {
 
 function populateSubstitutoSelect(excludeId, selectedId) {
     const popover = document.getElementById('add-substituto-popover');
-    if (!popover) return;
     popover.innerHTML =
         '<button type="button" class="select-option" role="option" data-value="">Nenhum</button>' +
         employees
@@ -1188,7 +1175,6 @@ function setDatePickerValue(fieldId, isoDate) {
 
 function populateColetivaDeptSelect() {
     const sel = document.getElementById('coletiva-dept-popover');
-    if (!sel) return;
     const depts = [...new Set(employees.filter((e) => e.status !== 'Inativo' && e.dept).map((e) => e.dept))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     sel.innerHTML =
         '<button type="button" class="select-option" role="option" data-value="">Toda a empresa</button>' +
@@ -1197,7 +1183,6 @@ function populateColetivaDeptSelect() {
 
 window.updateColetivaSubmitState = function () {
     const btn = document.getElementById('btn-coletiva-submit');
-    if (!btn) return;
     const start = document.getElementById('coletiva-start')?.value;
     const end = document.getElementById('coletiva-end')?.value;
     btn.disabled = !(start && end);
@@ -1290,7 +1275,7 @@ window.submitColetiva = async function () {
         showAlert('coletiva-alert', 'Erro ao registrar férias coletivas. Tente novamente.', 'error');
         return;
     }
-    const inserted = (data || []).map(dbToVacation);
+    const inserted = data.map(dbToVacation);
     inserted.forEach((v) => vacations.unshift(v));
 
     await Promise.all(inserted.map((v) => gerarEventoAdiantamentoFerias(v)));
@@ -1309,8 +1294,8 @@ window.openViewModal = function (id) {
     const v = vacations.find((v) => v.id === id);
     if (!v) return;
     const emp = getEmployee(v.employeeId);
-    const name = emp ? emp.name : '—';
-    const dept = emp ? emp.dept || '—' : '—';
+    const name = emp.name;
+    const dept = emp.dept || '—';
 
     let fractionInfo = '—';
     if (emp?.admissionDate) {
@@ -1327,14 +1312,14 @@ window.openViewModal = function (id) {
         { label: 'Departamento', value: escHtml(dept) },
         { label: 'Data de Início', value: formatDate(v.startDate) },
         { label: 'Data de Fim', value: formatDate(v.endDate) },
-        { label: 'Dias', value: v.days || '—' },
+        { label: 'Dias', value: v.days },
         { label: 'Fração no ciclo', value: fractionInfo },
         { label: 'Abono Pecuniário', value: v.abono ? 'Sim' : 'Não' },
-        { label: 'Substituto / Cobertura', value: v.substitutoId ? escHtml(getEmployee(v.substitutoId)?.name || '—') : '—' },
+        { label: 'Substituto / Cobertura', value: v.substitutoId ? escHtml(getEmployee(v.substitutoId).name) : '—' },
         { label: 'Status', value: buildBadge(v.status) + (v.coletiva ? ' <span class="badge-coletiva">Coletiva</span>' : '') },
         ...(v.obs ? [{ label: 'Observação', value: escHtml(v.obs) }] : []),
         ...(v.rejectionReason ? [{ label: 'Motivo da Recusa', value: escHtml(v.rejectionReason) }] : []),
-        { label: 'Criado em', value: v.createdAt ? new Date(v.createdAt).toLocaleDateString('pt-BR') : '—' },
+        { label: 'Criado em', value: new Date(v.createdAt).toLocaleDateString('pt-BR') },
     ];
     const rowsHtml = rows
         .map((r) => `<div class="view-row"><span class="view-row-label">${escapeHtml(r.label)}</span><span class="view-row-value">${r.value}</span></div>`)
@@ -1356,7 +1341,6 @@ window.closeViewModal = function () {
 
 window.generateReceipt = function (id) {
     const v = vacations.find((v) => v.id === id);
-    if (!v) return;
     const emp = getEmployee(v.employeeId);
     const win = window.open('', '_blank');
     if (!win) {
@@ -1365,16 +1349,16 @@ window.generateReceipt = function (id) {
     }
     const hoje = new Date().toLocaleDateString('pt-BR');
     const cssHref = new URL('../styles/ferias-recibo-print.css', window.location.href).href;
-    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo de Férias — ${escHtml(emp?.name || '')}</title>
+    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo de Férias — ${escHtml(emp.name)}</title>
         <link rel="stylesheet" href="${cssHref}"></head><body>
         <h1>Recibo e Aviso de Concessão de Férias</h1>
         <p class="sub">Emitido em ${hoje} · Nexus RH</p>
         <table>
-            <tr><td class="label">Colaborador</td><td>${escHtml(emp?.name || '—')}</td></tr>
-            <tr><td class="label">Departamento / Função</td><td>${escHtml(emp?.dept || '—')} ${emp?.role ? '/ ' + escHtml(emp.role) : ''}</td></tr>
+            <tr><td class="label">Colaborador</td><td>${escHtml(emp.name)}</td></tr>
+            <tr><td class="label">Departamento / Função</td><td>${escHtml(emp.dept || '—')} ${emp.role ? '/ ' + escHtml(emp.role) : ''}</td></tr>
             <tr><td class="label">Período de Gozo</td><td>${formatDate(v.startDate)} a ${formatDate(v.endDate)} (${v.days} dias corridos)</td></tr>
             <tr><td class="label">Abono Pecuniário (⅓ vendido)</td><td>${v.abono ? 'Sim — 10 dias vendidos, trabalhados fora do período de gozo e pagos neste recibo' : 'Não'}</td></tr>
-            <tr><td class="label">Substituto / Cobertura</td><td>${escHtml(v.substitutoId ? getEmployee(v.substitutoId)?.name || '—' : '—')}</td></tr>
+            <tr><td class="label">Substituto / Cobertura</td><td>${escHtml(v.substitutoId ? getEmployee(v.substitutoId).name : '—')}</td></tr>
             <tr><td class="label">Natureza</td><td>${v.coletiva ? 'Férias coletivas' : 'Férias individuais'}</td></tr>
         </table>
         <div class="box">
@@ -1421,15 +1405,14 @@ function buildIcsContent(title, startDate, endDate, description) {
 
 window.downloadIcs = function (id) {
     const v = vacations.find((v) => v.id === id);
-    if (!v) return;
     const emp = getEmployee(v.employeeId);
-    const title = `Férias — ${emp?.name || 'Colaborador'}`;
+    const title = `Férias — ${emp.name}`;
     const desc = `Período de férias de ${formatDate(v.startDate)} a ${formatDate(v.endDate)} (${v.days} dias).`;
     const blob = new Blob([buildIcsContent(title, v.startDate, v.endDate, desc)], { type: 'text/calendar;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ferias_${(emp?.name || 'colaborador').replace(/\s+/g, '_')}.ics`;
+    a.download = `ferias_${emp.name.replace(/\s+/g, '_')}.ics`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1438,9 +1421,8 @@ window.downloadIcs = function (id) {
 
 window.openGoogleCalendar = function (id) {
     const v = vacations.find((v) => v.id === id);
-    if (!v) return;
     const emp = getEmployee(v.employeeId);
-    const title = encodeURIComponent(`Férias — ${emp?.name || 'Colaborador'}`);
+    const title = encodeURIComponent(`Férias — ${emp.name}`);
     const details = encodeURIComponent(`Período de férias de ${formatDate(v.startDate)} a ${formatDate(v.endDate)} (${v.days} dias).`);
     const dates = `${icsDate(v.startDate)}/${icsDateExclusiveEnd(v.endDate)}`;
     window.open(`https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`, '_blank');
@@ -1450,17 +1432,17 @@ const STATUS_LABELS_EXPORT = { pendente: 'Pendente', aprovado: 'Aprovado', concl
 
 function buildExportRows() {
     return applyFilters(vacations)
-        .sort((a, b) => new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map((v) => {
             const emp = getEmployee(v.employeeId);
             const sub = getEmployee(v.substitutoId);
             return {
-                nome: emp?.name || '—',
-                dept: emp?.dept || '—',
+                nome: emp.name,
+                dept: emp.dept || '—',
                 inicio: formatDate(v.startDate),
                 fim: formatDate(v.endDate),
-                dias: v.days || '—',
-                status: STATUS_LABELS_EXPORT[v.status] || v.status,
+                dias: v.days,
+                status: STATUS_LABELS_EXPORT[v.status],
                 abono: v.abono ? 'Sim' : 'Não',
                 coletiva: v.coletiva ? 'Sim' : 'Não',
                 substituto: sub?.name || '—',
@@ -1476,7 +1458,7 @@ window.exportVacationsCSV = function () {
         return;
     }
     const header = ['Colaborador', 'Departamento', 'Início', 'Fim', 'Dias', 'Status', 'Abono', 'Coletiva', 'Substituto', 'Observação'];
-    const escCsv = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+    const escCsv = (s) => `"${String(s).replace(/"/g, '""')}"`;
     const lines = [header.map(escCsv).join(';')];
     rows.forEach((r) => lines.push([r.nome, r.dept, r.inicio, r.fim, r.dias, r.status, r.abono, r.coletiva, r.substituto, r.obs].map(escCsv).join(';')));
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
@@ -1536,7 +1518,6 @@ window.openExpiredModal = function () {
         .sort((a, b) => b.vencida.days - a.vencida.days);
 
     const body = document.getElementById('expired-body');
-    if (!body) return;
     if (items.length === 0) {
         body.innerHTML = `<div class="table-empty"><i class="fas fa-circle-check"></i><p>Nenhuma férias vencida no momento.</p></div>`;
     } else {
@@ -1546,7 +1527,7 @@ window.openExpiredModal = function () {
             <div class="expired-row">
                 <div>
                     <div class="expired-name">${escHtml(emp.name)}</div>
-                    <div class="expired-dept">${escHtml(emp.dept || '—')} · vencida desde ${vencida.since ? vencida.since.toLocaleDateString('pt-BR') : '—'}</div>
+                    <div class="expired-dept">${escHtml(emp.dept || '—')} · vencida desde ${vencida.since.toLocaleDateString('pt-BR')}</div>
                 </div>
                 <div class="expired-days">${vencida.days}d</div>
             </div>`
@@ -1563,7 +1544,7 @@ window.closeExpiredModal = function () {
 let calendarYear = new Date().getFullYear();
 
 function deptColor(dept) {
-    return nameToColor(dept || '—');
+    return nameToColor(dept);
 }
 
 function renderGantt() {
@@ -1609,8 +1590,8 @@ function renderGantt() {
     rowsEl.innerHTML = '';
     Object.keys(byEmp).forEach((empId, empIdx) => {
         const emp = getEmployee(empId);
-        const name = emp ? emp.name : `ID ${empId}`;
-        const dept = emp ? emp.dept || '' : '';
+        const name = emp.name;
+        const dept = emp.dept || '';
         const row = document.createElement('div');
         row.className = 'gantt-row';
         const barsDiv = document.createElement('div');
@@ -1638,16 +1619,16 @@ function renderGantt() {
             bar.dataset.dept = dept;
             bar.dataset.start = v.startDate;
             bar.dataset.end = v.endDate;
-            bar.dataset.days = v.days || '—';
+            bar.dataset.days = v.days;
             bar.dataset.status = isActive ? 'Em gozo agora' : v.status === 'aprovado' ? 'Aprovado' : 'Concluído';
             bar.addEventListener('mouseenter', showGanttTooltip);
             bar.addEventListener('mousemove', positionGanttTooltip);
             bar.addEventListener('mouseleave', hideGanttTooltip);
             barsDiv.appendChild(bar);
         });
-        const gAvatar = emp?.avatarUrl
+        const gAvatar = emp.avatarUrl
             ? `<div class="g-avatar" data-bg-img="${escapeHtml(emp.avatarUrl)}"></div>`
-            : `<div class="g-avatar" data-bg="${escHtml(emp?.avatarColor || nameToColor(name))}">${initials(name)}</div>`;
+            : `<div class="g-avatar" data-bg="${escHtml(emp.avatarColor || nameToColor(name))}">${initials(name)}</div>`;
         row.innerHTML = `<div class="gantt-row-label">${gAvatar}<div><div class="g-name">${escHtml(name)}</div>${dept ? `<div class="g-dept"><span class="g-dept-dot" data-bg="${escHtml(deptColor(dept))}"></span><span class="g-dept-name">${escHtml(dept)}</span></div>` : ''}</div></div>`;
         row.appendChild(barsDiv);
         rowsEl.appendChild(row);
@@ -1656,7 +1637,6 @@ function renderGantt() {
 
 function showGanttTooltip(e) {
     const tip = document.getElementById('gantt-tooltip');
-    if (!tip) return;
     const bar = e.currentTarget;
     const { name, dept, start, end, days, status } = bar.dataset;
     tip.innerHTML = `
@@ -1698,7 +1678,6 @@ function setupCalendarYearNav() {
 
 function renderCobertura() {
     const wrap = document.getElementById('cobertura-wrap');
-    if (!wrap) return;
     const year = calendarYear;
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
@@ -1712,7 +1691,7 @@ function renderCobertura() {
     vacations.forEach((v) => {
         if (v.status !== 'aprovado' && v.status !== 'concluido') return;
         const emp = getEmployee(v.employeeId);
-        if (!emp?.dept) return;
+        if (!emp.dept) return;
         const start = new Date(v.startDate + 'T00:00:00');
         const end = new Date(v.endDate + 'T00:00:00');
         if (end < yearStart || start > yearEnd) return;
@@ -1788,13 +1767,11 @@ window.handleOverlayClick = function (e, id) {
 };
 function showAlert(id, msg, type) {
     const el = document.getElementById(id);
-    if (!el) return;
     el.textContent = msg;
     el.className = 'modal-alert ' + type;
 }
 function clearAlert(id) {
     const el = document.getElementById(id);
-    if (!el) return;
     el.className = 'modal-alert';
     el.textContent = '';
 }
@@ -1802,11 +1779,10 @@ function clearAlert(id) {
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>
@@ -1828,8 +1804,7 @@ function formatDate(str) {
     return `${d}/${m}/${y}`;
 }
 function escHtml(str) {
-    if (typeof str !== 'string') return str ?? '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

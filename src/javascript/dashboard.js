@@ -52,8 +52,7 @@ function deptLabel(name) {
 }
 
 function setupChartTheme() {
-    if (typeof Chart === 'undefined' || Chart.__nexusThemed) return;
-    Chart.__nexusThemed = true;
+    if (typeof Chart === 'undefined') return;
     Chart.defaults.font.family = "'DM Sans', sans-serif";
     Chart.defaults.font.size = 12;
     Chart.defaults.color = '#6b7280';
@@ -152,7 +151,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupSectionToggle(btnId, gridId) {
     const btn = document.getElementById(btnId);
     const grid = document.getElementById(gridId);
-    if (!btn || !grid) return;
     btn.addEventListener('click', () => {
         const collapsed = grid.classList.toggle('collapsed');
         btn.classList.toggle('collapsed', collapsed);
@@ -290,7 +288,6 @@ function setKpiLevel(el, rate, [goodMax, warnMax]) {
 
 function updateTurnoverRate() {
     const el = document.getElementById('turnover-rate');
-    if (!el) return;
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
     const desligamentos = employees.filter((e) => e.terminationDate && new Date(e.terminationDate + 'T00:00:00') >= twelveMonthsAgo).length;
@@ -434,7 +431,6 @@ function updatePerformanceReviewsChart() {
 
 async function updateAbsenteeism() {
     const el = document.getElementById('absenteeism-rate');
-    if (!el) return;
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const ativos = employees.filter((e) => e.status === 'Ativo' && (e.contractType || 'clt').toLowerCase() !== 'pj');
@@ -537,7 +533,7 @@ function updateDepartmentChart() {
                 tooltip: {
                     callbacks: {
                         label: (ctx) => {
-                            const pct = total ? ((ctx.parsed.x / total) * 100).toFixed(0) : 0;
+                            const pct = ((ctx.parsed.x / total) * 100).toFixed(0);
                             return ` ${ctx.parsed.x} colaborador${ctx.parsed.x !== 1 ? 'es' : ''} (${pct}%)`;
                         },
                     },
@@ -588,7 +584,7 @@ function updateContractChart() {
                 tooltip: {
                     callbacks: {
                         label: (ctx) => {
-                            const pct = total ? ((ctx.parsed / total) * 100).toFixed(0) : 0;
+                            const pct = ((ctx.parsed / total) * 100).toFixed(0);
                             return ` ${ctx.label}: ${ctx.parsed} colaborador${ctx.parsed !== 1 ? 'es' : ''} (${pct}%)`;
                         },
                     },
@@ -814,7 +810,6 @@ function fmtBRL(v) {
 
 function updateGenderEquity() {
     const body = document.getElementById('equity-gender-body');
-    if (!body) return;
     const withData = employees.filter((e) => e.status === 'Ativo' && e.gender && e.salary > 0);
     const byGender = withData.reduce((acc, e) => {
         (acc[e.gender] || (acc[e.gender] = [])).push(e.salary);
@@ -860,7 +855,6 @@ function pcdQuotaPct(headcount) {
 
 function updatePcdQuota() {
     const body = document.getElementById('equity-pcd-body');
-    if (!body) return;
     const ativos = employees.filter((e) => e.status === 'Ativo');
     const total = ativos.length;
     const pcdCount = ativos.filter((e) => e.pcd).length;
@@ -939,7 +933,7 @@ function updateRaceChart() {
                 tooltip: {
                     callbacks: {
                         label: (ctx) => {
-                            const pct = total ? ((ctx.parsed.x / total) * 100).toFixed(0) : 0;
+                            const pct = ((ctx.parsed.x / total) * 100).toFixed(0);
                             return ` ${ctx.parsed.x} colaborador${ctx.parsed.x !== 1 ? 'es' : ''} (${pct}%)`;
                         },
                     },
@@ -1103,7 +1097,7 @@ function updateDeptTurnoverChart() {
         if (e.terminationDate && new Date(e.terminationDate + 'T00:00:00') >= twelveMonthsAgo) byDept[d].saidas++;
     });
     const entries = Object.entries(byDept)
-        .map(([name, v]) => ({ name, rate: v.total ? (v.saidas / v.total) * 100 : 0, saidas: v.saidas, total: v.total }))
+        .map(([name, v]) => ({ name, rate: (v.saidas / v.total) * 100, saidas: v.saidas, total: v.total }))
         .sort((a, b) => a.rate - b.rate);
 
     const labels = entries.map((e) => deptLabel(e.name));
@@ -1334,7 +1328,6 @@ function updateReadTimeChart() {
 
 function updateLowAdoptionList() {
     const container = document.getElementById('engagement-low-list');
-    if (!container) return;
 
     const liveMsgs = messages.filter(isMsgLive);
     const readSets = readersByMessage();
@@ -1418,21 +1411,16 @@ function setupRealtimeSync() {
 function setupExportButton() {
     const btn = document.getElementById('btn-export');
     const menu = document.getElementById('export-menu');
-    const chevron = btn?.querySelector('.export-chevron');
-    if (!btn || !menu) return;
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const open = menu.classList.toggle('open');
-        chevron?.classList.toggle('rotated', open);
+        menu.classList.toggle('open');
     });
     document.addEventListener('click', () => {
         menu.classList.remove('open');
-        chevron?.classList.remove('rotated');
     });
     menu.addEventListener('click', (e) => e.stopPropagation());
     document.getElementById('export-pdf')?.addEventListener('click', () => {
         menu.classList.remove('open');
-        chevron?.classList.remove('rotated');
         exportToPDF();
     });
 }
@@ -1537,7 +1525,7 @@ function exportToPDF() {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.setTextColor(17, 24, 39);
-        doc.text(document.getElementById(k.id)?.textContent || '—', x + 18, y + kpiH - 5);
+        doc.text(document.getElementById(k.id).textContent, x + 18, y + kpiH - 5);
     });
 
     let colY = [ky + 3 + 3 * (kpiH + kpiGap) + 6, ky + 3 + 3 * (kpiH + kpiGap) + 6];

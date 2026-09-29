@@ -31,7 +31,6 @@ async function loadPayslips() {
 function renderMonthList() {
     const list = document.getElementById('month-list');
     const badge = document.getElementById('month-count-badge');
-    if (!list) return;
     if (badge) badge.textContent = holerites.length;
     list.innerHTML = '';
     if (!holerites.length) {
@@ -58,7 +57,6 @@ function renderMonthList() {
 function buildMobileSelect() {
     const popover = document.getElementById('month-select-mobile-popover');
     const textEl = document.getElementById('month-select-mobile-text');
-    if (!popover) return;
     popover.innerHTML = holerites
         .map(
             (h) =>
@@ -75,8 +73,6 @@ function buildMobileSelect() {
 function setupMobileMonthSelect() {
     const trigger = document.getElementById('month-select-mobile-trigger');
     const popover = document.getElementById('month-select-mobile-popover');
-    if (!trigger || !popover) return;
-
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -213,7 +209,7 @@ window.closeComparativoModal = function () {
 function renderComparativoChart() {
     const canvas = document.getElementById('comparativo-chart');
     const emptyEl = document.getElementById('comparativo-empty');
-    if (!canvas || typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') return;
 
     const sorted = [...holerites].sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12);
     if (comparativoChart) {
@@ -285,8 +281,6 @@ function setupInformeYearSelect() {
     const textEl = document.getElementById('informe-year-text');
     const hidden = document.getElementById('informe-year-select');
     const popover = document.getElementById('informe-year-popover');
-    if (!trigger || !popover || !hidden) return;
-
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -344,7 +338,6 @@ function summarizeInforme(year) {
 window.renderInforme = function (year) {
     const content = document.getElementById('informe-content');
     const emptyEl = document.getElementById('informe-empty');
-    if (!content) return;
     const { doAno, totalProventos, totalInss, totalIrrf, totalLiquido, total13 } = summarizeInforme(year);
 
     if (!doAno.length) {
@@ -452,7 +445,7 @@ function setupRealtimeSync() {
 
 function setText(id, val) {
     const el = document.getElementById(id);
-    if (el) el.textContent = val ?? '—';
+    if (el) el.textContent = val;
 }
 function formatCurrency(v) {
     return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -477,11 +470,10 @@ function escapeHTML(str) {
 function showToast(title, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHTML(title)}</p>
         </div>

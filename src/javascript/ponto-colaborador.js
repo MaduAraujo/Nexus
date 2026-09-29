@@ -144,7 +144,6 @@ function nowISO() {
     return new Date().toISOString();
 }
 function timeStr(iso) {
-    if (!iso) return null;
     const d = new Date(iso);
     return `${pad0(d.getHours())}:${pad0(d.getMinutes())}`;
 }
@@ -161,10 +160,11 @@ function diaSemana(key) {
     return dias[new Date(key + 'T12:00:00').getDay()];
 }
 function initials(name) {
-    return (name || '?')
+    return name
         .split(' ')
+        .filter(Boolean)
         .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
+        .map((w) => w[0].toUpperCase())
         .join('');
 }
 
@@ -274,7 +274,6 @@ function getStatusText(rec, step) {
     if (step === 'saida') return `Retornou às ${timeStr(rec.retorno_almoco)}`;
     const saldo = calcSaldoMin(rec);
     if (getJornadaMin() === null) return `Jornada encerrada — ${minToStr(calcWorkedMin(rec))} registradas`;
-    if (saldo === null) return 'Jornada encerrada';
     return saldo >= 0 ? `Jornada encerrada — +${minToStr(saldo)} extras` : `Jornada encerrada — ${minToStr(saldo)} em falta`;
 }
 
@@ -286,7 +285,6 @@ function renderTimeline(rec, step) {
     const stepIdx = steps.indexOf(step);
     ids.forEach((id, i) => {
         const el = $(id);
-        if (!el) return;
         const done = rec[steps[i]];
         const curr = i === stepIdx;
         el.className = 'ts-step' + (done ? ' done' : curr ? ' current' : '');
@@ -388,7 +386,6 @@ function setupMonthFilterPicker() {
     const gridEl = $('filter-month-grid');
     const prevBtn = $('filter-month-prev');
     const nextBtn = $('filter-month-next');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -427,9 +424,9 @@ function setupMonthFilterPicker() {
     }
 
     function open() {
-        const [selYear, selMonth] = (hidden.value || '').split('-').map(Number);
-        viewYear = selYear || today.getFullYear();
-        viewMonth = selMonth ? selMonth - 1 : today.getMonth();
+        const [selYear, selMonth] = hidden.value.split('-').map(Number);
+        viewYear = selYear;
+        viewMonth = selMonth - 1;
         render();
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -490,12 +487,7 @@ function setupMonthFilterPicker() {
 
 window.renderHistorico = function () {
     const tbody = $('historico-tbody');
-    if (!tbody) return;
-    const fmEl = $('filter-month');
-    const now = new Date();
-    const mesAtual = `${now.getFullYear()}-${pad0(now.getMonth() + 1)}`;
-    if (fmEl && !fmEl.value) fmEl.value = mesAtual;
-    const filtroMes = fmEl?.value || mesAtual;
+    const filtroMes = $('filter-month').value;
     const dias = Object.entries(recordsMap)
         .filter(([k]) => k.startsWith(filtroMes))
         .sort(([a], [b]) => b.localeCompare(a));
@@ -536,7 +528,6 @@ window.renderHistorico = function () {
 };
 
 function getBadge(rec, saldo) {
-    if (isFalta(rec)) return { cls: 'badge-falta', label: 'Falta' };
     if (rec.ajustado) return { cls: 'badge-ajuste', label: 'Ajustado' };
     if (!rec.saida) return { cls: 'badge-ajuste', label: 'Incompleto' };
     if (saldo === null) return { cls: 'badge-normal', label: 'Normal' };
@@ -549,7 +540,6 @@ function renderSolicitacoes() {
     const pendentes = adjRequests.filter((a) => a.status === 'pendente');
     const section = $('section-solicitacoes'),
         list = $('solicitacoes-list');
-    if (!section || !list) return;
     if (!pendentes.length) {
         section.classList.add('hidden');
         return;
@@ -565,14 +555,13 @@ function renderSolicitacoes() {
     list.innerHTML = pendentes
         .map(
             (a) =>
-                `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo] || escapeHtml(a.tipo)}</p><p class="sol-meta">Data: ${a.date}${a.horario ? ` • Horário: ${a.horario}` : ''} • Enviado em ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`
+                `<div class="solicitacao-item"><div class="sol-icon"><i class="fas fa-edit"></i></div><div class="sol-info"><p class="sol-tipo">${tipoMap[a.tipo]}</p><p class="sol-meta">Data: ${a.date}${a.horario ? ` • Horário: ${a.horario}` : ''} • Enviado em ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><span class="badge-pendente"><i class="fas fa-hourglass-half"></i> Pendente</span></div>`
         )
         .join('');
 }
 
 function renderBankRequests() {
     const list = $('bank-requests-list');
-    if (!list) return;
     if (!bankRequests.length) {
         list.innerHTML = `<p class="no-ajustes">Nenhuma solicitação enviada ainda.</p>`;
         return;
@@ -584,7 +573,7 @@ function renderBankRequests() {
     };
     list.innerHTML = bankRequests
         .map((r) => {
-            const meta = STATUS_META[r.status] || STATUS_META.pendente;
+            const meta = STATUS_META[r.status];
             const tipoLabel = r.tipo === 'credito' ? 'Crédito' : 'Débito';
             const valor = `${r.tipo === 'credito' ? '+' : '-'}${minToStr(r.minutos)}`;
             const obs = r.status === 'rejeitado' && r.decision_obs ? `<p class="sol-obs"><i class="fas fa-comment"></i> ${esc(r.decision_obs)}</p>` : '';
@@ -596,7 +585,6 @@ function renderBankRequests() {
 function renderTeamApprovals() {
     const section = $('section-team-approvals'),
         list = $('team-approvals-list');
-    if (!section || !list) return;
     if (!isManager || !teamRequests.length) {
         section.classList.add('hidden');
         return;
@@ -617,7 +605,6 @@ function renderTeamApprovals() {
 }
 
 function setupDuracaoModal() {
-    const trigger = $('bankreq-duracao-trigger');
     const textEl = $('bankreq-duracao-text');
     const hiddenH = $('bankreq-horas');
     const hiddenM = $('bankreq-minutos');
@@ -626,8 +613,6 @@ function setupDuracaoModal() {
     const confirmBtn = $('btn-duracao-confirm');
     const horasBtn = $('duracao-horas-btn');
     const minBtn = $('duracao-min-btn');
-    if (!trigger || !horasCol || !minCol || !hiddenH || !hiddenM) return;
-
     horasCol.innerHTML = Array.from({ length: 100 }, (_, h) => `<button type="button" class="duration-item" data-h="${h}">${h}</button>`).join('');
     minCol.innerHTML = Array.from({ length: 60 }, (_, m) => `<button type="button" class="duration-item" data-m="${m}">${pad0(m)}</button>`).join('');
 
@@ -698,7 +683,6 @@ function setupDuracaoModal() {
 function setupTipoToggle() {
     const toggle = $('bankreq-tipo-toggle');
     const hidden = $('bankreq-tipo');
-    if (!toggle || !hidden) return;
     toggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.type-toggle-card');
         if (!btn) return;
@@ -712,7 +696,6 @@ function setupAnexoPicker() {
     const btn = $('bankreq-anexo-btn');
     const input = $('bankreq-anexo');
     const nameEl = $('bankreq-anexo-name');
-    if (!btn || !input) return;
     btn.addEventListener('click', () => input.click());
     input.addEventListener('change', () => {
         if (nameEl) nameEl.textContent = input.files?.[0]?.name || 'Nenhum arquivo selecionado';
@@ -748,7 +731,6 @@ window.openModalBankRequest = function () {
 
 function updateBankReqBtnState() {
     const btn = $('btn-bankreq-enviar');
-    if (!btn) return;
     const data = $('bankreq-data')?.value || '';
     const horas = parseInt($('bankreq-horas')?.value || '0', 10);
     const mins = parseInt($('bankreq-minutos')?.value || '0', 10);
@@ -759,7 +741,7 @@ function updateBankReqBtnState() {
 window.updateBankReqBtnState = updateBankReqBtnState;
 
 window.enviarBankRequest = async function () {
-    const tipo = $('bankreq-tipo')?.value || 'credito';
+    const tipo = $('bankreq-tipo').value;
     const data = $('bankreq-data')?.value || '';
     const horas = parseInt($('bankreq-horas')?.value || '0', 10);
     const mins = parseInt($('bankreq-minutos')?.value || '0', 10);
@@ -979,7 +961,6 @@ async function notificarRH(alertas) {
 
 function renderBurnoutCard(alertas) {
     const section = $('section-burnout');
-    if (!section) return;
     if (!alertas.length) {
         section.classList.add('hidden');
         return;
@@ -990,8 +971,7 @@ function renderBurnoutCard(alertas) {
     const tituloPrincipal = nivelGeral === 'critico' ? 'Atenção: Risco de Esgotamento' : 'Sugestão de Descanso';
     const itensHTML = alertas
         .map((a) => {
-            const icone =
-                { extras_consecutivos: 'fa-clock', almoco_pulado: 'fa-bowl-food', sobrecarga_semanal: 'fa-chart-line' }[a.tipo] || 'fa-circle-exclamation';
+            const icone = { extras_consecutivos: 'fa-clock', almoco_pulado: 'fa-bowl-food', sobrecarga_semanal: 'fa-chart-line' }[a.tipo];
             const diasHTML = a.dias?.length ? `<div class="burnout-dias">${a.dias.map((d) => `<span class="burnout-dia-tag">${d}</span>`).join('')}</div>` : '';
             return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
@@ -1059,7 +1039,6 @@ function detectCLTAlerts() {
 
 function renderCLTCard(alertas) {
     const section = $('section-clt');
-    if (!section) return;
     if (!alertas.length) {
         section.classList.add('hidden');
         return;
@@ -1068,7 +1047,7 @@ function renderCLTCard(alertas) {
     const nivelGeral = alertas.some((a) => a.nivel === 'critico') ? 'critico' : 'atencao';
     const itensHTML = alertas
         .map((a) => {
-            const icone = { intervalo_intrajornada: 'fa-mug-saucer', dsr_risco: 'fa-calendar-xmark' }[a.tipo] || 'fa-scale-balanced';
+            const icone = { intervalo_intrajornada: 'fa-mug-saucer', dsr_risco: 'fa-calendar-xmark' }[a.tipo];
             const diasHTML = a.dias?.length ? `<div class="burnout-dias">${a.dias.map((d) => `<span class="burnout-dia-tag">${d}</span>`).join('')}</div>` : '';
             return `<div class="burnout-item burnout-item--${a.nivel}"><div class="burnout-item-icon"><i class="fas ${icone}"></i></div><div class="burnout-item-body"><p class="burnout-item-titulo">${escapeHtml(a.titulo)}</p><p class="burnout-item-msg">${escapeHtml(a.mensagem)}</p>${diasHTML}<p class="burnout-item-sugestao"><i class="fas fa-lightbulb"></i> ${escapeHtml(a.sugestao)}</p></div></div>`;
         })
@@ -1102,12 +1081,12 @@ window.abrirConfirmar = function () {
         av.style.background = window.nexusFundoLegivel(color);
     }
     const nm = $('confirmar-nome');
-    if (nm) nm.textContent = myEmployee.name || '—';
+    if (nm) nm.textContent = myEmployee.name;
     const em = $('confirmar-email');
     if (em) em.textContent = myEmployee.email;
     const tipoLabels = { entrada: 'Entrada', saida_almoco: 'Saída para Almoço', retorno_almoco: 'Retorno do Almoço', saida: 'Saída' };
     const tp = $('confirmar-tipo');
-    if (tp) tp.textContent = tipoLabels[step] || step;
+    if (tp) tp.textContent = tipoLabels[step];
     const da = $('confirmar-data');
     if (da) da.textContent = `${pad0(now.getDate())}/${pad0(now.getMonth() + 1)}/${now.getFullYear()}`;
     const locEl = $('confirmar-loc');
@@ -1159,7 +1138,6 @@ window.onExcessoLegalJustInput = function () {
 
 function updateConfirmBtnState() {
     const confBtn = $('btn-confirmar-ponto');
-    if (!confBtn) return;
     const justOk = pendingExcessoLegalMin <= 0 || !!$('excesso-legal-just')?.value.trim();
     confBtn.disabled = !capturedSelfieDataUrl || !justOk || !faceVerified;
 }
@@ -1228,7 +1206,7 @@ window.capturarSelfie = async function () {
     const video = $('selfie-video'),
         canvas = $('selfie-canvas'),
         preview = $('selfie-preview');
-    if (!video || !canvas || !video.videoWidth) return;
+    if (!video.videoWidth) return;
     if (biometriaStatus?.enrolled && !(await exigirProvaDeVida(video, $('selfie-hint'), $('btn-selfie-shoot')))) return;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -1347,7 +1325,6 @@ function renderBiometriaCard() {
     const txt = $('biometria-status-text');
     const btnCadastrar = $('btn-biometria-cadastrar');
     const btnRevogar = $('btn-biometria-revogar');
-    if (!txt) return;
     const cadastrada = !!biometriaStatus?.enrolled;
     txt.textContent = cadastrada
         ? `Biometria facial cadastrada em ${new Date(biometriaStatus.consent_at).toLocaleDateString('pt-BR')}`
@@ -1362,7 +1339,6 @@ async function verificarIdentidadeSelfie(selfieDataUrl) {
     capturedDescriptor = null;
     biometricToken = null;
     updateConfirmBtnState();
-    if (!statusEl) return;
 
     const setStatus = (variant, html) => {
         statusEl.className = `face-verify-status face-verify-status--${variant}`;
@@ -1460,7 +1436,7 @@ window.salvarBiometria = async function () {
     const video = $('bio-video'),
         canvas = $('bio-canvas'),
         hint = $('biometria-hint');
-    if (!$('biometria-consentimento')?.checked || !video?.videoWidth) return;
+    if (!$('biometria-consentimento').checked || !video.videoWidth) return;
     if (!(await exigirProvaDeVida(video, hint, $('btn-biometria-salvar')))) return;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -1562,7 +1538,7 @@ window.confirmarRegistro = async function () {
         step,
         date: key,
         timestamp: nowISO(),
-        loc: userCoords ? { lat: userCoords.lat, lng: userCoords.lng } : null,
+        loc: { lat: userCoords.lat, lng: userCoords.lng },
         selfie: capturedSelfieDataUrl,
         biometricToken,
         excessoLegalMin: pendingExcessoLegalMin > 0 ? pendingExcessoLegalMin : 0,
@@ -1602,7 +1578,7 @@ window.confirmarRegistro = async function () {
         renderUI();
         return;
     }
-    showToast(labels[step] || 'Ponto registrado!', 'success');
+    showToast(labels[step], 'success');
     renderUI();
 };
 
@@ -1676,32 +1652,30 @@ async function syncPunch({ step, date, loc, selfie, biometricToken: token, exces
                 p_biometric_token: bio.token,
             })
             .single();
-        if (error || !upserted) return false;
+        if (error) return false;
         recordsMap[date] = upserted;
     } catch {
         return false;
     }
-    try {
-        await sb.from('activity_logs').insert({
-            employee_id: myEmployeeId,
-            tipo: 'ponto',
-            acao: step,
-            date,
-            valor_registrado: recordsMap[date][step],
-            operator_email: myEmployee.email,
-            operator_name: myEmployee.name,
-            operator_profile: 'colaborador',
-            justificativa: justificativaExcesso || null,
-        });
-        if (excessoLegalMin > 0 && justificativaExcesso) {
-            await Promise.resolve(
-                sb.rpc('report_daily_overtime_alert', {
-                    p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
-                    p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
-                })
-            ).catch(() => {});
-        }
-    } catch {}
+    await sb.from('activity_logs').insert({
+        employee_id: myEmployeeId,
+        tipo: 'ponto',
+        acao: step,
+        date,
+        valor_registrado: recordsMap[date][step],
+        operator_email: myEmployee.email,
+        operator_name: myEmployee.name,
+        operator_profile: 'colaborador',
+        justificativa: justificativaExcesso || null,
+    });
+    if (excessoLegalMin > 0 && justificativaExcesso) {
+        await Promise.resolve(
+            sb.rpc('report_daily_overtime_alert', {
+                p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
+                p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
+            })
+        ).catch(() => {});
+    }
     return true;
 }
 
@@ -1735,7 +1709,6 @@ async function flushOfflineQueue() {
 
 function renderSyncStatus() {
     const el = $('ponto-sync-status');
-    if (!el) return;
     const pending = loadOfflineQueue().length;
     if (!pending) {
         el.classList.add('hidden');
@@ -1754,7 +1727,6 @@ function createSimpleDayPicker(prefix, onChange) {
     const gridEl = $(`${prefix}-grid`);
     const prevBtn = $(`${prefix}-prev`);
     const nextBtn = $(`${prefix}-next`);
-    if (!trigger || !popover) return null;
 
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -1872,8 +1844,6 @@ function setupClockDial() {
     const hourBtn = $('clockmodal-hour-btn');
     const minBtn = $('clockmodal-min-btn');
     const confirmBtn = $('btn-clock-confirm');
-    if (!dial || !hand || !hourBtn || !minBtn) return;
-
     const hourNumbersEl = document.createElement('div');
     hourNumbersEl.className = 'clock-numbers clock-numbers-hour';
     const minNumbersEl = document.createElement('div');
@@ -2052,7 +2022,6 @@ function setupAjusteTipoSelect() {
     const textEl = $('ajuste-tipo-text');
     const hidden = $('ajuste-tipo');
     const popover = $('ajuste-tipo-popover');
-    if (!trigger || !popover || !hidden) return;
 
     function open() {
         popover.classList.add('open');
@@ -2085,7 +2054,7 @@ function setupAjusteTipoSelect() {
         if (!btn) return;
         hidden.value = btn.dataset.value;
         if (textEl) {
-            textEl.textContent = AJUSTE_TIPO_LABELS[btn.dataset.value] || btn.dataset.value;
+            textEl.textContent = AJUSTE_TIPO_LABELS[btn.dataset.value];
             textEl.classList.remove('date-trigger-placeholder');
         }
         popover.querySelectorAll('.select-option').forEach((o) => o.classList.toggle('selected', o === btn));
@@ -2131,7 +2100,6 @@ window.onAjusteTipoChange = function () {
 
 function updateAjusteBtnState() {
     const btn = $('btn-ajuste-enviar');
-    if (!btn) return;
     const data = $('ajuste-data')?.value.trim() || '';
     const tipo = $('ajuste-tipo')?.value || '';
     const hor = $('ajuste-horario')?.value || '';
@@ -2236,7 +2204,7 @@ window.initLocation = function () {
 function ensureLeafletMap() {
     if (leafletMap) return leafletMap;
     const el = $('map-leaflet');
-    if (!el || typeof L === 'undefined') return null;
+    if (typeof L === 'undefined') return null;
 
     leafletMap = L.map(el, { zoomControl: true, attributionControl: true });
     leafletMap.fitBounds(L.latLngBounds(EMPRESA.unidades.map((u) => [u.lat, u.lng])), { padding: [40, 40], maxZoom: 16 });
@@ -2370,11 +2338,10 @@ function closeAllModals() {
 window.showToast = function (title, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = $('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(title)}</p>
         </div>

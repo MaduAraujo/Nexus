@@ -8,7 +8,7 @@ window.NexusFaltas = (function () {
     async function listar(employeeId, inicio, fimPedido, { workLoad = '' } = {}) {
         const fim = fimPedido < ontemKey() ? fimPedido : ontemKey();
         if (fim < inicio) return [];
-        const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: vacs }, { data: first }] = await Promise.all([
+        const respostas = await Promise.all([
             sb.from('time_records').select('date,entrada').eq('employee_id', employeeId).gte('date', inicio).lte('date', fim),
             sb.from('holidays').select('date').gte('date', inicio).lte('date', fim),
             sb
@@ -35,14 +35,17 @@ window.NexusFaltas = (function () {
                 .gte('end_date', inicio),
             sb.from('time_records').select('date').eq('employee_id', employeeId).not('entrada', 'is', null).order('date').limit(1),
         ]);
+        const falha = respostas.find((r) => r.error);
+        if (falha) throw new Error(`Não foi possível conferir as faltas: ${falha.error.message}`);
+        const [{ data: recs }, { data: hols }, { data: adjs }, { data: leaves }, { data: vacs }, { data: first }] = respostas;
         return CLTDomain.listarFaltasInjustificadas({
             inicio,
             fim,
-            registros: recs || [],
-            feriados: (hols || []).map((h) => h.date),
-            abonadas: (adjs || []).map((a) => a.date),
-            afastamentos: [...(vacs || []).map((v) => CLTDomain.periodoGozoFerias(v)).filter(Boolean), ...(leaves || [])],
-            primeiroRegistro: first?.[0]?.date || null,
+            registros: recs,
+            feriados: hols.map((h) => h.date),
+            abonadas: adjs.map((a) => a.date),
+            afastamentos: [...vacs.map((v) => CLTDomain.periodoGozoFerias(v)).filter(Boolean), ...leaves],
+            primeiroRegistro: first[0]?.date ?? null,
             workLoad,
         });
     }

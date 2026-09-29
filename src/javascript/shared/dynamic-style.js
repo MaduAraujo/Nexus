@@ -26,7 +26,7 @@
 
     function textoClaro(el) {
         if (!el.textContent.trim()) return false;
-        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).color || '');
+        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).color);
         return !!m && luminancia([+m[1], +m[2], +m[3]]) > 0.6;
     }
 

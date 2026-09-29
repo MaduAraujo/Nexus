@@ -233,6 +233,22 @@ describe('NexusFiles.open', () => {
         assert.equal(tab.closed, true);
         assert.equal(tab.location.href, '');
     });
+    test('resposta de erro em JSON sem o campo "error" usa a mensagem padrão', async () => {
+        fetchImpl = async () => response({ ok: false, status: 500, json: {} });
+        const { error } = await NexusFiles.download('message-attachments', 'm/a.pdf');
+        assert.equal(error.message, 'Não foi possível concluir a operação com o arquivo.');
+    });
+
+    test('aba que não deixa trocar o opener ainda recebe o arquivo', async () => {
+        Object.defineProperty(tab, 'opener', {
+            set() {
+                throw new Error('bloqueado');
+            },
+        });
+        const { error } = await NexusFiles.open('message-attachments', 'm/a.pdf');
+        assert.equal(error, null);
+        assert.match(tab.location.href, /^blob:/);
+    });
 });
 
 describe('ponta a ponta (NexusE2E presente)', () => {
@@ -356,6 +372,62 @@ describe('ponta a ponta (NexusE2E presente)', () => {
         storage.set('documents/e1/z.pdf', { bytes: await sealFor([velho, me], 'e1/z.pdf', '%PDF z') });
         assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/z.pdf', 'e1'), 'repaired');
         assert.deepEqual(E2E.fileRecipients(storage.get('documents/e1/z.pdf').bytes).sort(), [me.fingerprint, org.fingerprint].sort());
+    });
+    test('Storage recusando o envio cifrado: grande demais vira 413; outro motivo, 400', async () => {
+        const erros = [{ message: 'Payload too large' }, { message: 'bucket travado' }, {}];
+        global.sb.storage.from = () => ({ upload: async () => ({ error: erros.shift() }) });
+        const r1 = await NexusFiles.upload('documents', 'e1/a.pdf', new Blob(['x']), { employeeId: 'e1' });
+        const r2 = await NexusFiles.upload('documents', 'e1/a.pdf', new Blob(['x']), { employeeId: 'e1' });
+        const r3 = await NexusFiles.upload('documents', 'e1/a.pdf', new Blob(['x']), { employeeId: 'e1' });
+        assert.deepEqual([r1.error.status, r2.error.status, r3.error.status], [413, 400, 400]);
+        assert.equal(r1.error.message, 'Arquivo grande demais');
+        assert.equal(r2.error.message, 'Não foi possível gravar o arquivo');
+    });
+
+    test('arquivo que não está no Storage cai no caminho antigo (nexus-files)', async () => {
+        const { blob } = await NexusFiles.download('documents', 'e1/fora.pdf');
+        assert.ok(blob);
+        assert.equal(fetchCalls.length, 1);
+    });
+
+    test('migração: bucket fora do escopo, arquivo sumido e falha ao ler pelo caminho antigo', async () => {
+        assert.equal(await NexusFiles.migrateToEndToEnd('message-attachments', 'm/a.pdf', 'e1'), 'unsupported');
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/nao-existe.pdf', 'e1'), 'missing');
+        storage.set('documents/e1/antigo.pdf', { bytes: LEGACY });
+        fetchImpl = async () => response({ ok: false, status: 500 });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/antigo.pdf', 'e1'), 'failed');
+    });
+
+    test('migração: falha ao regravar, ao reler ou conferência diferente do original conta como falha', async () => {
+        fetchImpl = async () => response({ body: new TextEncoder().encode('%PDF-1.4 antigo'), type: 'application/pdf' });
+        const original = global.sb.storage.from;
+
+        storage.set('documents/e1/a.pdf', { bytes: LEGACY });
+        global.sb.storage.from = (bucket) => ({ ...original(bucket), upload: async () => ({ error: { message: 'x' } }) });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/a.pdf', 'e1'), 'failed');
+
+        let leituras = 0;
+        global.sb.storage.from = (bucket) => {
+            const real = original(bucket);
+            return { ...real, download: async (p) => (++leituras === 1 ? real.download(p) : { data: null, error: { message: 'sumiu' } }) };
+        };
+        storage.set('documents/e1/a.pdf', { bytes: LEGACY });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/a.pdf', 'e1'), 'failed');
+
+        global.sb.storage.from = original;
+        const decifrar = global.window.NexusE2E.decryptFile;
+        global.window.NexusE2E.decryptFile = async () => ({ bytes: new Uint8Array([1]), mime: 'application/pdf' });
+        storage.set('documents/e1/a.pdf', { bytes: LEGACY });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/a.pdf', 'e1'), 'failed');
+        global.window.NexusE2E.decryptFile = async () => ({ bytes: new TextEncoder().encode('%PDF-1.4 antigX'), mime: 'application/pdf' });
+        storage.set('documents/e1/a.pdf', { bytes: LEGACY });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/a.pdf', 'e1'), 'failed');
+        global.window.NexusE2E.decryptFile = async () => {
+            throw new Error('chave errada');
+        };
+        storage.set('documents/e1/a.pdf', { bytes: LEGACY });
+        assert.equal(await NexusFiles.migrateToEndToEnd('documents', 'e1/a.pdf', 'e1'), 'failed');
+        global.window.NexusE2E.decryptFile = decifrar;
     });
 });
 

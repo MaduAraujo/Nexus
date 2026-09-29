@@ -107,7 +107,7 @@ async function loadSecurityAlerts() {
         erro.setAttribute('role', 'alert');
         list.replaceChildren(erro);
     } else {
-        const alerts = alertsRes.data || [];
+        const alerts = alertsRes.data;
         renderAlerts(list, alerts);
         const unread = alerts.filter((a) => !a.lido).map((a) => a.id);
         markAll.hidden = unread.length === 0;
@@ -120,7 +120,7 @@ async function loadSecurityAlerts() {
         };
     }
 
-    if (!rulesRes.error) renderRules(rulesBox, rulesRes.data || []);
+    if (!rulesRes.error) renderRules(rulesBox, rulesRes.data);
 }
 
 const SELFIE_COLUMNS = ['entrada_selfie_path', 'saida_almoco_selfie_path', 'retorno_almoco_selfie_path', 'saida_selfie_path'];
@@ -148,6 +148,7 @@ const MIGRATION_LABEL = {
     'no-keys': 'aguardam o primeiro acesso do colaborador',
     missing: 'não encontrados no Storage',
     failed: 'falharam',
+    unsupported: 'não puderam ser protegidos neste navegador',
 };
 
 async function migrateFiles(box, btn) {
@@ -170,7 +171,6 @@ async function migrateFiles(box, btn) {
 
 async function renderEndToEnd() {
     const box = document.getElementById('e2e-card');
-    if (!box) return;
     box.replaceChildren(el('p', 'e2e-progress', 'Verificando chaves…'));
     const identity = await NexusE2E.ensureUnlocked();
     const state = await NexusE2E.status();

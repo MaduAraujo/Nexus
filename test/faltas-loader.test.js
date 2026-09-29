@@ -28,6 +28,33 @@ describe('NexusFaltas.listar — mesmo carregador para folha e férias', () => {
         delete global.sb;
     });
 
+    const vazio = () => ({ time_records: [], holidays: [], adjustment_requests: [], medical_leaves: [], vacations: [] });
+
+    test('se qualquer consulta falhar, NÃO calcula faltas: um erro de rede nunca vira desconto', async () => {
+        for (const tabela of ['time_records', 'holidays', 'adjustment_requests', 'medical_leaves', 'vacations']) {
+            global.sb = new FakeSupabase({ tables: vazio(), errors: { [`${tabela}:select`]: { message: `falha em ${tabela}` } } });
+            await assert.rejects(
+                NexusFaltas.listar(EMP, '2026-06-01', '2026-06-30'),
+                new RegExp(`Não foi possível conferir as faltas: falha em ${tabela}`),
+                tabela
+            );
+        }
+    });
+
+    test('quem nunca bateu ponto não tem falta contada antes do primeiro registro', async () => {
+        global.sb = new FakeSupabase({ tables: vazio() });
+        assert.deepEqual(await NexusFaltas.listar(EMP, '2026-06-01', '2026-06-23'), []);
+    });
+
+    test('férias com período inválido são ignoradas, sem derrubar o cálculo', async () => {
+        const tabelas = vazio();
+        tabelas.time_records = ['2026-06-01', '2026-06-02'].map(presente);
+        tabelas.vacations = [{ employee_id: EMP, start_date: '2026-06-10', end_date: '2026-06-05', days: 0, status: 'aprovado' }];
+        global.sb = new FakeSupabase({ tables: tabelas });
+        const faltas = await NexusFaltas.listar(EMP, '2026-06-01', '2026-06-12');
+        assert.ok(faltas.includes('2026-06-10'), 'o dia segue como falta porque as férias não valem');
+    });
+
     test('junta ponto, feriados, abonos, atestados e férias; hoje e o futuro não são falta', async () => {
         global.sb = new FakeSupabase({
             tables: {

@@ -4,7 +4,6 @@ window.NexusE2EUI = (function () {
     const STYLE_ID = 'nexus-e2e-style';
 
     function injectStyles() {
-        if (document.getElementById(STYLE_ID)) return;
         const link = document.createElement('link');
         link.id = STYLE_ID;
         link.rel = 'stylesheet';

@@ -152,7 +152,7 @@ window.NexusFiles = (function () {
         } else {
             const legacy = await legacyDownload(bucket, path);
             if (legacy.error) return 'failed';
-            plain = { bytes: new Uint8Array(await legacy.blob.arrayBuffer()), mime: legacy.blob.type || FALLBACK_TYPE };
+            plain = { bytes: new Uint8Array(await legacy.blob.arrayBuffer()), mime: legacy.blob.type };
         }
 
         const sealed = await E2E.encryptFileFor(plain.bytes, { bucket, path, mime: plain.mime, recipients });

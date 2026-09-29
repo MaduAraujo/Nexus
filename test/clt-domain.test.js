@@ -355,3 +355,19 @@ describe('avos (1/12) de 13º e de férias proporcionais: fração de 15 dias ou
         assert.equal(CLTDomain.avosPeriodoAquisitivo(d(2026, 3, 1), undefined), 0);
     });
 });
+
+describe('ramos de proteção do domínio', () => {
+    test('diferença de minutos sem uma das batidas é zero', () => {
+        assert.equal(CLTDomain.diffMin(null, '2026-06-01T08:00:00'), 0);
+        assert.equal(CLTDomain.diffMin('2026-06-01T08:00:00', undefined), 0);
+    });
+
+    test('férias com período inválido não contam dias de gozo, nem corridos nem úteis', () => {
+        const invalida = { start_date: '2026-06-10', end_date: '2026-06-05', days: 0 };
+        const valida = { start_date: '2026-06-08', end_date: '2026-06-12', days: 5 };
+        assert.equal(CLTDomain.diasGozoNoMes([invalida], '2026-06'), 0);
+        assert.equal(CLTDomain.diasGozoNoMes([invalida, valida], '2026-06'), 5);
+        assert.equal(CLTDomain.diasUteisGozoNoMes([invalida], '2026-06'), 0);
+        assert.equal(CLTDomain.diasUteisGozoNoMes([invalida, valida], '2026-06'), 5);
+    });
+});

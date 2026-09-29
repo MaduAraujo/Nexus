@@ -37,6 +37,7 @@ const CAIO = {
     id: 'emp-caio',
     name: 'Caio Prado',
     email: 'caio@empresa.com',
+    cpf: '846.213.579-64',
     role: 'Desenvolvedor PJ',
     dept: 'TI',
     contract_type: 'pj',

@@ -9,7 +9,8 @@ before(() => {
     const dom = new JSDOM('<!doctype html><body><p id="static" data-hide>oi</p></body>', { url: 'https://nexus.test/', runScripts: 'outside-only' });
     window = dom.window;
     document = window.document;
-    window.eval(require('fs').readFileSync(require('path').join(__dirname, '../src/javascript/shared/dynamic-style.js'), 'utf8'));
+    const arquivo = require('path').join(__dirname, '../src/javascript/shared/dynamic-style.js');
+    require('vm').runInContext(require('fs').readFileSync(arquivo, 'utf8'), dom.getInternalVMContext(), { filename: arquivo });
 });
 
 function render(html) {
@@ -86,5 +87,42 @@ describe('dynamic-style', () => {
         assert.equal(render('<span data-bg="#f59e0b"></span>').style.background, 'rgb(245, 158, 11)', 'sem texto (barra, bolinha): não muda');
         assert.ok(contraBranco(window.nexusFundoLegivel('#10b981')) >= 4.5);
         assert.equal(window.nexusFundoLegivel('var(--accent)'), 'var(--accent)');
+    });
+});
+
+describe('dynamic-style — contraste e entradas inválidas', () => {
+    test('fundo escurece até o texto branco ficar legível (contraste 4,5); cor hexadecimal curta também vale', () => {
+        const claro = render('<span data-bg="#ffd" style="color: rgb(255, 255, 255)">Novo</span>');
+        assert.match(claro.style.background, /^rgb\(/);
+        assert.notEqual(claro.style.background, 'rgb(255, 255, 221)');
+        const escuro = render('<span data-bg="#123456" style="color: rgb(255, 255, 255)">Ok</span>');
+        assert.match(escuro.style.background, /rgb\(18, 52, 86\)|#123456/);
+    });
+
+    test('texto escuro, texto sem cor definida ou elemento vazio mantêm o fundo pedido', () => {
+        assert.match(render('<span data-bg="#ffd" style="color: rgb(20, 20, 20)">x</span>').style.background, /255, 255, 221|#ffd/);
+        assert.match(render('<span data-bg="#ffd">sem cor</span>').style.background, /255, 255, 221|#ffd/);
+        assert.match(render('<span data-bg="#ffd" style="color: rgb(255, 255, 255)">   </span>').style.background, /255, 255, 221|#ffd/);
+    });
+
+    test('ajuste de legibilidade não mexe em cores que não são hexadecimais', () => {
+        assert.equal(window.nexusFundoLegivel('red'), 'red');
+        assert.equal(window.nexusFundoLegivel(undefined), undefined);
+        assert.match(render('<span data-bg="rgb(250, 250, 250)" style="color: rgb(255, 255, 255)">x</span>').style.background, /250, 250, 250/);
+    });
+
+    test('imagem de fundo só aceita https, blob ou imagem embutida; javascript: é ignorado', () => {
+        assert.equal(render('<div data-bg-img="javascript:alert(1)"></div>').style.backgroundImage, '');
+        assert.equal(render('<div data-bg-img="http://inseguro.test/a.png"></div>').style.backgroundImage, '');
+        assert.match(render('<div data-bg-img="https://cdn.test/a.png"></div>').style.backgroundImage, /https:\/\/cdn\.test\/a\.png/);
+    });
+});
+
+describe('dynamic-style — nós que não são elementos', () => {
+    test('texto solto adicionado à página e chamadas sem nó são ignorados sem erro', async () => {
+        document.body.appendChild(document.createTextNode('texto solto'));
+        await new Promise((r) => setTimeout(r, 0));
+        assert.doesNotThrow(() => window.applyDynamicStyles(null));
+        assert.doesNotThrow(() => window.applyDynamicStyles(document.createTextNode('x')));
     });
 });

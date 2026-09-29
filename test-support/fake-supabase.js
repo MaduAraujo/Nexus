@@ -560,7 +560,6 @@ function resetInterceptors() {
     ]) {
         Object.assign(proto, orig);
         delete proto.__nexusPatched;
-        delete proto.__nexusE2EPatched;
     }
 }
 

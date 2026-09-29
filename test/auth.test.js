@@ -131,3 +131,104 @@ describe('getUser', () => {
         assert.equal(user.id, 'u9');
     });
 });
+
+describe('registro de acessos e exportações', () => {
+    const inserts = [];
+    const sbCom = ({ user = { id: 'u1', email: 'rh@nexus.com' }, falhaInsert = false, rpc } = {}) => ({
+        auth: { getUser: async () => ({ data: { user }, error: null }) },
+        from: () => ({
+            insert: async (row) => {
+                if (falhaInsert) throw new Error('rede');
+                inserts.push(row);
+                return { error: null };
+            },
+        }),
+        ...(rpc ? { rpc } : {}),
+    });
+
+    beforeEach(() => inserts.splice(0));
+
+    test('acesso a dado pessoal grava quem acessou; sem colaborador não grava nada', async () => {
+        global.sb = sbCom();
+        await NexusAuth.logAccess(null, 'holerite', 'x');
+        assert.equal(inserts.length, 0);
+        await NexusAuth.logAccess('e1', 'holerite', '07/2026');
+        assert.deepEqual(inserts[0], { employee_id: 'e1', tipo: 'holerite', detalhe: '07/2026', accessed_by_name: 'rh', accessed_by_email: 'rh@nexus.com' });
+    });
+
+    test('sem detalhe e sem e-mail do usuário grava nulos em vez de "undefined"', async () => {
+        global.sb = sbCom({ user: { id: 'u1' } });
+        await NexusAuth.logAccess('e1', 'documento');
+        assert.deepEqual(inserts[0], { employee_id: 'e1', tipo: 'documento', detalhe: null, accessed_by_name: null, accessed_by_email: null });
+        global.sb = sbCom({ user: null });
+        await NexusAuth.logAccess('e2', 'documento', '');
+        assert.equal(inserts[1].accessed_by_email, null);
+    });
+
+    test('falha ao gravar o registro não interrompe quem estava abrindo o dado', async () => {
+        global.sb = sbCom({ falhaInsert: true });
+        await assert.doesNotReject(NexusAuth.logAccess('e1', 'holerite', 'x'));
+    });
+
+    test('exportação é registrada com a quantidade de linhas; valor inválido vira zero; cliente sem RPC é ignorado', async () => {
+        const chamadas = [];
+        global.sb = sbCom({ rpc: async (nome, args) => (chamadas.push([nome, args]), { error: null }) });
+        NexusAuth.logExport('folha', 12);
+        NexusAuth.logExport('ferias', 'muitas');
+        assert.deepEqual(chamadas, [
+            ['report_data_export', { p_source: 'folha', p_rows: 12 }],
+            ['report_data_export', { p_source: 'ferias', p_rows: 0 }],
+        ]);
+        global.sb = sbCom();
+        assert.doesNotThrow(() => NexusAuth.logExport('folha', 1));
+    });
+
+    test('registro de sessão do RH segue mesmo com o armazenamento da aba bloqueado', async () => {
+        const chamadas = [];
+        global.sb = createMockSupabase({ profiles: [{ id: 'rh1', profile: 'Administrador' }] }, { user: { id: 'rh1', email: 'rh@nexus.com' } });
+        global.sb.rpc = async (nome, args) => (chamadas.push([nome, args]), { error: null });
+        const original = Object.getOwnPropertyDescriptor(global, 'sessionStorage');
+        Object.defineProperty(global, 'sessionStorage', {
+            configurable: true,
+            get() {
+                throw new Error('bloqueado');
+            },
+        });
+        try {
+            const r = await NexusAuth.requireProfile('Administrador');
+            assert.ok(r);
+            assert.deepEqual(chamadas.at(-1), ['record_access', { p_kind: 'session' }]);
+        } finally {
+            if (original) Object.defineProperty(global, 'sessionStorage', original);
+            else delete global.sessionStorage;
+        }
+    });
+});
+
+describe('registro de sessão do RH a cada 30 minutos', () => {
+    test('com registro recente não chama de novo; sem registro, registra e guarda a hora', async () => {
+        const guardado = new Map();
+        const original = Object.getOwnPropertyDescriptor(global, 'sessionStorage');
+        Object.defineProperty(global, 'sessionStorage', {
+            configurable: true,
+            value: { getItem: (k) => guardado.get(k) ?? null, setItem: (k, v) => guardado.set(k, v) },
+        });
+        const chamadas = [];
+        const montar = () => {
+            global.sb = createMockSupabase({ profiles: [{ id: 'rh2', profile: 'Administrador' }] }, { user: { id: 'rh2', email: 'rh@nexus.com' } });
+            global.sb.rpc = async (nome) => (chamadas.push(nome), { error: null });
+        };
+        try {
+            montar();
+            await NexusAuth.requireProfile('Administrador');
+            assert.deepEqual(chamadas, ['record_access']);
+            assert.ok(Number(guardado.get('nexus:sec-ping:rh2')) > 0);
+            montar();
+            await NexusAuth.requireProfile('Administrador');
+            assert.deepEqual(chamadas, ['record_access'], 'dentro de 30 minutos não registra de novo');
+        } finally {
+            if (original) Object.defineProperty(global, 'sessionStorage', original);
+            else delete global.sessionStorage;
+        }
+    });
+});

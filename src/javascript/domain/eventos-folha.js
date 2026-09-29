@@ -104,7 +104,7 @@ function reciboFerias({ contractType, salario, startDate, dias, abono }) {
         .reduce((s, p) => s + p.valor, 0)
         .toFixed(2);
     const aprendiz = String(contractType || '').toLowerCase() === 'aprendiz';
-    const porMes = diasPorCompetencia(startDate, Number(dias) || 0);
+    const porMes = diasPorCompetencia(startDate, Number(dias));
     const meses = Object.keys(porMes).sort();
     const descontos = [];
     let inss = 0,

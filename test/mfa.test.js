@@ -197,3 +197,32 @@ describe('cancelar ativação e desativar', () => {
         assert.deepEqual(chamadas, ['f1', 'f2', 'f-erro']);
     });
 });
+
+describe('respostas incompletas ou com erro do servidor de autenticação', () => {
+    test('erro ao listar fatores devolve listas vazias com o erro; resposta sem "all" também não quebra', async () => {
+        const comErro = { auth: { mfa: { listFactors: async () => ({ data: null, error: { message: 'x' } }) } } };
+        assert.deepEqual(await NexusMfa.listFactors(comErro), { verified: [], pending: [], error: { message: 'x' } });
+        const semAll = { auth: { mfa: { listFactors: async () => ({ data: {}, error: null }) } } };
+        assert.deepEqual(await NexusMfa.listFactors(semAll), { verified: [], pending: [], error: null });
+    });
+
+    test('erro ao iniciar a ativação é repassado', async () => {
+        const client = {
+            auth: {
+                mfa: {
+                    listFactors: async () => ({ data: { all: [] }, error: null }),
+                    unenroll: async () => ({}),
+                    enroll: async () => ({ data: null, error: { message: 'limite' } }),
+                },
+            },
+        };
+        assert.deepEqual(await NexusMfa.startEnroll(client), { error: { message: 'limite' } });
+    });
+
+    test('geração de códigos que volta sem lista é tratada como erro; contagem não numérica vira zero', async () => {
+        const naoLista = { rpc: async () => ({ data: 'ok', error: null }) };
+        assert.deepEqual(await NexusMfa.generateRecoveryCodes(naoLista), { codes: [], error: { message: 'empty' } });
+        const textoEstranho = { rpc: async () => ({ data: 'abc', error: null }) };
+        assert.equal(await NexusMfa.recoveryRemaining(textoEstranho), 0);
+    });
+});

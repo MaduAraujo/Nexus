@@ -26,8 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const initials = (name) =>
         (name || '?')
             .split(' ')
+            .filter(Boolean)
             .slice(0, 2)
-            .map((w) => w[0]?.toUpperCase() || '')
+            .map((w) => w[0].toUpperCase())
             .join('');
 
     const fmtTime = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -79,8 +80,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             Object.entries(panelMap).forEach(([k, el]) => {
                 if (el) el.classList.toggle('hidden', k !== tab);
             });
-            if (tab === 'rh' && !currentTicketId) showWelcome();
-            if (tab === 'social' && !currentChannelId) showWelcome();
+            if (tab === 'rh') (currentTicketId ? showHrArea : showWelcome)();
+            if (tab === 'social') (currentChannelId ? showChatArea : showWelcome)();
             if (tab === 'kudos') showKudosArea();
         });
     });
@@ -155,13 +156,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updatePresenceUI() {
         const pill = $('presence-pill');
         const numEl = $('presence-number');
-        if (!pill || !numEl) return;
         numEl.textContent = onlineCount;
         pill.style.display = currentChannelId && !currentDm ? 'flex' : 'none';
     }
 
     function avatarAttrs(e) {
-        if (!e) return `data-bg="#6366f1"`;
         if (e.avatar_url) return `data-bg-img="${esc(e.avatar_url)}"`;
         return `data-bg="${esc(e.avatar_color || '#6366f1')}"`;
     }
@@ -170,7 +169,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadChannels() {
         const list = $('channel-list');
-        if (!list) return;
 
         const { data: channels } = await sb.from('chat_channels').select('*').order('name');
         allChannels = (channels || []).filter((c) => c.kind !== 'dm');
@@ -226,7 +224,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.dataset.channelId = channel.id;
         li.dataset.member = isMember ? '1' : '0';
 
-        const unread = unreadCounts[channel.id] || 0;
         const iconMap = {
             globe: 'fa-globe',
             code: 'fa-code',
@@ -242,7 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.innerHTML = `
             <span class="ch-icon"><i class="fas ${faIcon}"></i></span>
             <span class="ch-name">${esc(channel.name)}</span>
-            ${unread > 0 ? `<span class="ch-badge" id="badge-${channel.id}">${unread}</span>` : `<span class="ch-badge" id="badge-${channel.id}" data-hide>${unread}</span>`}
+            <span class="ch-badge" id="badge-${channel.id}" data-hide>0</span>
         `;
 
         li.addEventListener('click', () => selectChannel(channel, isMember));
@@ -336,7 +333,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadMessages(channelId) {
         const list = $('messages-list');
-        if (!list) return;
         list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: msgs } = await sb
@@ -362,7 +358,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendMessage(msg, doScroll = true) {
         const list = $('messages-list');
-        if (!list) return;
         const e = msg.employees?.name ? msg.employees : colleagues.find((c) => c.id === msg.employee_id) || {};
         const mine = msg.employee_id === myEmployeeId;
 
@@ -514,7 +509,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateChannelBadge(channelId) {
         const badge = document.getElementById(`badge-${channelId}`);
-        if (!badge) return;
         const count = unreadCounts[channelId] || 0;
         badge.textContent = count;
         badge.style.display = count > 0 ? 'flex' : 'none';
@@ -553,7 +547,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const byId = new Map(colleagues.map((c) => [c.id, c]));
         dms = error
             ? []
-            : (data || [])
+            : data
                   .map((m) => {
                       const otherId = m.chat_channels.dm_key.split(':').find((id) => id !== myEmployeeId);
                       const other = byId.get(otherId);
@@ -566,7 +560,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderDmList() {
         const list = $('dm-list');
-        if (!list) return;
         list.innerHTML = '';
         if (!dms.length) {
             list.innerHTML = '<li class="ch-loading"><span>Nenhuma conversa ainda</span></li>';
@@ -594,7 +587,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderDmPicker() {
         const list = $('dm-picker-list');
-        if (!list) return;
         const query = ($('dm-search')?.value || '').trim().toLowerCase();
         const matches = colleagues.filter((c) => !query || `${c.name} ${c.dept || ''}`.toLowerCase().includes(query));
 
@@ -687,7 +679,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             .subscribe();
     }
 
-    const HR_BOT_GREETING = `Olá, ${myEmployee.name?.split(' ')[0] || 'colaborador'}! Sou o Agente de Atendimento RH.
+    const HR_BOT_GREETING = `Olá, ${myEmployee.name.split(' ')[0]}! Sou o Agente de Atendimento RH.
 Com o que posso te ajudar hoje?`;
 
     const HR_TOPICS = ['Qual meu saldo de férias?', 'Quando vence meu banco de horas?', 'Meu último holerite', 'Documentos', 'Falar com analista'];
@@ -695,9 +687,6 @@ Com o que posso te ajudar hoje?`;
     let allTickets = [];
 
     async function loadTickets() {
-        const list = $('ticket-list');
-        if (!list) return;
-
         const [{ data: tickets }, { data: hidden }] = await Promise.all([
             sb.from('hr_tickets').select('*').eq('employee_id', myEmployeeId).order('updated_at', { ascending: false }),
             sb.from('hr_ticket_hidden').select('ticket_id').eq('employee_id', myEmployeeId),
@@ -710,7 +699,6 @@ Com o que posso te ajudar hoje?`;
 
     function renderTicketList() {
         const list = $('ticket-list');
-        if (!list) return;
         list.innerHTML = '';
 
         if (!allTickets.length) {
@@ -860,7 +848,7 @@ Com o que posso te ajudar hoje?`;
     function maybeShowCsatPrompt(ticket) {
         if (ticket.status !== 'resolvido' || ticket.csat_rating) return;
         const list = $('hr-messages-list');
-        if (!list || list.querySelector('.csat-prompt')) return;
+        if (list.querySelector('.csat-prompt')) return;
 
         const wrap = document.createElement('div');
         wrap.className = 'csat-prompt';
@@ -914,7 +902,6 @@ Com o que posso te ajudar hoje?`;
 
     async function loadTicketMessages(ticketId) {
         const list = $('hr-messages-list');
-        if (!list) return;
         list.innerHTML = `<div class="list-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
 
         const { data: msgs } = await sb.from('hr_ticket_messages_decrypted').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
@@ -926,7 +913,6 @@ Com o que posso te ajudar hoje?`;
 
     function appendTicketMessage(msg, doScroll = true) {
         const list = $('hr-messages-list');
-        if (!list) return;
 
         if (msg.role === 'user') {
             const group = document.createElement('div');
@@ -969,7 +955,6 @@ Com o que posso te ajudar hoje?`;
 
     function appendBotMessage(content, quickReplies, ts) {
         const list = $('hr-messages-list');
-        if (!list) return;
 
         const now = ts || new Date().toISOString();
         const group = document.createElement('div');
@@ -1073,8 +1058,6 @@ Com o que posso te ajudar hoje?`;
         const historyContext = history.slice(0, -1);
 
         const list = $('hr-messages-list');
-        if (!list) return;
-        const bubbleId = 'aibot-' + Date.now();
         const group = document.createElement('div');
         group.className = 'msg-group is-bot';
         group.innerHTML = `
@@ -1084,14 +1067,14 @@ Com o que posso te ajudar hoje?`;
                 </div>
                 <div class="msg-content-wrap">
                     <div class="msg-header"><span class="msg-author msg-author--agent">Agente RH</span></div>
-                    <div class="msg-bubble" id="${bubbleId}"><span class="stream-cursor"></span></div>
+                    <div class="msg-bubble"><span class="stream-cursor"></span></div>
                     <div class="msg-footer"><span class="msg-time">${fmtTime(new Date().toISOString())}</span></div>
                 </div>
             </div>`;
         list.appendChild(group);
         scrollBottom('hr-messages-scroll');
 
-        const bubble = $(bubbleId);
+        const bubble = group.querySelector('.msg-bubble');
         let fullText = '';
         try {
             const {
@@ -1119,7 +1102,7 @@ Com o que posso te ajudar hoje?`;
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                buffer = lines.pop() ?? '';
+                buffer = lines.pop();
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed.startsWith('data:')) continue;
@@ -1129,10 +1112,8 @@ Com o que posso te ajudar hoje?`;
                         const delta = JSON.parse(raw).choices?.[0]?.delta?.content;
                         if (delta) {
                             fullText += delta;
-                            if (bubble) {
-                                bubble.innerHTML = formatBotMd(fullText) + '<span class="stream-cursor"></span>';
-                                scrollBottom('hr-messages-scroll');
-                            }
+                            bubble.innerHTML = formatBotMd(fullText) + '<span class="stream-cursor"></span>';
+                            scrollBottom('hr-messages-scroll');
                         }
                     } catch {}
                 }
@@ -1141,12 +1122,12 @@ Com o que posso te ajudar hoje?`;
             fullText = `Não consegui responder agora (${err.message}). Você pode tentar de novo ou falar com um analista.`;
         }
 
-        if (bubble) bubble.innerHTML = formatBotMd(fullText || 'Não consegui responder agora.');
+        bubble.innerHTML = formatBotMd(fullText || 'Não consegui responder agora.');
 
         await sb.from('hr_ticket_messages').insert({ ticket_id: currentTicketId, employee_id: null, role: 'bot', content: fullText });
 
         const qrHtml = `<div class="quick-replies"><button class="qr-btn" data-qr="Falar com analista">Falar com analista</button></div>`;
-        group.querySelector('.msg-content-wrap')?.insertAdjacentHTML('beforeend', qrHtml);
+        group.querySelector('.msg-content-wrap').insertAdjacentHTML('beforeend', qrHtml);
         group.querySelectorAll('.qr-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const t = btn.dataset.qr;
@@ -1300,7 +1281,6 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
 
     function renderKudosWall() {
         const wall = $('kudos-wall');
-        if (!wall) return;
         if (!allKudos.length) {
             wall.innerHTML = `<div class="kudos-empty"><i class="fas fa-award kudos-empty-icon"></i>Nenhum reconhecimento ainda.</div>`;
             return;
@@ -1353,7 +1333,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
 
     window.submitKudos = async function () {
         const toId = $('kudos-colleague')?.value;
-        const categoria = $('kudos-categoria')?.value || 'colaboracao';
+        const categoria = $('kudos-categoria').value;
         const message = $('kudos-message')?.value.trim();
         const errEl = $('kudos-error');
 
@@ -1385,7 +1365,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
         }
 
         const dirMap = kudosDirMap();
-        allKudos.unshift({ ...data, from: dirMap.get(data.from_employee_id) || null, to: dirMap.get(data.to_employee_id) || null });
+        allKudos.unshift({ ...data, from: dirMap.get(data.from_employee_id), to: dirMap.get(data.to_employee_id) });
         renderKudosWall();
         closeKudosModal();
         showToast('Reconhecimento publicado!', 'success', 'Seu colega vai adorar ver isso no mural.');
@@ -1414,7 +1394,7 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     };
 
     window.submitAnonFeedback = async function () {
-        const categoria = $('anon-categoria')?.value || 'outro';
+        const categoria = $('anon-categoria').value;
         const message = $('anon-message')?.value.trim();
         const errEl = $('anon-error');
 
@@ -1449,11 +1429,10 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     window.showToast = function (title, type = 'success', msg = '') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = $('toast-container');
-        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}

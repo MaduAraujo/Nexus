@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function setLoading(show) {
     const el = document.getElementById('page-loader');
-    if (!el) return;
     if (show) el.classList.add('active');
     else el.classList.remove('active');
 }
@@ -178,9 +177,9 @@ function proventosFeriasLegado(existingSlip) {
 }
 
 const somaCods = (lista, cods) =>
-    +(lista || [])
+    +lista
         .filter((x) => cods.includes(x.cod))
-        .reduce((s, x) => s + Number(x.valor || 0), 0)
+        .reduce((s, x) => s + Number(x.valor), 0)
         .toFixed(2);
 
 function recibosDoColaborador(empId) {
@@ -191,15 +190,15 @@ function feriasNaCompetencia(recibos, monthKey) {
     let base = 0,
         inssRetido = 0;
     recibos.forEach((r) => {
-        const inss901 = (r.descontos || []).filter((d) => d.cod === '901');
+        const inss901 = r.descontos.filter((d) => d.cod === '901');
         if (inss901.some((d) => d.competencia)) {
             inss901
                 .filter((d) => d.competencia === monthKey)
                 .forEach((d) => {
-                    base += Number(d.base || 0);
-                    inssRetido += Number(d.valor || 0);
+                    base += Number(d.base);
+                    inssRetido += Number(d.valor);
                 });
-        } else if ((r.mes || '').startsWith(monthKey)) {
+        } else if (r.mes.startsWith(monthKey)) {
             base += somaCods(r.proventos, COD_FERIAS_TRIBUTAVEIS);
             inssRetido += somaCods(r.descontos, ['901']);
         }
@@ -232,9 +231,9 @@ function calcImpostosMes({ contractType, baseMensal, baseFerias = 0, inssRetidoR
 
 function validarTributacaoFerias(slip, contractType) {
     if (String(contractType || 'clt').toLowerCase() === 'pj') return null;
-    const temFerias = (slip.proventos || []).some((p) => COD_FERIAS_TRIBUTAVEIS.includes(p.cod) && Number(p.valor) > 0);
+    const temFerias = slip.proventos.some((p) => COD_FERIAS_TRIBUTAVEIS.includes(p.cod) && Number(p.valor) > 0);
     if (!temFerias) return null;
-    if ((slip.descontos || []).some((d) => d.cod === '901' && Number(d.valor) > 0)) return null;
+    if (slip.descontos.some((d) => d.cod === '901' && Number(d.valor) > 0)) return null;
     return 'Holerite com férias sem desconto de INSS — recalcule antes de fechar.';
 }
 
@@ -373,9 +372,9 @@ function buildFolhaRows() {
 
 function resumoDoHolerite(slip, isPJ) {
     const soma = (lista, cods) =>
-        +(lista || [])
+        +lista
             .filter((x) => cods.includes(x.cod))
-            .reduce((s, x) => s + Number(x.valor || 0), 0)
+            .reduce((s, x) => s + Number(x.valor), 0)
             .toFixed(2);
     return {
         salary: soma(slip.proventos, ['001']),
@@ -464,7 +463,6 @@ window.clearSearch = function () {
 function renderFolha() {
     const tbody = document.getElementById('folha-tbody');
     const cardsEl = document.getElementById('folha-cards');
-    if (!tbody) return;
 
     const filtered = allRows.filter((r) => {
         if (r.pago) return false;
@@ -593,7 +591,6 @@ function getVisibleIds() {
 
 function syncHeaderCheckbox(visibleIds) {
     const headerCb = document.getElementById('select-all-cb');
-    if (!headerCb) return;
     const selectedVisible = visibleIds.filter((id) => selectedIds.has(id));
     if (selectedVisible.length === 0) {
         headerCb.checked = false;
@@ -608,7 +605,7 @@ function syncHeaderCheckbox(visibleIds) {
 }
 
 function updateSelectionUI(filtered) {
-    const visibleIds = (filtered || []).map((r) => r.emp.id);
+    const visibleIds = filtered.map((r) => r.emp.id);
     syncHeaderCheckbox(visibleIds);
     showBulkBar();
 }
@@ -616,7 +613,6 @@ function updateSelectionUI(filtered) {
 function showBulkBar() {
     const bar = document.getElementById('bulk-bar');
     const count = document.getElementById('bulk-count');
-    if (!bar) return;
     const n = selectedIds.size;
     if (n > 0) {
         bar.classList.add('visible');
@@ -664,6 +660,8 @@ window.marcarSelecionadosPagos = async function () {
             'success'
         );
         await refresh();
+    } catch (e) {
+        showToast(`Não foi possível fechar a folha: ${e.message}`, 'error');
     } finally {
         setLoading(false);
     }
@@ -706,7 +704,6 @@ window.clearHolSearch = function () {
 function renderHolerites(q = '', dept = '') {
     const tbody = document.getElementById('hol-tbody');
     const cardsEl = document.getElementById('hol-cards');
-    if (!tbody) return;
 
     const filtered = allRows.filter((r) => {
         if (!r.pago) return false;
@@ -805,7 +802,6 @@ function linhasRecibosFerias() {
 function renderRecibosFerias() {
     const box = document.getElementById('recibos-ferias');
     const list = document.getElementById('recibos-ferias-list');
-    if (!box || !list) return;
     const linhas = linhasRecibosFerias();
     box.classList.toggle('hidden', !linhas.length);
     const hoje = todayKeyRH();
@@ -907,9 +903,8 @@ function renderSlipModal(emp, slip) {
     if (sub) sub.textContent = `${emp.name} — ${slip.competencia}`;
 
     const body = document.getElementById('slip-modal-body');
-    if (!body) return;
 
-    const provRows = (slip.proventos || [])
+    const provRows = slip.proventos
         .map(
             (p) =>
                 `<tr>
@@ -921,7 +916,7 @@ function renderSlipModal(emp, slip) {
         )
         .join('');
 
-    const descRows = (slip.descontos || [])
+    const descRows = slip.descontos
         .map(
             (d) =>
                 `<tr>
@@ -1023,7 +1018,6 @@ function calcIntervaloDeficitMinRH(rec, jornadaMin) {
 }
 
 async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
-    if (jornadaMin === null) return { noturnoMin: 0, feriadoMin: 0, intervaloDeficitMin: 0 };
     const [{ data: recs }, holidaysMap] = await Promise.all([
         sb
             .from('time_records')
@@ -1054,9 +1048,8 @@ async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
 
 async function renderSlipBankInfo(emp, slip) {
     const el = document.getElementById('slip-bank-info');
-    if (!el) return;
     const jornadaMin = getJornadaMinRH(emp);
-    if (jornadaMin === null || !/^\d{4}-\d{2}$/.test(slip.mes || '')) {
+    if (jornadaMin === null || !/^\d{4}-\d{2}$/.test(slip.mes)) {
         el.classList.add('hidden');
         return;
     }
@@ -1120,8 +1113,8 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
 
     let total = 0;
     slips.forEach((s) => {
-        (s.proventos || []).forEach((p) => {
-            if (p.cod === '020' || p.cod === '021') total += Number(p.valor) || 0;
+        s.proventos.forEach((p) => {
+            if (p.cod === '020' || p.cod === '021') total += Number(p.valor);
         });
     });
     return +(total / slips.length).toFixed(2);
@@ -1147,7 +1140,6 @@ let lastDecimoTerceiroCalc = null;
 function setupDecimoTerceiroToggle() {
     const toggle = document.getElementById('dt-parcela-toggle');
     const hidden = document.getElementById('dt-parcela');
-    if (!toggle || !hidden) return;
     toggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.type-toggle-card');
         if (!btn) return;
@@ -1334,9 +1326,8 @@ window.onRescisaoEmpChange = function () {
 
 function updateRescisaoBtnState() {
     const btn = document.getElementById('btn-calcular-rescisao');
-    if (!btn) return;
-    const empId = document.getElementById('rescisao-emp')?.value || '';
-    const tipo = document.getElementById('rescisao-tipo')?.value || '';
+    const empId = document.getElementById('rescisao-emp').value;
+    const tipo = document.getElementById('rescisao-tipo').value;
     const data = document.getElementById('rescisao-data')?.value || '';
     btn.disabled = !(empId && tipo && data);
 }
@@ -1355,7 +1346,7 @@ window.calcularRescisaoModal = async function () {
     const empId = document.getElementById('rescisao-emp')?.value;
     const emp = employees.find((e) => e.id === empId);
     const dataStr = document.getElementById('rescisao-data')?.value;
-    const tipo = document.getElementById('rescisao-tipo')?.value || 'sem_justa_causa';
+    const tipo = document.getElementById('rescisao-tipo').value;
 
     if (!emp) {
         if (errEl) errEl.textContent = 'Selecione um colaborador.';
@@ -1561,8 +1552,8 @@ window.confirmarDesligamento = async function () {
                     },
                 },
             ],
-            operator_name: rhUser?.email?.split('@')[0] || 'RH',
-            operator_email: rhUser?.email || '',
+            operator_name: rhUser.email.split('@')[0],
+            operator_email: rhUser.email,
         });
 
         showToast(`Desligamento confirmado: ${emp.name} foi inativado e o termo de rescisão foi anexado ao perfil.`, 'success');
@@ -1578,7 +1569,6 @@ window.confirmarDesligamento = async function () {
 
 function renderRescisaoResult(r) {
     const el = document.getElementById('rescisao-result');
-    if (!el) return;
 
     const rows = (itens) =>
         itens.map((v) => `<tr><td>${escHtml(v.descricao)}</td><td class="td-ref">${v.dias}</td><td class="td-val">${fmtCurrency(v.valor)}</td></tr>`).join('');
@@ -1640,7 +1630,6 @@ function setupRescisaoDatePicker() {
     const nextBtn = document.getElementById('rescisao-data-next');
     const hidden = document.getElementById('rescisao-data');
     const label = document.getElementById('rescisao-data-label');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -1759,7 +1748,6 @@ function setupRescisaoEmpSelect() {
     const popover = document.getElementById('rescisao-emp-popover');
     const label = document.getElementById('rescisao-emp-label');
     const hidden = document.getElementById('rescisao-emp');
-    if (!trigger || !popover || !hidden) return;
 
     function open() {
         claimPopover(close);
@@ -1819,7 +1807,6 @@ function setupRescisaoEmpSelect() {
 function setupRescisaoTipoToggle() {
     const toggle = document.getElementById('rescisao-tipo-toggle');
     const hidden = document.getElementById('rescisao-tipo');
-    if (!toggle || !hidden) return;
     toggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.type-toggle-card');
         if (!btn) return;
@@ -1834,12 +1821,12 @@ window.printCurrentSlip = function () {
     const { emp, slip } = currentSlipData;
 
     const isPago = slip.status === 'pago';
-    const provRows = (slip.proventos || [])
+    const provRows = slip.proventos
         .map(
             (p) => `<tr><td>${p.cod}</td><td>${escHtml(p.descricao)}</td><td>${escapeHtml(p.referencia)}</td><td class="num">${fmtCurrency(p.valor)}</td></tr>`
         )
         .join('');
-    const descRows = (slip.descontos || [])
+    const descRows = slip.descontos
         .map(
             (d) =>
                 `<tr><td>${d.cod}</td><td>${escHtml(d.descricao)}</td><td>${escapeHtml(d.referencia)}</td><td class="num neg">${fmtCurrency(d.valor)}</td></tr>`
@@ -1902,7 +1889,6 @@ function populateDeptFilters() {
 
 function buildDeptChips(chipsId, btnId, depts, selected, fnName) {
     const chipsEl = document.getElementById(chipsId);
-    if (!chipsEl) return;
 
     chipsEl.innerHTML = [
         `<button type="button" class="chip${!selected ? ' chip--active' : ''}" data-dept="" data-click="${fnName}" data-click-args="[{&quot;$&quot;:&quot;this&quot;}]">Todos os departamentos</button>`,
@@ -1916,11 +1902,9 @@ function buildDeptChips(chipsId, btnId, depts, selected, fnName) {
 }
 
 function setupDeptFilterDropdown(wrapId, btnId, menuId, chevronId) {
-    const wrap = document.getElementById(wrapId);
     const btn = document.getElementById(btnId);
     const menu = document.getElementById(menuId);
     const chevron = document.getElementById(chevronId);
-    if (!wrap || !btn || !menu) return;
 
     function open() {
         btn.classList.add('open');
@@ -1976,35 +1960,28 @@ function setupRealtimeSync() {
 function setupExportDropdown() {
     const btn = document.getElementById('btn-export');
     const menu = document.getElementById('export-menu');
-    const chevron = btn?.querySelector('.export-chevron');
-    if (!btn || !menu) return;
 
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const open = menu.classList.toggle('open');
         btn.classList.toggle('open', open);
-        chevron?.classList.toggle('rotated', open);
     });
     document.addEventListener('click', () => {
         menu.classList.remove('open');
         btn.classList.remove('open');
-        chevron?.classList.remove('rotated');
     });
     menu.addEventListener('click', (e) => e.stopPropagation());
 
     document.getElementById('export-excel')?.addEventListener('click', () => {
         menu.classList.remove('open');
-        chevron?.classList.remove('rotated');
         exportExcel();
     });
     document.getElementById('export-pdf')?.addEventListener('click', () => {
         menu.classList.remove('open');
-        chevron?.classList.remove('rotated');
         exportPDF();
     });
     document.getElementById('export-csv')?.addEventListener('click', () => {
         menu.classList.remove('open');
-        chevron?.classList.remove('rotated');
         exportCSV();
     });
 }
@@ -2126,7 +2103,6 @@ function setupCustomMonthPicker() {
     const gridEl = document.getElementById('mpd-grid');
     const prevBtn = document.getElementById('mpd-prev-month');
     const nextBtn = document.getElementById('mpd-next-month');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear, viewMonth;
@@ -2272,25 +2248,24 @@ function fmtDate(str) {
 }
 
 function fmtMonthLabel(key) {
-    if (!key) return '';
     const [y, m] = key.split('-');
     const lbl = new Date(+y, +m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     return lbl.charAt(0).toUpperCase() + lbl.slice(1);
 }
 
 function initials(name) {
-    return (name || '?')
+    return name
         .split(' ')
         .filter(Boolean)
         .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
+        .map((w) => w[0].toUpperCase())
         .join('');
 }
 
 function nameToColor(name) {
     const p = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#f97316', '#0ea5e9', '#14b8a6'];
     let h = 0;
-    for (const c of name || '') h = (h * 31 + c.charCodeAt(0)) | 0;
+    for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
     return p[Math.abs(h) % p.length];
 }
 
@@ -2300,18 +2275,16 @@ function empAvatarHtml(emp, ini, color) {
 }
 
 function escHtml(str) {
-    if (typeof str !== 'string') return str ?? '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>

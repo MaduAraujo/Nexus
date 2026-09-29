@@ -44,6 +44,8 @@ function client(extra = {}) {
                     id: 'k1',
                     from_employee_id: BIA.id,
                     to_employee_id: ANA.id,
+                    from: { name: 'Bia Lima' },
+                    to: { name: 'Ana Souza' },
                     categoria: 'colaboracao',
                     message: 'Mensagem ofensiva',
                     created_at: '2026-06-16T10:00:00-03:00',

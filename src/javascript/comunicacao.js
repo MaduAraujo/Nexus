@@ -104,7 +104,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let stagedFiles = [];
     let templates = [];
     let draftSaveTimer = null;
-    let suppressDraftSave = false;
 
     const DRAFT_KEY = 'nexus_comunicado_draft';
 
@@ -128,10 +127,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         Jurídico: 'Jurídico',
         Administrativo: 'Administrativo',
     };
-    const deptLabel = (dept) => DEPT_LABELS[dept] || dept || 'Sem departamento';
+    const deptLabel = (dept) => DEPT_LABELS[dept] || dept;
 
     function renderAttachChips() {
-        if (!attachChips) return;
         attachChips.innerHTML = stagedFiles
             .map(
                 (f, i) => `
@@ -168,7 +166,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let selectedScheduleDate = null;
 
     function renderScheduleCalendar() {
-        if (!scheduleCalTitle || !scheduleCalGrid) return;
         scheduleCalTitle.textContent = `${MESES_PT[calViewMonth]} ${calViewYear}`;
 
         const isPastMonth = calViewYear === today.getFullYear() && calViewMonth === today.getMonth();
@@ -387,7 +384,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function execFormat(editor, type) {
-        if (!editor) return;
         editor.focus();
         if (type === 'bold') {
             document.execCommand('bold');
@@ -401,13 +397,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function handlePlainTextPaste(e) {
         e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        const text = e.clipboardData.getData('text/plain');
         document.execCommand('insertText', false, text);
     }
 
     function refreshToolbarState(toolbarId) {
         const toolbar = document.getElementById(toolbarId);
-        if (!toolbar) return;
         toolbar.querySelectorAll('.format-btn[data-format]').forEach((btn) => {
             const type = btn.dataset.format;
             if (type === 'link') {
@@ -462,14 +457,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function saveDraftToStorage() {
         try {
-            if (suppressDraftSave) return;
             const plainText = messageInput?.textContent || '';
             if (!plainText.trim() && !selectedDest) {
                 localStorage.removeItem(DRAFT_KEY);
                 updateDraftStatus(null);
                 return;
             }
-            const html = sanitizeComunicadoHTML(messageInput?.innerHTML || '');
+            const html = sanitizeComunicadoHTML(messageInput.innerHTML);
             const draft = { html, destino: selectedDest, categoria: selectedCategory, savedAt: new Date().toISOString() };
             localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
             updateDraftStatus(draft.savedAt);
@@ -490,7 +484,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateDraftStatus(savedAtIso) {
-        if (!draftStatus) return;
         if (!savedAtIso) {
             draftStatus.textContent = '';
             return;
@@ -512,7 +505,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const plainText = draft ? comunicadoPlainText(draft.html || '') : '';
         if (!draft || (!plainText.trim() && !draft.destino)) return;
 
-        suppressDraftSave = true;
         if (messageInput) messageInput.innerHTML = sanitizeComunicadoHTML(draft.html || '');
         const len = plainText.length;
         if (charCount) charCount.textContent = `${len} caractere${len !== 1 ? 's' : ''}`;
@@ -524,7 +516,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('#cat-inline-grid .cat-inline-chip').forEach((c) => c.classList.toggle('active', c.dataset.cat === selectedCategory));
         checkSendReady();
         checkTemplateSaveReady();
-        suppressDraftSave = false;
 
         if (draftBanner && draftBannerText) {
             const time = new Date(draft.savedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -546,7 +537,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderTemplatesList() {
-        if (!templatesMenuList) return;
         if (!templates.length) {
             templatesMenuList.innerHTML = `<p class="templates-empty">Nenhum modelo salvo ainda.</p>`;
             return;
@@ -581,7 +571,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function checkTemplateSaveReady() {
-        if (!templatesSaveBtn) return;
         templatesSaveBtn.disabled = !(messageInput?.textContent.trim() && templateNameInput?.value.trim());
     }
 
@@ -883,7 +872,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderizarTabela() {
-        if (!messagesList) return;
         const msgs = filteredMsgs();
         if (!msgs.length) {
             messagesList.innerHTML = emptyTableRow;
@@ -909,7 +897,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function renderizarCards() {
-        if (!messagesCards) return;
         const msgs = filteredMsgs();
         if (!msgs.length) {
             messagesCards.innerHTML = emptyCardsHtml;
@@ -957,9 +944,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeAttachPopover();
             return;
         }
-        const msg = dbMensagens.find((m) => m.id === msgId);
-        const anexos = msg?.anexos || [];
-        if (!anexos.length) return;
+        const anexos = dbMensagens.find((m) => m.id === msgId).anexos;
 
         const rect = btn.getBoundingClientRect();
         const pop = document.createElement('div');
@@ -1091,8 +1076,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         engagementModal?.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
-        if (engagementModalTitleText)
-            engagementModalTitleText.textContent = readersOnly ? 'Quem já leu' : isGlobal ? 'Engajamento Geral' : 'Engajamento do Comunicado';
+        if (engagementModalTitleText) engagementModalTitleText.textContent = readersOnly ? 'Quem já leu' : 'Engajamento Geral';
         engagementSummary?.classList.toggle('hidden', readersOnly);
         engagementDeptSection?.classList.toggle('hidden', readersOnly);
         engagementReadersTitle?.classList.toggle('hidden', readersOnly);
@@ -1125,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                       .map((dept) => {
                           const total = deptTotals[dept];
                           const read = deptReads[dept] || 0;
-                          const pct = total ? Math.round((read / total) * 100) : 0;
+                          const pct = Math.round((read / total) * 100);
                           return `<div class="engagement-dept-row">
                 <div class="engagement-dept-info">
                     <span class="engagement-dept-name">${escHTML(deptLabel(dept))}</span>
@@ -1145,8 +1129,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                           const name = emp?.name || 'Colaborador removido';
                           const initials = name
                               .split(' ')
+                              .filter(Boolean)
                               .slice(0, 2)
-                              .map((w) => w[0]?.toUpperCase() || '')
+                              .map((w) => w[0].toUpperCase())
                               .join('');
                           const avatar = emp?.avatar_url
                               ? `<span class="reads-popover-avatar" data-bg-img="${escapeHtml(emp.avatar_url)}"></span>`
@@ -1204,7 +1189,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let editStagedFiles = [];
 
     function renderEditAttachChips() {
-        if (!editAttachChips) return;
         const existingHtml = editKeptAttachments
             .map(
                 (a, i) => `

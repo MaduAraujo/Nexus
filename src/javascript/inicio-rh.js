@@ -33,8 +33,9 @@ async function loadUserInfo(user, profile) {
             nome = emp.name;
             iniciais = nome
                 .split(' ')
+                .filter(Boolean)
                 .slice(0, 2)
-                .map((w) => w[0]?.toUpperCase() || '')
+                .map((w) => w[0].toUpperCase())
                 .join('');
         }
         if (emp?.avatar_color) avatarColor = emp.avatar_color;
@@ -63,7 +64,6 @@ function setupSidebar() {
     const menuBtn = document.getElementById('topbar-menu-btn');
     const overlay = document.getElementById('sidebar-overlay');
     const wrapper = document.getElementById('main-wrapper');
-    if (!sidebar) return;
 
     const isMobile = () => window.innerWidth <= 768;
     const openMob = () => {
@@ -101,7 +101,6 @@ function setupSidebar() {
 
 function setupThemeToggle() {
     const btn = document.getElementById('theme-toggle-btn');
-    if (!btn) return;
 
     function syncIcon() {
         const isDark = window.NexusTheme?.current() === 'dark';
@@ -125,7 +124,6 @@ function setupCalendar() {
     const gridEl = document.getElementById('calendar-grid');
     const prevBtn = document.getElementById('calendar-prev');
     const nextBtn = document.getElementById('calendar-next');
-    if (!trigger || !popover) return;
 
     const today = new Date();
     let viewYear = today.getFullYear();

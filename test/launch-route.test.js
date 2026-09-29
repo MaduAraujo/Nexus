@@ -124,3 +124,10 @@ describe('abertura do app no celular', () => {
         assert.equal(launch({ narrow: true, storage }), '/src/screens/inicio-rh.html');
     });
 });
+
+describe('JWT sem o campo de usuário', () => {
+    test('sessão cujo token não traz "sub" não identifica ninguém e é ignorada', () => {
+        const storage = { 'sb-abc-colab-auth-token': JSON.stringify({ access_token: `h.${b64url({ role: 'authenticated' })}.s` }) };
+        assert.equal(launch({ standalone: true, storage }), LOGIN);
+    });
+});

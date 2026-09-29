@@ -161,3 +161,39 @@ describe('shapeSnapshot — memória de decisões recentes', () => {
         assert.match(snap.recent_decisions[0].date, /^\d{2}\/\d{2}\/\d{4}$/);
     });
 });
+
+describe('shapeSnapshot — nomes e departamentos ausentes', () => {
+    test('quem não tem departamento ou nome vinculado aparece como N/A, sem quebrar o resumo', () => {
+        const snap = shapeSnapshot(
+            '2026-06-15',
+            {
+                employees: [{ id: 'e1', name: 'Ana', dept: null, admission_date: '2026-06-01' }],
+                pendingVacations: [
+                    { id: 'v1', employees: null, start_date: '2026-07-01', end_date: '2026-07-10', days: 10, created_at: '2026-06-10T10:00:00Z' },
+                ],
+                pendingAdjustments: [{ id: 'a1', employees: null, date: '2026-06-10', tipo: 'falta', justificativa: null }],
+                burnoutAlerts: [{ id: 'b1', employees: null, date: '2026-06-10', alertas: [] }],
+                pendingDocs: [{ employees: null, name: 'aso.pdf' }],
+            },
+            NOW
+        );
+        assert.equal(snap.employees_no_records_last_7days[0].dept, 'N/A');
+        assert.equal(snap.new_hires_last_90days[0].dept, 'N/A');
+        assert.equal(snap.pending_vacations[0].employee, 'N/A');
+        assert.equal(snap.pending_adjustments[0].employee, 'N/A');
+        assert.equal(snap.pending_adjustments[0].justification, '');
+        assert.equal(snap.burnout_alerts[0].employee, 'N/A');
+        assert.equal(snap.pending_documents[0].employee, 'N/A');
+    });
+});
+
+describe('pseudonymizeRows — registro sem colaborador conhecido', () => {
+    test('linha cujo colaborador não está no pseudonimizador vira N/A, sem expor o nome real', async () => {
+        const { pseudonymizeRows } = await import('../supabase/functions/_shared/ai-alerts-snapshot.mjs');
+        const { rows } = pseudonymizeRows({
+            employees: [{ id: 'e1', name: 'Ana Souza' }],
+            pendingDocs: [{ employee_id: null, employees: { name: 'Nome Real' }, name: 'x.pdf' }],
+        });
+        assert.equal(rows.pendingDocs[0].employees.name, 'N/A');
+    });
+});

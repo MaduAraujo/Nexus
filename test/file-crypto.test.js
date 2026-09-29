@@ -187,3 +187,30 @@ describe('rotação da chave de arquivos', () => {
         assert.throws(() => lib.keyringFromEnv(env({ FILES_ENCRYPTION_OLD_KEYS: 'v0:curta' })), /32 bytes|base64/);
     });
 });
+
+describe('chaveiro e cabeçalho inválidos', () => {
+    test('chaveiro sem chave ativa, com id inválido ou vazio é recusado', () => {
+        assert.throws(() => lib.toKeyring(null), /chaveiro de arquivos inválido/);
+        assert.throws(() => lib.toKeyring({ active: 'V2!', keys: { 'V2!': 'x' } }), /chaveiro de arquivos inválido/);
+        assert.throws(() => lib.toKeyring({ active: 'v2', keys: {} }), /chaveiro de arquivos inválido/);
+        assert.throws(() => lib.toKeyring({ keys: { v2: 'x' } }), /chaveiro de arquivos inválido/);
+    });
+
+    test('cabeçalho com identificador de chave de tamanho impossível é recusado', async () => {
+        const key = crypto.randomBytes(32).toString('base64');
+        const ok = await lib.encryptFile(
+            { active: 'v2', keys: { v2: key } },
+            { bucket: 'documents', path: 'a.pdf', mime: 'application/pdf', bytes: new TextEncoder().encode('x') }
+        );
+        const posicaoDoTamanhoDaChave = 4;
+        for (const tamanho of [0, 33, 250]) {
+            const ruim = new Uint8Array(ok);
+            ruim[posicaoDoTamanhoDaChave] = tamanho;
+            await assert.rejects(
+                lib.decryptFile({ active: 'v2', keys: { v2: key } }, { bucket: 'documents', path: 'a.pdf', bytes: ruim }),
+                /cabeçalho inválido/,
+                String(tamanho)
+            );
+        }
+    });
+});

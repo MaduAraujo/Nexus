@@ -11,8 +11,9 @@ const $ = (id) => document.getElementById(id);
 const getInitials = (name) =>
     (name || '?')
         .split(' ')
+        .filter(Boolean)
         .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() || '')
+        .map((w) => w[0].toUpperCase())
         .join('');
 const escHtml = (str) =>
     String(str ?? '')
@@ -64,7 +65,6 @@ async function loadTeam() {
 async function loadTeamBalances() {
     const ids = teamMembers.map((m) => m.id);
     teamBalances = {};
-    if (!ids.length) return;
 
     const now = new Date();
     const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -202,7 +202,7 @@ function renderPendingList() {
         <div class="solicitacao-item">
             <div class="sol-icon"><i class="fas fa-umbrella-beach"></i></div>
             <div class="sol-info">
-                <p class="sol-tipo">${escHtml(emp?.name || '—')} <span class="sol-dept">(${escHtml(emp?.dept || '—')})</span></p>
+                <p class="sol-tipo">${escHtml(emp.name)} <span class="sol-dept">(${escHtml(emp.dept || '—')})</span></p>
                 <p class="sol-meta">${fmtBR(v.start_date)} → ${fmtBR(v.end_date)} · ${v.days} dias${v.abono ? ' · Abono pecuniário' : ''}</p>
                 ${v.obs ? `<p class="sol-meta">${escHtml(v.obs)}</p>` : ''}
             </div>
@@ -276,7 +276,7 @@ window.confirmRejectVacation = async function () {
 window.openEscalateModal = function (employeeId) {
     escalatingId = employeeId;
     const emp = teamMembers.find((m) => m.id === employeeId);
-    $('escalate-employee-name').textContent = emp?.name || '—';
+    $('escalate-employee-name').textContent = emp.name;
     $('escalate-message-text').value = '';
     $('err-escalate-message').textContent = '';
     $('modal-escalate-rh')?.classList.add('open');
@@ -299,7 +299,7 @@ window.confirmEscalateToRh = async function () {
         .insert({
             employee_id: myEmployeeId,
             about_employee_id: escalatingId,
-            subject: `Sobre ${emp?.name || 'colaborador do time'}`,
+            subject: `Sobre ${emp.name}`,
             status: 'aguardando_rh',
         })
         .select()
@@ -345,7 +345,6 @@ async function fetchPerformanceData(employeeId) {
 
 function renderPerformanceReviews() {
     const wrap = $('performance-reviews-list');
-    if (!wrap) return;
     if (!performanceReviews.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma avaliação registrada ainda.</p>`;
         return;
@@ -372,7 +371,6 @@ function renderPerformanceReviews() {
 
 function renderPerformanceGoals() {
     const wrap = $('performance-goals-list');
-    if (!wrap) return;
     if (!performanceGoals.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma meta de desenvolvimento cadastrada.</p>`;
         return;
@@ -394,7 +392,6 @@ function renderPerformanceGoals() {
 
 window.openPerformanceModal = async function (employeeId) {
     const emp = teamMembers.find((m) => m.id === employeeId);
-    if (!emp) return;
     performanceEmployeeId = employeeId;
     const nameEl = $('performance-emp-name');
     if (nameEl) nameEl.textContent = emp.name;
@@ -426,7 +423,6 @@ window.completeReview = async function (reviewId) {
 
 function createRatingWidget(containerId) {
     const el = $(containerId);
-    if (!el) return null;
     el.innerHTML = Array.from(
         { length: 5 },
         (_, i) => `<button type="button" class="rating-star" data-value="${i + 1}"><i class="fas fa-star"></i></button>`
@@ -441,7 +437,7 @@ function createRatingWidget(containerId) {
         setValue(Number(btn.dataset.value));
     });
     setValue(0);
-    return { setValue, getValue: () => Number(el.dataset.rating || 0) };
+    return { setValue, getValue: () => Number(el.dataset.rating) };
 }
 
 window.openReviewFormModal = function () {
@@ -488,8 +484,8 @@ window.submitReview = async function (status) {
             status,
             overall_rating: overall,
             manager_comment: comment,
-            evaluator_name: myEmployee?.name || null,
-            evaluator_email: myEmployee?.email || null,
+            evaluator_name: myEmployee.name,
+            evaluator_email: myEmployee.email,
             completed_at: status === 'concluida' ? new Date().toISOString() : null,
         })
         .select('id')
@@ -522,7 +518,7 @@ window.addPdiGoal = async function () {
         employee_id: performanceEmployeeId,
         title,
         due_date: dueDate,
-        created_by_name: myEmployee?.name || null,
+        created_by_name: myEmployee.name,
     });
     if (error) {
         showToast('Não foi possível criar a meta.', 'error');
@@ -565,7 +561,6 @@ async function fetchEmployeeTrainings(employeeId) {
 
 function renderTrainingsList() {
     const wrap = $('trainings-list');
-    if (!wrap) return;
     if (!employeeTrainings.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhum treinamento registrado ainda.</p>`;
         return;
@@ -597,7 +592,6 @@ function renderTrainingsList() {
 
 window.openTrainingsModal = async function (employeeId) {
     const emp = teamMembers.find((m) => m.id === employeeId);
-    if (!emp) return;
     trainingsEmployeeId = employeeId;
     const nameEl = $('trainings-emp-name');
     if (nameEl) nameEl.textContent = emp.name;
@@ -641,7 +635,7 @@ window.assignTraining = async function () {
         title,
         category: catalogEntry?.category || null,
         hours,
-        assigned_by_name: myEmployee?.name || null,
+        assigned_by_name: myEmployee.name,
     });
     if (error) {
         showToast('Não foi possível atribuir o treinamento.', 'error');
@@ -703,7 +697,6 @@ async function fetchDisciplinaryActions(employeeId) {
 
 function renderDisciplinaryList() {
     const wrap = $('disciplinary-list');
-    if (!wrap) return;
     if (!disciplinaryActions.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhuma medida disciplinar registrada.</p>`;
         return;
@@ -731,7 +724,6 @@ function renderDisciplinaryList() {
 
 window.openDisciplinaryModal = async function (employeeId) {
     const emp = teamMembers.find((m) => m.id === employeeId);
-    if (!emp) return;
     const nameEl = $('disciplinary-emp-name');
     if (nameEl) nameEl.textContent = emp.name;
     $('disciplinary-list').innerHTML = `<p class="performance-empty">Carregando…</p>`;
@@ -749,7 +741,6 @@ const LEAVE_STATUS_LABEL = { pendente: 'Pendente', aprovado: 'Aprovado', recusad
 
 function renderMedicalLeavesList(leaves) {
     const wrap = $('medical-leaves-list');
-    if (!wrap) return;
     if (!leaves.length) {
         wrap.innerHTML = `<p class="performance-empty">Nenhum atestado registrado ainda.</p>`;
         return;
@@ -770,7 +761,6 @@ function renderMedicalLeavesList(leaves) {
 
 window.openMedicalLeavesModal = async function (employeeId) {
     const emp = teamMembers.find((m) => m.id === employeeId);
-    if (!emp) return;
     const nameEl = $('ml-emp-name');
     if (nameEl) nameEl.textContent = emp.name;
     $('medical-leaves-list').innerHTML = `<p class="performance-empty">Carregando…</p>`;
@@ -784,13 +774,11 @@ window.closeMedicalLeavesModal = function () {
     $('modal-medical-leaves')?.classList.remove('open');
 };
 
-function createSelectField(id, onChange) {
+function createSelectField(id) {
     const trigger = $(`${id}-trigger`);
     const popover = $(`${id}-popover`);
     const label = $(`${id}-label`);
     const hidden = $(id);
-    if (!trigger || !popover || !label || !hidden) return null;
-
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -831,7 +819,6 @@ function createSelectField(id, onChange) {
         const btn = e.target.closest('.select-option');
         if (!btn) return;
         setValue(btn.dataset.value);
-        onChange?.();
     });
 
     return { setValue };
@@ -847,8 +834,6 @@ function setupPdiGoalDatePicker() {
     const prevBtn = $('pdi-goal-due-prev');
     const nextBtn = $('pdi-goal-due-next');
     const hidden = $('pdi-goal-due');
-    if (!trigger || !popover || !textEl || !gridEl || !hidden) return;
-
     const pad = (n) => String(n).padStart(2, '0');
     const today = new Date();
     let viewYear = today.getFullYear(),
@@ -958,7 +943,7 @@ function showToast(msg, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escHtml(msg)}</p>
         </div>

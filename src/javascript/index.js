@@ -1,11 +1,6 @@
 (function () {
     'use strict';
 
-    function ready(fn) {
-        if (document.readyState !== 'loading') fn();
-        else document.addEventListener('DOMContentLoaded', fn);
-    }
-
     function clamp(val, min, max) {
         return Math.min(Math.max(val, min), max);
     }
@@ -28,7 +23,6 @@
 
     function initNavbarScroll() {
         const navbar = document.getElementById('navbar');
-        if (!navbar) return;
         const onScroll = () => {
             navbar.classList.toggle('scrolled', window.scrollY > 20);
         };
@@ -38,8 +32,6 @@
     function initMobileMenu() {
         const btn = document.getElementById('btn-hamburger');
         const menu = document.getElementById('mobile-menu');
-        if (!btn || !menu) return;
-
         let isOpen = false;
 
         function setOpen(open) {
@@ -64,8 +56,6 @@
 
     function initScrollReveal() {
         const elements = document.querySelectorAll('.reveal');
-        if (!elements.length) return;
-
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
@@ -93,8 +83,6 @@
 
     function initStatCounters() {
         const statItems = document.querySelectorAll('.stat-item');
-        if (!statItems.length) return;
-
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
@@ -139,8 +127,6 @@
         const grid = document.getElementById('feat-grid');
         const prev = document.getElementById('feat-prev');
         const next = document.getElementById('feat-next');
-        if (!grid || !prev || !next) return;
-
         const update = () => {
             prev.hidden = grid.scrollLeft <= 1;
             next.hidden = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 1;
@@ -161,8 +147,6 @@
     function initActiveNavLinks() {
         const sections = document.querySelectorAll('section[id]');
         const links = document.querySelectorAll('.nav-link[href^="#"]');
-        if (!sections.length || !links.length) return;
-
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
@@ -179,7 +163,7 @@
         sections.forEach((s) => observer.observe(s));
     }
 
-    ready(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         initNavbarScroll();
         initMobileMenu();
         initScrollReveal();

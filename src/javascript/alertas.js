@@ -78,7 +78,6 @@ function urlBase64ToUint8ArrayAlertas(base64String) {
 }
 
 async function getAdminPushSubscription() {
-    if (!adminPushSupported()) return null;
     const registration = await navigator.serviceWorker.ready;
     return registration.pushManager.getSubscription();
 }
@@ -93,7 +92,6 @@ async function syncAdminSubscriptionToServer(json) {
 
 function updateAdminNotifButtonState(active) {
     const btn = document.getElementById('btn-notif-toggle');
-    if (!btn) return;
     const icon = btn.querySelector('i');
     const label = document.getElementById('btn-notif-label');
     if (icon) icon.className = active ? 'fas fa-bell' : 'fas fa-bell-slash';
@@ -105,8 +103,6 @@ function updateAdminNotifButtonState(active) {
 
 async function syncAdminNotifButtonUI() {
     const btn = document.getElementById('btn-notif-toggle');
-    if (!btn || !rhUser) return;
-
     if (!adminPushSupported()) {
         btn.disabled = true;
         btn.title = 'Notificações push não suportadas neste navegador.';
@@ -123,8 +119,6 @@ async function syncAdminNotifButtonUI() {
 }
 
 async function toggleAdminPushNotifications() {
-    if (!adminPushSupported()) return;
-
     if (isIosDevice() && !isStandaloneApp()) {
         appendChatMessage('ai', 'Instale o app na Tela de Início (Compartilhar → Adicionar à Tela de Início) para ativar notificações push.');
         return;
@@ -245,17 +239,15 @@ async function runAnalysis() {
             parsed = match ? JSON.parse(match[0]) : { summary: data.content, alerts: [] };
         }
 
-        parsed.health_score = calcHealthScore(parsed.alerts || []);
+        parsed.alerts ||= [];
+        parsed.health_score = calcHealthScore(parsed.alerts);
         renderAlerts(parsed);
         updateLastAnalysis();
-        saveAnalysisCache(parsed.summary, parsed.alerts || [], parsed.health_score).catch(() => {});
-        saveToHistory(parsed.summary, parsed.alerts || [], parsed.health_score).catch(() => {});
+        saveAnalysisCache(parsed.summary, parsed.alerts, parsed.health_score).catch(() => {});
+        saveToHistory(parsed.summary, parsed.alerts, parsed.health_score).catch(() => {});
 
-        appendChatMessage(
-            'ai',
-            `Análise concluída! Encontrei **${(parsed.alerts || []).length}** alerta(s). Pode me perguntar mais detalhes sobre qualquer item.`
-        );
-        renderSuggestionChips(parsed.alerts || []);
+        appendChatMessage('ai', `Análise concluída! Encontrei **${parsed.alerts.length}** alerta(s). Pode me perguntar mais detalhes sobre qualquer item.`);
+        renderSuggestionChips(parsed.alerts);
     } catch (err) {
         showAlertsError(err.message);
         appendChatMessage('ai', `Não foi possível concluir a análise: ${err.message}`);
@@ -320,7 +312,7 @@ async function sendChat() {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
+            buffer = lines.pop();
 
             for (const line of lines) {
                 const trimmed = line.trim();
@@ -440,7 +432,7 @@ async function describeActionTargets({ type, ids = [] }) {
     const empIds = [...new Set(valid.map((r) => r.employee_id).filter(Boolean))];
     const { data: emps } = empIds.length ? await sb.from('employees').select('id,name').in('id', empIds) : { data: [] };
     const nameOf = (id) => (emps || []).find((e) => e.id === id)?.name || 'Colaborador';
-    const fmt = (d) => (d ? d.split('-').reverse().join('/') : '—');
+    const fmt = (d) => d.split('-').reverse().join('/');
     const lines = valid.map((r) => {
         if (table === 'vacations') return `${nameOf(r.employee_id)} — férias de ${fmt(r.start_date)} a ${fmt(r.end_date)} (${r.days} dias)`;
         if (table === 'adjustment_requests') return `${nameOf(r.employee_id)} — ajuste de ${r.tipo} em ${fmt(r.date)}`;
@@ -485,7 +477,7 @@ async function executeAction(actionData) {
             evidenceRows = data || [];
         }
 
-        const decidedBy = { decided_by_name: rhUser?.email?.split('@')[0] || 'RH', decided_by_email: rhUser?.email || null };
+        const decidedBy = { decided_by_name: rhUser.email.split('@')[0], decided_by_email: rhUser.email };
         switch (type) {
             case 'approve_vacation': {
                 const { error } = await sb
@@ -513,8 +505,8 @@ async function executeAction(actionData) {
                         sb.rpc('approve_adjustment_request', {
                             p_request_id: id,
                             p_decision: decision,
-                            p_decided_by_name: rhUser?.email?.split('@')[0] || 'RH',
-                            p_decided_by_email: rhUser?.email || null,
+                            p_decided_by_name: rhUser.email.split('@')[0],
+                            p_decided_by_email: rhUser.email,
                         })
                     )
                 );
@@ -538,8 +530,8 @@ async function executeAction(actionData) {
             type,
             evidenceRows,
             message: actionData.message,
-            decidedByName: rhUser?.email?.split('@')[0] || 'RH',
-            decidedByEmail: rhUser?.email || null,
+            decidedByName: rhUser.email.split('@')[0],
+            decidedByEmail: rhUser.email,
         });
         if (decisionLogRows.length) await sb.from('ai_decision_log').insert(decisionLogRows);
 
@@ -573,7 +565,6 @@ async function estimateRejectionImpact(ids) {
     const porEmpregado = [];
     empIds.forEach((empId) => {
         const semanas = new Set(reqs.filter((r) => r.employee_id === empId).map((r) => weekStartKeyAlert(r.date)));
-        if (!semanas.size) return;
         const salario = Number(empMap[empId]?.salary) || 0;
         const valor = +((salario / 30) * semanas.size).toFixed(2);
         total += valor;
@@ -584,12 +575,12 @@ async function estimateRejectionImpact(ids) {
 }
 
 function fmtCurrency(v) {
-    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 async function generateReport() {
     const btn = document.getElementById('btn-report');
-    if (!btn || isLoading) return;
+    if (isLoading) return;
     const orig = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Gerando...</span>';
@@ -607,7 +598,6 @@ async function generateReport() {
 function openReportModal(markdown) {
     const modal = document.getElementById('report-modal');
     const content = document.getElementById('report-content');
-    if (!modal || !content) return;
     content.innerHTML =
         typeof marked !== 'undefined'
             ? sanitizeMarkdownHtml(marked.parse(markdown))
@@ -623,10 +613,8 @@ function closeReportModal() {
 
 function copyReport() {
     const content = document.getElementById('report-content');
-    if (!content) return;
     navigator.clipboard.writeText(content.innerText ?? content.textContent).then(() => {
         const btn = document.getElementById('btn-copy-report');
-        if (!btn) return;
         const orig = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
         setTimeout(() => {
@@ -709,7 +697,7 @@ function alertCard(a, idx = 0) {
             <div class="alert-card-meta">
                 <span class="alert-cat-icon"><i class="fas ${icon}"></i></span>
                 <span class="alert-cat-label">${esc(label)}</span>
-                <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev]}</span>
             </div>
             <div class="alert-card-actions">
                 ${resolveBtn}
@@ -728,7 +716,7 @@ function alertCard(a, idx = 0) {
 
 function sendSuggestion(text) {
     const input = document.getElementById('chat-input');
-    if (!input || isLoading) return;
+    if (isLoading) return;
     input.value = text;
     document.getElementById('btn-send').disabled = false;
     sendChat();
@@ -743,7 +731,6 @@ function renderSuggestionChips(alerts) {
     document.querySelectorAll('.chat-suggestions-dynamic').forEach((el) => el.remove());
 
     const chips = getDynamicChips(alerts);
-    if (!chips.length) return;
 
     const container = document.getElementById('chat-messages');
     const div = document.createElement('div');
@@ -774,7 +761,6 @@ function getDynamicChips(alerts) {
 
 function appendChatMessage(role, text, { erro = false } = {}) {
     const container = document.getElementById('chat-messages');
-    if (!container) return;
     const div = document.createElement('div');
     div.className = `chat-message ${role}`;
     if (erro) div.setAttribute('role', 'alert');
@@ -831,7 +817,6 @@ function clearAlerts() {
 
 function setAnalyzeBtn(loading) {
     const btn = document.getElementById('btn-analyze');
-    if (!btn) return;
     btn.disabled = loading;
     btn.innerHTML = loading
         ? '<i class="fas fa-spinner fa-spin"></i><span>Analisando...</span>'
@@ -840,7 +825,6 @@ function setAnalyzeBtn(loading) {
 
 function updateLastAnalysis(date = new Date()) {
     const el = document.getElementById('last-analysis-label');
-    if (!el) return;
     const isToday = date.toDateString() === new Date().toDateString();
     el.textContent = `Última análise: ${isToday ? '' : date.toLocaleDateString('pt-BR') + ' '}${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 }
@@ -894,8 +878,8 @@ function switchTab(tabName) {
 async function saveToHistory(summary, alerts, healthScore) {
     await sb.from('ai_analysis_history').insert({
         summary: summary || '',
-        health_score: healthScore ?? null,
-        alerts: alerts || [],
+        health_score: healthScore,
+        alerts,
         analyzed_at: new Date().toISOString(),
     });
     historyLoaded = false;
@@ -918,7 +902,6 @@ async function loadHistory() {
 
 function renderHistoryTab(items) {
     const list = document.getElementById('history-list');
-    if (!list) return;
     if (!items.length) {
         list.innerHTML = `<p class="history-empty"><i class="fas fa-chart-line"></i><br>Nenhuma análise registrada ainda.<br>Clique em "Analisar Agora" para começar.</p>`;
         document.querySelector('.trend-chart-wrap').style.display = 'none';
@@ -931,7 +914,7 @@ function renderHistoryTab(items) {
 
 function historyItemHtml(item) {
     const date = new Date(item.analyzed_at);
-    const alerts = item.alerts || [];
+    const alerts = item.alerts;
     const critical = alerts.filter((a) => safeSeverity(a.severity) === 'critical').length;
     const warning = alerts.filter((a) => safeSeverity(a.severity) === 'warning').length;
     const info = alerts.filter((a) => safeSeverity(a.severity) === 'info').length;
@@ -975,7 +958,7 @@ function historyItemHtml(item) {
 
 function renderTrendChart(items) {
     const canvas = document.getElementById('trend-chart');
-    if (!canvas || typeof Chart === 'undefined') return;
+    if (typeof Chart === 'undefined') return;
     const sorted = [...items].reverse().slice(-12);
     const labels = sorted.map((h) => {
         const d = new Date(h.analyzed_at);
@@ -1032,7 +1015,6 @@ function calcSaldoBancoHorasMes(emp, timeRecords, adjustments, monthKey) {
     let extrasMin = 0,
         faltaMin = 0;
     Object.entries(timeRecords).forEach(([dateKey, rec]) => {
-        if (!dateKey.startsWith(monthKey)) return;
         if (!rec.entrada || !rec.saida) return;
         const saldo = CLTDomain.calcWorkedMin(rec) - jornadaMin;
         if (saldo > 0) extrasMin += saldo;
@@ -1091,11 +1073,11 @@ async function loadRiscoComposto() {
 
         const burnoutByEmp = {};
         (burnoutData || []).forEach((b) => {
-            const pior = (b.alertas || []).some((x) => x.nivel === 'critico') ? 'critico' : (b.alertas || []).length ? 'atencao' : null;
+            const pior = b.alertas.some((x) => x.nivel === 'critico') ? 'critico' : b.alertas.length ? 'atencao' : null;
             if (!pior) return;
             const atual = burnoutByEmp[b.employee_id];
             if (!atual || (pior === 'critico' && atual.nivel !== 'critico')) {
-                burnoutByEmp[b.employee_id] = { nivel: pior, titulo: ((b.alertas || [])[0] || {}).titulo || 'Padrão de burnout identificado' };
+                burnoutByEmp[b.employee_id] = { nivel: pior, titulo: b.alertas[0].titulo || 'Padrão de burnout identificado' };
             }
         });
 
@@ -1167,7 +1149,6 @@ async function loadRiscoComposto() {
 
 function renderRiscoComposto(linhas) {
     const list = document.getElementById('risco-list');
-    if (!list) return;
 
     if (!linhas.length) {
         list.innerHTML = `
@@ -1181,7 +1162,7 @@ function renderRiscoComposto(linhas) {
 
     list.innerHTML = linhas
         .map(({ emp, sinais, score }) => {
-            const sev = score >= 60 ? 'critical' : score >= 35 ? 'warning' : 'info';
+            const sev = score >= 60 ? 'critical' : 'warning';
             const chips = sinais.map((s) => `<span class="emp-chip">${esc(s.label)}</span>`).join('');
             return `
         <div class="alert-card sev-${sev}">
@@ -1189,7 +1170,7 @@ function renderRiscoComposto(linhas) {
                 <div class="alert-card-meta">
                     <span class="alert-cat-icon"><i class="fas fa-diagram-project"></i></span>
                     <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
-                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev]}</span>
                 </div>
             </div>
             <h4 class="alert-card-title">Score de risco composto: ${score}/100</h4>
@@ -1236,12 +1217,12 @@ async function loadRiscoJuridico() {
 
         const prazosPorEmp = {};
         (complianceData || []).forEach((row) => {
-            (prazosPorEmp[row.employee_id] ??= []).push(...(row.alertas || []).map((a) => ({ nivel: a.nivel, titulo: a.titulo })));
+            (prazosPorEmp[row.employee_id] ??= []).push(...row.alertas.map((a) => ({ nivel: a.nivel, titulo: a.titulo })));
         });
 
         const excessoPorEmp = {};
         (burnoutData || []).forEach((row) => {
-            const ocorrencias = (row.alertas || []).filter((a) => a.tipo === 'excesso_legal_diario').length;
+            const ocorrencias = row.alertas.filter((a) => a.tipo === 'excesso_legal_diario').length;
             if (ocorrencias) excessoPorEmp[row.employee_id] = (excessoPorEmp[row.employee_id] || 0) + ocorrencias;
         });
 
@@ -1287,11 +1268,10 @@ const RISCO_JURIDICO_NIVEL_LABEL = { critico: 'Crítico', atencao: 'Atenção', 
 function renderRiscoJuridico(linhas, empresa) {
     const list = document.getElementById('juridico-list');
     const summaryEl = document.getElementById('juridico-summary');
-    if (!list) return;
 
     if (summaryEl) {
         summaryEl.innerHTML = `
-            <span class="emp-chip">Score médio da empresa: <strong>${empresa.mediaScore}/100</strong> (${RISCO_JURIDICO_NIVEL_LABEL[empresa.nivel] || empresa.nivel})</span>
+            <span class="emp-chip">Score médio da empresa: <strong>${empresa.mediaScore}/100</strong> (${RISCO_JURIDICO_NIVEL_LABEL[empresa.nivel]})</span>
             <span class="emp-chip">${empresa.criticos} colaborador(es) em risco crítico</span>
             <span class="emp-chip">${empresa.atencao} colaborador(es) em atenção</span>`;
     }
@@ -1316,7 +1296,7 @@ function renderRiscoJuridico(linhas, empresa) {
                 <div class="alert-card-meta">
                     <span class="alert-cat-icon"><i class="fas fa-scale-balanced"></i></span>
                     <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
-                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev]}</span>
                 </div>
             </div>
             <h4 class="alert-card-title">Score de risco jurídico: ${score}/100</h4>
@@ -1328,7 +1308,6 @@ function renderRiscoJuridico(linhas, empresa) {
 }
 
 function getDocAlertInfoCompliance(dataValidade, today) {
-    if (!dataValidade) return null;
     const end = new Date(dataValidade + 'T00:00:00');
     const diffDays = Math.round((end - today) / 86400000);
     if (diffDays > 30) return null;
@@ -1358,7 +1337,7 @@ async function loadCompliance() {
 
         const complianceByEmp = {};
         (complianceData || []).forEach((row) => {
-            (complianceByEmp[row.employee_id] ??= []).push(...(row.alertas || []));
+            (complianceByEmp[row.employee_id] ??= []).push(...row.alertas);
         });
 
         const linhas = employees
@@ -1395,7 +1374,6 @@ async function loadCompliance() {
 function renderCompliance(linhas) {
     const list = document.getElementById('compliance-list');
     const summaryEl = document.getElementById('compliance-summary-count');
-    if (!list) return;
 
     if (!linhas.length) {
         if (summaryEl) summaryEl.classList.add('hidden');
@@ -1423,7 +1401,7 @@ function renderCompliance(linhas) {
                 <div class="alert-card-meta">
                     <span class="alert-cat-icon"><i class="fas fa-clipboard-check"></i></span>
                     <span class="alert-cat-label">${esc(emp.name)} — ${esc(emp.dept || '—')}</span>
-                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev] || sev}</span>
+                    <span class="alert-sev-badge sev-${sev}">${SEV_LABEL[sev]}</span>
                 </div>
             </div>
             <h4 class="alert-card-title">${sinais.length} pendência${sinais.length > 1 ? 's' : ''} de compliance</h4>
@@ -1478,7 +1456,6 @@ async function loadKudosMod() {
 
 function renderComunidadeKudos() {
     const list = document.getElementById('comunidade-kudos-list');
-    if (!list) return;
     if (!allKudosMod.length) {
         list.innerHTML = `<p class="kudos-mod-empty">Nenhum reconhecimento publicado ainda.</p>`;
         return;
@@ -1488,7 +1465,7 @@ function renderComunidadeKudos() {
             (k) => `
         <div class="kudos-mod-card">
             <div class="kudos-mod-body">
-                <span class="kudos-mod-names">${esc(k.from?.name || '—')} <i class="fas fa-arrow-right"></i> ${esc(k.to?.name || '—')}<span class="kudos-mod-cat">${esc(KUDOS_CAT_LABEL[k.categoria] || k.categoria)}</span></span>
+                <span class="kudos-mod-names">${esc(k.from.name)} <i class="fas fa-arrow-right"></i> ${esc(k.to.name)}<span class="kudos-mod-cat">${esc(KUDOS_CAT_LABEL[k.categoria])}</span></span>
                 <p class="kudos-mod-msg">${esc(k.message)}</p>
                 <span class="kudos-mod-time">${formatDate(new Date(k.created_at))}</span>
             </div>
@@ -1515,7 +1492,6 @@ async function loadAnonFeedbackMod() {
 
 function updateComunidadeBadge() {
     const badge = document.getElementById('comunidade-summary-count');
-    if (!badge) return;
     const novos = allAnonFeedbackMod.filter((f) => f.status === 'novo').length;
     badge.textContent = novos;
     badge.classList.toggle('hidden', novos === 0);
@@ -1523,7 +1499,6 @@ function updateComunidadeBadge() {
 
 function renderComunidadeFeedback() {
     const list = document.getElementById('comunidade-feedback-list');
-    if (!list) return;
     const filtered = anonFilterMod === 'all' ? allAnonFeedbackMod : allAnonFeedbackMod.filter((f) => f.status === anonFilterMod);
     if (!filtered.length) {
         list.innerHTML = `<p class="af-empty">Nenhum feedback encontrado.</p>`;
@@ -1534,7 +1509,7 @@ function renderComunidadeFeedback() {
             (f) => `
         <div class="af-item status-${f.status}">
             <div class="af-item-head">
-                <span class="af-item-cat">${esc(AF_CAT_LABEL[f.categoria] || f.categoria)}</span>
+                <span class="af-item-cat">${esc(AF_CAT_LABEL[f.categoria])}</span>
                 <span class="af-item-time">${formatDate(new Date(f.created_at))}</span>
             </div>
             <p class="af-item-msg">${esc(f.message)}</p>
@@ -1670,7 +1645,7 @@ async function saveAnalysisCache(summary, alerts, healthScore) {
     await sb
         .from('ai_analysis_cache')
         .upsert(
-            { cache_key: 'latest', summary: summary || '', alerts: alerts || [], health_score: healthScore ?? null, analyzed_at: new Date().toISOString() },
+            { cache_key: 'latest', summary: summary || '', alerts, health_score: healthScore, analyzed_at: new Date().toISOString() },
             { onConflict: 'cache_key' }
         );
 }
@@ -1689,7 +1664,7 @@ async function markAlertResolved(idx) {
 function renderHealthScore(score) {
     const wrap = document.getElementById('health-score-wrap');
     const value = document.getElementById('health-score-value');
-    if (!wrap || !value || score == null) return;
+    if (score == null) return;
     wrap.style.display = 'flex';
     value.textContent = score;
     value.className = 'health-score-value ' + (score >= 80 ? 'score-green' : score >= 60 ? 'score-yellow' : score >= 40 ? 'score-amber' : 'score-red');

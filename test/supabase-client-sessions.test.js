@@ -7,39 +7,48 @@ const vm = require('vm');
 const FILE = path.join(__dirname, '..', 'src', 'javascript', 'shared', 'supabase-client.js');
 const CODE = fs.readFileSync(FILE, 'utf8');
 
+const created = [];
+const store = {};
+const localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => {
+        store[k] = v;
+    },
+    removeItem: (k) => {
+        delete store[k];
+    },
+};
+class Builder {
+    then(onFulfilled) {
+        return Promise.resolve({}).then(onFulfilled);
+    }
+}
+class StorageApi {
+    upload() {}
+}
+const supabase = {
+    createClient: (url, key, options) => {
+        const client = { options, from: () => ({ select: () => new Builder() }), storage: { from: () => new StorageApi() } };
+        created.push(client);
+        return client;
+    },
+};
+const ctx = vm.createContext({ supabase, localStorage, location: { pathname: '/src/screens/login.html' }, window: {}, document: {}, URL, console });
+vm.runInContext(CODE, ctx, { filename: FILE });
+vm.runInContext(
+    'globalThis.__api = { getSb: () => sb, nexusSlotFromPage, nexusUseProfileSession, abrirTela: () => (sb = nexusCreateClient(nexusSlotFromPage())) };',
+    ctx,
+    { filename: 'acesso-do-teste.js' }
+);
+const api = ctx.__api;
+
 function loadClient({ file, storage = {} }) {
-    const created = [];
-    const store = { ...storage };
-    const localStorage = {
-        getItem: (k) => (k in store ? store[k] : null),
-        setItem: (k, v) => {
-            store[k] = v;
-        },
-        removeItem: (k) => {
-            delete store[k];
-        },
-    };
-
-    class Builder {
-        then(onFulfilled) {
-            return Promise.resolve({}).then(onFulfilled);
-        }
-    }
-    class StorageApi {
-        upload() {}
-    }
-    const supabase = {
-        createClient: (url, key, options) => {
-            const client = { options, from: () => ({ select: () => new Builder() }), storage: { from: () => new StorageApi() } };
-            created.push(client);
-            return client;
-        },
-    };
-
-    const ctx = { supabase, localStorage, location: { pathname: `/src/screens/${file}` }, window: {}, document: {}, URL, console };
-    vm.createContext(ctx);
-    vm.runInContext(`${CODE}\n;globalThis.__api = { getSb: () => sb, nexusSlotFromPage, nexusUseProfileSession };`, ctx, { filename: FILE });
-    return { api: ctx.__api, created, store };
+    created.splice(0);
+    Object.keys(store).forEach((k) => delete store[k]);
+    Object.assign(store, storage);
+    ctx.location = { pathname: `/src/screens/${file}` };
+    api.abrirTela();
+    return { api, created, store };
 }
 
 const REF = 'axyagainqlanowuejdcz';

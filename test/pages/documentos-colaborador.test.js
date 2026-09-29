@@ -498,3 +498,36 @@ describe('documentos-colaborador.html — seleção, teclado e erros', () => {
         assert.deepEqual(page.toasts(), []);
     });
 });
+
+describe('documentos-colaborador.html — bordas', () => {
+    test('falha ao listar os documentos mostra a lista vazia; um obrigatório pendente usa o singular', async () => {
+        const c = client({ document_requirements: [{ tipo: 'CPF', category: 'admissional', contract_type: null, obrigatorio: true }] });
+        c.errors['documents:select'] = { message: 'x' };
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        assert.match(page.text('#doc-list'), /Nenhum documento/);
+        assert.equal(page.text('#pending-docs-text'), '1 documento obrigatório pendente');
+    });
+
+    test('assinatura sem nome gravado mostra o nome do colaborador; abrir a assinatura sem documento escolhido não faz nada', async () => {
+        const c = client();
+        Object.assign(
+            c.tables.documents.find((d) => d.id === 'd2'),
+            { assinado_em: '2026-06-17T13:00:00Z', assinado_por: null }
+        );
+        page = await openPage('documentos-colaborador', { client: c, now: NOW });
+        page.window.openSignModal();
+        assert.equal(page.$('#sign-modal').classList.contains('open'), false);
+        await page.click('.doc-card-item[data-click-args*="d2"]');
+        assert.match(page.text('#assinatura-area'), /Assinado por Ana Souza em/);
+    });
+
+    test('clicar numa área vazia da lista de tipos não a fecha; clicar fora fecha', async () => {
+        page = await openPage('documentos-colaborador', { client: client(), now: NOW });
+        await page.click('#btn-upload');
+        await page.click('#upload-tipo-trigger');
+        await page.click('#upload-tipo-popover');
+        assert.ok(page.$('#upload-tipo-popover').classList.contains('open'));
+        await page.click(page.document.body);
+        assert.equal(page.$('#upload-tipo-popover').classList.contains('open'), false);
+    });
+});

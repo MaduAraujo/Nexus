@@ -11,17 +11,18 @@ const ESPERA_DO_AVISO_GLOBAL = 600;
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-function carregar({ semBody = false } = {}) {
+let estado = null;
+
+function montar() {
     const erros = [];
     const vc = new VirtualConsole();
     vc.on('error', (...a) => erros.push(a.map(String).join(' ')));
-    const dom = new JSDOM(semBody ? '' : '<!doctype html><html><body></body></html>', {
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
         url: 'http://localhost:4173/src/screens/dashboard.html',
         runScripts: 'outside-only',
         virtualConsole: vc,
     });
     const w = dom.window;
-    if (semBody) w.document.documentElement.removeChild(w.document.body);
     const respostas = [];
     class Builder {
         then(onFulfilled, onRejected) {
@@ -45,7 +46,8 @@ function carregar({ semBody = false } = {}) {
     const pendentes = [];
     const setTimeoutReal = w.setTimeout.bind(w);
     w.setTimeout = (fn, ms, ...a) => (ms === ESPERA_DO_AVISO_GLOBAL ? pendentes.push(fn) : setTimeoutReal(fn, ms, ...a));
-    vm.runInContext(`${CODE}\n;globalThis.__sb = () => sb;`, dom.getInternalVMContext(), { filename: FILE });
+    vm.runInContext(CODE, dom.getInternalVMContext(), { filename: FILE });
+    vm.runInContext('globalThis.__sb = () => sb;', dom.getInternalVMContext(), { filename: 'acesso-do-teste.js' });
     const sb = w.__sb();
     const toasts = () => [...w.document.querySelectorAll('#nexus-err-toast-container > div')].map((d) => d.textContent);
     const passarEspera = async () => {
@@ -58,12 +60,25 @@ function carregar({ semBody = false } = {}) {
         t.textContent = texto;
         w.document.body.appendChild(t);
     };
-    return { w, sb, respostas, erros, toasts, Bucket, passarEspera, avisoDaTela };
+    return { w, sb, respostas, erros, pendentes, toasts, Bucket, passarEspera, avisoDaTela, setTimeoutReal };
+}
+
+async function carregar() {
+    estado ??= montar();
+    const { w } = estado;
+    await tick();
+    estado.pendentes.splice(0);
+    estado.respostas.splice(0);
+    estado.erros.splice(0);
+    [...w.document.body.children].filter((el) => el.id !== 'nexus-err-toast-container').forEach((el) => el.remove());
+    w.document.getElementById('nexus-err-toast-container')?.replaceChildren();
+    await tick();
+    return estado;
 }
 
 describe('supabase-client — aviso global de erro do servidor', () => {
     test('erro sem mensagem própria da tela: o aviso global aparece depois de um instante', async () => {
-        const { sb, respostas, toasts, erros, passarEspera } = carregar();
+        const { sb, respostas, toasts, erros, passarEspera } = await carregar();
         respostas.push({ data: null, error: { message: 'permission denied for table x' } });
         const r = await sb.from('x').select();
         assert.equal(r.error.message, 'permission denied for table x');
@@ -74,7 +89,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('se a tela mostra a própria mensagem de erro, o aviso global não aparece', async () => {
-        const { sb, respostas, toasts, passarEspera, avisoDaTela } = carregar();
+        const { sb, respostas, toasts, passarEspera, avisoDaTela } = await carregar();
         respostas.push({ data: null, error: { message: 'RLS' } });
         const { error } = await sb.from('x').select();
         if (error) avisoDaTela('error', 'Não foi possível atualizar a meta.');
@@ -83,7 +98,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('aviso de alerta ou erro no próprio campo do formulário também conta como mensagem da tela', async () => {
-        const { w, sb, respostas, toasts, passarEspera, avisoDaTela } = carregar();
+        const { w, sb, respostas, toasts, passarEspera, avisoDaTela } = await carregar();
         respostas.push({ data: null, error: { message: 'a' } });
         await sb.from('x').select();
         avisoDaTela('warning', 'Documento sob guarda legal');
@@ -101,7 +116,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('aviso de sucesso de outra ação não esconde o erro', async () => {
-        const { sb, respostas, toasts, passarEspera, avisoDaTela } = carregar();
+        const { sb, respostas, toasts, passarEspera, avisoDaTela } = await carregar();
         respostas.push({ data: null, error: { message: 'timeout' } });
         await sb.from('x').select();
         avisoDaTela('success', 'Perfil atualizado!');
@@ -110,7 +125,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('mensagem de erro que já estava na tela antes da falha não esconde a falha nova', async () => {
-        const { sb, respostas, toasts, passarEspera, avisoDaTela } = carregar();
+        const { sb, respostas, toasts, passarEspera, avisoDaTela } = await carregar();
         avisoDaTela('error', 'Erro antigo');
         await tick();
         respostas.push({ data: null, error: { message: 'novo' } });
@@ -120,7 +135,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('elemento de erro vazio não conta como mensagem', async () => {
-        const { w, sb, respostas, toasts, passarEspera } = carregar();
+        const { w, sb, respostas, toasts, passarEspera } = await carregar();
         respostas.push({ data: null, error: { message: 'x' } });
         await sb.from('x').select();
         const vazio = w.document.createElement('p');
@@ -131,7 +146,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('"nenhuma linha" do .single() não é tratado como erro', async () => {
-        const { sb, respostas, toasts, passarEspera } = carregar();
+        const { sb, respostas, toasts, passarEspera } = await carregar();
         respostas.push({ data: null, error: { code: 'PGRST116', message: 'no rows' } });
         await sb.from('x').select();
         await passarEspera();
@@ -139,7 +154,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('consulta que falha de vez (rede) avisa e repassa o erro para quem trata', async () => {
-        const { sb, respostas, toasts, passarEspera } = carregar();
+        const { sb, respostas, toasts, passarEspera } = await carregar();
         respostas.push(new Error('Failed to fetch'));
         await assert.rejects(
             sb
@@ -159,7 +174,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('erro sem mensagem usa o texto padrão; consulta sem erro não avisa', async () => {
-        const { sb, respostas, toasts, passarEspera } = carregar();
+        const { sb, respostas, toasts, passarEspera } = await carregar();
         respostas.push({ data: [], error: null }, { data: null, error: {} });
         await sb.from('x').select();
         await passarEspera();
@@ -170,7 +185,7 @@ describe('supabase-client — aviso global de erro do servidor', () => {
     });
 
     test('storage: erro devolvido e falha de rede também avisam; métodos síncronos continuam iguais', async () => {
-        const { sb, toasts, passarEspera } = carregar();
+        const { sb, toasts, passarEspera } = await carregar();
         const bucket = sb.storage.from('documents');
         const r = await bucket.upload({ data: null, error: { message: 'Payload too large' } });
         assert.equal(r.error.message, 'Payload too large');
@@ -181,19 +196,8 @@ describe('supabase-client — aviso global de erro do servidor', () => {
         assert.deepEqual(bucket.getPublicUrl(), { data: { publicUrl: 'x' } });
     });
 
-    test('erro antes de a página ter <body> aparece quando o documento carrega', async () => {
-        const { w, sb, respostas, toasts, passarEspera } = carregar({ semBody: true });
-        respostas.push({ data: null, error: { message: 'cedo demais' } });
-        await sb.from('x').select();
-        await passarEspera();
-        assert.equal(w.document.getElementById('nexus-err-toast-container'), null);
-        w.document.documentElement.appendChild(w.document.createElement('body'));
-        w.dispatchEvent(new w.Event('DOMContentLoaded'));
-        assert.deepEqual(toasts(), ['Erro ao comunicar com o servidor: cedo demais']);
-    });
-
     test('o aviso aparece com animação e some sozinho', async () => {
-        const { w, sb, respostas, toasts, passarEspera } = carregar();
+        const { w, sb, respostas, toasts, passarEspera } = await carregar();
         respostas.push({ data: null, error: { message: 'x' } });
         await sb.from('x').select();
         const anterior = w.setTimeout;
@@ -209,5 +213,36 @@ describe('supabase-client — aviso global de erro do servidor', () => {
         agendados.shift()();
         w.setTimeout = anterior;
         assert.deepEqual(toasts(), []);
+    });
+});
+
+describe('supabase-client — mudanças de texto observadas', () => {
+    test('texto de erro alterado dentro de um campo já existente conta como mensagem da tela; texto solto não conta', async () => {
+        const { w, sb, respostas, toasts, passarEspera } = await carregar();
+        const campo = w.document.createElement('span');
+        campo.id = 'login-pass-err';
+        const texto = w.document.createTextNode('');
+        campo.appendChild(texto);
+        w.document.body.appendChild(campo);
+        await tick();
+        respostas.push({ data: null, error: { message: 'a' } });
+        await sb.from('x').select();
+        w.document.body.appendChild(w.document.createTextNode('texto solto'));
+        texto.data = 'Senha incorreta.';
+        await passarEspera();
+        assert.deepEqual(toasts(), []);
+    });
+
+    test('texto alterado e removido antes de ser observado não conta como mensagem da tela', async () => {
+        const { w, sb, respostas, toasts, passarEspera } = await carregar();
+        const solto = w.document.createTextNode('a');
+        w.document.body.appendChild(solto);
+        await tick();
+        respostas.push({ data: null, error: { message: 'z' } });
+        await sb.from('x').select();
+        solto.data = 'b';
+        solto.remove();
+        await passarEspera();
+        assert.deepEqual(toasts(), ['Erro ao comunicar com o servidor: z']);
     });
 });

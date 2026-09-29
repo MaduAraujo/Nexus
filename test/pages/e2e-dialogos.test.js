@@ -128,3 +128,30 @@ describe('chave de recuperação: copiar sem acesso à área de transferência',
         await mostrou;
     });
 });
+
+describe('diálogos de ponta a ponta — casos de borda', () => {
+    test('Enter com a senha vazia não tenta desbloquear; abrir outro diálogo não duplica o estilo', async () => {
+        page = await openPage('login', { client: new FakeSupabase({ tables: baseTables() }) });
+        const tentativas = [];
+        const pedido = page.window.NexusE2EUI.promptPassword(async (s) => (tentativas.push(s), true));
+        const input = await page.waitFor(() => page.$('.e2e-dialog input[type="password"]'));
+        await page.key(input, 'Enter');
+        assert.deepEqual(tentativas, []);
+        input.value = 'senha-certa';
+        await page.key(input, 'Enter');
+        assert.equal(await pedido, true);
+
+        page.window.NexusE2EUI.promptPassword(async () => true);
+        await page.waitFor(() => page.$('.e2e-dialog'));
+        assert.equal(page.$$('#nexus-e2e-style').length, 1);
+    });
+
+    test('"Não tenho a chave": desistir na confirmação mantém o diálogo aberto', async () => {
+        page = await openPage('login', { client: new FakeSupabase({ tables: baseTables() }), confirm: false });
+        page.window.NexusE2EUI.promptRecovery(() => true);
+        await page.waitFor(() => botao(page, 'Não tenho a chave'));
+        await page.click(botao(page, 'Não tenho a chave'));
+        assert.match(page.confirms.at(-1), /suas conversas diretas antigas não poderão mais ser abertas/);
+        assert.ok(page.$('.e2e-dialog'), 'continua aberto');
+    });
+});

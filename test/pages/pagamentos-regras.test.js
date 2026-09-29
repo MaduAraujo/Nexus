@@ -685,3 +685,15 @@ describe('pagamentos.html — ramos de regra da folha', () => {
         assert.equal(status['Caio Prado'], 'Pendente');
     });
 });
+
+describe('pagamentos.html — falha ao conferir as faltas', () => {
+    test('fechar a folha com o ponto indisponível não grava holerite nenhum', async () => {
+        const c = rhClient();
+        page = await openPage('pagamentos', { client: c, now: NOW });
+        c.errors['time_records:select'] = { message: 'rede caiu' };
+        await fecharFolhaDe(page, 'Ana Souza');
+        await page.settle(20);
+        assert.equal(c.writes('payslips', 'upsert').length + c.writes('payslips', 'insert').length, 0);
+        assert.ok(toastCom(page, /Não foi possível fechar a folha: Não foi possível conferir as faltas: rede caiu/));
+    });
+});

@@ -152,9 +152,9 @@
 
     async function logAudit(action, doc) {
         await sb.from('document_audit_log').insert({
-            document_id: doc.id || null,
+            document_id: doc.id,
             document_name: doc.name,
-            employee_id: doc.employee_id || null,
+            employee_id: doc.employee_id,
             action,
             actor_id: user.id,
             actor_name: 'Administrador',
@@ -176,7 +176,7 @@
             await sb.from('document_audit_log').insert({
                 document_id: doc.id,
                 document_name: doc.name,
-                employee_id: doc.employee_id || null,
+                employee_id: doc.employee_id,
                 action: 'excluido',
                 actor_name: 'Sistema (expurgo automático LGPD)',
                 actor_profile: 'sistema',
@@ -220,7 +220,7 @@
         all.forEach((d) => {
             if (d.source === 'colaborador' && d.status === 'aprovado' && !d.category) backfillCategory(d);
         });
-        const sorted = all.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+        const sorted = all.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
         rhDocs = sorted.filter((d) => d.source === 'Administrador' || isFiledColabDoc(d));
         colabDocs = sorted.filter((d) => d.source === 'colaborador' && !isFiledColabDoc(d));
     }
@@ -260,7 +260,6 @@
     }
 
     function populateDeptFilter() {
-        if (!filterDept) return;
         const current = filterDept.value;
         const depts = [
             ...new Set(
@@ -291,7 +290,6 @@
     }
 
     function positionColabFilterMenu() {
-        if (!colabFilterTrigger || !colabFilterMenu) return;
         const rect = colabFilterTrigger.getBoundingClientRect();
         const width = colabFilterMenu.offsetWidth || 220;
         let left = rect.left;
@@ -318,7 +316,6 @@
     }
 
     function fmtDate(iso) {
-        if (!iso) return '—';
         if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso.split('-').reverse().join('/');
         return new Date(iso).toLocaleDateString('pt-BR');
     }
@@ -332,7 +329,7 @@
     }
 
     function getFileIcon(name) {
-        const ext = (name || '').split('.').pop().toLowerCase();
+        const ext = name.split('.').pop().toLowerCase();
         if (ext === 'pdf') return { cls: 'file-icon--pdf', icon: 'fa-file-pdf' };
         if (['doc', 'docx'].includes(ext)) return { cls: 'file-icon--doc', icon: 'fa-file-word' };
         if (['jpg', 'jpeg', 'png'].includes(ext)) return { cls: 'file-icon--img', icon: 'fa-file-image' };
@@ -399,9 +396,9 @@
         if (filterEmployeeId && doc.employee_id !== filterEmployeeId) return false;
         const dept = empDept(doc.employee_id);
         if (filterDept?.value && dept !== filterDept.value) return false;
-        const enviadoEm = doc.created_at ? localISODate(new Date(doc.created_at)) : null;
-        if (filterDateStart?.value && enviadoEm && enviadoEm < filterDateStart.value) return false;
-        if (filterDateEnd?.value && enviadoEm && enviadoEm > filterDateEnd.value) return false;
+        const enviadoEm = localISODate(new Date(doc.created_at));
+        if (filterDateStart?.value && enviadoEm < filterDateStart.value) return false;
+        if (filterDateEnd?.value && enviadoEm > filterDateEnd.value) return false;
         return true;
     }
 
@@ -422,7 +419,7 @@
                 if (filterStatus?.value && d.status !== filterStatus.value) return false;
                 if (!passesCommonFilters(d)) return false;
                 if (!q) return true;
-                return (d.name || '').toLowerCase().includes(q) || empName(d.employee_id).toLowerCase().includes(q) || (d.tipo || '').toLowerCase().includes(q);
+                return d.name.toLowerCase().includes(q) || empName(d.employee_id).toLowerCase().includes(q) || d.tipo.toLowerCase().includes(q);
             });
             updateBulkBar(filtered.map((d) => d.id));
             if (!filtered.length) {
@@ -432,9 +429,9 @@
             filesTbody.innerHTML = filtered
                 .map((d) => {
                     const { cls, icon } = getFileIcon(d.name);
-                    const st = statusMap[d.status] || statusMap.pendente;
+                    const st = statusMap[d.status];
                     return `<tr>
-                    <td><div class="file-name-cell">${rowCheckbox(d.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo) || ''} ${versionBadge(d)}</div></div></div></td>
+                    <td><div class="file-name-cell">${rowCheckbox(d.id)}<div class="file-icon ${cls}"><i class="fas ${icon}"></i></div><div><div class="file-name" title="${esc(d.name)}">${esc(d.name)}</div><div class="file-meta">${esc(d.tipo)} ${versionBadge(d)}</div></div></div></td>
                     <td>${empName(d.employee_id)}</td>
                     <td><span class="badge ${st.cls}"><i class="fas ${st.icon}"></i> ${escapeHtml(st.label)}</span></td>
                     <td class="file-date">${fmtDate(d.created_at)}</td>
@@ -460,7 +457,7 @@
             if (f.is_current === false) return false;
             if (!passesCommonFilters(f)) return false;
             if (!q) return true;
-            return (f.name || '').toLowerCase().includes(q) || empName(f.employee_id).toLowerCase().includes(q) || (f.tipo || '').toLowerCase().includes(q);
+            return f.name.toLowerCase().includes(q) || empName(f.employee_id).toLowerCase().includes(q) || f.tipo.toLowerCase().includes(q);
         });
         updateBulkBar(filtered.map((f) => f.id));
 
@@ -515,7 +512,6 @@
     }
 
     function renderChecklistBanner() {
-        if (!checklistBanner) return;
         if (activeTab !== 'admissional' && activeTab !== 'demissional') {
             checklistBanner.classList.add('hidden');
             return;
@@ -585,7 +581,6 @@
     }
 
     function renderNotifPanel() {
-        if (!notifBadge || !notifPanelBody) return;
         const items = buildNotifications();
         const checklistEntries = ['admissional', 'demissional'].flatMap((cat) =>
             computeChecklistPending(cat).map((p) => `${cat}:${p.emp.id}:${[...p.missing].sort().join(',')}`)
@@ -598,7 +593,7 @@
         currentNotifKeys = new Set(entries.map((e) => e.key));
 
         const unread = entries.filter((e) => !notifRead.has(e.key)).length;
-        notifBadge.textContent = unread > 99 ? '99+' : String(unread);
+        notifBadge.textContent = String(unread);
         notifBadge.classList.toggle('hidden', unread === 0);
         document.getElementById('notif-mark-all')?.classList.toggle('hidden', unread === 0);
 
@@ -656,7 +651,7 @@
     };
 
     window.goToNotifItem = (docId, category) => {
-        const tab = category === 'colaborador' ? 'colaborador' : category;
+        const tab = category;
         document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
         activeTab = tab;
         selectedIds.clear();
@@ -764,7 +759,6 @@
     let calViewMonth = today.getMonth();
 
     function updateFilterDateTriggerText() {
-        if (!filterDateTriggerText) return;
         if (filterDateStart?.value && filterDateEnd?.value) {
             filterDateTriggerText.textContent = `${fmtShort(parseISODate(filterDateStart.value))} – ${fmtShort(parseISODate(filterDateEnd.value))}`;
         } else {
@@ -774,7 +768,6 @@
     }
 
     function renderFilterCalendar() {
-        if (!filterCalendarTitle || !filterCalendarGrid) return;
         filterCalendarTitle.textContent = `${MESES_PT[calViewMonth]} ${calViewYear}`;
 
         const startOffset = new Date(calViewYear, calViewMonth, 1).getDay();
@@ -809,7 +802,6 @@
     }
 
     function positionFilterCalendar() {
-        if (!filterDateTrigger || !filterCalendarPopover) return;
         const rect = filterDateTrigger.getBoundingClientRect();
         const width = 296;
         let left = rect.left;
@@ -911,7 +903,6 @@
     });
 
     function updateBulkBar(visibleIds) {
-        if (!bulkBar) return;
         for (const id of Array.from(selectedIds)) {
             const stillExists = rhDocs.some((d) => d.id === id) || colabDocs.some((d) => d.id === id);
             if (!stillExists) selectedIds.delete(id);
@@ -1170,7 +1161,6 @@
     }
 
     function renderAuditLog() {
-        if (!auditLogList) return;
         const filterVal = auditFilterAction?.value || '';
         const filtered = filterVal ? auditLogEntries.filter((l) => l.action === filterVal) : auditLogEntries;
         if (!filtered.length) {
@@ -1179,8 +1169,8 @@
         }
         auditLogList.innerHTML = filtered
             .map((l) => {
-                const label = AUDIT_ACTION_LABELS[l.action] || l.action;
-                const icon = AUDIT_ACTION_ICONS[l.action] || 'fa-circle';
+                const label = AUDIT_ACTION_LABELS[l.action];
+                const icon = AUDIT_ACTION_ICONS[l.action];
                 const emp = empName(l.employee_id);
                 const when = new Date(l.created_at).toLocaleString('pt-BR');
                 return `<div class="audit-row">
@@ -1210,7 +1200,6 @@
 
     function renderRequirementsGroup(category) {
         const container = document.getElementById(`requirements-${category}`);
-        if (!container) return;
         const items = RequisitosDocumentos.requirementsFor(requirements, category, currentRequirementsType());
         if (!items.length) {
             container.innerHTML = `<p class="requirements-empty">Nenhum tipo obrigatório cadastrado.</p>`;
@@ -1324,7 +1313,6 @@
         const popover = document.getElementById(`${id}-popover`);
         const label = document.getElementById(`${id}-label`);
         const hidden = document.getElementById(id);
-        if (!trigger || !popover || !label || !hidden) return null;
 
         function open() {
             claimPopover(close);
@@ -1387,7 +1375,6 @@
         const nextBtn = document.getElementById('upload-validade-next');
         const footerEl = document.getElementById('upload-validade-footer');
         const clearBtn = document.getElementById('upload-validade-clear');
-        if (!trigger || !popover || !textEl || !hidden || !gridEl) return null;
 
         const pad2 = (n) => String(n).padStart(2, '0');
         const today = new Date();
@@ -1487,7 +1474,6 @@
 
     function updateUploadBtnState() {
         const btn = document.getElementById('btn-submit-upload');
-        if (!btn) return;
         const empId = document.getElementById('upload-employee-select')?.value;
         const category = document.getElementById('upload-category')?.value;
         btn.disabled = !(empId && category && selectedFiles.length > 0);
@@ -1495,7 +1481,6 @@
 
     function populateEmployeeSelect() {
         const popover = document.getElementById('upload-employee-select-popover');
-        if (!popover) return;
         popover.innerHTML = employees
             .map((e) => `<button type="button" class="select-option" role="option" data-value="${escapeHtml(String(e.id))}">${escapeHtml(e.name)}</button>`)
             .join('');
@@ -1555,7 +1540,6 @@
 
     function renderSelectedFiles() {
         updateUploadBtnState();
-        if (!filesSelectedList) return;
         filesSelectedList.classList.toggle('hidden', selectedFiles.length === 0);
         dropZone?.classList.toggle('hidden', selectedFiles.length > 0);
         filesSelectedList.innerHTML = selectedFiles
@@ -1571,7 +1555,7 @@
     }
 
     function addSelectedFiles(fileList) {
-        const files = Array.from(fileList || []);
+        const files = Array.from(fileList);
         let ocrCandidate = null;
         for (const file of files) {
             if (file.size > 25 * 1024 * 1024) {
@@ -1618,14 +1602,14 @@
     }
 
     async function runOcrSuggestion(file) {
-        if (typeof Tesseract === 'undefined' || !ocrHint) return;
+        if (typeof Tesseract === 'undefined') return;
         ocrHint.classList.remove('hidden');
         ocrHintText.textContent = 'Analisando documento com OCR para sugerir o tipo…';
         try {
             const {
                 data: { text },
             } = await Tesseract.recognize(file, 'por');
-            const upper = stripAccents(text || '').toUpperCase();
+            const upper = stripAccents(text).toUpperCase();
             const found = OCR_KEYWORDS.find((k) => k.match.some((kw) => upper.includes(stripAccents(kw))));
             if (!found) {
                 ocrHintText.textContent = 'Não foi possível sugerir o tipo automaticamente. Selecione manualmente.';
@@ -1671,11 +1655,9 @@
             return;
         }
 
-        let docToSupersede = finalEmpId
-            ? rhDocs.find(
-                  (d) => d.source === 'Administrador' && d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false
-              )
-            : null;
+        let docToSupersede = rhDocs.find(
+            (d) => d.source === 'Administrador' && d.employee_id === finalEmpId && d.category === category && d.tipo === tipo && d.is_current !== false
+        );
 
         let successCount = 0;
         const deliveredIds = [];
@@ -1792,14 +1774,13 @@
     function showToast(title, msg, type = 'success') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = document.getElementById('toast-container');
-        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${escapeHtml(title)}</p>
-                ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
+                <p class="toast-msg">${escapeHtml(msg)}</p>
             </div>
             <button class="toast-close" data-click="dismissToast">
                 <i class="fas fa-times"></i>

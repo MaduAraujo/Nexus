@@ -540,3 +540,14 @@ describe('comunicados-colaborador.html — teclado, busca, marcar todos e atuali
         assert.equal(page.$$('.comunicado-card').length, 5);
     });
 });
+
+describe('inicio-rh.html — iniciais do RH vinculado a um colaborador', () => {
+    test('nome com espaço duplo ainda gera as duas iniciais', async () => {
+        const client = new FakeSupabase({ user: RH_USER, tables: baseTables() });
+        client.tables.profiles.find((p) => p.id === RH_USER.id).employee_id = ANA.id;
+        client.tables.employees.find((e) => e.id === ANA.id).name = 'Ana  Souza';
+        page = await openPage('inicio-rh', { client, now: '2026-06-17T10:00:00-03:00' });
+        assert.equal(page.text('#welcome-avatar'), 'AS');
+        assert.match(page.text('#welcome-name'), /Ana\s+Souza/);
+    });
+});

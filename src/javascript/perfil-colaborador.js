@@ -28,10 +28,11 @@
     };
 
     const initials = (n) =>
-        (n || '?')
+        n
             .split(' ')
+            .filter(Boolean)
             .slice(0, 2)
-            .map((w) => w[0]?.toUpperCase() || '')
+            .map((w) => w[0].toUpperCase())
             .join('');
     const formatDate = (s) => {
         if (!s) return '—';
@@ -40,7 +41,7 @@
     };
     const setEl = (id, v) => {
         const el = document.getElementById(id);
-        if (el) el.textContent = v || '—';
+        if (el) el.textContent = v;
     };
     const setInput = (id, v) => {
         const el = document.getElementById(id);
@@ -50,11 +51,10 @@
     window.showToast = function (title, type = 'success', msg = '') {
         const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
         const container = document.getElementById('toast-container');
-        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+            <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
             <div class="toast-content">
                 <p class="toast-title">${escapeHtml(title)}</p>
                 ${msg ? `<p class="toast-msg">${escapeHtml(msg)}</p>` : ''}
@@ -116,7 +116,6 @@
         const menu = document.getElementById('avatar-menu');
         const picker = document.getElementById('color-picker');
         const btn = document.getElementById('avatar-edit-btn');
-        if (!menu || !btn) return;
         picker?.classList.remove('open');
         if (menu.classList.contains('open')) {
             menu.classList.remove('open');
@@ -183,7 +182,6 @@
     window.openColorPicker = function () {
         const picker = document.getElementById('color-picker');
         const btn = document.getElementById('avatar-edit-btn');
-        if (!picker || !btn) return;
         document.getElementById('avatar-menu')?.classList.remove('open');
         if (picker.classList.contains('open')) {
             picker.classList.remove('open');
@@ -254,8 +252,6 @@
 
     async function syncPushToggleUI() {
         const toggle = document.getElementById('notif-push-browser');
-        if (!toggle) return;
-
         const desc = document.getElementById('notif-push-desc');
 
         if (!pushSupported()) {
@@ -333,13 +329,12 @@
 
     window.checkNewPass = function () {
         const curr = document.getElementById('curr-pass')?.value || '';
-        const np = document.getElementById('new-pass-profile')?.value || '';
+        const np = document.getElementById('new-pass-profile').value;
         const cp = document.getElementById('confirm-pass-profile')?.value || '';
         const msg = document.getElementById('pw-match-msg');
         const btn = document.getElementById('btn-change-pw');
         const problem = passwordProblem(np);
         if (btn) btn.disabled = !(curr && !problem && np === cp);
-        if (!msg) return;
         if (!cp) {
             msg.textContent = '';
             msg.className = 'pw-match-msg';
@@ -363,7 +358,7 @@
 
     window.changePassword = async function () {
         const curr = document.getElementById('curr-pass')?.value || '';
-        const np = document.getElementById('new-pass-profile')?.value || '';
+        const np = document.getElementById('new-pass-profile').value;
         if (passwordProblem(np)) {
             showToast(passwordProblem(np), 'warning');
             return;
@@ -402,7 +397,6 @@
 
     window.togglePwSmall = function (inputId, btn) {
         const input = document.getElementById(inputId);
-        if (!input) return;
         const show = input.type === 'password';
         input.type = show ? 'text' : 'password';
         const icon = btn.querySelector('i');
@@ -505,7 +499,7 @@
         setEl('prof-dept', myEmployee.dept || '—');
         setEl('prof-admission', formatDate(myEmployee.admission_date));
         setEl('prof-status', myEmployee.status || 'Ativo');
-        setEl('prof-profile', myProfile === 'Administrador' ? 'Administrador' : 'Colaborador');
+        setEl('prof-profile', 'Colaborador');
 
         if (myEmployee.admission_date) {
             const adm = new Date(`${myEmployee.admission_date}T00:00:00`);
@@ -602,7 +596,6 @@
 
     function buildColorSwatches() {
         const container = document.getElementById('color-swatches');
-        if (!container) return;
         container.innerHTML = '';
         const current = myEmployee.avatar_color || '#6366f1';
         AVATAR_COLORS.forEach((color) => {

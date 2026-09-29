@@ -194,3 +194,31 @@ describe('utilitários', () => {
         assert.equal(core.safeMime(undefined), 'application/octet-stream');
     });
 });
+
+describe('erros do Storage e assinaturas de tipo', () => {
+    test('cada erro do Storage vira a resposta certa, pelo código ou pela mensagem', async () => {
+        const casos = [
+            [{ statusCode: '409' }, 409],
+            [{ message: 'duplicate key value' }, 409],
+            [{ status: 413 }, 413],
+            [{ message: 'Payload too large' }, 413],
+            [{ message: 'The object exceeded the maximum allowed size' }, 413],
+            [{ message: 'permission denied for bucket' }, 403],
+            [{ message: 'algo inesperado' }, 400],
+            [{}, 400],
+        ];
+        for (const [erro, status] of casos) assert.equal((await up(fakeStorage({ denyUpload: erro }))).status, status, JSON.stringify(erro));
+    });
+
+    test('GIF e WEBP só passam com a assinatura correta; tipo sem assinatura conhecida não é barrado', () => {
+        const gif = enc('GIF89a....');
+        const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+        const riffNaoWebp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]);
+        assert.equal(core.matchesSignature('image/gif', gif), true);
+        assert.equal(core.matchesSignature('image/gif', PNG), false);
+        assert.equal(core.matchesSignature('image/webp', webp), true);
+        assert.equal(core.matchesSignature('image/webp', riffNaoWebp), false, 'um WAV não é WEBP');
+        assert.equal(core.matchesSignature('image/webp', PNG), false);
+        assert.equal(core.matchesSignature('text/plain', enc('qualquer coisa')), true);
+    });
+});

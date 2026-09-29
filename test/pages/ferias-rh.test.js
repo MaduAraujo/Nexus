@@ -587,3 +587,16 @@ describe('ferias.html (RH) — ramos de regra que faltavam', () => {
         assert.deepEqual(page.pageErrors.map(String), []);
     });
 });
+
+describe('ferias.html (RH) — falha ao conferir as faltas no cadastro', () => {
+    test('o painel avisa que não conferiu as faltas, em vez de mostrar direito cheio', async () => {
+        const client = rhClient([]);
+        client.errors['time_records:select'] = { message: 'rede' };
+        page = await openPage('ferias', { client, now: NOW });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', ANA.id);
+        await page.waitFor(() => /não foi possível conferir as faltas/.test(page.text('#add-emp-ferias-info')));
+        assert.ok(page.$('#add-emp-ferias-info').classList.contains('negativo'));
+        assert.doesNotMatch(page.text('#add-emp-ferias-info'), /direito a 30 dias/);
+    });
+});

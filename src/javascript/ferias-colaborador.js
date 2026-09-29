@@ -69,7 +69,6 @@ function populateSubstitutoSelect() {
     const popover = document.getElementById('req-substituto-popover');
     const textEl = document.getElementById('req-substituto-text');
     const hidden = document.getElementById('req-substituto');
-    if (!popover) return;
     if (hidden) hidden.value = '';
     if (textEl) {
         textEl.textContent = 'Selecione';
@@ -87,8 +86,6 @@ function setupSubstitutoSelect() {
     const textEl = document.getElementById('req-substituto-text');
     const hidden = document.getElementById('req-substituto');
     const popover = document.getElementById('req-substituto-popover');
-    if (!trigger || !popover || !hidden) return;
-
     function open() {
         popover.classList.add('open');
         trigger.classList.add('active');
@@ -171,13 +168,9 @@ function countFractionsInCycle(cycle) {
 }
 
 async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const rangeEnd = cycleEnd < today ? cycleEnd : today;
-    if (rangeEnd < cycleStart) return 0;
     const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const inicio = fmt(cycleStart),
-        fim = fmt(rangeEnd);
+        fim = fmt(cycleEnd);
 
     return (await window.NexusFaltas.listar(myEmployeeId, inicio, fim, { workLoad: myEmployee.work_load })).length;
 }
@@ -213,7 +206,6 @@ function computeFeriasVencidas() {
 
 function renderExpiredBanner() {
     const el = document.getElementById('expired-banner');
-    if (!el) return;
     const vencida = computeFeriasVencidas();
     if (!vencida) {
         el.classList.add('hidden');
@@ -242,9 +234,21 @@ async function loadSummary() {
         earned = periods * 30;
     } else {
         const closedCycles = buildAcquisitiveCycles(admDate, today).filter((c) => c.end < today);
-        for (const cycle of closedCycles) {
-            const faltas = await calcFaltasInjustificadas(cycle.start, cycle.end);
-            earned += diasDireitoPorFaltas(faltas);
+        try {
+            for (const cycle of closedCycles) {
+                const faltas = await calcFaltasInjustificadas(cycle.start, cycle.end);
+                earned += diasDireitoPorFaltas(faltas);
+            }
+        } catch {
+            ['val-saldo', 'val-vencer'].forEach((id) => setEl(id, '—'));
+            setEl('sub-saldo', 'Não foi possível conferir as faltas agora. Recarregue a página em instantes.');
+            availableDays = 0;
+            const btn = document.getElementById('btn-solicitar');
+            if (btn) {
+                btn.disabled = true;
+                btn.title = 'Saldo indisponível no momento';
+            }
+            return;
         }
     }
     const taken = myVacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + CLTDomain.diasConsumidosFerias(v), 0);
@@ -282,7 +286,6 @@ async function loadSummary() {
 
 function updateRequestBtn(periods) {
     const btn = document.getElementById('btn-solicitar');
-    if (!btn) return;
     if (periods < 1) {
         btn.disabled = true;
         btn.title = 'Disponível após 12 meses';
@@ -318,7 +321,6 @@ function closeTimelineYearPopover() {
 function onTimelineYearOutsideClick(e) {
     const popover = document.getElementById('timeline-year-popover');
     const trigger = document.getElementById('timeline-year-trigger');
-    if (!popover || !trigger) return;
     if (!popover.contains(e.target) && !trigger.contains(e.target)) closeTimelineYearPopover();
 }
 function onTimelineYearEscape(e) {
@@ -328,7 +330,6 @@ function onTimelineYearEscape(e) {
 function openTimelineYearPopover() {
     const popover = document.getElementById('timeline-year-popover');
     const trigger = document.getElementById('timeline-year-trigger');
-    if (!popover || !trigger) return;
 
     const currentYear = new Date().getFullYear();
     const years = new Set();
@@ -357,7 +358,6 @@ function openTimelineYearPopover() {
 function setupTimelineYearPicker() {
     const trigger = document.getElementById('timeline-year-trigger');
     const popover = document.getElementById('timeline-year-popover');
-    if (!trigger || !popover) return;
 
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -380,7 +380,6 @@ function renderTimeline() {
     if (monthsEl)
         monthsEl.innerHTML = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map((m) => `<span>${m}</span>`).join('');
     const barsEl = document.getElementById('timeline-bars');
-    if (!barsEl) return;
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
     const totalMs = yearEnd - yearStart + 86400000;
@@ -477,7 +476,6 @@ window.openGoogleCalendar = function (id) {
 function renderHistory() {
     const list = document.getElementById('history-list');
     const emptyEl = document.getElementById('history-empty');
-    if (!list) return;
     list.querySelectorAll('.history-card').forEach((c) => c.remove());
     const sorted = [...myVacations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sorted.length === 0) {
@@ -565,7 +563,7 @@ let startPicker = null;
 let endPicker = null;
 const allDatePickers = [];
 
-function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } = {}) {
+function createDatePicker(prefix, { getMin, onSelect, motivoBloqueio }) {
     const trigger = document.getElementById(`${prefix}-trigger`);
     const textEl = document.getElementById(`${prefix}-text`);
     const hidden = document.getElementById(prefix);
@@ -574,8 +572,6 @@ function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } =
     const gridEl = document.getElementById(`${prefix}-grid`);
     const prevBtn = document.getElementById(`${prefix}-prev`);
     const nextBtn = document.getElementById(`${prefix}-next`);
-    if (!trigger || !popover) return null;
-
     let viewYear,
         viewMonth,
         selected = null;
@@ -590,14 +586,13 @@ function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } =
         const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const min = getMin?.() || null;
-        const max = getMax?.() || null;
+        const min = getMin();
 
         const cells = [];
         for (let i = startOffset - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true });
         for (let d = 1; d <= daysInMonth; d++) {
             const date = new Date(viewYear, viewMonth, d);
-            const foraDoIntervalo = (min && date < min) || (max && date > max);
+            const foraDoIntervalo = date < min;
             const bloqueio = foraDoIntervalo ? null : motivoBloqueio?.(toISO(date)) || null;
             cells.push({
                 day: d,
@@ -625,7 +620,7 @@ function createDatePicker(prefix, { getMin, getMax, onSelect, motivoBloqueio } =
 
     function open() {
         allDatePickers.forEach((p) => p !== api && p.close());
-        const base = selected || getMin?.() || new Date();
+        const base = selected || getMin();
         viewYear = base.getFullYear();
         viewMonth = base.getMonth();
         render();
@@ -771,7 +766,6 @@ function fmtBRLFerias(v) {
 
 function updateValorFeriasPreview(days, abono) {
     const wrap = document.getElementById('valor-ferias-preview');
-    if (!wrap) return;
     const salario = Number(myEmployee?.salary) || 0;
     if (!salario || !days || days <= 0) {
         wrap.classList.add('hidden');
@@ -882,9 +876,9 @@ window.calcDays = function () {
 window.submitRequest = async function () {
     const startVal = document.getElementById('req-start')?.value;
     const endVal = document.getElementById('req-end')?.value;
-    const abono = document.getElementById('req-abono')?.checked ?? false;
+    const abono = document.getElementById('req-abono').checked;
     const substitutoId = document.getElementById('req-substituto')?.value || null;
-    const obs = document.getElementById('req-obs')?.value.trim() ?? '';
+    const obs = document.getElementById('req-obs').value.trim();
     if (!startVal || !endVal) {
         showAlert('<i class="fas fa-exclamation-triangle"></i> Selecione as datas de início e fim.');
         return;
@@ -1022,12 +1016,10 @@ function clampDate(d, mn, mx) {
     return d < mn ? new Date(mn) : d > mx ? new Date(mx) : d;
 }
 function fmtBR(d) {
-    if (!d || isNaN(d)) return '—';
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 function escHtml(str) {
-    if (typeof str !== 'string') return str ?? '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function setEl(id, html) {
     const el = document.getElementById(id);
@@ -1042,7 +1034,6 @@ function setConfirmDisabled(v) {
 }
 function showAlert(html) {
     const el = document.getElementById('modal-alert');
-    if (!el) return;
     el.innerHTML = html;
     el.classList.add('show');
 }
@@ -1057,11 +1048,10 @@ function hideAlert() {
 function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check', error: 'fa-times', warning: 'fa-exclamation-triangle', info: 'fa-info' };
     const container = document.getElementById('toast-container');
-    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
-        <div class="toast-icon"><i class="fas ${icons[type] || icons.success}"></i></div>
+        <div class="toast-icon"><i class="fas ${icons[type]}"></i></div>
         <div class="toast-content">
             <p class="toast-title">${escapeHtml(msg)}</p>
         </div>

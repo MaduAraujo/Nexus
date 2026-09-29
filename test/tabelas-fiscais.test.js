@@ -65,3 +65,18 @@ describe('TABELA_FISCAL.irrf', () => {
 test('aprendizInssAliquota é uma fração plausível (entre 0 e 1)', () => {
     assert.ok(TABELA_FISCAL.aprendizInssAliquota > 0 && TABELA_FISCAL.aprendizInssAliquota < 1);
 });
+
+describe('entradas inválidas nunca propagam NaN para a folha', () => {
+    const { calcINSS, calcIRRF, calcINSSContrato } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('base não numérica dá zero de INSS e de IRRF', () => {
+        assert.equal(calcINSS(NaN), 0);
+        assert.equal(calcIRRF(NaN), 0);
+        assert.equal(calcINSSContrato(NaN, 'clt'), 0);
+    });
+
+    test('contrato não informado é tratado como CLT', () => {
+        assert.equal(calcINSSContrato(3000, undefined), calcINSS(3000));
+        assert.equal(calcINSSContrato(3000, null), calcINSS(3000));
+    });
+});

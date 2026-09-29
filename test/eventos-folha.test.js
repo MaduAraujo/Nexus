@@ -245,3 +245,21 @@ describe('recibo de férias: quem não tem direito e competência inválida', ()
         assert.equal(inicioDoReciboFerias(undefined), null);
     });
 });
+
+describe('dados faltando no cálculo de 13º e férias', () => {
+    const { reciboFerias } = require('../src/javascript/domain/eventos-folha.js');
+
+    test('sem data de admissão, o 13º conta o ano inteiro', () => {
+        assert.equal(calcDecimoTerceiroIntegral({ salario: 1200, admissaoISO: null, anoBase: 2026 }).avos, 12);
+    });
+
+    test('salário ausente vira zero, sem NaN', () => {
+        assert.equal(calcDecimoTerceiroIntegral({ salario: undefined, admissaoISO: '2026-01-01', anoBase: 2026 }).valorIntegral, 0);
+        assert.equal(calcAdiantamentoFerias({ salario: undefined, dias: 30, abono: false }).total, 0);
+    });
+
+    test('recibo de férias sem tipo de contrato é calculado como CLT, com INSS', () => {
+        const r = reciboFerias({ contractType: undefined, salario: 3000, startDate: '2026-08-03', dias: 20, abono: false });
+        assert.ok(r.descontos.some((d) => d.cod === '901'));
+    });
+});

@@ -4,7 +4,6 @@
 
     function unwrap(node) {
         const parent = node.parentNode;
-        if (!parent) return;
         while (node.firstChild) parent.insertBefore(node.firstChild, node);
         parent.removeChild(node);
     }
