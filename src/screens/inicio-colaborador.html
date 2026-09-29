@@ -89,6 +89,18 @@
                 </button>
             </div>
             <div class="topbar-right">
+                <button type="button" class="notif-bell" id="notif-bell" aria-label="Avisos: nenhum não lido" aria-haspopup="true" aria-expanded="false" aria-controls="notif-popover">
+                    <i class="fas fa-bell"></i>
+                    <span class="notif-badge hidden" id="notif-badge">0</span>
+                </button>
+                <div class="notif-popover" id="notif-popover" role="dialog" aria-label="Avisos">
+                    <div class="notif-header">
+                        <span class="notif-title">Avisos</span>
+                        <span class="notif-count" id="notif-count"></span>
+                    </div>
+                    <div class="notif-list" id="notif-list"></div>
+                    <a class="notif-footer" href="../screens/comunicados-colaborador.html">Ver todos os comunicados</a>
+                </div>
                 <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Alternar tema escuro">
                     <i class="fas fa-moon"></i>
                 </button>
@@ -262,6 +274,7 @@
 <script src="../javascript/shared/e2e.js"></script>
 <script src="../javascript/shared/mfa.js"></script>
 <script src="../javascript/shared/auth.js"></script>
+<script src="../javascript/comunicado-format.js"></script>
 <script src="../javascript/inicio-colaborador.js"></script>
 </body>
 </html>

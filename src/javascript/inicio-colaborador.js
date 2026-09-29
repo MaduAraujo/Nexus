@@ -288,10 +288,84 @@ document.addEventListener('DOMContentLoaded', async () => {
         alertEl.classList.remove('hidden');
     }
 
+    const notifBell = document.getElementById('notif-bell');
+    const notifBadge = document.getElementById('notif-badge');
+    const notifPopover = document.getElementById('notif-popover');
+    const notifList = document.getElementById('notif-list');
+    const notifCount = document.getElementById('notif-count');
+    let avisosConhecidos = null;
+
+    const avisoResumo = (texto) => {
+        const t = comunicadoPlainText(texto);
+        return t.length > 110 ? `${t.slice(0, 110)}…` : t;
+    };
+    const avisoQuando = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+    function avisoItem(m) {
+        const urgente = m.categoria === 'Urgente';
+        return `<a class="notif-item${urgente ? ' notif-item--urgente' : ''}" href="../screens/comunicados-colaborador.html?id=${encodeURIComponent(m.id)}">
+            <span class="notif-item-icon"><i class="fas ${urgente ? 'fa-triangle-exclamation' : 'fa-bullhorn'}"></i></span>
+            <span class="notif-item-body">
+                <span class="notif-item-cat">${escapeHtml(m.categoria)}</span>
+                <span class="notif-item-text">${escapeHtml(avisoResumo(m.texto))}</span>
+                <span class="notif-item-time">${avisoQuando(m.created_at)}</span>
+            </span>
+        </a>`;
+    }
+
+    async function loadAvisos() {
+        const dept = myEmployee.dept || '';
+        const orFilter = dept ? `destino.eq.Todos,destino.eq."${dept.replace(/["\\]/g, '\\$&')}"` : 'destino.eq.Todos';
+        const [{ data: msgs }, { data: reads }] = await Promise.all([
+            sb.from('messages').select('id,texto,categoria,created_at').or(orFilter).order('created_at', { ascending: false }),
+            sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
+        ]);
+        const lidos = new Set((reads || []).map((r) => r.message_id));
+        const naoLidos = (msgs || []).filter((m) => !lidos.has(m.id));
+        const n = naoLidos.length;
+        const rotulo = `${n} não lido${n > 1 ? 's' : ''}`;
+
+        notifBadge.textContent = n > 9 ? '9+' : String(n);
+        notifBadge.classList.toggle('hidden', !n);
+        notifBell.classList.toggle('has-unread', n > 0);
+        notifBell.setAttribute('aria-label', n ? `Avisos: ${rotulo}` : 'Avisos: nenhum não lido');
+        notifCount.textContent = n ? rotulo : '';
+        notifList.innerHTML = n
+            ? naoLidos.slice(0, 6).map(avisoItem).join('')
+            : '<div class="notif-empty"><i class="fas fa-bell-slash"></i>Nenhum aviso novo.</div>';
+
+        const novos = avisosConhecidos ? naoLidos.filter((m) => !avisosConhecidos.has(m.id)) : [];
+        if (novos.length) showToast('Novo comunicado do RH', 'info', avisoResumo(novos[0].texto));
+        avisosConhecidos = new Set(naoLidos.map((m) => m.id));
+    }
+
+    function fecharAvisos() {
+        notifPopover.classList.remove('open');
+        notifBell.classList.remove('active');
+        notifBell.setAttribute('aria-expanded', 'false');
+    }
+
+    notifBell.addEventListener('click', () => {
+        const abrir = !notifPopover.classList.contains('open');
+        notifPopover.classList.toggle('open', abrir);
+        notifBell.classList.toggle('active', abrir);
+        notifBell.setAttribute('aria-expanded', String(abrir));
+    });
+    document.addEventListener('click', (e) => {
+        if (!notifPopover.contains(e.target) && !notifBell.contains(e.target)) fecharAvisos();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') fecharAvisos();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') loadAvisos();
+    });
+
     renderAll(myEmployee);
     await loadOnboarding(myEmployeeId, myEmployee.admission_date);
     await checkIsManager();
     await loadDocsAlert();
+    await loadAvisos();
 
     sb.channel('inicio-colab')
         .on(
@@ -318,6 +392,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         )
         .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter: `employee_id=eq.${myEmployeeId}` }, () => {
             loadDocsAlert();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+            loadAvisos();
         })
         .subscribe();
 

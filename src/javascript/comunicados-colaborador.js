@@ -265,6 +265,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadData();
     render();
+
+    const pedidoId = new URLSearchParams(location.search).get('id');
+    const pedido = pedidoId && allMsgs.find((m) => String(m.id) === pedidoId);
+    if (pedido) openModal(pedido);
 });
 
 if (typeof module !== 'undefined' && module.exports) {
