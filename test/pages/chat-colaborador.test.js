@@ -321,7 +321,7 @@ describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
         });
         await page.click('.channel-item[data-channel-id="ch-geral"]');
         await page.settle();
-        assert.match(page.text('#compliance-hint-text'), /Cifrada de ponta a ponta — só os membros do canal e o RH/);
+        assert.equal(page.text('#compliance-hint-text'), 'As mensagens são protegidas com a criptografia de ponta a ponta.');
         await page.fill('#chat-input', 'Segredo da equipe');
         await page.click('#chat-send-btn');
         assert.equal(c.writes('chat_messages', 'insert').length, 0);
@@ -342,7 +342,7 @@ describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
         assert.doesNotMatch(ins.payload[0].content, /Segredo/);
     });
 
-    test('DM cifrada mostra que nem o servidor lê; falha ao criar a conversa avisa', async () => {
+    test('DM cifrada avisa que as mensagens são protegidas de ponta a ponta; falha ao criar a conversa avisa', async () => {
         const c = client();
         page = await openPage('chat-colaborador', { client: c });
         comE2E(page, { cifra: async () => 'x' });
@@ -350,7 +350,7 @@ describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
         await page.fill('#dm-search', 'caio');
         await page.click('.dm-picker-item');
         await page.settle();
-        assert.match(page.text('#compliance-hint-text'), /Cifrada de ponta a ponta — só você e Caio conseguem ler, nem o servidor/);
+        assert.equal(page.text('#compliance-hint-text'), 'As mensagens são protegidas com a criptografia de ponta a ponta.');
         page.close();
 
         const falha = client(

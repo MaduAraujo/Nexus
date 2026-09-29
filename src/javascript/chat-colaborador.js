@@ -310,14 +310,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ready = await NexusE2E.channelReady(channel.id, { isDm }).catch(() => false);
         if (currentChannelId === channel.id) e2eReady = ready;
         if (hintText && currentChannelId === channel.id) {
-            const peerName = channel.name.split(' ')[0];
             if (isDm) {
-                hintText.textContent = e2eReady
-                    ? `Cifrada de ponta a ponta — só você e ${peerName} conseguem ler, nem o servidor`
-                    : 'Conversa privada e criptografada';
+                hintText.textContent = e2eReady ? 'As mensagens são protegidas com a criptografia de ponta a ponta.' : 'Conversa privada e criptografada';
             } else if (e2eReady) {
                 if (hintIcon) hintIcon.className = 'fas fa-lock';
-                hintText.textContent = 'Cifrada de ponta a ponta — só os membros do canal e o RH (compliance) conseguem ler, nem o servidor';
+                hintText.textContent = 'As mensagens são protegidas com a criptografia de ponta a ponta.';
             }
         }
 
