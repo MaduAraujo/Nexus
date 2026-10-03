@@ -1,0 +1,27 @@
+DROP INDEX IF EXISTS public.document_audit_doc_idx;
+
+CREATE INDEX IF NOT EXISTS burnout_alerts_employee_id_idx ON public.burnout_alerts (employee_id);
+CREATE INDEX IF NOT EXISTS chat_channel_members_employee_id_idx ON public.chat_channel_members (employee_id);
+CREATE INDEX IF NOT EXISTS chat_messages_employee_id_idx ON public.chat_messages (employee_id);
+CREATE INDEX IF NOT EXISTS document_audit_log_actor_id_idx ON public.document_audit_log (actor_id);
+CREATE INDEX IF NOT EXISTS document_notifications_document_id_idx ON public.document_notifications (document_id);
+CREATE INDEX IF NOT EXISTS documents_created_by_idx ON public.documents (created_by);
+CREATE INDEX IF NOT EXISTS documents_deleted_by_idx ON public.documents (deleted_by);
+CREATE INDEX IF NOT EXISTS documents_previous_version_id_idx ON public.documents (previous_version_id);
+CREATE INDEX IF NOT EXISTS e2e_channel_keys_employee_id_idx ON public.e2e_channel_keys (employee_id);
+CREATE INDEX IF NOT EXISTS e2e_org_key_grants_granted_by_idx ON public.e2e_org_key_grants (granted_by);
+CREATE INDEX IF NOT EXISTS e2e_org_keys_created_by_idx ON public.e2e_org_keys (created_by);
+CREATE INDEX IF NOT EXISTS employee_trainings_training_id_idx ON public.employee_trainings (training_id);
+CREATE INDEX IF NOT EXISTS employees_afastado_by_medical_leave_id_idx ON public.employees (afastado_by_medical_leave_id);
+CREATE INDEX IF NOT EXISTS employees_auth_user_id_idx ON public.employees (auth_user_id);
+CREATE INDEX IF NOT EXISTS hr_ticket_hidden_ticket_id_idx ON public.hr_ticket_hidden (ticket_id);
+CREATE INDEX IF NOT EXISTS hr_ticket_messages_employee_id_idx ON public.hr_ticket_messages (employee_id);
+CREATE INDEX IF NOT EXISTS kudos_from_employee_id_idx ON public.kudos (from_employee_id);
+CREATE INDEX IF NOT EXISTS message_reads_employee_id_idx ON public.message_reads (employee_id);
+CREATE INDEX IF NOT EXISTS message_templates_created_by_idx ON public.message_templates (created_by);
+CREATE INDEX IF NOT EXISTS messages_created_by_idx ON public.messages (created_by);
+CREATE INDEX IF NOT EXISTS onboarding_progress_task_id_idx ON public.onboarding_progress (task_id);
+CREATE INDEX IF NOT EXISTS payslips_created_by_idx ON public.payslips (created_by);
+CREATE INDEX IF NOT EXISTS pdi_goals_review_id_idx ON public.pdi_goals (review_id);
+CREATE INDEX IF NOT EXISTS profiles_employee_id_idx ON public.profiles (employee_id);
+CREATE INDEX IF NOT EXISTS vacations_substituto_id_idx ON public.vacations (substituto_id);

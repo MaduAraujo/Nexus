@@ -30,6 +30,7 @@ Empresas perdem horas toda semana gerenciando ponto em planilha, férias por e-m
 - [Portal do Colaborador](#portal-do-colaborador)
 - [Inteligência Artificial](#inteligência-artificial)
 - [Segurança e criptografia](#segurança-e-criptografia)
+- [Privacidade (LGPD) e operação](#privacidade-lgpd-e-operação)
 - [Tecnologias](#tecnologias)
 - [Equipe](#equipe)
 
@@ -47,10 +48,10 @@ As credenciais de demonstração não ficam publicadas aqui — solicite acesso 
 No módulo **Colaboradores**, adicione os membros da equipe.
 
 **3. Convites automáticos:**
-Ao cadastrar, a plataforma envia automaticamente um convite por e-mail para o colaborador.
+Ao cadastrar, a plataforma envia automaticamente um convite por e-mail para o colaborador, com a identidade visual do Nexus. Se o e-mail já tiver conta, ele recebe um link para definir uma nova senha.
 
 **4. Colaborador acessa o portal:**
-O colaborador recebe o convite, define sua senha e passa a ter acesso ao próprio portal — com ponto, holerites, documentos e muito mais.
+O colaborador clica em **Ativar minha conta**, define sua senha e passa a ter acesso ao próprio portal — com ponto, holerites, documentos e muito mais. O link é de uso único e tem prazo de validade; se vencer, o RH reenvia o convite.
 
 ---
 
@@ -142,6 +143,24 @@ select vault.create_secret('SUA_SERVICE_ROLE_KEY', 'service_role_key');
 
 Se os secrets já existirem (confira com `select name from vault.secrets where name in ('project_url','service_role_key');`), **não rode `create_secret` de novo** — isso cria um registro duplicado com o mesmo nome, e as funções acima (que fazem `SELECT ... INTO` sem `LIMIT`) podem silenciosamente pegar o valor errado. Para atualizar um valor existente, use `vault.update_secret(id, novo_valor)` pelo `id` do secret.
 
+### E-mails de convite e de senha
+
+Os modelos ficam em `supabase/templates/`:
+
+| Arquivo | Modelo do Supabase | Assunto |
+|---|---|---|
+| `convite.html` | Invite user | Seu acesso ao Nexus |
+| `redefinir-senha.html` | Reset Password | Redefinição de senha no Nexus |
+
+O `supabase/config.toml` já os usa no Supabase local. **O projeto hospedado não lê o `config.toml`:** cole o conteúdo de cada arquivo e o assunto em Authentication → Emails → Templates. O `redefinir-senha.html` é usado tanto no "Esqueci minha senha" quanto quando o RH convida um e-mail que já tem conta (`invite-employee`), por isso o texto é neutro.
+
+Para o link do e-mail abrir o app, configure em Authentication → URL Configuration o **Site URL** (`https://nexus-nine-zeta.vercel.app`) e inclua `https://nexus-nine-zeta.vercel.app/**` em **Redirect URLs**.
+
+**Remetente (SMTP):** o servidor padrão do Supabase envia poucos e-mails por hora e cai no spam com facilidade. Configure um SMTP próprio em Project Settings → Authentication → SMTP Settings. Opções:
+
+- **Gmail com senha de app** (grátis, usado na demonstração): host `smtp.gmail.com`, porta `465`, usuário e remetente = o Gmail, senha = uma [senha de app](https://myaccount.google.com/apppasswords) (exige verificação em duas etapas). Limite de cerca de 500 e-mails por dia. O Supabase avisa que o Gmail é um provedor pessoal; o envio funciona, mas para uso real prefira a opção abaixo.
+- **Serviço transacional com domínio próprio** (ex.: Resend): verifique o domínio com os registros SPF, DKIM e DMARC que o serviço indicar e use host `smtp.resend.com`, porta `465`, usuário `resend` e a API key como senha.
+
 ### 5. Rodar o app localmente
 
 Sem build step — qualquer servidor estático funciona:
@@ -156,9 +175,12 @@ node test-support/static-server.js
 O projeto tem 3 camadas de teste automatizado (o número exato de casos muda a cada mudança; rode os comandos para ver):
 
 ```bash
-npm test               # unidade — folha/CLT/rescisão, criptografia e rotação de arquivos, MFA, guarda de XSS e de CSP, 540+ casos, sem dependências externas
+npm test               # unidade e telas (jsdom) — folha/CLT/rescisão/férias/estágio, criptografia, MFA, guarda de XSS e de CSP, mais de 2.000 casos, sem dependências externas
+npm run test:coverage   # o mesmo, exigindo 99% de linhas, ramos e funções (piso do CI)
+npm run check:edge      # checagem de tipos das Edge Functions (Deno)
+npm run test:pwa        # manifesto e service worker do PWA
 npm run lint            # ESLint
-npm run format:check    # Prettier
+npm run format:check    # Prettier (não rode Prettier em .html)
 ```
 
 Os testes de **integração** (RLS real contra Postgres) e de **sistema/E2E** (Playwright, navegador real) precisam de uma instância local do Supabase via Docker:
@@ -168,15 +190,16 @@ npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,e
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
 
-npm run test:integration   # RLS, criptografia de colunas, MFA e códigos de recuperação, limite de chamadas, alertas de segurança e rotação de chaves (250 casos)
+npm run test:integration   # RLS, criptografia, MFA, regras de folha/férias/documentos no banco, biometria e funções abertas a anônimos
 
 npx playwright install --with-deps chromium
-npm run test:e2e           # login → dashboard de RH e de colaborador, fim a fim
+npm run test:e2e           # fluxos completos no navegador: login, folha, rescisão, documentos, comunicados, vários perfis, acessibilidade (axe, WCAG 2.1 AA) e navegação por teclado
+npm run test:load          # carga: 20 colaboradores + 3 RH simultâneos, p95 ≤ 2 s
 ```
 
-> **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`. Validado assim: os 7 testes E2E passam.
+> **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`.
 
-Esses 2 comandos rodam automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`, jobs `rls-integration` e `e2e`).
+Tudo isso roda automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`): jobs `test` (unidade com cobertura, lint, formatação, Edge Functions, PWA e `npm audit`), `rls-integration` (integração, E2E com acessibilidade e teclado, e carga) e `security-scan` (varredura OWASP ZAP). O ensaio de restauração do backup roda todo mês (`restore-drill.yml`).
 
 ---
 
@@ -190,13 +213,17 @@ Esses 2 comandos rodam automaticamente em CI a cada push/PR para `main` (`.githu
 
 | Módulo | Descrição |
 |---|---|
-| **Dashboard** | Indicadores da equipe atualizados em tempo real |
-| **Colaboradores** | Cadastro, edição e gestão do ciclo de vida de cada funcionário |
-| **Controle de Ponto** | Aprovação de registros, ajustes e gestão do banco de horas |
-| **Férias** | Calendário de solicitações com fluxo completo de aprovação |
-| **Comunicação** | Publicação de comunicados e chat direto com a equipe |
-| **Documentos** | Envio e organização de arquivos e holerites por colaborador |
-| **Central de Alertas** | Detecção automática de risco de burnout via inteligência artificial |
+| **Painel** | Tela inicial com calendário e acesso rápido a todos os módulos |
+| **Dashboard** | Indicadores da equipe em tempo real, incluindo horas de treinamento e taxa de promoção |
+| **Colaboradores** | Cadastro com checklist de documentos por tipo de contrato, convite por e-mail, catálogo de cargos e salários, treinamentos, processos disciplinares, atestados e consulta às avaliações de desempenho |
+| **Gestão de Horas** | Aprovação de registros de ponto, ajustes e banco de horas |
+| **Férias** | Solicitações com fluxo de aprovação, férias coletivas, abono pecuniário e recibo de férias |
+| **Pagamentos** | Folha mensal com faltas e DSR, INSS e IRRF, 13º salário, recibo de férias, rescisão e regras de estágio |
+| **Comunicação Interna** | Comunicados (com envio respeitando o horário comercial) e chat com a equipe |
+| **Atendimento ao Colaborador** | Chamados abertos pelos colaboradores, com avaliação do atendimento |
+| **Arquivos** | Documentos por colaborador, com guarda legal (documento aprovado não pode ser apagado antes do prazo) |
+| **Central de Alertas** | Detecção de risco de burnout e de prazos de compliance com inteligência artificial |
+| **Segurança** | Alertas de comportamento anormal, chaves de criptografia de ponta a ponta e proteção de arquivos antigos |
 
 ---
 
@@ -212,12 +239,16 @@ Cada colaborador tem um espaço personalizado com seus dados de cargo, departame
 
 | Módulo | Descrição |
 |---|---|
-| **Ponto** | Registre entrada e saída e solicite ajustes quando necessário |
-| **Férias** | Acompanhe seu saldo e o status das solicitações |
-| **Holerites** | Acesse o histórico completo dos contracheques |
-| **Documentos** | Visualize arquivos compartilhados pelo RH |
-| **Chat** | Fale diretamente com o time de RH |
-| **Perfil** | Mantenha dados pessoais, foto e biografia atualizados |
+| **Painel** | Tela inicial com sino de avisos (comunicados não lidos) e alerta de documentos do RH para assinar |
+| **Ponto** | Registro com selfie e reconhecimento facial com prova de vida, funcionamento offline e pedidos de ajuste |
+| **Férias** | Saldo, solicitações, venda de 10 dias (abono) e status de cada pedido |
+| **Holerites** | Histórico de contracheques e recibos de férias, com assinatura eletrônica e informe de rendimentos |
+| **Documentos** | Envio das pendências do checklist e documentos entregues pelo RH, cifrados de ponta a ponta |
+| **Comunicados** | Comunicados da empresa com controle de leitura |
+| **Meu Desempenho** | Avaliações concluídas, metas do PDI, treinamentos (inclusive cursos externos), processos disciplinares com ciência eletrônica e atestados |
+| **Minha Equipe** | Para gestores: time, avaliações de desempenho, treinamentos e aprovação de férias |
+| **Chat** | Conversas com colegas e canais, e atendimento com o RH |
+| **Perfil** | Dados pessoais, foto, biografia, MFA e preferências de notificação |
 
 ---
 
@@ -257,7 +288,7 @@ Como funciona:
 
 > ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
 
-**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a mais recente. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos; a 082 faz as funções de RPC exigirem o segundo fator de quem tem MFA; a 083 cifra o histórico de edição; a 084 cria os códigos de recuperação do MFA; a 085 cria as tabelas de chaves da criptografia de ponta a ponta; a 086 estende essas chaves aos canais de grupo. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
+**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a mais recente. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos; a 082 faz as funções de RPC exigirem o segundo fator de quem tem MFA; a 083 cifra o histórico de edição; a 084 cria os códigos de recuperação do MFA; a 085 cria as tabelas de chaves da criptografia de ponta a ponta; a 086 estende essas chaves aos canais de grupo; a 087 e a 088 guardam o certificado do treinamento e exigem anexo no atestado; a 089 impede excluir colaborador que tenha holerite, ponto ou documento (prazo legal de guarda); a 090 cria o bucket de documentos; a 091 leva para o banco as regras de folha, guarda de documentos e atendimentos; a 092 isola a biometria facial; a 093 cria o recibo de férias com abono; a 094 otimiza as políticas de RLS; a 095 leva as regras de férias para o banco; a 096 fecha para anônimos as funções que não precisam ser públicas e a 097 reabre só as quatro que as políticas de acesso usam. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
 
 **Regras para quem desenvolve:**
 
@@ -295,7 +326,9 @@ Como funciona:
 | Senhas fracas | Mínimo de 12 caracteres, com letras e números, no app e em `supabase/config.toml`. **No projeto hospedado, ajuste o mesmo no painel** (Authentication → Sign In / Providers → Email). |
 | Abuso e custo das funções de IA | Migration `061`: `rate_limit_check` limita por usuário (ai-alerts: 30/h; ai-employee-chat: 60/h). |
 | Dependências vulneráveis | `npm audit --audit-level=high` no CI e Dependabot semanal. |
-| Funções internas chamáveis por anônimo | Migration `068`: retira o `EXECUTE` público das funções de cron/push e limita as demais a `authenticated`; `kudos` e `onboarding_tasks` deixam de ser legíveis sem login. |
+| Funções internas chamáveis por anônimo | Migrations `068` e `096`: retiram o `EXECUTE` de anônimos das funções internas; `kudos` e `onboarding_tasks` deixam de ser legíveis sem login. A `097` devolve o acesso só a `is_rh`, `my_employee_id`, `chat_is_member` e `chat_channel_is_dm`, usadas dentro das políticas de RLS (para quem não fez login elas devolvem "não" ou vazio), e `report_login_failure` segue aberta porque registra falhas antes do login. |
+| Fraude no ponto (foto de outra pessoa, vídeo gravado) | Migration `092`: o modelo facial fica em `biometric_templates`, cifrado e sem acesso pela API; a comparação é feita no banco (`biometric_verify`), que recusa o mesmo vetor reenviado. No app há prova de vida (piscar) e consentimento explícito (LGPD art. 11). |
+| Apagar provas (documentos, atendimentos) | Migration `091`: documento aprovado só sai por `soft_delete_documents` com motivo e respeitando o prazo de guarda; mensagens e chamados de atendimento não podem ser apagados, só ocultados. |
 
 **Se o projeto Supabase mudar**, atualize o domínio em `connect-src` e `img-src` do `vercel.json`.
 
@@ -303,7 +336,7 @@ Como funciona:
 
 **Sem `'unsafe-inline'` em `style-src`:** nenhum HTML ou template usa `style=`, `<style>` ou `setAttribute('style')` (o mesmo teste falha). Estilo fixo vai para classe CSS. Valor dinâmico usa um atributo de lista fechada, aplicado por `src/javascript/shared/dynamic-style.js` via `el.style`: `data-bg`/`data-color` (só cor), `data-w` (largura em %), `data-x`/`data-y` (px), `data-delay` (s), `data-bg-img` (só `https:`, `blob:` ou `data:image`) e `data-hide` (começa escondido e depois se comporta como `style.display = 'none'`). Janelas de impressão usam um `.css` próprio via `<link>`, e a orientação do holerite usa uma folha construída (`adoptedStyleSheets`).
 
-**Limites conhecidos:** o CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Ao ativar, a pessoa recebe 10 códigos de recuperação (só o hash bcrypt fica no banco, migration 084). Se perder o celular, um código na tela de login desvincula o app e gera um alerta crítico para o RH; o RH então cadastra o celular novo na ativação obrigatória. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
+**Limites conhecidos:** o CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). A proteção contra senhas vazadas do Supabase (consulta ao HaveIBeenPwned) só existe no plano Pro; no plano Free o Security Advisor mostra esse aviso, e a compensação é a senha mínima de 12 caracteres, o MFA obrigatório para o RH, o limite de tentativas e o alerta de falhas de login em série. O Security Advisor também lista as funções `SECURITY DEFINER` chamáveis por usuários logados: são as RPCs do próprio app, e cada uma confere internamente o papel de quem chama. **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Ao ativar, a pessoa recebe 10 códigos de recuperação (só o hash bcrypt fica no banco, migration 084). Se perder o celular, um código na tela de login desvincula o app e gera um alerta crítico para o RH; o RH então cadastra o celular novo na ativação obrigatória. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
 
 ---
 
