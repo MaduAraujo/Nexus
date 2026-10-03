@@ -37,7 +37,7 @@ function inicioLivre(aPartirDe, { semana = [1, 2, 3, 4] } = {}) {
 
 function proximaSexta(aPartirDe) {
     let dia = aPartirDe;
-    while (diaDaSemana(dia) !== 5) dia = somar(dia, 1);
+    while (diaDaSemana(dia) !== 5 || [0, 1, 2].some((n) => feriados.includes(somar(dia, n)))) dia = somar(dia, 1);
     return dia;
 }
 
