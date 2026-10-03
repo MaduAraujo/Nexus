@@ -359,14 +359,27 @@ async function sendChat() {
     }
 }
 
+const ACTION_LABELS = {
+    approve_vacation: 'Aprovar férias',
+    reject_vacation: 'Recusar férias',
+    approve_adjustment: 'Aprovar ajuste de ponto',
+    reject_adjustment: 'Recusar ajuste de ponto',
+    mark_burnout_read: 'Marcar alerta de sobrecarga como lido',
+};
+
 function showActionConfirmation(actionData, originalMessage) {
+    const label = Object.prototype.hasOwnProperty.call(ACTION_LABELS, actionData.type) ? ACTION_LABELS[actionData.type] : null;
+    if (!label) {
+        appendChatMessage('ai', 'Não foi possível processar a ação solicitada.', { erro: true });
+        return;
+    }
     const container = document.getElementById('chat-messages');
     const div = document.createElement('div');
     div.className = 'chat-message ai';
     div.innerHTML = `
         <div class="ai-avatar-sm"><i class="fas fa-robot"></i></div>
         <div class="action-confirm-card">
-            <div class="action-confirm-header"><i class="fas fa-bolt"></i> Ação detectada</div>
+            <div class="action-confirm-header"><i class="fas fa-bolt"></i> ${esc(label)}</div>
             <p class="action-confirm-message">${esc(actionData.message)}</p>
             <ul class="action-targets"><li><i class="fas fa-spinner fa-spin"></i> Conferindo os registros…</li></ul>
             <div class="action-impact-preview hidden"></div>
@@ -425,7 +438,7 @@ const ACTION_PENDING_STATUS = { vacations: 'pendente', adjustment_requests: 'pen
 
 async function describeActionTargets({ type, ids = [] }) {
     const table = AI_DECISION_TARGET_TABLE[type];
-    if (!table || !ids.length) return { lines: [], validIds: [] };
+    if (!ids.length) return { lines: [], validIds: [] };
     const { data: rows } = await sb.from(table).select('*').in('id', ids);
     const pending = ACTION_PENDING_STATUS[table];
     const valid = (rows || []).filter((r) => (pending ? r.status === pending : table !== 'burnout_alerts' || !r.lido));

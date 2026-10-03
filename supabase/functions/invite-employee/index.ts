@@ -1,7 +1,20 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PAGE_SIZE = 1000;
+
+async function findUserByEmail(admin: SupabaseClient, email: string) {
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: PAGE_SIZE });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    const found = users.find((u) => u.email?.toLowerCase() === email);
+    if (found || users.length < PAGE_SIZE) return found ?? null;
+  }
+}
 
 serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
@@ -10,7 +23,15 @@ serve(async (req) => {
   }
 
   try {
-    const { email, redirectTo } = await req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await req.json().catch(() => ({}) as Record<string, unknown>);
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const redirectTo = typeof body.redirectTo === "string" ? body.redirectTo : "";
+    if (email.length > 254 || !EMAIL_RE.test(email)) {
+      return new Response(JSON.stringify({ error: "E-mail inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const authHeader = req.headers.get("Authorization");
     const callerClient = createClient(
@@ -66,8 +87,7 @@ serve(async (req) => {
       });
     }
 
-    const { data: list } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-    const existing = list?.users?.find(u => u.email === email);
+    const existing = await findUserByEmail(adminClient, email);
 
     if (existing) {
       const { error: resetErr } = await adminClient.auth.resetPasswordForEmail(email, {

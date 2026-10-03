@@ -534,3 +534,51 @@ describe('login.html — erros de rede, validações e casos de borda', () => {
         assert.deepEqual(page.toasts(), []);
     });
 });
+
+describe('login.html — conta desativada pelo RH', () => {
+    const AVISO = 'Sua conta foi desativada pelo RH. Em caso de dúvida, fale com o RH da empresa.';
+
+    test('senha certa de conta desativada: avisa, desconecta e não entra', async () => {
+        const client = loginClient(COLAB_USER);
+        client.handlers.rpc.conta_desativada = true;
+        page = await openPage('login', { client });
+        await entrar(page, 'colaborador', 'ana@empresa.com', 'senha-certa-123');
+        assert.deepEqual(page.toasts(), [AVISO]);
+        assert.ok(client.calls.some((c) => c.auth === 'signOut'));
+        assert.deepEqual(page.navigations, []);
+        assert.equal(page.$('#btn-login').disabled, false);
+    });
+
+    test('sessão salva de conta desativada é descartada com o aviso', async () => {
+        const client = new FakeSupabase({ user: COLAB_USER, tables: baseTables(), rpc: { conta_desativada: true } });
+        page = await openPage('login', { client });
+        await page.click(page.$(`#form-profile .profile-card[data-click-args*='"colaborador"']`));
+        await page.click('#btn-continue');
+        await page.settle(20);
+        assert.deepEqual(page.toasts(), [AVISO]);
+        assert.ok(client.calls.some((c) => c.auth === 'signOut'));
+        assert.deepEqual(page.navigations, []);
+    });
+
+    test('se a consulta da conta falhar, a sessão salva segue: quem barra de verdade é o banco', async () => {
+        const client = new FakeSupabase({
+            user: COLAB_USER,
+            tables: baseTables(),
+            rpc: {
+                conta_desativada: () => {
+                    throw new Error('rede');
+                },
+            },
+        });
+        page = await openPage('login', { client });
+        await page.click(page.$(`#form-profile .profile-card[data-click-args*='"colaborador"']`));
+        await page.click('#btn-continue');
+        await page.waitFor(() => page.navigations.length);
+        assert.deepEqual(page.navigations, [HOME_COLAB]);
+    });
+
+    test('quem foi mandado de volta por uma tela interna vê o aviso ao abrir o login', async () => {
+        page = await openPage('login', { client: loginClient(COLAB_USER), query: '?conta=desativada' });
+        assert.deepEqual(page.toasts(), [AVISO]);
+    });
+});

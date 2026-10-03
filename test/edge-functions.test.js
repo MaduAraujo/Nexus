@@ -543,3 +543,90 @@ describe('Edge Functions usam o dia de Brasília, não o do servidor em UTC', ()
         }
     });
 });
+
+describe('Correções da revisão de segurança', () => {
+    function inviteSetup(listUsers) {
+        const caller = new FakeSupabase({ user: RH, tables: { profiles } });
+        const admin = new FakeSupabase({});
+        const invited = [];
+        admin.auth.admin = {
+            inviteUserByEmail: async (email) => (invited.push(email), { data: null, error: { message: 'already registered' } }),
+            listUsers,
+        };
+        return { caller, admin, invited };
+    }
+
+    test('invite-employee recusa e-mail inválido e normaliza maiúsculas e espaços', async () => {
+        const s = inviteSetup(async () => ({ data: { users: [{ id: 'auth-ana', email: 'ana@empresa.com' }] } }));
+        const h = await loadEdgeFunction('invite-employee', { env: ENV, createClient: clients(s) });
+        for (const email of ['sem-arroba', 'a@b', '', 42, `${'x'.repeat(250)}@a.com`]) {
+            const r = await h(request('https://x', { body: { email }, headers: { Authorization: AAL2 } }));
+            assert.deepEqual([r.status, await r.json()], [400, { error: 'E-mail inválido' }], String(email));
+        }
+        assert.deepEqual(s.invited, []);
+
+        const r = await h(request('https://x', { body: { email: '  ANA@Empresa.com ' }, headers: { Authorization: AAL2 } }));
+        assert.deepEqual(await r.json(), { id: 'auth-ana', existing: true });
+        assert.deepEqual(s.invited, ['ana@empresa.com']);
+    });
+
+    test('invite-employee encontra a conta existente mesmo depois dos primeiros 1.000 usuários', async () => {
+        const paginas = [];
+        const s = inviteSetup(async ({ page }) => {
+            paginas.push(page);
+            if (page === 1) return { data: { users: Array.from({ length: 1000 }, (_, i) => ({ id: `u${i}`, email: `p${i}@empresa.com` })) } };
+            return { data: { users: [{ id: 'auth-tarde', email: 'Tarde@Empresa.com' }] } };
+        });
+        const h = await loadEdgeFunction('invite-employee', { env: ENV, createClient: clients(s) });
+        const r = await h(request('https://x', { body: { email: 'tarde@empresa.com' }, headers: { Authorization: AAL2 } }));
+        assert.deepEqual(await r.json(), { id: 'auth-tarde', existing: true });
+        assert.deepEqual(paginas, [1, 2]);
+    });
+
+    test('invite-employee: e-mail que não existe e não pôde ser convidado devolve o erro do convite; falha na busca vira 500', async () => {
+        let s = inviteSetup(async () => ({ data: { users: [] } }));
+        let h = await loadEdgeFunction('invite-employee', { env: ENV, createClient: clients(s) });
+        let r = await h(request('https://x', { body: { email: 'novo@empresa.com' }, headers: { Authorization: AAL2 } }));
+        assert.deepEqual([r.status, await r.json()], [400, { error: 'already registered' }]);
+
+        s = inviteSetup(async () => ({ data: null, error: { message: 'auth fora do ar' } }));
+        h = await loadEdgeFunction('invite-employee', { env: ENV, createClient: clients(s) });
+        r = await h(request('https://x', { body: { email: 'novo@empresa.com' }, headers: { Authorization: AAL2 } }));
+        assert.equal(r.status, 500);
+        assert.doesNotMatch(JSON.stringify(await r.json()), /fora do ar/);
+    });
+
+    test('ai-alerts: se não der para conferir o limite de uso, recusa em vez de liberar', async () => {
+        const caller = new FakeSupabase({
+            user: RH,
+            tables: { profiles, ai_decision_memory_decrypted: [] },
+            errors: { 'rpc:rate_limit_check': { message: 'banco indisponível' } },
+        });
+        const originalFetch = globalThis.fetch;
+        let chamouGroq = false;
+        globalThis.fetch = async () => ((chamouGroq = true), new Response('{}'));
+        try {
+            const h = await loadEdgeFunction('ai-alerts', { env: ENV, createClient: () => caller });
+            const r = await h(request('https://x', { body: { action: 'analyze' }, headers: { Authorization: AAL2 } }));
+            assert.equal(r.status, 503);
+            assert.equal(chamouGroq, false);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    test('ai-employee-chat: se não der para conferir o limite de uso, recusa em vez de liberar', async () => {
+        const caller = new FakeSupabase({ user: COLAB, tables: { profiles }, errors: { 'rpc:rate_limit_check': { message: 'banco indisponível' } } });
+        const originalFetch = globalThis.fetch;
+        let chamouGroq = false;
+        globalThis.fetch = async () => ((chamouGroq = true), new Response('{}'));
+        try {
+            const h = await loadEdgeFunction('ai-employee-chat', { env: ENV, createClient: () => caller });
+            const r = await h(request('https://x', { body: { message: 'oi' }, headers: { Authorization: AAL1 } }));
+            assert.equal(r.status, 503);
+            assert.equal(chamouGroq, false);
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+});

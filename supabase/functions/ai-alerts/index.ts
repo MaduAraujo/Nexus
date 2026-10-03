@@ -86,8 +86,11 @@ serve(async (req) => {
     if (!mfaSatisfied(user, authHeader, true)) return json({ error: MFA_REQUIRED_MESSAGE }, 403);
 
     const { data: allowed, error: limitErr } = await caller.rpc("rate_limit_check", { p_action: "ai-alerts", p_max: 30, p_window_seconds: 3600 });
-    if (limitErr) console.error("rate_limit_check falhou:", limitErr.message);
-    if (allowed === false) return json({ error: "Limite de análises por hora atingido. Tente novamente mais tarde." }, 429);
+    if (limitErr) {
+      console.error("rate_limit_check falhou:", limitErr.message);
+      return json({ error: "Não foi possível verificar o limite de uso. Tente novamente em instantes." }, 503);
+    }
+    if (allowed !== true) return json({ error: "Limite de análises por hora atingido. Tente novamente mais tarde." }, 429);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const today = hojeSaoPaulo();

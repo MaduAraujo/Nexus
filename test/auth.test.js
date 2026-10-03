@@ -221,14 +221,52 @@ describe('registro de sessão do RH a cada 30 minutos', () => {
         try {
             montar();
             await NexusAuth.requireProfile('Administrador');
-            assert.deepEqual(chamadas, ['record_access']);
+            assert.deepEqual(
+                chamadas.filter((n) => n !== 'conta_desativada'),
+                ['record_access']
+            );
             assert.ok(Number(guardado.get('nexus:sec-ping:rh2')) > 0);
             montar();
             await NexusAuth.requireProfile('Administrador');
-            assert.deepEqual(chamadas, ['record_access'], 'dentro de 30 minutos não registra de novo');
+            assert.deepEqual(
+                chamadas.filter((n) => n !== 'conta_desativada'),
+                ['record_access'],
+                'dentro de 30 minutos não registra de novo'
+            );
         } finally {
             if (original) Object.defineProperty(global, 'sessionStorage', original);
             else delete global.sessionStorage;
         }
+    });
+});
+
+describe('requireProfile e a conta desativada pelo RH', () => {
+    const colab = { profiles: [{ id: 'd1', profile: 'colaborador', employee_id: 'e1' }], employees_decrypted: [{ id: 'e1', name: 'Ana' }] };
+
+    test('conta desativada: desconecta e volta ao login com o aviso', async () => {
+        const saidas = [];
+        global.sb = createMockSupabase(colab, { user: { id: 'd1' } });
+        global.sb.rpc = async (nome) => ({ data: nome === 'conta_desativada', error: null });
+        global.sb.auth.signOut = async (opts) => (saidas.push(opts), { error: null });
+        assert.equal(await NexusAuth.requireProfile('colaborador', 'name'), null);
+        assert.equal(global.window.location.href, '../screens/login.html?conta=desativada');
+        assert.deepEqual(saidas, [{ scope: 'local' }]);
+    });
+
+    test('conta ativa segue normalmente', async () => {
+        global.sb = createMockSupabase(colab, { user: { id: 'd1' } });
+        global.sb.rpc = async () => ({ data: false, error: null });
+        const r = await NexusAuth.requireProfile('colaborador', 'name');
+        assert.equal(r.employee.name, 'Ana');
+        assert.equal(global.window.location.href, '');
+    });
+
+    test('se a consulta falhar, a tela segue: quem barra o acesso de verdade é o banco', async () => {
+        global.sb = createMockSupabase(colab, { user: { id: 'd1' } });
+        global.sb.rpc = async () => {
+            throw new Error('rede');
+        };
+        const r = await NexusAuth.requireProfile('colaborador', 'name');
+        assert.equal(r.employee.name, 'Ana');
     });
 });

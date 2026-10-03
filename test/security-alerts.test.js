@@ -15,6 +15,7 @@ let storage;
 function clientWith(tables, user) {
     const client = createMockSupabase(tables, { user });
     client.rpc = (name, args) => {
+        if (name === 'conta_desativada') return Promise.resolve({ data: false, error: null });
         rpcCalls.push({ name, args });
         return Promise.resolve({ data: null, error: null });
     };

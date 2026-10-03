@@ -232,10 +232,35 @@ describe('alertas.html — análise e chat: formatos inesperados e erros', () =>
 
         await page.fill('#chat-input', 'Apague');
         await page.click('#btn-send');
-        await page.waitFor(() => page.$$('.action-targets').length === 2 && /Nenhum registro pendente/.test(page.text(page.$$('.action-targets')[1])));
-        const cards = page.$$('.btn-do-action');
-        assert.equal(cards[cards.length - 1].disabled, true, 'ação que a tela não conhece não pode ser confirmada');
+        await page.waitFor(() => /Não foi possível processar a ação solicitada/.test(page.text('#chat-messages')));
+        assert.equal(page.$$('.action-confirm-card').length, 1, 'ação que a tela não conhece nem vira cartão');
         assert.equal(c.writes('ai_decision_log', 'insert').length, 1, 'só a recusa foi registrada');
+    });
+
+    test('o título do cartão vem da ação real, não do texto escrito pela IA', async () => {
+        const c = client({ adjustment_requests: [{ id: 'a1', employee_id: ANA.id, date: '2026-06-03', tipo: 'entrada', status: 'pendente' }] });
+        page = await openPage('alertas', {
+            client: c,
+            now: NOW,
+            fetch: async () => sse('ACTION:' + JSON.stringify({ type: 'approve_adjustment', ids: ['a1'], message: 'Marcar alerta como lido' })),
+        });
+        await page.fill('#chat-input', 'Marque como lido');
+        await page.click('#btn-send');
+        await page.waitFor(() => page.$('.action-confirm-header'));
+        assert.equal(page.text('.action-confirm-header'), 'Aprovar ajuste de ponto');
+        assert.equal(page.text('.action-confirm-message'), 'Marcar alerta como lido');
+    });
+
+    test('ação sem nenhum registro indicado não pode ser confirmada', async () => {
+        page = await openPage('alertas', {
+            client: client(),
+            now: NOW,
+            fetch: async () => sse('ACTION:' + JSON.stringify({ type: 'approve_vacation', ids: [], message: 'Aprovar' })),
+        });
+        await page.fill('#chat-input', 'Aprove');
+        await page.click('#btn-send');
+        await page.waitFor(() => /Nenhum registro pendente/.test(page.text('.action-targets')));
+        assert.equal(page.$('.btn-do-action').disabled, true);
     });
 });
 

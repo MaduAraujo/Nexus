@@ -13,6 +13,16 @@ window.NexusAuth = (function () {
         return user || null;
     }
 
+    async function contaDesativada() {
+        if (typeof sb.rpc !== 'function') return false;
+        try {
+            const { data } = await sb.rpc('conta_desativada');
+            return data === true;
+        } catch {
+            return false;
+        }
+    }
+
     async function passesMfaGate(profileType, allowMfaSetup) {
         const level = await window.NexusMfa.assurance(sb);
         if (!level) {
@@ -46,6 +56,12 @@ window.NexusAuth = (function () {
         }
 
         if (!(await passesMfaGate(profile.profile, allowMfaSetup))) return null;
+
+        if (await contaDesativada()) {
+            await sb.auth.signOut({ scope: 'local' });
+            window.location.href = `${LOGIN_PATH}?conta=desativada`;
+            return null;
+        }
 
         let employee = null;
         if (employeeFields) {

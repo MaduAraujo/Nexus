@@ -155,6 +155,16 @@ window.goToLogin = function () {
 };
 
 const PROFILE_HOME = { Administrador: '../screens/inicio-rh.html', colaborador: '../screens/inicio-colaborador.html' };
+const CONTA_DESATIVADA_MSG = 'Sua conta foi desativada pelo RH. Em caso de dúvida, fale com o RH da empresa.';
+
+async function contaDesativada(client) {
+    try {
+        const { data } = await client.rpc('conta_desativada');
+        return data === true;
+    } catch {
+        return false;
+    }
+}
 
 async function resumeProfileSession(profileType) {
     const client = nexusUseProfileSession(profileType);
@@ -166,6 +176,11 @@ async function resumeProfileSession(profileType) {
     const { data: profile } = await client.from('profiles').select('profile, employee_id').eq('id', session.user.id).single();
     if (profile?.profile === profileType) {
         if (selectedProfileType !== profileType) return;
+        if (await contaDesativada(client)) {
+            await client.auth.signOut({ scope: 'local' });
+            showToast(CONTA_DESATIVADA_MSG, 'error');
+            return;
+        }
         const factorId = await pendingMfaFactorId(profileType);
         if (factorId) showMfaStep(factorId, profile);
         else window.location.href = PROFILE_HOME[profileType];
@@ -441,6 +456,13 @@ window.handleLogin = async function () {
             return;
         }
 
+        if (await contaDesativada(sb)) {
+            await sb.auth.signOut({ scope: 'local' });
+            setLoginLoading(false);
+            showToast(CONTA_DESATIVADA_MSG, 'error');
+            return;
+        }
+
         const level = await NexusMfa.assurance(sb);
         if (!level) {
             await sb.auth.signOut({ scope: 'local' });
@@ -566,6 +588,7 @@ window.togglePw = function (inputId, btn) {
 document.addEventListener('DOMContentLoaded', async () => {
     window.setForgotStep(1);
     setNavBack(true, goToHome);
+    if (new URLSearchParams(window.location.search).get('conta') === 'desativada') showToast(CONTA_DESATIVADA_MSG, 'error');
 
     const isInvite = new URLSearchParams((window._loginHash || '').replace(/^#/, '')).get('type') === 'invite';
 

@@ -103,8 +103,11 @@ serve(async (req) => {
     if (profile?.profile !== "colaborador" || !profile.employee_id) return json({ error: "Acesso restrito ao colaborador" }, 403);
 
     const { data: allowed, error: limitErr } = await caller.rpc("rate_limit_check", { p_action: "ai-employee-chat", p_max: 60, p_window_seconds: 3600 });
-    if (limitErr) console.error("rate_limit_check falhou:", limitErr.message);
-    if (allowed === false) return json({ error: "Você atingiu o limite de mensagens por hora. Tente novamente mais tarde ou fale com um analista." }, 429);
+    if (limitErr) {
+      console.error("rate_limit_check falhou:", limitErr.message);
+      return json({ error: "Não foi possível verificar o limite de uso. Tente novamente em instantes." }, 503);
+    }
+    if (allowed !== true) return json({ error: "Você atingiu o limite de mensagens por hora. Tente novamente mais tarde ou fale com um analista." }, 429);
 
     const snapshot = await gatherEmployeeSnapshot(caller, profile.employee_id);
     if (!snapshot) return json({ error: "Colaborador não encontrado" }, 404);
