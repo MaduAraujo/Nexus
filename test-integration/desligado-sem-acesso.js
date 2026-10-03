@@ -121,8 +121,16 @@ describe('Desligado perde o acesso (migration 099)', () => {
     });
 
     test('quem não fez login não consulta o status de ninguém', async () => {
+        await withServiceRole(async (db) => {
+            for (const funcao of ['public.conta_desativada()', 'public.status_bloqueia_acesso(text)']) {
+                const { rows } = await db.query("SELECT has_function_privilege('anon', $1, 'EXECUTE') AS ok", [funcao]);
+                assert.equal(rows[0].ok, false, funcao);
+            }
+        });
         await withUser({ sub: '', role: 'anon' }, async (db) => {
-            await assert.rejects(db.query('SELECT conta_desativada()'), /permission denied/);
+            const r = (await db.query('SELECT is_rh() AS rh, my_employee_id() AS eu')).rows[0];
+            assert.equal(r.rh, false);
+            assert.equal(r.eu, null);
         });
     });
 });
