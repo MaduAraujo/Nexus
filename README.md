@@ -199,7 +199,7 @@ npm run test:load          # carga: 20 colaboradores + 3 RH simultâneos, p95 �
 
 > **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`.
 
-Tudo isso roda automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`): jobs `test` (unidade com cobertura, lint, formatação, Edge Functions, PWA e `npm audit`), `rls-integration` (integração, E2E com acessibilidade e teclado, e carga) e `security-scan` (varredura OWASP ZAP). O ensaio de restauração do backup roda todo mês (`restore-drill.yml`).
+Tudo isso roda automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`): jobs `test` (unidade com cobertura, lint, formatação, Edge Functions, PWA e `npm audit`), `rls-integration` (integração), `e2e` (fluxos no navegador com acessibilidade e teclado, e carga) e `security-scan` (varredura OWASP ZAP). O ensaio de restauração do backup roda todo mês (`restore-drill.yml`).
 
 ---
 
