@@ -36,18 +36,18 @@ function estagiario(db, { id, cpf, email, adm = `${hojeSql} - 150`, fim = `${hoj
     );
 }
 
-const tentar = (o) => withServiceRole((db) => estagiario(db, { id: E_TEMP, cpf: '951.000.000-04', email: 'estagio.temp@test.local', ...o }));
+const tentar = (o) => withServiceRole((db) => estagiario(db, { id: E_TEMP, cpf: '952.000.000-04', email: 'estagio.temp@test.local', ...o }));
 
 before(async () => {
     await withServiceRole(async (db) => {
         await db.query('INSERT INTO auth.users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [U_EST]);
         await db.query(
             `INSERT INTO employees (id, name, cpf, email, dept, status, contract_type, work_load, admission_date)
-             VALUES ($1, 'Supervisor Estágio', '951.000.000-00', 'estagio.sup@test.local', 'TI', 'Ativo', 'CLT', '44h', '2020-01-01')
+             VALUES ($1, 'Supervisor Estágio', '952.000.000-00', 'estagio.sup@test.local', 'TI', 'Ativo', 'CLT', '44h', '2020-01-01')
              ON CONFLICT (id) DO NOTHING`,
             [E_SUP]
         );
-        await estagiario(db, { id: E_EST, cpf: '951.000.000-01', email: 'estagio.a@test.local' });
+        await estagiario(db, { id: E_EST, cpf: '952.000.000-01', email: 'estagio.a@test.local' });
         await db.query(`INSERT INTO profiles (id, profile, employee_id) VALUES ($1, 'colaborador', $2) ON CONFLICT (id) DO NOTHING`, [U_EST, E_EST]);
     });
 });
@@ -59,8 +59,8 @@ after(async () => {
         await db.query('DELETE FROM compliance_alerts WHERE employee_id = ANY($1)', [TODOS]);
         await db.query('DELETE FROM profiles WHERE id = $1', [U_EST]);
         await db.query('DELETE FROM auth.users WHERE id = $1', [U_EST]);
-        await db.query('UPDATE employees SET estagio_supervisor_id = NULL WHERE id = ANY($1)', [TODOS]);
-        await db.query('DELETE FROM employees WHERE id = ANY($1)', [TODOS]);
+        await db.query('DELETE FROM employees WHERE id = ANY($1) AND id <> $2', [TODOS, E_SUP]);
+        await db.query('DELETE FROM employees WHERE id = $1', [E_SUP]);
     });
 });
 
@@ -75,7 +75,7 @@ describe('Lei 11.788/2008 no banco — cadastro do estagiário', () => {
     test('art. 11: mais de 2 anos é recusado, exceto para estagiário com deficiência', async () => {
         await assert.rejects(tentar({ adm: hojeSql, fim: `${hojeSql} + 731` }), { ...REGRA, message: /2 anos/ });
         await withServiceRole((db) =>
-            estagiario(db, { id: E_PCD, cpf: '951.000.000-02', email: 'estagio.pcd@test.local', adm: hojeSql, fim: `${hojeSql} + 900`, pcd: 'true' })
+            estagiario(db, { id: E_PCD, cpf: '952.000.000-02', email: 'estagio.pcd@test.local', adm: hojeSql, fim: `${hojeSql} + 900`, pcd: 'true' })
         );
     });
 
@@ -137,7 +137,7 @@ describe('Lei 11.788/2008 no banco — recesso do art. 13', () => {
 describe('Lei 11.788/2008 no banco — alertas de compliance', () => {
     test('fim do termo próximo e relatório semestral atrasado geram alerta; relatório entregue some com o alerta', async () => {
         await withServiceRole((db) =>
-            estagiario(db, { id: E_ALERTA, cpf: '951.000.000-03', email: 'estagio.alerta@test.local', adm: `${hojeSql} - 220`, fim: `${hojeSql} + 10` })
+            estagiario(db, { id: E_ALERTA, cpf: '952.000.000-03', email: 'estagio.alerta@test.local', adm: `${hojeSql} - 220`, fim: `${hojeSql} + 10` })
         );
         await withServiceRole((db) => db.query('SELECT generate_compliance_alerts()'));
         const tipos = async () =>

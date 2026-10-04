@@ -159,7 +159,11 @@ describe('Cadastro de aprendiz no banco (CLT arts. 428 a 433)', () => {
     test('o colaborador não altera o próprio término nem a escolaridade', async () => {
         await gravar(aprendiz());
         await assert.rejects(
-            withUser({ sub: U_A }, (db) => db.query('UPDATE employees SET contract_end_date = contract_end_date + 30 WHERE id = $1', [E_A])),
+            withUser({ sub: U_A }, (db) => db.query('UPDATE employees SET contract_end_date = contract_end_date - 30 WHERE id = $1', [E_A])),
+            { code: '42501' }
+        );
+        await assert.rejects(
+            withUser({ sub: U_A }, (db) => db.query('UPDATE employees SET aprendiz_fundamental_completo = true WHERE id = $1', [E_A])),
             { code: '42501' }
         );
     });
