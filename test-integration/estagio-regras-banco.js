@@ -158,3 +158,10 @@ describe('Lei 11.788/2008 no banco — alertas de compliance', () => {
         assert.equal((await tipos()).includes('estagio_relatorio'), false);
     });
 });
+
+describe('Lei 11.788/2008 no banco — equipe do gestor', () => {
+    test('a view team_roster expõe os períodos de avaliação usados na jornada reduzida', async () => {
+        const { rows } = await withServiceRole((db) => db.query('SELECT estagio_avaliacoes FROM team_roster WHERE id = $1', [E_EST]));
+        assert.deepEqual(rows[0].estagio_avaliacoes, []);
+    });
+});
