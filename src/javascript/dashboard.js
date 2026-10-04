@@ -234,6 +234,7 @@ function refreshAll() {
     updateGenderChart();
     updateGenderEquity();
     updatePcdQuota();
+    updateAprendizQuota();
     updateRaceChart();
     updatePayrollChart();
     updateOvertimeChart();
@@ -879,6 +880,38 @@ function updatePcdQuota() {
             <span class="equity-stat-label">${pcdCount} de ${total} colaboradores PCD</span>
         </div>
         <p class="equity-note">Cota legal mínima (Lei 8.213/91, art. 93): <strong>${required}%</strong> — <strong class="equity-status--${atende ? 'good' : 'bad'}">${atende ? 'Atende' : 'Não atende'}</strong></p>`;
+}
+
+function updateAprendizQuota() {
+    const body = document.getElementById('equity-aprendiz-body');
+    if (!body) return;
+    const ativos = employees.filter((e) => e.status === 'Ativo');
+    const aprendizes = ativos.filter((e) => CLTDomain.isAprendiz(e.contractType)).length;
+    const base = ativos.filter((e) => {
+        const t = String(e.contractType || '').toLowerCase();
+        return !CLTDomain.isAprendiz(t) && !CLTDomain.isEstagio(t) && !CLTDomain.isPJ(t) && !t.startsWith('tempor');
+    }).length;
+    const { obrigatoria, minimo, maximo } = CLTDomain.cotaAprendiz(base);
+    const nota =
+        'Base aproximada: empregados CLT ativos, sem aprendizes, estagiários, PJ e temporários. A lei também tira da base cargos de direção e funções que exigem formação técnica ou superior — confira pela CBO.';
+    if (!obrigatoria) {
+        body.innerHTML = `
+            <div class="equity-stat">
+                <span class="equity-stat-value">${aprendizes}</span>
+                <span class="equity-stat-label">aprendiz(es) para uma base de ${base} empregado(s)</span>
+            </div>
+            <p class="equity-note">Sem cota obrigatória (CLT art. 429) com menos de 7 empregados na base. ${nota}</p>`;
+        return;
+    }
+    const atende = aprendizes >= minimo && aprendizes <= maximo;
+    const level = atende ? 'good' : aprendizes > maximo ? 'warn' : 'bad';
+    const status = atende ? 'Atende' : aprendizes > maximo ? 'Acima do máximo' : 'Não atende';
+    body.innerHTML = `
+        <div class="equity-stat">
+            <span class="equity-stat-value equity-stat--${level}">${aprendizes}</span>
+            <span class="equity-stat-label">aprendiz(es) para uma base de ${base} empregado(s)</span>
+        </div>
+        <p class="equity-note">Cota de aprendizes (CLT art. 429): de <strong>${minimo}</strong> a <strong>${maximo}</strong> — <strong class="equity-status--${atende ? 'good' : 'bad'}">${status}</strong>. ${nota}</p>`;
 }
 
 function updateRaceChart() {

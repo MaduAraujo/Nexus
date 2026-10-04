@@ -168,12 +168,28 @@ function initials(name) {
         .join('');
 }
 
-function getJornadaMin() {
-    return CLTDomain.resolveJornadaMin({ contractType: myEmployee?.contract_type, workLoad: myEmployee?.work_load });
+function getJornadaMin(dataISO) {
+    const base = CLTDomain.resolveJornadaMin({ contractType: myEmployee?.contract_type, workLoad: myEmployee?.work_load });
+    return CLTDomain.jornadaNoDia(base, dataISO || todayKey(), { contractType: myEmployee?.contract_type, avaliacoes: myEmployee?.estagio_avaliacoes });
 }
 
 function isFalta(rec) {
     return CLTDomain.isFalta(rec);
+}
+
+function isContratoPJ() {
+    return CLTDomain.isPJ(myEmployee?.contract_type);
+}
+
+function aplicarPontoOpcionalPJ() {
+    const pj = isContratoPJ();
+    const aprendiz = CLTDomain.isAprendiz(myEmployee?.contract_type);
+    $('ponto-pj-aviso')?.classList.toggle('hidden', !pj);
+    $('ponto-aprendiz-aviso')?.classList.toggle('hidden', !aprendiz);
+    $('btn-bank-request')?.classList.toggle('hidden', pj || aprendiz);
+    $('ajuste-opcao-falta')?.classList.toggle('hidden', pj);
+    const label = document.querySelector('.saldo-card .saldo-label');
+    if (label) label.textContent = pj ? 'Horas registradas' : 'Saldo acumulado';
 }
 
 function calcWorkedMin(rec) {
@@ -181,7 +197,7 @@ function calcWorkedMin(rec) {
 }
 
 function calcSaldoMin(rec) {
-    return CLTDomain.calcSaldoMin(rec, getJornadaMin());
+    return CLTDomain.calcSaldoMin(rec, getJornadaMin(rec?.date));
 }
 
 function getIntervaloMinObrigatorio() {
@@ -189,7 +205,7 @@ function getIntervaloMinObrigatorio() {
 }
 
 function calcIntervaloDeficitMin(rec) {
-    return CLTDomain.calcIntervaloDeficitMin(rec, getJornadaMin());
+    return CLTDomain.calcIntervaloDeficitMin(rec, getJornadaMin(rec?.date));
 }
 
 function weekStartKey(dateKey) {
@@ -238,6 +254,7 @@ const STEP_META = {
 };
 
 function renderUI() {
+    aplicarPontoOpcionalPJ();
     const rec = getTodayRec();
     const step = nextStep(rec);
     const meta = STEP_META[step];
@@ -498,6 +515,8 @@ window.renderHistorico = function () {
     const jornadaMin = getJornadaMin();
     tbody.innerHTML = dias
         .map(([key, rec]) => {
+            if (isFalta(rec) && isContratoPJ())
+                return `<tr><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td colspan="4" class="td-no-records">Sem registros</td><td>—</td><td>—</td><td><span class="badge badge-normal">Sem registro</span></td></tr>`;
             if (isFalta(rec))
                 return `<tr class="row-falta"><td class="td-date">${fmtDate(key)}<span class="dia-semana">${diaSemana(key)}</span></td><td colspan="4" class="td-no-records">Sem registros</td><td>—</td><td>—</td><td><span class="badge badge-falta">Falta</span></td></tr>`;
             const worked = calcWorkedMin(rec),
@@ -710,6 +729,7 @@ window.viewBankRequestAnexo = async function (id) {
 };
 
 window.openModalBankRequest = function () {
+    if (isContratoPJ()) return;
     const just = $('bankreq-justificativa');
     if (just) just.value = '';
     window.resetDuracaoModal?.();
@@ -1020,7 +1040,7 @@ function detectCLTAlerts() {
         }
     }
 
-    const faltasNaoJustificadas = adjRequests.filter((a) => a.tipo === 'falta' && a.status !== 'aprovado');
+    const faltasNaoJustificadas = isContratoPJ() ? [] : adjRequests.filter((a) => a.tipo === 'falta' && a.status !== 'aprovado');
     if (faltasNaoJustificadas.length) {
         const semanas = [...new Set(faltasNaoJustificadas.map((a) => weekStartKey(a.date)))];
         alertas.push({
@@ -1120,14 +1140,18 @@ function setupExcessoLegalCheck(rec, step) {
         txt = $('excesso-legal-just');
     pendingExcessoLegalMin = 0;
     if (txt) txt.value = '';
+    const aprendiz = CLTDomain.isAprendiz(myEmployee?.contract_type);
+    const limite = CLTDomain.limiteExtraDiarioMin(myEmployee?.contract_type, limiteExtraDiarioMin);
     if (step === 'saida') {
         const saldoPreview = previewSaldoSaidaMin(rec);
-        if (saldoPreview !== null && saldoPreview > limiteExtraDiarioMin) pendingExcessoLegalMin = saldoPreview;
+        if (saldoPreview !== null && saldoPreview > limite) pendingExcessoLegalMin = saldoPreview;
     }
     if (bloco) bloco.classList.toggle('hidden', pendingExcessoLegalMin <= 0);
     const msg = $('excesso-legal-msg');
     if (msg && pendingExcessoLegalMin > 0) {
-        msg.textContent = `Esta saída resultaria em ${minToStr(pendingExcessoLegalMin)} de horas extras hoje, acima do limite legal de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Informe o motivo para confirmar — o RH será notificado imediatamente.`;
+        msg.textContent = aprendiz
+            ? `Esta saída passaria ${minToStr(pendingExcessoLegalMin)} da sua jornada hoje. Aprendiz não pode fazer hora extra nem compensar horas (CLT art. 432). Informe o motivo para confirmar — o RH será notificado imediatamente.`
+            : `Esta saída resultaria em ${minToStr(pendingExcessoLegalMin)} de horas extras hoje, acima do limite legal de ${minToStr(limite)}/dia (CLT art. 59, §1º). Informe o motivo para confirmar — o RH será notificado imediatamente.`;
     }
     updateConfirmBtnState();
 }
@@ -1669,11 +1693,20 @@ async function syncPunch({ step, date, loc, selfie, biometricToken: token, exces
         justificativa: justificativaExcesso || null,
     });
     if (excessoLegalMin > 0 && justificativaExcesso) {
+        const aprendiz = CLTDomain.isAprendiz(myEmployee.contract_type);
         await Promise.resolve(
-            sb.rpc('report_daily_overtime_alert', {
-                p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
-                p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
-            })
+            sb.rpc(
+                'report_daily_overtime_alert',
+                aprendiz
+                    ? {
+                          p_titulo: `Aprendiz passou da jornada (${minToStr(excessoLegalMin)})`,
+                          p_mensagem: `${myEmployee.name} (aprendiz) registrou saída ${minToStr(excessoLegalMin)} depois da jornada hoje. Aprendiz não pode fazer hora extra nem compensar horas (CLT art. 432). Justificativa: "${justificativaExcesso}"`,
+                      }
+                    : {
+                          p_titulo: `Limite legal de horas extras diárias excedido (${minToStr(excessoLegalMin)})`,
+                          p_mensagem: `${myEmployee.name} registrou saída com ${minToStr(excessoLegalMin)} de horas extras hoje, acima do limite de ${minToStr(limiteExtraDiarioMin)}/dia (CLT art. 59, §1º). Justificativa: "${justificativaExcesso}"`,
+                      }
+            )
         ).catch(() => {});
     }
     return true;

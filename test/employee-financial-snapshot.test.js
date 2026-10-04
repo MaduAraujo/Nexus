@@ -8,10 +8,22 @@ before(async () => {
 });
 
 describe('getJornadaMin / calcWorkedMin (paridade com o CLTDomain em test/jornada-paridade.test.js)', () => {
-    test('PJ não tem jornada; CLT 40h dá 480min; estágio dá 360min fixos', () => {
+    test('PJ não tem jornada; CLT 40h dá 480min; estágio segue a carga do termo', () => {
         assert.equal(sfx.getJornadaMin({ contract_type: 'pj' }), null);
         assert.equal(sfx.getJornadaMin({ contract_type: 'clt', work_load: '40h' }), 480);
         assert.equal(sfx.getJornadaMin({ contract_type: 'estagio' }), 360);
+        assert.equal(sfx.getJornadaMin({ contract_type: 'Estágio', work_load: '20h' }), 240);
+    });
+
+    test('jornadaNoDia: estagiário em período de provas faz metade (Lei 11.788 art. 10 § 2º)', () => {
+        const emp = { contract_type: 'Estágio', estagio_avaliacoes: [{ inicio: '2026-06-10', fim: '2026-06-12' }, null] };
+        assert.equal(sfx.jornadaNoDia(360, '2026-06-11', emp), 180);
+        assert.equal(sfx.jornadaNoDia(360, '2026-06-13', emp), 360);
+        assert.equal(sfx.jornadaNoDia(360, '', emp), 360);
+        assert.equal(sfx.jornadaNoDia(null, '2026-06-11', emp), null);
+        assert.equal(sfx.jornadaNoDia(480, '2026-06-11', { contract_type: 'clt', estagio_avaliacoes: emp.estagio_avaliacoes }), 480);
+        assert.equal(sfx.jornadaNoDia(360, '2026-06-11', { contract_type: 'estagio' }), 360);
+        assert.equal(sfx.jornadaNoDia(360, '2026-06-11', null), 360);
     });
 
     test('calcWorkedMin desconta o intervalo de almoço', () => {
@@ -103,7 +115,30 @@ describe('calcBancoHorasLedger', () => {
     });
 });
 
+describe('calcBancoHorasLedger — estágio', () => {
+    test('dia de prova cobra só metade da jornada do estagiário', () => {
+        const emp = { contract_type: 'estagio', estagio_avaliacoes: [{ inicio: '2026-06-10', fim: '2026-06-10' }] };
+        const records = [
+            { date: '2026-06-10', entrada: '2026-06-10T09:00:00', saida: '2026-06-10T12:00:00' },
+            { date: '2026-06-11', entrada: '2026-06-11T09:00:00', saida: '2026-06-11T12:00:00' },
+        ];
+        assert.equal(sfx.calcBancoHorasLedger(records, [], 360, 6, new Date('2026-06-20'), emp).saldoMin, -180);
+        assert.equal(sfx.calcBancoHorasLedger(records, [], 360, 6, new Date('2026-06-20')).saldoMin, -360);
+    });
+});
+
 describe('calcFeriasSnapshot', () => {
+    test('estagiário ganha recesso proporcional: 2,5 dias por mês completo (Lei 11.788 art. 13 § 2º)', () => {
+        assert.equal(sfx.calcFeriasSnapshot({ admission_date: '2026-01-10', contract_type: 'Estágio' }, [], new Date(2026, 6, 10)).saldo_estimado_dias, 15);
+        assert.equal(sfx.calcFeriasSnapshot({ admission_date: '2026-01-10', contract_type: 'estagio' }, [], new Date(2026, 6, 9)).saldo_estimado_dias, 12);
+        assert.equal(sfx.calcFeriasSnapshot({ admission_date: '2026-01-10', contract_type: 'estagio' }, [], new Date(2026, 0, 10)).saldo_estimado_dias, 0);
+        assert.equal(
+            sfx.calcFeriasSnapshot({ admission_date: '2026-01-10', contract_type: 'estagio' }, [{ status: 'aprovado', days: 10 }], new Date(2026, 6, 10))
+                .saldo_estimado_dias,
+            5
+        );
+    });
+
     test('sem data de admissão, não estima nada', () => {
         assert.equal(sfx.calcFeriasSnapshot({}, []), null);
     });

@@ -288,7 +288,7 @@ CREATE TABLE IF NOT EXISTS document_requirements (
   category    TEXT NOT NULL CHECK (category IN ('admissional','demissional')),
   tipo        TEXT NOT NULL,
   obrigatorio BOOLEAN DEFAULT true,
-  contract_type TEXT NOT NULL DEFAULT 'CLT' CHECK (contract_type IN ('CLT','Estágio','Aprendiz','Temporário','PJ')),
+  contract_type TEXT NOT NULL DEFAULT 'CLT' CHECK (contract_type IN ('CLT','Estágio','Aprendiz','Temporário','Prazo determinado','PJ')),
   CONSTRAINT document_requirements_category_tipo_contract_key UNIQUE (category, tipo, contract_type)
 );
 
@@ -4381,6 +4381,28 @@ CREATE TRIGGER disciplinary_actions_ack_guard_trg
   BEFORE UPDATE ON disciplinary_actions
   FOR EACH ROW EXECUTE FUNCTION disciplinary_actions_ack_guard();
 
+CREATE OR REPLACE FUNCTION disciplinary_actions_sem_pj_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM employees WHERE id = NEW.employee_id AND lower(COALESCE(contract_type, '')) = 'pj') THEN
+    RAISE EXCEPTION 'Prestador PJ não está sujeito a advertência ou suspensão — use as cláusulas do contrato de prestação de serviços.'
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION disciplinary_actions_sem_pj_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS disciplinary_actions_sem_pj_trg ON disciplinary_actions;
+CREATE TRIGGER disciplinary_actions_sem_pj_trg
+  BEFORE INSERT OR UPDATE OF employee_id ON disciplinary_actions
+  FOR EACH ROW EXECUTE FUNCTION disciplinary_actions_sem_pj_guard();
+
 ALTER TABLE disciplinary_actions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "rh_disciplinary_actions_all" ON disciplinary_actions FOR ALL USING (is_rh());
@@ -5974,7 +5996,7 @@ DECLARE
   v_dia DATE;
   v_i INT;
 BEGIN
-  IF p_inicio IS NULL OR lower(COALESCE(p_contract_type, '')) IN ('estagio', 'estágio') THEN
+  IF p_inicio IS NULL OR lower(COALESCE(p_contract_type, '')) IN ('estagio', 'estágio', 'pj') THEN
     RETURN NULL;
   END IF;
   FOR v_i IN 1..2 LOOP
@@ -6036,11 +6058,19 @@ BEGIN
   IF NEW.start_date < v_hoje + 30 THEN
     RAISE EXCEPTION 'As férias precisam ser pedidas com pelo menos 30 dias de antecedência.' USING ERRCODE = '23514';
   END IF;
+
+  SELECT contract_type, work_load, admission_date INTO v_tipo, v_jornada, v_admissao FROM employees WHERE id = NEW.employee_id;
+
+  IF lower(COALESCE(v_tipo, '')) = 'pj' THEN
+    IF COALESCE(NEW.abono, false) THEN
+      RAISE EXCEPTION 'Contrato PJ não tem abono pecuniário.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF NEW.days < 5 THEN
     RAISE EXCEPTION 'O período mínimo de férias é de 5 dias corridos.' USING ERRCODE = '23514';
   END IF;
-
-  SELECT contract_type, work_load, admission_date INTO v_tipo, v_jornada, v_admissao FROM employees WHERE id = NEW.employee_id;
   v_estagio_ou_aprendiz := lower(COALESCE(v_tipo, '')) IN ('estagio', 'estágio', 'aprendiz');
 
   v_motivo := ferias_motivo_inicio_vedado(NEW.start_date, v_tipo, v_jornada);
@@ -6277,3 +6307,2014 @@ GRANT EXECUTE ON FUNCTION public.is_rh() TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.my_employee_id() TO anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.report_login_failure(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.report_login_failure(TEXT) TO anon, authenticated;
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS contract_end_date DATE,
+  ADD COLUMN IF NOT EXISTS aprendiz_fundamental_completo BOOLEAN NOT NULL DEFAULT false;
+
+SELECT nexus_refresh_employees_view();
+
+CREATE OR REPLACE FUNCTION aprendiz_salario_minimo()
+RETURNS NUMERIC
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT 1621.00::NUMERIC;
+$$;
+
+CREATE OR REPLACE FUNCTION aprendiz_jornada_min(p_work_load TEXT)
+RETURNS INT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN COALESCE(p_work_load, '') ~ '^[0-9]+h'
+      THEN LEAST(round(substring(p_work_load FROM '^([0-9]+)h')::NUMERIC / 5 * 60)::INT, 480)
+    ELSE 360
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION aprendiz_salario_minimo() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION aprendiz_jornada_min(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION aprendiz_salario_minimo() TO authenticated;
+GRANT EXECUTE ON FUNCTION aprendiz_jornada_min(TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION employees_aprendiz_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx      TEXT := 'emp:' || NEW.id::TEXT;
+  v_nasc     DATE;
+  v_pcd      BOOLEAN;
+  v_salario  NUMERIC;
+  v_idade    INT;
+  v_semanal  INT;
+  v_teto     INT;
+  v_divisor  INT;
+  v_piso     NUMERIC;
+BEGIN
+  IF lower(COALESCE(NEW.contract_type, '')) <> 'aprendiz' THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND lower(COALESCE(OLD.contract_type, '')) = 'aprendiz'
+     AND NEW.birth_date IS NOT DISTINCT FROM OLD.birth_date
+     AND NEW.admission_date IS NOT DISTINCT FROM OLD.admission_date
+     AND NEW.contract_end_date IS NOT DISTINCT FROM OLD.contract_end_date
+     AND NEW.pcd IS NOT DISTINCT FROM OLD.pcd
+     AND NEW.work_load IS NOT DISTINCT FROM OLD.work_load
+     AND NEW.aprendiz_fundamental_completo IS NOT DISTINCT FROM OLD.aprendiz_fundamental_completo
+     AND NEW.salary IS NOT DISTINCT FROM OLD.salary THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    v_nasc := left(nexus_unwrap(v_ctx, NEW.birth_date), 10)::DATE;
+  EXCEPTION WHEN OTHERS THEN
+    v_nasc := NULL;
+  END;
+  v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, NEW.pcd), 'false')) = 'true';
+  BEGIN
+    v_salario := nexus_unwrap(v_ctx, NEW.salary)::NUMERIC;
+  EXCEPTION WHEN OTHERS THEN
+    v_salario := NULL;
+  END;
+
+  IF v_nasc IS NULL THEN
+    RAISE EXCEPTION 'Informe a data de nascimento do aprendiz (CLT art. 428).' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.admission_date IS NOT NULL THEN
+    v_idade := extract(YEAR FROM age(NEW.admission_date, v_nasc))::INT;
+    IF v_idade < 14 THEN
+      RAISE EXCEPTION 'O aprendiz precisa ter pelo menos 14 anos na admissão (CLT art. 428).' USING ERRCODE = '23514';
+    END IF;
+    IF v_idade >= 24 AND NOT v_pcd THEN
+      RAISE EXCEPTION 'O aprendiz precisa ter menos de 24 anos na admissão, salvo pessoa com deficiência (CLT art. 428 §5º).' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF NEW.contract_end_date IS NULL THEN
+    RAISE EXCEPTION 'Informe a data de término do contrato de aprendizagem (CLT art. 428).' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.admission_date IS NOT NULL THEN
+    IF NEW.contract_end_date <= NEW.admission_date THEN
+      RAISE EXCEPTION 'O término do contrato de aprendizagem deve ser depois da admissão.' USING ERRCODE = '23514';
+    END IF;
+    IF NOT v_pcd AND NEW.contract_end_date > (NEW.admission_date + INTERVAL '2 years')::DATE THEN
+      RAISE EXCEPTION 'O contrato de aprendizagem não pode passar de 2 anos, salvo pessoa com deficiência (CLT art. 428 §3º).' USING ERRCODE = '23514';
+    END IF;
+    IF NOT v_pcd AND NEW.contract_end_date >= (v_nasc + INTERVAL '24 years')::DATE THEN
+      RAISE EXCEPTION 'O contrato termina depois de o aprendiz completar 24 anos — ajuste o término (CLT art. 433).' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  v_teto := CASE WHEN NEW.aprendiz_fundamental_completo THEN 480 ELSE 360 END;
+  IF COALESCE(NEW.work_load, '') ~ '^[0-9]+h' THEN
+    v_semanal := substring(NEW.work_load FROM '^([0-9]+)h')::INT;
+  END IF;
+  IF NEW.work_load = '12x36' OR (v_semanal IS NOT NULL AND v_semanal::NUMERIC / 5 * 60 > v_teto) THEN
+    IF NEW.aprendiz_fundamental_completo THEN
+      RAISE EXCEPTION 'A jornada do aprendiz não pode passar de 8 horas por dia, já contando as aulas teóricas (CLT art. 432 §1º).' USING ERRCODE = '23514';
+    END IF;
+    RAISE EXCEPTION 'A jornada do aprendiz não pode passar de 6 horas por dia; até 8 horas só para quem já concluiu o ensino fundamental (CLT art. 432).' USING ERRCODE = '23514';
+  END IF;
+
+  IF v_salario > 0 THEN
+    v_divisor := round(aprendiz_jornada_min(NEW.work_load)::NUMERIC / 60 * 5 * 5)::INT;
+    v_piso := round(aprendiz_salario_minimo() / 220 * v_divisor, 2);
+    IF v_salario < v_piso THEN
+      RAISE EXCEPTION 'O salário do aprendiz não pode ser menor que o salário mínimo hora proporcional à jornada (R$ %) — CLT art. 428 §2º.',
+        replace(to_char(v_piso, 'FM999990.00'), '.', ',') USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_aprendiz_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_aprendiz_guard_trg ON employees;
+CREATE TRIGGER employees_aprendiz_guard_trg
+  BEFORE INSERT OR UPDATE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_aprendiz_guard();
+
+CREATE OR REPLACE FUNCTION vacations_regras_colaborador_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_hoje DATE := (now() AT TIME ZONE 'America/Sao_Paulo')::DATE;
+  v_tipo TEXT;
+  v_jornada TEXT;
+  v_admissao DATE;
+  v_estagio BOOLEAN;
+  v_motivo TEXT;
+  v_anos INT;
+  v_ciclo_inicio DATE;
+  v_ciclo_fim DATE;
+  v_outras INT;
+  v_alguma_14 BOOLEAN;
+  v_abono_no_ciclo BOOLEAN;
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') OR is_rh() THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.employee_id IS DISTINCT FROM OLD.employee_id
+       OR NEW.start_date IS DISTINCT FROM OLD.start_date
+       OR NEW.end_date IS DISTINCT FROM OLD.end_date
+       OR NEW.days IS DISTINCT FROM OLD.days
+       OR NEW.abono IS DISTINCT FROM OLD.abono THEN
+      RAISE EXCEPTION 'O período de férias não pode ser alterado depois de pedido. Cancele e faça um novo pedido.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.start_date IS NULL OR NEW.end_date IS NULL OR NEW.end_date < NEW.start_date THEN
+    RAISE EXCEPTION 'A data de fim das férias deve ser igual ou posterior ao início.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.days IS DISTINCT FROM (NEW.end_date - NEW.start_date + 1) THEN
+    RAISE EXCEPTION 'A quantidade de dias não confere com o período informado.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.start_date < v_hoje + 30 THEN
+    RAISE EXCEPTION 'As férias precisam ser pedidas com pelo menos 30 dias de antecedência.' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT contract_type, work_load, admission_date INTO v_tipo, v_jornada, v_admissao FROM employees WHERE id = NEW.employee_id;
+
+  IF lower(COALESCE(v_tipo, '')) = 'pj' THEN
+    IF COALESCE(NEW.abono, false) THEN
+      RAISE EXCEPTION 'Contrato PJ não tem abono pecuniário.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.days < 5 THEN
+    RAISE EXCEPTION 'O período mínimo de férias é de 5 dias corridos.' USING ERRCODE = '23514';
+  END IF;
+  v_estagio := lower(COALESCE(v_tipo, '')) IN ('estagio', 'estágio');
+
+  v_motivo := ferias_motivo_inicio_vedado(NEW.start_date, v_tipo, v_jornada);
+  IF v_motivo IS NOT NULL THEN
+    RAISE EXCEPTION '%', v_motivo USING ERRCODE = '23514';
+  END IF;
+
+  IF v_estagio THEN
+    IF COALESCE(NEW.abono, false) THEN
+      RAISE EXCEPTION 'Sem abono pecuniário para estágio.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF v_admissao IS NULL OR NEW.start_date < v_admissao THEN
+    RETURN NEW;
+  END IF;
+
+  v_anos := extract(YEAR FROM age(NEW.start_date, v_admissao))::INT;
+  v_ciclo_inicio := (v_admissao + make_interval(years => v_anos))::DATE;
+  v_ciclo_fim := (v_admissao + make_interval(years => v_anos + 1))::DATE - 1;
+
+  SELECT count(*), COALESCE(bool_or(v.days >= 14), false), COALESCE(bool_or(v.abono), false)
+    INTO v_outras, v_alguma_14, v_abono_no_ciclo
+    FROM vacations v
+   WHERE v.employee_id = NEW.employee_id
+     AND v.id IS DISTINCT FROM NEW.id
+     AND v.status NOT IN ('recusado', 'cancelado')
+     AND v.start_date BETWEEN v_ciclo_inicio AND v_ciclo_fim;
+
+  IF v_outras + 1 > 3 THEN
+    RAISE EXCEPTION 'Você já utilizou as 3 frações de férias permitidas neste período aquisitivo (art. 134 §1º da CLT).' USING ERRCODE = '23514';
+  END IF;
+  IF v_outras + 1 = 3 AND NOT v_alguma_14 AND NEW.days < 14 THEN
+    RAISE EXCEPTION 'Ao menos uma fração deve ter 14 dias corridos ou mais (art. 134 §1º da CLT).' USING ERRCODE = '23514';
+  END IF;
+  IF COALESCE(NEW.abono, false) AND v_abono_no_ciclo THEN
+    RAISE EXCEPTION 'O abono já foi pedido neste período aquisitivo.' USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION vacations_regras_colaborador_guard() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION generate_compliance_alerts()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_hoje           DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_emp            RECORD;
+  v_alertas        JSONB;
+  v_n              INTEGER;
+  v_cycle_start    DATE;
+  v_cycle_end      DATE;
+  v_concessivo     DATE;
+  v_used_remaining INTEGER;
+  v_expired_days   INTEGER;
+  v_pending        INTEGER;
+  v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
+  v_ctx            TEXT;
+  v_nasc           DATE;
+  v_pcd            BOOLEAN;
+  v_jornada        INTEGER;
+  v_dias           INTEGER;
+BEGIN
+  FOR v_emp IN
+    SELECT id, admission_date, contract_type, is_probation, probation_end_date,
+           is_aviso_previo, aviso_previo_end_date, work_load, contract_end_date, birth_date, pcd
+    FROM employees
+    WHERE status IN ('Ativo', 'ativo')
+  LOOP
+    v_alertas := '[]'::jsonb;
+
+    IF v_emp.admission_date IS NOT NULL AND lower(COALESCE(v_emp.contract_type, '')) NOT IN ('estagio', 'estágio', 'pj') THEN
+      v_used_remaining := COALESCE((
+        SELECT SUM(days + CASE WHEN abono THEN 10 ELSE 0 END) FROM vacations
+        WHERE employee_id = v_emp.id AND status IN ('aprovado', 'concluido')
+      ), 0);
+      v_expired_days := 0;
+      v_n := 0;
+      LOOP
+        v_cycle_start := (v_emp.admission_date + (v_n || ' years')::interval)::date;
+        EXIT WHEN v_cycle_start > v_hoje;
+        v_cycle_end := (v_emp.admission_date + ((v_n + 1) || ' years')::interval)::date - 1;
+        IF v_cycle_end < v_hoje THEN
+          v_pending := GREATEST(0, 30 - LEAST(v_used_remaining, 30));
+          v_used_remaining := GREATEST(0, v_used_remaining - 30);
+          IF v_pending > 0 THEN
+            v_concessivo := (v_cycle_end + INTERVAL '1 year')::date;
+            IF v_hoje > v_concessivo THEN
+              v_expired_days := v_expired_days + v_pending;
+            END IF;
+          END IF;
+        END IF;
+        v_n := v_n + 1;
+      END LOOP;
+      IF v_expired_days > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'ferias_vencidas', 'nivel', 'critico',
+          'titulo', format('%s dia(s) de férias vencidas', v_expired_days),
+          'mensagem', format('%s dia(s) de férias vencidas — risco de pagamento em dobro (CLT art. 137).', v_expired_days)
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_probation AND v_emp.probation_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.probation_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'fim_experiencia',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Experiência vencida há %sd', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Experiência vence hoje'
+            ELSE format('Experiência vence em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_aviso_previo AND v_emp.aviso_previo_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.aviso_previo_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aviso_previo',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Aviso prévio venceu há %sd — regularizar desligamento', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Aviso prévio termina hoje'
+            ELSE format('Aviso prévio termina em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'aprendiz' THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      BEGIN
+        v_nasc := left(nexus_unwrap(v_ctx, v_emp.birth_date), 10)::DATE;
+      EXCEPTION WHEN OTHERS THEN
+        v_nasc := NULL;
+      END;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato de aprendizagem sem data de término (CLT art. 428)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato de aprendizagem terminou há %sd — desligar ou recontratar (CLT art. 433)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato de aprendizagem termina hoje'
+              ELSE format('Contrato de aprendizagem termina em %sd', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_nasc IS NOT NULL THEN
+        v_diff_dias := (v_nasc + INTERVAL '24 years')::DATE - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_24_anos',
+            'nivel', CASE WHEN v_diff_dias <= 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias <= 0 THEN 'Aprendiz completou 24 anos — o contrato de aprendizagem se extingue (CLT art. 433)'
+              ELSE format('Aprendiz completa 24 anos em %sd — o contrato se extingue (CLT art. 433)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := aprendiz_jornada_min(v_emp.work_load);
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > v_jornada + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_hora_extra', 'nivel', 'critico',
+          'titulo', format('Aprendiz passou da jornada em %s dia(s) nos últimos 30 dias — hora extra e compensação são proibidas (CLT art. 432)', v_dias)
+        ));
+      END IF;
+
+      IF v_nasc IS NOT NULL AND v_hoje < (v_nasc + INTERVAL '18 years')::DATE THEN
+        SELECT count(*) INTO v_dias
+          FROM time_records t
+         WHERE t.employee_id = v_emp.id
+           AND t.date >= v_hoje - 30
+           AND EXISTS (
+             SELECT 1 FROM unnest(ARRAY[t.entrada, t.saida_almoco, t.retorno_almoco, t.saida]) AS m(marca)
+              WHERE m.marca IS NOT NULL
+                AND (m.marca AT TIME ZONE 'America/Sao_Paulo')::TIME NOT BETWEEN TIME '05:00' AND TIME '22:00'
+           );
+        IF v_dias > 0 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_menor_noturno', 'nivel', 'critico',
+            'titulo', format('Aprendiz menor de 18 anos com marcação entre 22h e 5h em %s dia(s) — trabalho noturno é proibido (CLT art. 404)', v_dias)
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
+      INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
+      VALUES (v_emp.id, v_hoje, v_alertas, false)
+      ON CONFLICT (employee_id, date) DO UPDATE
+        SET alertas = EXCLUDED.alertas,
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS contract_end_date DATE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_nivel TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_obrigatorio BOOLEAN;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_alternancia BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_supervisor_id UUID REFERENCES employees(id) ON DELETE SET NULL;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_instituicao TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estagio_avaliacoes JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_estagio_nivel_check') THEN
+    ALTER TABLE employees ADD CONSTRAINT employees_estagio_nivel_check
+      CHECK (estagio_nivel IS NULL OR estagio_nivel IN ('superior', 'medio_profissional', 'medio', 'especial', 'fundamental_eja'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_estagio_avaliacoes_array') THEN
+    ALTER TABLE employees ADD CONSTRAINT employees_estagio_avaliacoes_array
+      CHECK (jsonb_typeof(estagio_avaliacoes) = 'array');
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS employees_estagio_supervisor_idx ON employees(estagio_supervisor_id) WHERE estagio_supervisor_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION estagio_carga_maxima_semanal(p_nivel TEXT, p_alternancia BOOLEAN)
+RETURNS INT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN p_nivel IN ('especial', 'fundamental_eja') THEN 20
+    WHEN COALESCE(p_alternancia, false) THEN 40
+    ELSE 30
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION estagio_limite_cota(p_quadro INT)
+RETURNS INT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN COALESCE(p_quadro, 0) <= 0 THEN 0
+    WHEN p_quadro <= 5 THEN 1
+    WHEN p_quadro <= 10 THEN 2
+    WHEN p_quadro <= 25 THEN 5
+    ELSE ceil(p_quadro * 0.2)::INT
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION estagio_carga_maxima_semanal(TEXT, BOOLEAN) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION estagio_limite_cota(INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION estagio_carga_maxima_semanal(TEXT, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION estagio_limite_cota(INT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION employees_estagio_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_ctx         TEXT := 'emp:' || NEW.id::TEXT;
+  v_nascimento  TEXT;
+  v_bolsa       TEXT;
+  v_pcd         BOOLEAN;
+  v_carga       INT;
+  v_maxima      INT;
+  v_supervisor  RECORD;
+  v_supervisionados INT;
+  v_quadro      INT;
+  v_na_cota     INT;
+  v_periodo     JSONB;
+  v_entrou_cota BOOLEAN;
+BEGIN
+  IF lower(COALESCE(NEW.contract_type, '')) NOT IN ('estagio', 'estágio') OR lower(COALESCE(NEW.status, '')) = 'inativo' THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE'
+     AND lower(COALESCE(OLD.contract_type, '')) IN ('estagio', 'estágio')
+     AND lower(COALESCE(OLD.status, '')) <> 'inativo'
+     AND NEW.admission_date IS NOT DISTINCT FROM OLD.admission_date
+     AND NEW.work_load IS NOT DISTINCT FROM OLD.work_load
+     AND NEW.contract_end_date IS NOT DISTINCT FROM OLD.contract_end_date
+     AND NEW.estagio_nivel IS NOT DISTINCT FROM OLD.estagio_nivel
+     AND NEW.estagio_obrigatorio IS NOT DISTINCT FROM OLD.estagio_obrigatorio
+     AND NEW.estagio_alternancia IS NOT DISTINCT FROM OLD.estagio_alternancia
+     AND NEW.estagio_supervisor_id IS NOT DISTINCT FROM OLD.estagio_supervisor_id
+     AND NEW.estagio_instituicao IS NOT DISTINCT FROM OLD.estagio_instituicao
+     AND NEW.estagio_avaliacoes IS NOT DISTINCT FROM OLD.estagio_avaliacoes
+     AND NEW.vale_transporte IS NOT DISTINCT FROM OLD.vale_transporte
+     AND nexus_unwrap(v_ctx, NEW.salary::TEXT) IS NOT DISTINCT FROM nexus_unwrap(v_ctx, OLD.salary::TEXT)
+     AND nexus_unwrap(v_ctx, NEW.birth_date::TEXT) IS NOT DISTINCT FROM nexus_unwrap(v_ctx, OLD.birth_date::TEXT)
+     AND nexus_unwrap(v_ctx, NEW.pcd::TEXT) IS NOT DISTINCT FROM nexus_unwrap(v_ctx, OLD.pcd::TEXT) THEN
+    RETURN NEW;
+  END IF;
+
+  v_nascimento := nexus_unwrap(v_ctx, NEW.birth_date::TEXT);
+  v_bolsa := nexus_unwrap(v_ctx, NEW.salary::TEXT);
+  v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, NEW.pcd::TEXT), 'false')) = 'true';
+
+  IF NEW.estagio_nivel IS NULL THEN
+    RAISE EXCEPTION 'Informe o nível de ensino do estagiário (Lei 11.788/2008, art. 1º).' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.estagio_obrigatorio IS NULL THEN
+    RAISE EXCEPTION 'Informe se o estágio é obrigatório ou não obrigatório (art. 2º).' USING ERRCODE = '23514';
+  END IF;
+  IF NULLIF(btrim(COALESCE(NEW.estagio_instituicao, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Informe a instituição de ensino que assina o termo de compromisso (art. 3º, II).' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.admission_date IS NULL THEN
+    RAISE EXCEPTION 'Informe a data de início do estágio.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.contract_end_date IS NULL THEN
+    RAISE EXCEPTION 'Informe a data de término prevista no termo de compromisso.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.contract_end_date < NEW.admission_date THEN
+    RAISE EXCEPTION 'O término do estágio deve ser igual ou posterior ao início.' USING ERRCODE = '23514';
+  END IF;
+  IF NOT v_pcd AND NEW.contract_end_date > (NEW.admission_date + INTERVAL '2 years')::DATE - 1 THEN
+    RAISE EXCEPTION 'O estágio não pode passar de 2 anos na mesma empresa, exceto para estagiário com deficiência (art. 11).' USING ERRCODE = '23514';
+  END IF;
+  IF v_nascimento ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' AND NEW.admission_date < (left(v_nascimento, 10)::DATE + INTERVAL '16 years')::DATE THEN
+    RAISE EXCEPTION 'O estagiário precisa ter pelo menos 16 anos no início do estágio.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.estagio_alternancia AND NEW.estagio_nivel IN ('especial', 'fundamental_eja') THEN
+    RAISE EXCEPTION 'A jornada de 40 horas só vale para cursos que alternam teoria e prática (art. 10, § 1º).' USING ERRCODE = '23514';
+  END IF;
+
+  v_carga := CASE NEW.work_load WHEN '20h' THEN 20 WHEN '30h' THEN 30 WHEN '40h' THEN 40 END;
+  IF v_carga IS NULL THEN
+    RAISE EXCEPTION 'A carga horária do estágio deve ser de 20h, 30h ou 40h semanais (art. 10).' USING ERRCODE = '23514';
+  END IF;
+  v_maxima := estagio_carga_maxima_semanal(NEW.estagio_nivel, NEW.estagio_alternancia);
+  IF v_carga > v_maxima THEN
+    IF v_maxima = 20 THEN
+      RAISE EXCEPTION 'Para educação especial e anos finais do fundamental (EJA), o limite é 4h por dia e 20h semanais (art. 10, I).' USING ERRCODE = '23514';
+    END IF;
+    RAISE EXCEPTION 'O limite é 6h por dia e 30h semanais; 40h só com alternância entre teoria e prática, fora dos períodos de aula (art. 10).' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.estagio_supervisor_id IS NULL THEN
+    RAISE EXCEPTION 'Indique o supervisor do estágio, um funcionário da área (art. 9º, III).' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.estagio_supervisor_id = NEW.id THEN
+    RAISE EXCEPTION 'O estagiário não pode ser o próprio supervisor.' USING ERRCODE = '23514';
+  END IF;
+  SELECT id, contract_type, status INTO v_supervisor FROM employees WHERE id = NEW.estagio_supervisor_id;
+  IF NOT FOUND OR lower(COALESCE(v_supervisor.status, '')) = 'inativo' THEN
+    RAISE EXCEPTION 'O supervisor do estágio precisa ser um funcionário ativo.' USING ERRCODE = '23514';
+  END IF;
+  IF lower(COALESCE(v_supervisor.contract_type, '')) IN ('estagio', 'estágio') THEN
+    RAISE EXCEPTION 'Um estagiário não pode supervisionar outro estagiário (art. 9º, III).' USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended('estagio_supervisor:' || NEW.estagio_supervisor_id::TEXT, 0));
+  SELECT count(*) INTO v_supervisionados
+    FROM employees e
+   WHERE e.estagio_supervisor_id = NEW.estagio_supervisor_id
+     AND e.id <> NEW.id
+     AND lower(COALESCE(e.contract_type, '')) IN ('estagio', 'estágio')
+     AND lower(COALESCE(e.status, '')) <> 'inativo';
+  IF v_supervisionados >= 10 THEN
+    RAISE EXCEPTION 'Este supervisor já acompanha 10 estagiários, o máximo permitido (art. 9º, III).' USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT NEW.estagio_obrigatorio AND NOT (COALESCE(v_bolsa, '') ~ '^[0-9]+(\.[0-9]+)?$' AND v_bolsa::NUMERIC > 0) THEN
+    RAISE EXCEPTION 'No estágio não obrigatório a bolsa é obrigatória (art. 12).' USING ERRCODE = '23514';
+  END IF;
+  IF NOT NEW.estagio_obrigatorio AND NOT COALESCE(NEW.vale_transporte, false) THEN
+    RAISE EXCEPTION 'No estágio não obrigatório o auxílio-transporte é obrigatório (art. 12).' USING ERRCODE = '23514';
+  END IF;
+
+  FOR v_periodo IN SELECT * FROM jsonb_array_elements(NEW.estagio_avaliacoes) LOOP
+    IF jsonb_typeof(v_periodo) <> 'object'
+       OR COALESCE(v_periodo->>'inicio', '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+       OR COALESCE(v_periodo->>'fim', '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+       OR (v_periodo->>'fim')::DATE < (v_periodo->>'inicio')::DATE THEN
+      RAISE EXCEPTION 'Cada período de provas precisa de início e fim, com o fim igual ou posterior ao início.' USING ERRCODE = '23514';
+    END IF;
+  END LOOP;
+
+  v_entrou_cota := NEW.estagio_nivel IN ('medio', 'especial', 'fundamental_eja')
+    AND (TG_OP = 'INSERT'
+         OR lower(COALESCE(OLD.contract_type, '')) NOT IN ('estagio', 'estágio')
+         OR lower(COALESCE(OLD.status, '')) = 'inativo'
+         OR OLD.estagio_nivel IS DISTINCT FROM NEW.estagio_nivel
+         OR OLD.estagio_nivel NOT IN ('medio', 'especial', 'fundamental_eja'));
+  IF v_entrou_cota THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('estagio_cota', 0));
+    SELECT count(*) INTO v_quadro
+      FROM employees e
+     WHERE e.id <> NEW.id
+       AND lower(COALESCE(e.status, '')) <> 'inativo'
+       AND lower(COALESCE(e.contract_type, '')) NOT IN ('estagio', 'estágio', 'pj');
+    SELECT count(*) INTO v_na_cota
+      FROM employees e
+     WHERE e.id <> NEW.id
+       AND lower(COALESCE(e.status, '')) <> 'inativo'
+       AND lower(COALESCE(e.contract_type, '')) IN ('estagio', 'estágio')
+       AND e.estagio_nivel IN ('medio', 'especial', 'fundamental_eja');
+    IF v_na_cota + 1 > estagio_limite_cota(v_quadro) THEN
+      RAISE EXCEPTION 'Limite de estagiários de nível médio/especial/fundamental atingido: com % empregado(s), o máximo é % (art. 17).',
+        v_quadro, estagio_limite_cota(v_quadro) USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_estagio_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_estagio_guard_trg ON employees;
+CREATE TRIGGER employees_estagio_guard_trg
+  BEFORE INSERT OR UPDATE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_estagio_guard();
+
+CREATE OR REPLACE FUNCTION vacations_regras_colaborador_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_hoje DATE := (now() AT TIME ZONE 'America/Sao_Paulo')::DATE;
+  v_tipo TEXT;
+  v_jornada TEXT;
+  v_admissao DATE;
+  v_estagio BOOLEAN;
+  v_motivo TEXT;
+  v_anos INT;
+  v_ciclo_inicio DATE;
+  v_ciclo_fim DATE;
+  v_outras INT;
+  v_alguma_14 BOOLEAN;
+  v_abono_no_ciclo BOOLEAN;
+  v_meses INT;
+  v_recesso INT;
+  v_recesso_usado INT;
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') OR is_rh() THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.employee_id IS DISTINCT FROM OLD.employee_id
+       OR NEW.start_date IS DISTINCT FROM OLD.start_date
+       OR NEW.end_date IS DISTINCT FROM OLD.end_date
+       OR NEW.days IS DISTINCT FROM OLD.days
+       OR NEW.abono IS DISTINCT FROM OLD.abono THEN
+      RAISE EXCEPTION 'O período de férias não pode ser alterado depois de pedido. Cancele e faça um novo pedido.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.start_date IS NULL OR NEW.end_date IS NULL OR NEW.end_date < NEW.start_date THEN
+    RAISE EXCEPTION 'A data de fim das férias deve ser igual ou posterior ao início.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.days IS DISTINCT FROM (NEW.end_date - NEW.start_date + 1) THEN
+    RAISE EXCEPTION 'A quantidade de dias não confere com o período informado.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.start_date < v_hoje + 30 THEN
+    RAISE EXCEPTION 'As férias precisam ser pedidas com pelo menos 30 dias de antecedência.' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT contract_type, work_load, admission_date INTO v_tipo, v_jornada, v_admissao FROM employees WHERE id = NEW.employee_id;
+
+  IF lower(COALESCE(v_tipo, '')) = 'pj' THEN
+    IF COALESCE(NEW.abono, false) THEN
+      RAISE EXCEPTION 'Contrato PJ não tem abono pecuniário.' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  v_estagio := lower(COALESCE(v_tipo, '')) IN ('estagio', 'estágio');
+
+  v_motivo := ferias_motivo_inicio_vedado(NEW.start_date, v_tipo, v_jornada);
+  IF v_motivo IS NOT NULL THEN
+    RAISE EXCEPTION '%', v_motivo USING ERRCODE = '23514';
+  END IF;
+
+  IF v_estagio THEN
+    IF COALESCE(NEW.abono, false) THEN
+      RAISE EXCEPTION 'Sem abono pecuniário para estágio.' USING ERRCODE = '23514';
+    END IF;
+    IF v_admissao IS NULL OR NEW.start_date < v_admissao THEN
+      RAISE EXCEPTION 'O recesso só pode começar depois do início do estágio.' USING ERRCODE = '23514';
+    END IF;
+    v_meses := (extract(YEAR FROM age(NEW.start_date, v_admissao)) * 12 + extract(MONTH FROM age(NEW.start_date, v_admissao)))::INT;
+    v_recesso := floor(v_meses * 30 / 12.0)::INT;
+    SELECT COALESCE(sum(v.days), 0) INTO v_recesso_usado
+      FROM vacations v
+     WHERE v.employee_id = NEW.employee_id
+       AND v.id IS DISTINCT FROM NEW.id
+       AND v.status NOT IN ('recusado', 'cancelado');
+    IF NEW.days > v_recesso - v_recesso_usado THEN
+      RAISE EXCEPTION 'Recesso insuficiente: até o início pedido você terá % dia(s) de recesso, dos quais % já pedidos ou gozados (2,5 dias por mês completo, Lei 11.788 art. 13).',
+        v_recesso, v_recesso_usado USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.days < 5 THEN
+    RAISE EXCEPTION 'O período mínimo de férias é de 5 dias corridos.' USING ERRCODE = '23514';
+  END IF;
+
+  IF v_admissao IS NULL OR NEW.start_date < v_admissao THEN
+    RETURN NEW;
+  END IF;
+
+  v_anos := extract(YEAR FROM age(NEW.start_date, v_admissao))::INT;
+  v_ciclo_inicio := (v_admissao + make_interval(years => v_anos))::DATE;
+  v_ciclo_fim := (v_admissao + make_interval(years => v_anos + 1))::DATE - 1;
+
+  SELECT count(*), COALESCE(bool_or(v.days >= 14), false), COALESCE(bool_or(v.abono), false)
+    INTO v_outras, v_alguma_14, v_abono_no_ciclo
+    FROM vacations v
+   WHERE v.employee_id = NEW.employee_id
+     AND v.id IS DISTINCT FROM NEW.id
+     AND v.status NOT IN ('recusado', 'cancelado')
+     AND v.start_date BETWEEN v_ciclo_inicio AND v_ciclo_fim;
+
+  IF v_outras + 1 > 3 THEN
+    RAISE EXCEPTION 'Você já utilizou as 3 frações de férias permitidas neste período aquisitivo (art. 134 §1º da CLT).' USING ERRCODE = '23514';
+  END IF;
+  IF v_outras + 1 = 3 AND NOT v_alguma_14 AND NEW.days < 14 THEN
+    RAISE EXCEPTION 'Ao menos uma fração deve ter 14 dias corridos ou mais (art. 134 §1º da CLT).' USING ERRCODE = '23514';
+  END IF;
+  IF COALESCE(NEW.abono, false) AND v_abono_no_ciclo THEN
+    RAISE EXCEPTION 'O abono já foi pedido neste período aquisitivo.' USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION vacations_regras_colaborador_guard() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION generate_compliance_alerts()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_hoje           DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_emp            RECORD;
+  v_alertas        JSONB;
+  v_n              INTEGER;
+  v_cycle_start    DATE;
+  v_cycle_end      DATE;
+  v_concessivo     DATE;
+  v_used_remaining INTEGER;
+  v_expired_days   INTEGER;
+  v_pending        INTEGER;
+  v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
+  v_ctx            TEXT;
+  v_nasc           DATE;
+  v_pcd            BOOLEAN;
+  v_jornada        INTEGER;
+  v_dias           INTEGER;
+  v_ultimo_rel     DATE;
+  v_prazo_rel      DATE;
+BEGIN
+  FOR v_emp IN
+    SELECT id, admission_date, contract_type, is_probation, probation_end_date,
+           is_aviso_previo, aviso_previo_end_date, work_load, contract_end_date, birth_date, pcd,
+           estagio_supervisor_id, estagio_avaliacoes
+    FROM employees
+    WHERE status IN ('Ativo', 'ativo')
+  LOOP
+    v_alertas := '[]'::jsonb;
+
+    IF v_emp.admission_date IS NOT NULL AND lower(COALESCE(v_emp.contract_type, '')) NOT IN ('estagio', 'estágio', 'pj') THEN
+      v_used_remaining := COALESCE((
+        SELECT SUM(days + CASE WHEN abono THEN 10 ELSE 0 END) FROM vacations
+        WHERE employee_id = v_emp.id AND status IN ('aprovado', 'concluido')
+      ), 0);
+      v_expired_days := 0;
+      v_n := 0;
+      LOOP
+        v_cycle_start := (v_emp.admission_date + (v_n || ' years')::interval)::date;
+        EXIT WHEN v_cycle_start > v_hoje;
+        v_cycle_end := (v_emp.admission_date + ((v_n + 1) || ' years')::interval)::date - 1;
+        IF v_cycle_end < v_hoje THEN
+          v_pending := GREATEST(0, 30 - LEAST(v_used_remaining, 30));
+          v_used_remaining := GREATEST(0, v_used_remaining - 30);
+          IF v_pending > 0 THEN
+            v_concessivo := (v_cycle_end + INTERVAL '1 year')::date;
+            IF v_hoje > v_concessivo THEN
+              v_expired_days := v_expired_days + v_pending;
+            END IF;
+          END IF;
+        END IF;
+        v_n := v_n + 1;
+      END LOOP;
+      IF v_expired_days > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'ferias_vencidas', 'nivel', 'critico',
+          'titulo', format('%s dia(s) de férias vencidas', v_expired_days),
+          'mensagem', format('%s dia(s) de férias vencidas — risco de pagamento em dobro (CLT art. 137).', v_expired_days)
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_probation AND v_emp.probation_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.probation_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'fim_experiencia',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Experiência vencida há %sd', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Experiência vence hoje'
+            ELSE format('Experiência vence em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_aviso_previo AND v_emp.aviso_previo_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.aviso_previo_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aviso_previo',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Aviso prévio venceu há %sd — regularizar desligamento', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Aviso prévio termina hoje'
+            ELSE format('Aviso prévio termina em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'aprendiz' THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      BEGIN
+        v_nasc := left(nexus_unwrap(v_ctx, v_emp.birth_date), 10)::DATE;
+      EXCEPTION WHEN OTHERS THEN
+        v_nasc := NULL;
+      END;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato de aprendizagem sem data de término (CLT art. 428)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato de aprendizagem terminou há %sd — desligar ou recontratar (CLT art. 433)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato de aprendizagem termina hoje'
+              ELSE format('Contrato de aprendizagem termina em %sd', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_nasc IS NOT NULL THEN
+        v_diff_dias := (v_nasc + INTERVAL '24 years')::DATE - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_24_anos',
+            'nivel', CASE WHEN v_diff_dias <= 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias <= 0 THEN 'Aprendiz completou 24 anos — o contrato de aprendizagem se extingue (CLT art. 433)'
+              ELSE format('Aprendiz completa 24 anos em %sd — o contrato se extingue (CLT art. 433)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := aprendiz_jornada_min(v_emp.work_load);
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > v_jornada + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_hora_extra', 'nivel', 'critico',
+          'titulo', format('Aprendiz passou da jornada em %s dia(s) nos últimos 30 dias — hora extra e compensação são proibidas (CLT art. 432)', v_dias)
+        ));
+      END IF;
+
+      IF v_nasc IS NOT NULL AND v_hoje < (v_nasc + INTERVAL '18 years')::DATE THEN
+        SELECT count(*) INTO v_dias
+          FROM time_records t
+         WHERE t.employee_id = v_emp.id
+           AND t.date >= v_hoje - 30
+           AND EXISTS (
+             SELECT 1 FROM unnest(ARRAY[t.entrada, t.saida_almoco, t.retorno_almoco, t.saida]) AS m(marca)
+              WHERE m.marca IS NOT NULL
+                AND (m.marca AT TIME ZONE 'America/Sao_Paulo')::TIME NOT BETWEEN TIME '05:00' AND TIME '22:00'
+           );
+        IF v_dias > 0 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_menor_noturno', 'nivel', 'critico',
+            'titulo', format('Aprendiz menor de 18 anos com marcação entre 22h e 5h em %s dia(s) — trabalho noturno é proibido (CLT art. 404)', v_dias)
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) IN ('estagio', 'estágio') THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_termino', 'nivel', 'critico',
+          'titulo', 'Estágio sem data de término no termo de compromisso (Lei 11.788 art. 3º)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Estágio terminou há %sd — encerrar ou aditar o termo e emitir o termo de realização (art. 9º, V)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Estágio termina hoje — emitir o termo de realização (art. 9º, V)'
+              ELSE format('Estágio termina em %sd — prepare o termo de realização (art. 9º, V)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_emp.admission_date IS NOT NULL THEN
+        v_diff_dias := ((v_emp.admission_date + INTERVAL '2 years')::DATE - 1) - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_2_anos',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN 'Estágio passou de 2 anos na empresa — risco de vínculo de emprego (Lei 11.788 arts. 11 e 15)'
+              ELSE format('Estágio chega ao limite de 2 anos em %sd (Lei 11.788 art. 11)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF v_emp.estagio_supervisor_id IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_supervisor', 'nivel', 'critico',
+          'titulo', 'Estagiário sem supervisor indicado (Lei 11.788 art. 9º, III)'
+        ));
+      END IF;
+
+      IF v_emp.admission_date IS NOT NULL THEN
+        SELECT max(d.created_at AT TIME ZONE 'America/Sao_Paulo')::DATE INTO v_ultimo_rel
+          FROM documents d
+         WHERE d.employee_id = v_emp.id
+           AND d.tipo = 'Relatório de Atividades de Estágio'
+           AND COALESCE(d.status, 'pendente') <> 'recusado';
+        v_prazo_rel := (GREATEST(v_emp.admission_date, COALESCE(v_ultimo_rel, v_emp.admission_date)) + INTERVAL '6 months')::DATE;
+        v_diff_dias := v_prazo_rel - v_hoje;
+        IF v_diff_dias <= 15 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_relatorio',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Relatório semestral de atividades do estágio atrasado há %sd (art. 9º, VII)', abs(v_diff_dias))
+              ELSE format('Relatório semestral de atividades do estágio vence em %sd (art. 9º, VII)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := CASE v_emp.work_load WHEN '20h' THEN 240 WHEN '40h' THEN 480 ELSE 360 END;
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > (CASE
+                        WHEN EXISTS (
+                          SELECT 1 FROM jsonb_array_elements(COALESCE(v_emp.estagio_avaliacoes, '[]'::jsonb)) p
+                           WHERE jsonb_typeof(p) = 'object'
+                             AND t.date BETWEEN (p->>'inicio')::DATE AND (p->>'fim')::DATE
+                        ) THEN round(v_jornada / 2.0)
+                        ELSE v_jornada
+                      END) + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_jornada_excedida', 'nivel', 'critico',
+          'titulo', format('Estagiário passou da jornada do termo em %s dia(s) nos últimos 30 dias — estágio não admite hora extra (Lei 11.788 art. 10)', v_dias)
+        ));
+      END IF;
+    END IF;
+
+    IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
+      INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
+      VALUES (v_emp.id, v_hoje, v_alertas, false)
+      ON CONFLICT (employee_id, date) DO UPDATE
+        SET alertas = EXCLUDED.alertas,
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+SELECT nexus_refresh_employees_view();
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS contrato_prorrogado BOOLEAN NOT NULL DEFAULT false;
+
+SELECT nexus_refresh_employees_view();
+
+CREATE OR REPLACE FUNCTION employees_contrato_a_prazo_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_tipo        TEXT := lower(COALESCE(NEW.contract_type, ''));
+  v_tipo_antigo TEXT;
+  v_temporario  BOOLEAN;
+  v_fim_antigo  DATE;
+BEGIN
+  IF v_tipo NOT IN ('temporário', 'temporario', 'prazo determinado') THEN
+    RETURN NEW;
+  END IF;
+  v_temporario := v_tipo IN ('temporário', 'temporario');
+
+  IF TG_OP = 'UPDATE' THEN
+    v_tipo_antigo := lower(COALESCE(OLD.contract_type, ''));
+    IF v_tipo_antigo = v_tipo
+       AND NEW.admission_date IS NOT DISTINCT FROM OLD.admission_date
+       AND NEW.contract_end_date IS NOT DISTINCT FROM OLD.contract_end_date
+       AND NEW.is_probation IS NOT DISTINCT FROM OLD.is_probation
+       AND NEW.contrato_prorrogado IS NOT DISTINCT FROM OLD.contrato_prorrogado THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  IF COALESCE(NEW.is_probation, false) THEN
+    IF v_temporario THEN
+      RAISE EXCEPTION 'O contrato temporário não admite contrato de experiência (Lei 6.019/1974, art. 10 §4º).' USING ERRCODE = '23514';
+    END IF;
+    RAISE EXCEPTION 'O contrato de experiência já é um contrato por prazo determinado (CLT art. 443 §2º, c): cadastre como CLT com experiência ou como prazo determinado sem experiência.' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.contract_end_date IS NULL THEN
+    IF v_temporario THEN
+      RAISE EXCEPTION 'Informe a data de término do contrato temporário (Lei 6.019/1974, art. 10).' USING ERRCODE = '23514';
+    END IF;
+    RAISE EXCEPTION 'Informe a data de término do contrato por prazo determinado (CLT art. 443).' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.admission_date IS NOT NULL THEN
+    IF NEW.contract_end_date <= NEW.admission_date THEN
+      RAISE EXCEPTION 'O término do contrato deve ser depois da admissão.' USING ERRCODE = '23514';
+    END IF;
+    IF v_temporario AND NEW.contract_end_date - NEW.admission_date + 1 > 270 THEN
+      RAISE EXCEPTION 'O contrato temporário não pode passar de 180 dias, mais 90 de prorrogação: 270 dias no total (Lei 6.019/1974, art. 10 §§1º e 2º).' USING ERRCODE = '23514';
+    END IF;
+    IF NOT v_temporario AND NEW.contract_end_date > (NEW.admission_date + INTERVAL '2 years')::DATE THEN
+      RAISE EXCEPTION 'O contrato por prazo determinado não pode passar de 2 anos (CLT art. 445).' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    NEW.contrato_prorrogado := false;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.admission_date IS DISTINCT FROM OLD.admission_date THEN
+    NEW.contrato_prorrogado := false;
+    v_fim_antigo := COALESCE(OLD.termination_date, OLD.contract_end_date);
+    IF v_fim_antigo IS NOT NULL AND NEW.admission_date > v_fim_antigo THEN
+      IF v_temporario AND v_tipo_antigo IN ('temporário', 'temporario') AND NEW.admission_date - v_fim_antigo < 90 THEN
+        RAISE EXCEPTION 'Um novo contrato temporário com a mesma empresa só pode começar 90 dias depois do fim do anterior (Lei 6.019/1974, art. 10 §5º).' USING ERRCODE = '23514';
+      END IF;
+      IF NOT v_temporario AND v_tipo_antigo = 'prazo determinado' AND NEW.admission_date <= (v_fim_antigo + INTERVAL '6 months')::DATE THEN
+        RAISE EXCEPTION 'Um contrato por prazo determinado que começa até 6 meses depois de outro passa a valer por prazo indeterminado (CLT art. 452): cadastre como CLT.' USING ERRCODE = '23514';
+      END IF;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NOT v_temporario
+     AND v_tipo_antigo = v_tipo
+     AND OLD.contract_end_date IS NOT NULL
+     AND NEW.contract_end_date > OLD.contract_end_date THEN
+    IF OLD.contrato_prorrogado THEN
+      RAISE EXCEPTION 'O contrato por prazo determinado só pode ser prorrogado uma vez; uma segunda prorrogação o torna por prazo indeterminado (CLT art. 451).' USING ERRCODE = '23514';
+    END IF;
+    NEW.contrato_prorrogado := true;
+  ELSIF NEW.contrato_prorrogado IS DISTINCT FROM OLD.contrato_prorrogado THEN
+    NEW.contrato_prorrogado := OLD.contrato_prorrogado;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_contrato_a_prazo_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_contrato_a_prazo_guard_trg ON employees;
+CREATE TRIGGER employees_contrato_a_prazo_guard_trg
+  BEFORE INSERT OR UPDATE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_contrato_a_prazo_guard();
+
+ALTER TABLE document_requirements
+  DROP CONSTRAINT IF EXISTS document_requirements_contract_type_check;
+ALTER TABLE document_requirements
+  ADD CONSTRAINT document_requirements_contract_type_check
+  CHECK (contract_type IN ('CLT', 'Estágio', 'Aprendiz', 'Temporário', 'Prazo determinado', 'PJ'));
+
+DELETE FROM document_requirements
+ WHERE contract_type = 'Temporário'
+   AND tipo IN ('Carteira de Trabalho', 'Contrato de Trabalho', 'Ficha de Registro do Empregado', 'Termo de Rescisão', 'Exame Demissional', 'Guia FGTS', 'Comprovante de Residência');
+
+INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type) VALUES
+  ('admissional', 'RG',                                             true, 'Temporário'),
+  ('admissional', 'CPF',                                            true, 'Temporário'),
+  ('admissional', 'Contrato com a Empresa de Trabalho Temporário',  true, 'Temporário'),
+  ('admissional', 'Exame Admissional',                              true, 'Temporário')
+ON CONFLICT (category, tipo, contract_type) DO NOTHING;
+
+INSERT INTO document_requirements (category, tipo, obrigatorio, contract_type)
+SELECT category, tipo, obrigatorio, 'Prazo determinado'
+  FROM document_requirements
+ WHERE contract_type = 'CLT'
+   AND tipo <> 'Aviso Prévio'
+ON CONFLICT (category, tipo, contract_type) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION generate_compliance_alerts()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_hoje           DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_emp            RECORD;
+  v_alertas        JSONB;
+  v_n              INTEGER;
+  v_cycle_start    DATE;
+  v_cycle_end      DATE;
+  v_concessivo     DATE;
+  v_used_remaining INTEGER;
+  v_expired_days   INTEGER;
+  v_pending        INTEGER;
+  v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
+  v_ctx            TEXT;
+  v_nasc           DATE;
+  v_pcd            BOOLEAN;
+  v_jornada        INTEGER;
+  v_dias           INTEGER;
+  v_ultimo_rel     DATE;
+  v_prazo_rel      DATE;
+BEGIN
+  FOR v_emp IN
+    SELECT id, admission_date, contract_type, is_probation, probation_end_date,
+           is_aviso_previo, aviso_previo_end_date, work_load, contract_end_date, birth_date, pcd,
+           estagio_supervisor_id, estagio_avaliacoes
+    FROM employees
+    WHERE status IN ('Ativo', 'ativo')
+  LOOP
+    v_alertas := '[]'::jsonb;
+
+    IF v_emp.admission_date IS NOT NULL AND lower(COALESCE(v_emp.contract_type, '')) NOT IN ('estagio', 'estágio', 'pj', 'temporário', 'temporario') THEN
+      v_used_remaining := COALESCE((
+        SELECT SUM(days + CASE WHEN abono THEN 10 ELSE 0 END) FROM vacations
+        WHERE employee_id = v_emp.id AND status IN ('aprovado', 'concluido')
+      ), 0);
+      v_expired_days := 0;
+      v_n := 0;
+      LOOP
+        v_cycle_start := (v_emp.admission_date + (v_n || ' years')::interval)::date;
+        EXIT WHEN v_cycle_start > v_hoje;
+        v_cycle_end := (v_emp.admission_date + ((v_n + 1) || ' years')::interval)::date - 1;
+        IF v_cycle_end < v_hoje THEN
+          v_pending := GREATEST(0, 30 - LEAST(v_used_remaining, 30));
+          v_used_remaining := GREATEST(0, v_used_remaining - 30);
+          IF v_pending > 0 THEN
+            v_concessivo := (v_cycle_end + INTERVAL '1 year')::date;
+            IF v_hoje > v_concessivo THEN
+              v_expired_days := v_expired_days + v_pending;
+            END IF;
+          END IF;
+        END IF;
+        v_n := v_n + 1;
+      END LOOP;
+      IF v_expired_days > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'ferias_vencidas', 'nivel', 'critico',
+          'titulo', format('%s dia(s) de férias vencidas', v_expired_days),
+          'mensagem', format('%s dia(s) de férias vencidas — risco de pagamento em dobro (CLT art. 137).', v_expired_days)
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_probation AND v_emp.probation_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.probation_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'fim_experiencia',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Experiência vencida há %sd', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Experiência vence hoje'
+            ELSE format('Experiência vence em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_aviso_previo AND v_emp.aviso_previo_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.aviso_previo_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aviso_previo',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Aviso prévio venceu há %sd — regularizar desligamento', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Aviso prévio termina hoje'
+            ELSE format('Aviso prévio termina em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'aprendiz' THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      BEGIN
+        v_nasc := left(nexus_unwrap(v_ctx, v_emp.birth_date), 10)::DATE;
+      EXCEPTION WHEN OTHERS THEN
+        v_nasc := NULL;
+      END;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato de aprendizagem sem data de término (CLT art. 428)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato de aprendizagem terminou há %sd — desligar ou recontratar (CLT art. 433)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato de aprendizagem termina hoje'
+              ELSE format('Contrato de aprendizagem termina em %sd', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_nasc IS NOT NULL THEN
+        v_diff_dias := (v_nasc + INTERVAL '24 years')::DATE - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_24_anos',
+            'nivel', CASE WHEN v_diff_dias <= 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias <= 0 THEN 'Aprendiz completou 24 anos — o contrato de aprendizagem se extingue (CLT art. 433)'
+              ELSE format('Aprendiz completa 24 anos em %sd — o contrato se extingue (CLT art. 433)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := aprendiz_jornada_min(v_emp.work_load);
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > v_jornada + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_hora_extra', 'nivel', 'critico',
+          'titulo', format('Aprendiz passou da jornada em %s dia(s) nos últimos 30 dias — hora extra e compensação são proibidas (CLT art. 432)', v_dias)
+        ));
+      END IF;
+
+      IF v_nasc IS NOT NULL AND v_hoje < (v_nasc + INTERVAL '18 years')::DATE THEN
+        SELECT count(*) INTO v_dias
+          FROM time_records t
+         WHERE t.employee_id = v_emp.id
+           AND t.date >= v_hoje - 30
+           AND EXISTS (
+             SELECT 1 FROM unnest(ARRAY[t.entrada, t.saida_almoco, t.retorno_almoco, t.saida]) AS m(marca)
+              WHERE m.marca IS NOT NULL
+                AND (m.marca AT TIME ZONE 'America/Sao_Paulo')::TIME NOT BETWEEN TIME '05:00' AND TIME '22:00'
+           );
+        IF v_dias > 0 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_menor_noturno', 'nivel', 'critico',
+            'titulo', format('Aprendiz menor de 18 anos com marcação entre 22h e 5h em %s dia(s) — trabalho noturno é proibido (CLT art. 404)', v_dias)
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) IN ('estagio', 'estágio') THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_termino', 'nivel', 'critico',
+          'titulo', 'Estágio sem data de término no termo de compromisso (Lei 11.788 art. 3º)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Estágio terminou há %sd — encerrar ou aditar o termo e emitir o termo de realização (art. 9º, V)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Estágio termina hoje — emitir o termo de realização (art. 9º, V)'
+              ELSE format('Estágio termina em %sd — prepare o termo de realização (art. 9º, V)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_emp.admission_date IS NOT NULL THEN
+        v_diff_dias := ((v_emp.admission_date + INTERVAL '2 years')::DATE - 1) - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_2_anos',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN 'Estágio passou de 2 anos na empresa — risco de vínculo de emprego (Lei 11.788 arts. 11 e 15)'
+              ELSE format('Estágio chega ao limite de 2 anos em %sd (Lei 11.788 art. 11)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF v_emp.estagio_supervisor_id IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_supervisor', 'nivel', 'critico',
+          'titulo', 'Estagiário sem supervisor indicado (Lei 11.788 art. 9º, III)'
+        ));
+      END IF;
+
+      IF v_emp.admission_date IS NOT NULL THEN
+        SELECT max(d.created_at AT TIME ZONE 'America/Sao_Paulo')::DATE INTO v_ultimo_rel
+          FROM documents d
+         WHERE d.employee_id = v_emp.id
+           AND d.tipo = 'Relatório de Atividades de Estágio'
+           AND COALESCE(d.status, 'pendente') <> 'recusado';
+        v_prazo_rel := (GREATEST(v_emp.admission_date, COALESCE(v_ultimo_rel, v_emp.admission_date)) + INTERVAL '6 months')::DATE;
+        v_diff_dias := v_prazo_rel - v_hoje;
+        IF v_diff_dias <= 15 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_relatorio',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Relatório semestral de atividades do estágio atrasado há %sd (art. 9º, VII)', abs(v_diff_dias))
+              ELSE format('Relatório semestral de atividades do estágio vence em %sd (art. 9º, VII)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := CASE v_emp.work_load WHEN '20h' THEN 240 WHEN '40h' THEN 480 ELSE 360 END;
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > (CASE
+                        WHEN EXISTS (
+                          SELECT 1 FROM jsonb_array_elements(COALESCE(v_emp.estagio_avaliacoes, '[]'::jsonb)) p
+                           WHERE jsonb_typeof(p) = 'object'
+                             AND t.date BETWEEN (p->>'inicio')::DATE AND (p->>'fim')::DATE
+                        ) THEN round(v_jornada / 2.0)
+                        ELSE v_jornada
+                      END) + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_jornada_excedida', 'nivel', 'critico',
+          'titulo', format('Estagiário passou da jornada do termo em %s dia(s) nos últimos 30 dias — estágio não admite hora extra (Lei 11.788 art. 10)', v_dias)
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) IN ('temporário', 'temporario') THEN
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'temporario_sem_termino', 'nivel', 'critico',
+          'titulo', 'Temporário sem data de término do contrato (Lei 6.019/1974, art. 10)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'temporario_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato temporário terminou há %sd e o trabalhador segue ativo — risco de vínculo direto com a empresa (Lei 6.019, art. 10)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato temporário termina hoje — combine o encerramento com a agência'
+              ELSE format('Contrato temporário termina em %sd — combine com a agência o encerramento ou a prorrogação (até 270 dias no total)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'prazo determinado' THEN
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'prazo_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato por prazo determinado sem data de término (CLT art. 443)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'prazo_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato por prazo determinado terminou há %sd e a pessoa segue trabalhando — ele passa a valer por prazo indeterminado (CLT art. 451)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato por prazo determinado termina hoje'
+              ELSE format('Contrato por prazo determinado termina em %sd — desligar no prazo ou efetivar', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
+      INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
+      VALUES (v_emp.id, v_hoje, v_alertas, false)
+      ON CONFLICT (employee_id, date) DO UPDATE
+        SET alertas = EXCLUDED.alertas,
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+SELECT nexus_refresh_employees_view();
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS adicional_periculosidade BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS grau_insalubridade TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estabilidade_ate DATE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS estabilidade_motivo TEXT;
+
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_grau_insalubridade_check;
+ALTER TABLE employees ADD CONSTRAINT employees_grau_insalubridade_check
+  CHECK (grau_insalubridade IS NULL OR grau_insalubridade IN ('minimo', 'medio', 'maximo'));
+
+CREATE OR REPLACE FUNCTION employees_encrypt_sensitive()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'emp:' || NEW.id::TEXT;
+BEGIN
+  IF NEW.salary IS NOT NULL AND NOT nexus_is_cipher(NEW.salary) THEN
+    IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.salary := (NEW.salary::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.birth_date IS NOT NULL AND NOT nexus_is_cipher(NEW.birth_date) THEN
+    IF NEW.birth_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
+      RAISE EXCEPTION 'Data de nascimento inválida' USING ERRCODE = '22007';
+    END IF;
+    NEW.birth_date := (left(NEW.birth_date, 10)::DATE)::TEXT;
+  END IF;
+
+  IF NEW.pcd IS NOT NULL AND NOT nexus_is_cipher(NEW.pcd) THEN
+    IF lower(NEW.pcd) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador PcD inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pcd := lower(NEW.pcd);
+  END IF;
+
+  IF NEW.pensao_alimenticia IS NOT NULL AND NOT nexus_is_cipher(NEW.pensao_alimenticia) THEN
+    IF lower(NEW.pensao_alimenticia) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador de pensão alimentícia inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pensao_alimenticia := lower(NEW.pensao_alimenticia);
+  END IF;
+
+  IF (NEW.estabilidade_ate IS NULL) <> (NEW.estabilidade_motivo IS NULL) THEN
+    RAISE EXCEPTION 'Informe o motivo e a data final da estabilidade juntos.' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.estabilidade_motivo IS NOT NULL AND NOT nexus_is_cipher(NEW.estabilidade_motivo) THEN
+    IF NEW.estabilidade_motivo NOT IN ('gestante', 'acidente_trabalho', 'cipa', 'dirigente_sindical', 'outra') THEN
+      RAISE EXCEPTION 'Motivo de estabilidade inválido' USING ERRCODE = '22P02';
+    END IF;
+  END IF;
+
+  NEW.cpf_hash           := nexus_blind_index(nexus_unwrap(v_ctx, NEW.cpf));
+  NEW.cpf                := nexus_wrap(v_ctx, NEW.cpf);
+  NEW.rg                 := nexus_wrap(v_ctx, NEW.rg);
+  NEW.telefone           := nexus_wrap(v_ctx, NEW.telefone);
+  NEW.salary             := nexus_wrap(v_ctx, NEW.salary);
+  NEW.chave_pix          := nexus_wrap(v_ctx, NEW.chave_pix);
+  NEW.agencia            := nexus_wrap(v_ctx, NEW.agencia);
+  NEW.conta              := nexus_wrap(v_ctx, NEW.conta);
+  NEW.birth_date         := nexus_wrap(v_ctx, NEW.birth_date);
+  NEW.gender             := nexus_wrap(v_ctx, NEW.gender);
+  NEW.raca_cor           := nexus_wrap(v_ctx, NEW.raca_cor);
+  NEW.deficiencia        := nexus_wrap(v_ctx, NEW.deficiencia);
+  NEW.tipo_pensao        := nexus_wrap(v_ctx, NEW.tipo_pensao);
+  NEW.pcd                := nexus_wrap(v_ctx, NEW.pcd);
+  NEW.pensao_alimenticia := nexus_wrap(v_ctx, NEW.pensao_alimenticia);
+  NEW.estabilidade_motivo := nexus_wrap(v_ctx, NEW.estabilidade_motivo);
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_encrypt_sensitive() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION nexus_refresh_employees_view()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_cols TEXT;
+BEGIN
+  SELECT string_agg(
+           CASE a.attname
+             WHEN 'salary'             THEN 'nexus_decrypt_ctx_numeric(''emp:'' || e.id::text, e.salary) AS salary'
+             WHEN 'birth_date'         THEN 'nexus_decrypt_ctx_date(''emp:'' || e.id::text, e.birth_date) AS birth_date'
+             WHEN 'pcd'                THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pcd) AS pcd'
+             WHEN 'pensao_alimenticia' THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pensao_alimenticia) AS pensao_alimenticia'
+             WHEN 'cpf'                THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.cpf) AS cpf'
+             WHEN 'rg'                 THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.rg) AS rg'
+             WHEN 'telefone'           THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.telefone) AS telefone'
+             WHEN 'chave_pix'          THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.chave_pix) AS chave_pix'
+             WHEN 'agencia'            THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.agencia) AS agencia'
+             WHEN 'conta'              THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.conta) AS conta'
+             WHEN 'gender'             THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.gender) AS gender'
+             WHEN 'raca_cor'           THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.raca_cor) AS raca_cor'
+             WHEN 'deficiencia'        THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.deficiencia) AS deficiencia'
+             WHEN 'tipo_pensao'        THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.tipo_pensao) AS tipo_pensao'
+             WHEN 'estabilidade_motivo' THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.estabilidade_motivo) AS estabilidade_motivo'
+             ELSE format('e.%I', a.attname)
+           END,
+           ', ' ORDER BY a.attnum)
+    INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = 'public.employees'::regclass
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+     AND a.attname <> 'cpf_hash';
+
+  DROP VIEW IF EXISTS public.employees_decrypted;
+  EXECUTE format('CREATE VIEW public.employees_decrypted WITH (security_invoker = true) AS SELECT %s FROM public.employees e', v_cols);
+
+  REVOKE ALL ON public.employees_decrypted FROM PUBLIC, anon;
+  GRANT SELECT ON public.employees_decrypted TO authenticated;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_refresh_employees_view() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION nexus_encrypted_columns()
+RETURNS TABLE (tbl TEXT, col TEXT, ctx TEXT)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT * FROM (VALUES
+    ('employees', 'cpf',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'rg',                 $q$'emp:' || t.id::text$q$),
+    ('employees', 'telefone',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'salary',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'chave_pix',          $q$'emp:' || t.id::text$q$),
+    ('employees', 'agencia',            $q$'emp:' || t.id::text$q$),
+    ('employees', 'conta',              $q$'emp:' || t.id::text$q$),
+    ('employees', 'birth_date',         $q$'emp:' || t.id::text$q$),
+    ('employees', 'gender',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'raca_cor',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'deficiencia',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'tipo_pensao',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'pcd',                $q$'emp:' || t.id::text$q$),
+    ('employees', 'pensao_alimenticia', $q$'emp:' || t.id::text$q$),
+    ('employees', 'estabilidade_motivo', $q$'emp:' || t.id::text$q$),
+    ('employee_audit', 'changes',       $q$'emp:' || t.employee_id::text || ':audit:' || t.id::text$q$),
+    ('chat_messages',       'content',  $q$'chan:' || t.channel_id::text$q$),
+    ('hr_ticket_messages',  'content',  $q$'tkt:' || t.ticket_id::text$q$),
+    ('payslips', 'proventos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':proventos'$q$),
+    ('payslips', 'descontos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':descontos'$q$),
+    ('payslips', 'total_proventos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_proventos'$q$),
+    ('payslips', 'total_descontos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_descontos'$q$),
+    ('payslips', 'salario_liquido', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':salario_liquido'$q$),
+    ('anonymous_feedback',  'message',     $q$'fb:' || t.id::text || ':message'$q$),
+    ('ai_analysis_cache',   'summary',     $q$'ai:cache:' || t.cache_key || ':summary'$q$),
+    ('ai_analysis_cache',   'alerts',      $q$'ai:cache:' || t.cache_key || ':alerts'$q$),
+    ('ai_analysis_history', 'summary',     $q$'ai:hist:' || t.id::text || ':summary'$q$),
+    ('ai_analysis_history', 'alerts',      $q$'ai:hist:' || t.id::text || ':alerts'$q$),
+    ('ai_chat_history',     'content',     $q$'ai:chat:' || t.id::text || ':content'$q$),
+    ('ai_decision_memory',  'description', $q$'ai:mem:' || t.id::text || ':description'$q$),
+    ('ai_decision_log',     'ai_message',  $q$'ail:' || t.id::text || ':ai_message'$q$),
+    ('ai_decision_log',     'evidence',    $q$'ail:' || t.id::text || ':evidence'$q$),
+    ('biometric_templates', 'template',    $q$'bio:' || t.employee_id::text$q$)
+  ) AS r (tbl, col, ctx);
+$$;
+
+REVOKE ALL ON FUNCTION nexus_encrypted_columns() FROM PUBLIC, anon, authenticated;
+
+SELECT nexus_refresh_employees_view();
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS pensao_valor TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS termination_type TEXT;
+
+CREATE TABLE IF NOT EXISTS convencoes_coletivas (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome             TEXT NOT NULL,
+  sindicato        TEXT,
+  vigencia_inicio  DATE NOT NULL,
+  vigencia_fim     DATE NOT NULL,
+  piso_salarial    NUMERIC(10, 2) NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (nome),
+  CHECK (vigencia_fim >= vigencia_inicio),
+  CHECK (vigencia_fim <= vigencia_inicio + INTERVAL '2 years'),
+  CHECK (piso_salarial > 0)
+);
+
+DROP TRIGGER IF EXISTS convencoes_coletivas_updated_at ON convencoes_coletivas;
+CREATE TRIGGER convencoes_coletivas_updated_at
+  BEFORE UPDATE ON convencoes_coletivas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE convencoes_coletivas ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON convencoes_coletivas FROM PUBLIC, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON convencoes_coletivas TO authenticated;
+DROP POLICY IF EXISTS "rh_convencoes_coletivas_all" ON convencoes_coletivas;
+CREATE POLICY "rh_convencoes_coletivas_all" ON convencoes_coletivas FOR ALL
+  USING ((SELECT public.is_rh())) WITH CHECK ((SELECT public.is_rh()));
+DROP POLICY IF EXISTS mfa_required ON convencoes_coletivas;
+CREATE POLICY mfa_required ON convencoes_coletivas AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()));
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS convencao_coletiva_id UUID REFERENCES convencoes_coletivas(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS employees_convencao_coletiva_id_idx ON employees (convencao_coletiva_id);
+
+CREATE OR REPLACE FUNCTION employees_encrypt_sensitive()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_ctx TEXT := 'emp:' || NEW.id::TEXT;
+BEGIN
+  IF NEW.salary IS NOT NULL AND NOT nexus_is_cipher(NEW.salary) THEN
+    IF NEW.salary !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Salário inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.salary := (NEW.salary::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.pensao_valor IS NOT NULL AND NOT nexus_is_cipher(NEW.pensao_valor) THEN
+    IF NEW.pensao_valor !~ '^[0-9]+(\.[0-9]+)?$' THEN
+      RAISE EXCEPTION 'Valor da pensão alimentícia inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pensao_valor := (NEW.pensao_valor::NUMERIC(10, 2))::TEXT;
+  END IF;
+
+  IF NEW.birth_date IS NOT NULL AND NOT nexus_is_cipher(NEW.birth_date) THEN
+    IF NEW.birth_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN
+      RAISE EXCEPTION 'Data de nascimento inválida' USING ERRCODE = '22007';
+    END IF;
+    NEW.birth_date := (left(NEW.birth_date, 10)::DATE)::TEXT;
+  END IF;
+
+  IF NEW.pcd IS NOT NULL AND NOT nexus_is_cipher(NEW.pcd) THEN
+    IF lower(NEW.pcd) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador PcD inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pcd := lower(NEW.pcd);
+  END IF;
+
+  IF NEW.pensao_alimenticia IS NOT NULL AND NOT nexus_is_cipher(NEW.pensao_alimenticia) THEN
+    IF lower(NEW.pensao_alimenticia) NOT IN ('true', 'false') THEN
+      RAISE EXCEPTION 'Indicador de pensão alimentícia inválido' USING ERRCODE = '22P02';
+    END IF;
+    NEW.pensao_alimenticia := lower(NEW.pensao_alimenticia);
+  END IF;
+
+  IF (NEW.estabilidade_ate IS NULL) <> (NEW.estabilidade_motivo IS NULL) THEN
+    RAISE EXCEPTION 'Informe o motivo e a data final da estabilidade juntos.' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.estabilidade_motivo IS NOT NULL AND NOT nexus_is_cipher(NEW.estabilidade_motivo) THEN
+    IF NEW.estabilidade_motivo NOT IN ('gestante', 'acidente_trabalho', 'cipa', 'dirigente_sindical', 'outra') THEN
+      RAISE EXCEPTION 'Motivo de estabilidade inválido' USING ERRCODE = '22P02';
+    END IF;
+  END IF;
+
+  NEW.cpf_hash            := nexus_blind_index(nexus_unwrap(v_ctx, NEW.cpf));
+  NEW.cpf                 := nexus_wrap(v_ctx, NEW.cpf);
+  NEW.rg                  := nexus_wrap(v_ctx, NEW.rg);
+  NEW.telefone            := nexus_wrap(v_ctx, NEW.telefone);
+  NEW.salary              := nexus_wrap(v_ctx, NEW.salary);
+  NEW.chave_pix           := nexus_wrap(v_ctx, NEW.chave_pix);
+  NEW.agencia             := nexus_wrap(v_ctx, NEW.agencia);
+  NEW.conta               := nexus_wrap(v_ctx, NEW.conta);
+  NEW.birth_date          := nexus_wrap(v_ctx, NEW.birth_date);
+  NEW.gender              := nexus_wrap(v_ctx, NEW.gender);
+  NEW.raca_cor            := nexus_wrap(v_ctx, NEW.raca_cor);
+  NEW.deficiencia         := nexus_wrap(v_ctx, NEW.deficiencia);
+  NEW.tipo_pensao         := nexus_wrap(v_ctx, NEW.tipo_pensao);
+  NEW.pensao_valor        := nexus_wrap(v_ctx, NEW.pensao_valor);
+  NEW.pcd                 := nexus_wrap(v_ctx, NEW.pcd);
+  NEW.pensao_alimenticia  := nexus_wrap(v_ctx, NEW.pensao_alimenticia);
+  NEW.estabilidade_motivo := nexus_wrap(v_ctx, NEW.estabilidade_motivo);
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_encrypt_sensitive() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION nexus_refresh_employees_view()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_cols TEXT;
+BEGIN
+  SELECT string_agg(
+           CASE a.attname
+             WHEN 'salary'              THEN 'nexus_decrypt_ctx_numeric(''emp:'' || e.id::text, e.salary) AS salary'
+             WHEN 'pensao_valor'        THEN 'nexus_decrypt_ctx_numeric(''emp:'' || e.id::text, e.pensao_valor) AS pensao_valor'
+             WHEN 'birth_date'          THEN 'nexus_decrypt_ctx_date(''emp:'' || e.id::text, e.birth_date) AS birth_date'
+             WHEN 'pcd'                 THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pcd) AS pcd'
+             WHEN 'pensao_alimenticia'  THEN 'nexus_decrypt_ctx_bool(''emp:'' || e.id::text, e.pensao_alimenticia) AS pensao_alimenticia'
+             WHEN 'cpf'                 THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.cpf) AS cpf'
+             WHEN 'rg'                  THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.rg) AS rg'
+             WHEN 'telefone'            THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.telefone) AS telefone'
+             WHEN 'chave_pix'           THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.chave_pix) AS chave_pix'
+             WHEN 'agencia'             THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.agencia) AS agencia'
+             WHEN 'conta'               THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.conta) AS conta'
+             WHEN 'gender'              THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.gender) AS gender'
+             WHEN 'raca_cor'            THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.raca_cor) AS raca_cor'
+             WHEN 'deficiencia'         THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.deficiencia) AS deficiencia'
+             WHEN 'tipo_pensao'         THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.tipo_pensao) AS tipo_pensao'
+             WHEN 'estabilidade_motivo' THEN 'nexus_decrypt_ctx(''emp:'' || e.id::text, e.estabilidade_motivo) AS estabilidade_motivo'
+             ELSE format('e.%I', a.attname)
+           END,
+           ', ' ORDER BY a.attnum)
+    INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = 'public.employees'::regclass
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+     AND a.attname <> 'cpf_hash';
+
+  DROP VIEW IF EXISTS public.employees_decrypted;
+  EXECUTE format('CREATE VIEW public.employees_decrypted WITH (security_invoker = true) AS SELECT %s FROM public.employees e', v_cols);
+
+  REVOKE ALL ON public.employees_decrypted FROM PUBLIC, anon;
+  GRANT SELECT ON public.employees_decrypted TO authenticated;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_refresh_employees_view() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION nexus_encrypted_columns()
+RETURNS TABLE (tbl TEXT, col TEXT, ctx TEXT)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT * FROM (VALUES
+    ('employees', 'cpf',                 $q$'emp:' || t.id::text$q$),
+    ('employees', 'rg',                  $q$'emp:' || t.id::text$q$),
+    ('employees', 'telefone',            $q$'emp:' || t.id::text$q$),
+    ('employees', 'salary',              $q$'emp:' || t.id::text$q$),
+    ('employees', 'chave_pix',           $q$'emp:' || t.id::text$q$),
+    ('employees', 'agencia',             $q$'emp:' || t.id::text$q$),
+    ('employees', 'conta',               $q$'emp:' || t.id::text$q$),
+    ('employees', 'birth_date',          $q$'emp:' || t.id::text$q$),
+    ('employees', 'gender',              $q$'emp:' || t.id::text$q$),
+    ('employees', 'raca_cor',            $q$'emp:' || t.id::text$q$),
+    ('employees', 'deficiencia',         $q$'emp:' || t.id::text$q$),
+    ('employees', 'tipo_pensao',         $q$'emp:' || t.id::text$q$),
+    ('employees', 'pensao_valor',        $q$'emp:' || t.id::text$q$),
+    ('employees', 'pcd',                 $q$'emp:' || t.id::text$q$),
+    ('employees', 'pensao_alimenticia',  $q$'emp:' || t.id::text$q$),
+    ('employees', 'estabilidade_motivo', $q$'emp:' || t.id::text$q$),
+    ('employee_audit', 'changes',       $q$'emp:' || t.employee_id::text || ':audit:' || t.id::text$q$),
+    ('chat_messages',       'content',  $q$'chan:' || t.channel_id::text$q$),
+    ('hr_ticket_messages',  'content',  $q$'tkt:' || t.ticket_id::text$q$),
+    ('payslips', 'proventos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':proventos'$q$),
+    ('payslips', 'descontos',       $q$'slip:' || t.employee_id::text || ':' || t.mes || ':descontos'$q$),
+    ('payslips', 'total_proventos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_proventos'$q$),
+    ('payslips', 'total_descontos', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':total_descontos'$q$),
+    ('payslips', 'salario_liquido', $q$'slip:' || t.employee_id::text || ':' || t.mes || ':salario_liquido'$q$),
+    ('anonymous_feedback',  'message',     $q$'fb:' || t.id::text || ':message'$q$),
+    ('ai_analysis_cache',   'summary',     $q$'ai:cache:' || t.cache_key || ':summary'$q$),
+    ('ai_analysis_cache',   'alerts',      $q$'ai:cache:' || t.cache_key || ':alerts'$q$),
+    ('ai_analysis_history', 'summary',     $q$'ai:hist:' || t.id::text || ':summary'$q$),
+    ('ai_analysis_history', 'alerts',      $q$'ai:hist:' || t.id::text || ':alerts'$q$),
+    ('ai_chat_history',     'content',     $q$'ai:chat:' || t.id::text || ':content'$q$),
+    ('ai_decision_memory',  'description', $q$'ai:mem:' || t.id::text || ':description'$q$),
+    ('ai_decision_log',     'ai_message',  $q$'ail:' || t.id::text || ':ai_message'$q$),
+    ('ai_decision_log',     'evidence',    $q$'ail:' || t.id::text || ':evidence'$q$),
+    ('biometric_templates', 'template',    $q$'bio:' || t.employee_id::text$q$)
+  ) AS r (tbl, col, ctx);
+$$;
+
+REVOKE ALL ON FUNCTION nexus_encrypted_columns() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION employees_piso_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_cct     convencoes_coletivas;
+  v_hoje    DATE := (now() AT TIME ZONE 'America/Sao_Paulo')::DATE;
+  v_tipo    TEXT := lower(COALESCE(NEW.contract_type, 'clt'));
+  v_horas   NUMERIC;
+  v_piso    NUMERIC;
+  v_salario NUMERIC;
+BEGIN
+  IF COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.convencao_coletiva_id IS NULL OR v_tipo IN ('pj', 'estagio', 'estágio', 'aprendiz') OR public.status_bloqueia_acesso(NEW.status) THEN
+    RETURN NEW;
+  END IF;
+  v_salario := nexus_unwrap('emp:' || NEW.id::TEXT, NEW.salary)::NUMERIC;
+  IF TG_OP = 'UPDATE'
+     AND v_salario IS NOT DISTINCT FROM nexus_unwrap('emp:' || OLD.id::TEXT, OLD.salary)::NUMERIC
+     AND NEW.convencao_coletiva_id IS NOT DISTINCT FROM OLD.convencao_coletiva_id
+     AND NEW.work_load IS NOT DISTINCT FROM OLD.work_load
+     AND NEW.contract_type IS NOT DISTINCT FROM OLD.contract_type THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_cct FROM convencoes_coletivas WHERE id = NEW.convencao_coletiva_id;
+  IF NOT FOUND OR v_hoje < v_cct.vigencia_inicio OR v_hoje > v_cct.vigencia_fim THEN
+    RETURN NEW;
+  END IF;
+
+  v_horas := CASE WHEN NEW.work_load ~ '^[0-9]+h$' THEN least(substring(NEW.work_load FROM '^([0-9]+)h$')::NUMERIC, 44) ELSE 44 END;
+  v_piso := round(v_cct.piso_salarial * v_horas / 44, 2);
+
+  IF v_salario IS NOT NULL AND v_salario < v_piso THEN
+    RAISE EXCEPTION 'Salário de R$ % abaixo do piso de R$ % da convenção "%"%. A convenção coletiva tem força de lei (CF art. 7º, XXVI).',
+      replace(to_char(v_salario, 'FM9999990.00'), '.', ','), replace(to_char(v_piso, 'FM9999990.00'), '.', ','), v_cct.nome,
+      CASE WHEN v_horas < 44 THEN format(' (proporcional a %sh semanais — OJ 358 do TST)', v_horas) ELSE '' END
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_piso_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_piso_guard_trg ON employees;
+CREATE TRIGGER employees_piso_guard_trg
+  BEFORE INSERT OR UPDATE ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_piso_guard();
+
+CREATE OR REPLACE FUNCTION employees_estabilidade_guard()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_data DATE;
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+  IF NOT public.status_bloqueia_acesso(NEW.status) OR public.status_bloqueia_acesso(OLD.status) OR NEW.estabilidade_ate IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  v_data := COALESCE(NEW.termination_date, (now() AT TIME ZONE 'America/Sao_Paulo')::DATE);
+  IF v_data > NEW.estabilidade_ate THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.termination_type IS NULL THEN
+    RAISE EXCEPTION 'Colaborador com estabilidade até %: informe o tipo de rescisão (use a tela de Rescisão).', to_char(NEW.estabilidade_ate, 'DD/MM/YYYY')
+      USING ERRCODE = '23514';
+  END IF;
+  IF NEW.termination_type IN ('sem_justa_causa', 'acordo_mutuo', 'aprendiz_sem_justa_causa', 'aprendiz_desempenho', 'prazo_sem_justa_causa') THEN
+    RAISE EXCEPTION 'Colaborador com estabilidade até %: a dispensa sem justa causa nesse período é nula e obriga a reintegrar ou a indenizar todo o período.', to_char(NEW.estabilidade_ate, 'DD/MM/YYYY')
+      USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_estabilidade_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_estabilidade_guard_trg ON employees;
+CREATE TRIGGER employees_estabilidade_guard_trg
+  BEFORE UPDATE OF status ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_estabilidade_guard();
+
+SELECT nexus_refresh_employees_view();

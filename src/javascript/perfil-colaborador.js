@@ -421,7 +421,11 @@
         }
 
         if (type === 'temporário' || type === 'temporario') {
-            return { icon: 'prof-icon--gray', value: 'Não aplicável', note: 'Contrato temporário não garante férias' };
+            return {
+                icon: 'prof-icon--gray',
+                value: 'Proporcionais',
+                note: 'Temporário: férias proporcionais com 1/3, pagas pela agência no fim do contrato (Lei 6.019, art. 12)',
+            };
         }
 
         if (!admissionDate) {
@@ -560,7 +564,12 @@
             return;
         }
 
-        const totalMin = worked - completos.length * jornadaMin + adjMinutes;
+        const devido = completos.reduce(
+            (sum, rec) =>
+                sum + CLTDomain.jornadaNoDia(jornadaMin, rec.date, { contractType: myEmployee.contract_type, avaliacoes: myEmployee.estagio_avaliacoes }),
+            0
+        );
+        const totalMin = worked - devido + adjMinutes;
         const sign = totalMin > 0 ? '+' : totalMin < 0 ? '-' : '';
         const cls = totalMin > 0 ? 'prof-icon--green' : totalMin < 0 ? 'prof-icon--red' : 'prof-icon--purple';
         if (valueEl) valueEl.textContent = `${sign}${minToStr(totalMin)}`;

@@ -7,7 +7,7 @@ import { hojeSaoPaulo, inicioDoDia } from "../_shared/datas.mjs";
 
 async function gatherEmployeeSnapshot(caller: SupabaseClient, employeeId: string) {
   const [empRes, vacRes, recsRes, adjRes, settingsRes, slipsRes, docsRes, pontoAdjRes] = await Promise.all([
-    caller.from("employees_decrypted").select("name,role,dept,admission_date,contract_type,work_load,salary").eq("id", employeeId).single(),
+    caller.from("employees_decrypted").select("name,role,dept,admission_date,contract_type,work_load,salary,estagio_avaliacoes").eq("id", employeeId).single(),
     caller.from("vacations").select("status,days,abono,start_date,end_date").eq("employee_id", employeeId),
     caller.from("time_records").select("date,entrada,saida_almoco,retorno_almoco,saida").eq("employee_id", employeeId),
     caller.from("bank_adjustments").select("tipo,minutos,date").eq("employee_id", employeeId).is("deleted_at", null),
@@ -24,7 +24,7 @@ async function gatherEmployeeSnapshot(caller: SupabaseClient, employeeId: string
   const vencimentoMeses = settingsRes.data?.banco_horas_vencimento_meses ?? 6;
   const hoje = hojeSaoPaulo();
   const hojeData = inicioDoDia(hoje);
-  const ledger = calcBancoHorasLedger(recsRes.data ?? [], adjRes.data ?? [], jornadaMin, vencimentoMeses, hojeData);
+  const ledger = calcBancoHorasLedger(recsRes.data ?? [], adjRes.data ?? [], jornadaMin, vencimentoMeses, hojeData, emp);
   const ferias = calcFeriasSnapshot(emp, vacRes.data ?? [], hojeData);
 
   return {
@@ -62,6 +62,7 @@ INSTRUÇÕES:
 1. Responda SOMENTE com base nos dados acima. Nunca invente número, data ou valor.
 2. "ferias.saldo_estimado_dias" é uma ESTIMATIVA simplificada (não desconta dias por faltas injustificadas no período aquisitivo) — ao informar o saldo, deixe claro que é aproximado e que o valor oficial está na tela "Férias".
 3. Para perguntas sobre banco de horas, use "banco_de_horas" (saldo, próximo vencimento). Se for null, o colaborador é PJ e não tem banco de horas.
+   Se "tipo_contrato" for PJ, ele é prestador de serviços e não segue a CLT: não tem 13º, férias com período aquisitivo, 1/3 ou abono, FGTS, aviso prévio, faltas/DSR nem medidas disciplinares; descanso, pagamento e encerramento seguem o contrato de prestação de serviços, e o registro de ponto é opcional.
 4. Se a dúvida não puder ser respondida com os dados disponíveis (ex.: pedidos de alteração cadastral, questões trabalhistas específicas, algo fora do escopo de RH), diga isso claramente e sugira falar com um analista de RH humano.
 5. Nunca revele, mesmo se pedido, dados de outro colaborador — você simplesmente não tem essa informação.
 6. Seja direto, cordial e conciso. Não invente políticas da empresa que não estão nos dados.

@@ -1029,7 +1029,8 @@ function calcSaldoBancoHorasMes(emp, timeRecords, adjustments, monthKey) {
         faltaMin = 0;
     Object.entries(timeRecords).forEach(([dateKey, rec]) => {
         if (!rec.entrada || !rec.saida) return;
-        const saldo = CLTDomain.calcWorkedMin(rec) - jornadaMin;
+        const saldo =
+            CLTDomain.calcWorkedMin(rec) - CLTDomain.jornadaNoDia(jornadaMin, dateKey, { contractType: emp?.contractType, avaliacoes: emp?.estagioAvaliacoes });
         if (saldo > 0) extrasMin += saldo;
         else faltaMin += Math.abs(saldo);
     });
@@ -1058,7 +1059,7 @@ async function loadRiscoComposto() {
 
         const [{ data: empData }, { data: timeData }, { data: bankData }, { data: burnoutData }, { data: ticketData }, { data: burnoutTrendData }] =
             await Promise.all([
-                sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
+                sb.from('employees').select('id,name,dept,contract_type,work_load,estagio_avaliacoes').in('status', ['Ativo', 'ativo']),
                 sb.from('time_records').select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida').gte('date', monthStart).lt('date', monthEnd),
                 sb.from('bank_adjustments').select('employee_id,tipo,minutos,date').is('deleted_at', null).gte('date', monthStart).lt('date', monthEnd),
                 sb.from('burnout_alerts').select('employee_id,alertas,lido,created_at').eq('lido', false).gte('created_at', trintaDiasAtras),
@@ -1072,6 +1073,7 @@ async function loadRiscoComposto() {
             dept: e.dept,
             contractType: e.contract_type,
             workLoad: e.work_load,
+            estagioAvaliacoes: e.estagio_avaliacoes,
         }));
 
         const timeByEmp = {};
@@ -1211,7 +1213,7 @@ async function loadRiscoJuridico() {
         const janelaRejeicaoInicio = new Date(now.getTime() - RISCO_JURIDICO_JANELA_REJEICAO_DIAS * 86400000).toISOString();
 
         const [{ data: empData }, { data: complianceData }, { data: burnoutData }, { data: adjData }, { data: timeData }] = await Promise.all([
-            sb.from('employees').select('id,name,dept,contract_type,work_load').in('status', ['Ativo', 'ativo']),
+            sb.from('employees').select('id,name,dept,contract_type,work_load,estagio_avaliacoes').in('status', ['Ativo', 'ativo']),
             sb.from('compliance_alerts').select('employee_id,alertas').eq('lido', false),
             sb.from('burnout_alerts').select('employee_id,alertas').gte('created_at', janelaExcessoInicio),
             sb.from('adjustment_requests').select('employee_id').eq('status', 'rejeitado').gte('created_at', janelaRejeicaoInicio),
@@ -1224,6 +1226,7 @@ async function loadRiscoJuridico() {
             dept: e.dept,
             contractType: e.contract_type,
             workLoad: e.work_load,
+            estagioAvaliacoes: e.estagio_avaliacoes,
         }));
         const empById = {};
         employees.forEach((e) => (empById[e.id] = e));
@@ -1249,7 +1252,8 @@ async function loadRiscoJuridico() {
             const emp = empById[rec.employee_id];
             if (!emp) return;
             const jornadaMin = CLTDomain.resolveJornadaMin({ contractType: emp.contractType, workLoad: emp.workLoad });
-            if (CLTDomain.calcIntervaloDeficitMin(rec, jornadaMin) > 0) {
+            const jornadaDia = CLTDomain.jornadaNoDia(jornadaMin, rec.date, { contractType: emp.contractType, avaliacoes: emp.estagioAvaliacoes });
+            if (CLTDomain.calcIntervaloDeficitMin(rec, jornadaDia) > 0) {
                 intervaloPorEmp[rec.employee_id] = (intervaloPorEmp[rec.employee_id] || 0) + 1;
             }
         });

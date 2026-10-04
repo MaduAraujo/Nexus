@@ -19,7 +19,12 @@ const RequisitosDocumentos = {
         {
             value: 'Temporário',
             label: 'Temporário',
-            base: 'Lei 6.019/1974 e CLT, art. 443: registro e carteira de trabalho como no CLT, com contrato por prazo determinado (sem aviso prévio).',
+            base: 'Lei 6.019/1974: o empregador é a empresa de trabalho temporário, que registra, paga e guarda carteira, ficha e rescisão. Aqui fica o contrato com a agência (art. 9º), com o motivo e o prazo de até 180 dias, mais 90 de prorrogação (art. 10).',
+        },
+        {
+            value: 'Prazo determinado',
+            label: 'Prazo determinado',
+            base: 'CLT, arts. 443, 445 e 451: registro e carteira de trabalho como no CLT, com contrato escrito de até 2 anos, uma só prorrogação e sem aviso prévio no término.',
         },
         {
             value: 'PJ',

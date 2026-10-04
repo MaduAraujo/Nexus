@@ -10,9 +10,39 @@ describe('resolveJornadaMin', () => {
         assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'pj', workLoad: '40h' }), null);
     });
 
-    test('estágio/aprendiz usam jornada reduzida de 6h/dia', () => {
-        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'estagio', workLoad: '40h' }), 6 * 60);
-        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'aprendiz', workLoad: '40h' }), 6 * 60);
+    test('estágio segue a carga do termo (20h, 30h ou 40h) e cai em 6h fora disso (Lei 11.788 art. 10)', () => {
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'estagio', workLoad: '20h' }), 4 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'Estágio', workLoad: '30h' }), 6 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'estagio', workLoad: '40h' }), 8 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'estagio', workLoad: '44h' }), 6 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'estágio' }), 6 * 60);
+    });
+
+    test('período de provas inclui as duas pontas', () => {
+        const av = [{ inicio: '2026-06-10', fim: '2026-06-20' }];
+        assert.equal(CLTDomain.estagioEmProvas('2026-06-10', av), true);
+        assert.equal(CLTDomain.estagioEmProvas('2026-06-20T08:00:00', av), true);
+        assert.equal(CLTDomain.estagioEmProvas('2026-06-21', av), false);
+        assert.equal(CLTDomain.estagioEmProvas('', av), false);
+        assert.equal(CLTDomain.estagioEmProvas('2026-06-15', null), false);
+        assert.equal(CLTDomain.estagioEmProvas('2026-06-15', [{ inicio: '2026-06-10' }, null]), false);
+    });
+
+    test('jornada do estagiário cai pela metade em dia de prova (Lei 11.788 art. 10 § 2º)', () => {
+        const av = [{ inicio: '2026-06-10', fim: '2026-06-20' }];
+        assert.equal(CLTDomain.jornadaNoDia(360, '2026-06-15', { contractType: 'Estágio', avaliacoes: av }), 180);
+        assert.equal(CLTDomain.jornadaNoDia(360, '2026-06-25', { contractType: 'Estágio', avaliacoes: av }), 360);
+        assert.equal(CLTDomain.jornadaNoDia(480, '2026-06-15', { contractType: 'CLT', avaliacoes: av }), 480);
+        assert.equal(CLTDomain.jornadaNoDia(null, '2026-06-15', { contractType: 'Estágio', avaliacoes: av }), null);
+        assert.equal(CLTDomain.jornadaNoDia(undefined, '2026-06-15'), undefined);
+        assert.equal(CLTDomain.jornadaNoDia(360, '2026-06-15'), 360);
+    });
+
+    test('aprendiz segue a carga semanal com teto de 8h/dia (CLT art. 432)', () => {
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'aprendiz', workLoad: '30h' }), 6 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'aprendiz', workLoad: '40h' }), 8 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'Aprendiz', workLoad: '44h' }), 8 * 60);
+        assert.equal(CLTDomain.resolveJornadaMin({ contractType: 'aprendiz' }), 6 * 60);
     });
 
     test('escala 12x36 usa jornada de 12h/dia', () => {
@@ -310,6 +340,13 @@ describe('motivoInicioFeriasVedado (art. 134 §3º: início vedado nos 2 dias an
         assert.equal(vedado('2026-08-07', { contractType: 'estagio' }), null);
         assert.equal(vedado('2026-08-07', { contractType: 'estágio' }), null);
         assert.match(vedado('2026-08-07', { contractType: 'aprendiz' }), /descanso semanal/);
+    });
+
+    test('PJ não segue a CLT: o início do descanso não tem dia vedado', () => {
+        assert.equal(vedado('2026-08-07', { contractType: 'PJ' }), null);
+        assert.equal(CLTDomain.isPJ('pj'), true);
+        assert.equal(CLTDomain.isPJ('clt'), false);
+        assert.equal(CLTDomain.isPJ(undefined), false);
     });
 
     test('sem data não há o que vedar', () => {

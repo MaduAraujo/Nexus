@@ -314,6 +314,39 @@ describe('ponto-colaborador.html — ramos de regra que faltavam', () => {
         assert.equal(page.text('#ponto-status-text'), 'Jornada encerrada — 5h 30min registradas');
     });
 
+    test('PJ: ponto opcional — aviso visível, dia sem registro não é falta, sem DSR, sem compensação nem justificativa de falta', async () => {
+        const client = colabClient({
+            records: [{ employee_id: ANA.id, date: '2026-06-15', entrada: null, saida: null }],
+            extra: {
+                adjustment_requests: [
+                    { id: 'aj1', employee_id: ANA.id, date: '2026-06-15', tipo: 'falta', status: 'pendente', created_at: `${HOJE}T08:00:00-03:00` },
+                ],
+            },
+        });
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'pj';
+        page = await openPage('ponto-colaborador', { client, now: `${HOJE}T08:00:00-03:00` });
+        assert.equal(page.visible('#ponto-pj-aviso'), true);
+        assert.match(page.text('#ponto-pj-aviso'), /opcional/);
+        assert.equal(page.text('.saldo-card .saldo-label'), 'Horas registradas');
+        assert.equal(page.visible('#btn-bank-request'), false);
+        assert.ok(page.$('#ajuste-opcao-falta').classList.contains('hidden'));
+        const linha = page.$$('#historico-tbody tr').find((tr) => tr.textContent.includes('15/06/2026'));
+        assert.match(page.text(linha), /Sem registro/);
+        assert.doesNotMatch(page.text(linha), /Falta/);
+        assert.equal(linha.classList.contains('row-falta'), false);
+        assert.doesNotMatch(page.text('#section-clt'), /DSR/);
+        page.window.openModalBankRequest();
+        assert.equal(page.$('#modal-bank-request').classList.contains('open'), false);
+    });
+
+    test('CLT: sem aviso de ponto opcional e com compensação e justificativa de falta', async () => {
+        page = await openPage('ponto-colaborador', { client: colabClient(), now: `${HOJE}T08:00:00-03:00` });
+        assert.equal(page.visible('#ponto-pj-aviso'), false);
+        assert.equal(page.text('.saldo-card .saldo-label'), 'Saldo acumulado');
+        assert.equal(page.$('#btn-bank-request').classList.contains('hidden'), false);
+        assert.equal(page.$('#ajuste-opcao-falta').classList.contains('hidden'), false);
+    });
+
     test('histórico: dia sem entrada é falta; dia corrigido pelo RH aparece como ajustado', async () => {
         const records = [
             { employee_id: ANA.id, date: '2026-06-15', entrada: null, saida: null },

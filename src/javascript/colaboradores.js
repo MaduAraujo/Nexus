@@ -39,8 +39,22 @@ function dbToEmployee(row) {
         probationEndDate: row.probation_end_date,
         isAvisoPrevio: row.is_aviso_previo ? 'sim' : 'nao',
         avisoPrevioEndDate: row.aviso_previo_end_date,
+        contractEndDate: row.contract_end_date,
+        aprendizFundamentalCompleto: !!row.aprendiz_fundamental_completo,
+        estagioNivel: row.estagio_nivel,
+        estagioObrigatorio: row.estagio_obrigatorio,
+        estagioAlternancia: !!row.estagio_alternancia,
+        estagioSupervisorId: row.estagio_supervisor_id,
+        estagioInstituicao: row.estagio_instituicao,
+        estagioAvaliacoes: Array.isArray(row.estagio_avaliacoes) ? row.estagio_avaliacoes : [],
         pensaoAlimenticia: row.pensao_alimenticia ? 'sim' : 'nao',
         tipoPensao: row.tipo_pensao,
+        pensaoValor: row.pensao_valor ?? null,
+        convencaoColetivaId: row.convencao_coletiva_id || '',
+        adicionalPericulosidade: !!row.adicional_periculosidade,
+        grauInsalubridade: row.grau_insalubridade || '',
+        estabilidadeMotivo: row.estabilidade_motivo || '',
+        estabilidadeAte: row.estabilidade_ate || '',
         valeTransporte: row.vale_transporte ? 'sim' : 'nao',
         valorPassagem: row.valor_passagem,
         conducoesdia: row.conducoes_dia,
@@ -57,6 +71,42 @@ function dbToEmployee(row) {
         avatarUrl: row.avatar_url,
         lastAccess: row.last_access,
         authUserId: row.auth_user_id,
+    };
+}
+
+function parseNumeroBR(valor) {
+    const texto = String(valor ?? '')
+        .replace(/[R$\s]/g, '')
+        .trim();
+    if (!texto) return null;
+    const normalizado = texto.includes(',') ? texto.replace(/\./g, '').replace(',', '.') : texto;
+    const n = Number(normalizado);
+    return Number.isFinite(n) ? n : null;
+}
+
+const ROTULO_PENSAO = {
+    percentual: 'Percentual do salário líquido (%)',
+    'valor-fixo': 'Valor mensal (R$)',
+    'salario-minimo': 'Percentual do salário mínimo (%)',
+};
+
+function atualizarRotuloPensao() {
+    const tipo = document.querySelector('input[name="tipo-pensao"]:checked')?.value || 'percentual';
+    document.getElementById('pensao-valor-label').textContent = ROTULO_PENSAO[tipo];
+}
+
+function semDireitosClt(contractType) {
+    return CLTDomain.isPJ(contractType) || CLTDomain.isEstagio(contractType);
+}
+
+function direitosCltToDb(emp) {
+    const fora = semDireitosClt(emp.contractType);
+    const estavel = !fora && !!emp.estabilidadeMotivo && !!emp.estabilidadeAte;
+    return {
+        adicional_periculosidade: !fora && !!emp.adicionalPericulosidade,
+        grau_insalubridade: fora ? null : emp.grauInsalubridade || null,
+        estabilidade_motivo: estavel ? emp.estabilidadeMotivo : null,
+        estabilidade_ate: estavel ? emp.estabilidadeAte : null,
     };
 }
 
@@ -97,8 +147,15 @@ function employeeToDb(emp) {
         probation_end_date: emp.isProbation === 'sim' ? emp.probationEndDate || null : null,
         is_aviso_previo: emp.isAvisoPrevio === 'sim',
         aviso_previo_end_date: emp.isAvisoPrevio === 'sim' ? emp.avisoPrevioEndDate || null : null,
+        contract_end_date: temTerminoContrato(emp.contractType) ? emp.contractEndDate || null : null,
+        aprendiz_fundamental_completo: CLTDomain.isAprendiz(emp.contractType) && !!emp.aprendizFundamentalCompleto,
+        ...(emp.birthDate ? { birth_date: emp.birthDate } : {}),
+        ...estagioToDb(emp),
         pensao_alimenticia: emp.pensaoAlimenticia === 'sim',
         tipo_pensao: emp.pensaoAlimenticia === 'sim' ? emp.tipoPensao || null : null,
+        pensao_valor: emp.pensaoAlimenticia === 'sim' && Number(emp.pensaoValor) > 0 ? String(emp.pensaoValor) : null,
+        convencao_coletiva_id: emp.convencaoColetivaId || null,
+        ...direitosCltToDb(emp),
         vale_transporte: emp.valeTransporte === 'sim',
         valor_passagem: emp.valeTransporte === 'sim' ? parseVal(emp.valorPassagem) : null,
         conducoes_dia: emp.valeTransporte === 'sim' ? parseInt(emp.conducoesdia) || null : null,
@@ -112,6 +169,31 @@ function employeeToDb(emp) {
         agencia: emp.formaPagamento === 'conta' ? emp.agencia || null : null,
         conta: emp.formaPagamento === 'conta' ? emp.conta || null : null,
         avatar_color: emp.avatarColor || getRandomAvatarColor(),
+    };
+}
+
+function temTerminoContrato(contractType) {
+    return CLTDomain.temTerminoContrato(contractType);
+}
+
+function estagioToDb(emp) {
+    if (!EstagioDomain.isEstagio(emp.contractType)) {
+        return {
+            estagio_nivel: null,
+            estagio_obrigatorio: null,
+            estagio_alternancia: false,
+            estagio_supervisor_id: null,
+            estagio_instituicao: null,
+            estagio_avaliacoes: [],
+        };
+    }
+    return {
+        estagio_nivel: emp.estagioNivel || null,
+        estagio_obrigatorio: typeof emp.estagioObrigatorio === 'boolean' ? emp.estagioObrigatorio : null,
+        estagio_alternancia: !!emp.estagioAlternancia,
+        estagio_supervisor_id: emp.estagioSupervisorId || null,
+        estagio_instituicao: (emp.estagioInstituicao || '').trim() || null,
+        estagio_avaliacoes: emp.estagioAvaliacoes || [],
     };
 }
 
@@ -899,9 +981,9 @@ async function readImportFile(file) {
 
 const CAMPOS_DE_OPCAO = {
     contractType: {
-        opcoes: ['CLT', 'PJ', 'Estágio', 'Aprendiz', 'Temporário'],
-        apelidos: { estagiario: 'Estágio', temporario: 'Temporário' },
-        erro: 'Tipo de contrato inválido (use CLT, PJ, Estágio, Aprendiz ou Temporário).',
+        opcoes: ['CLT', 'PJ', 'Estágio', 'Aprendiz', 'Temporário', 'Prazo determinado'],
+        apelidos: { estagiario: 'Estágio', temporario: 'Temporário', determinado: 'Prazo determinado', contratoaprazo: 'Prazo determinado' },
+        erro: 'Tipo de contrato inválido (use CLT, PJ, Estágio, Aprendiz, Temporário ou Prazo determinado).',
     },
     workLoad: {
         opcoes: ['44h', '40h', '30h', '20h', '12x36'],
@@ -1256,6 +1338,7 @@ window.openDrawer = function (id) {
     document.getElementById('view-salary').textContent = formatCurrency(emp.salary);
     document.getElementById('view-date').textContent = formatDateBR(emp.admissionDate);
     document.getElementById('view-contract').textContent = emp.contractType || '—';
+    document.getElementById('menu-disciplinary')?.classList.toggle('hidden', CLTDomain.isPJ(emp.contractType));
     document.getElementById('view-email').textContent = emp.email;
     document.getElementById('view-raca-cor').textContent = emp.racaCor || '—';
 
@@ -2154,6 +2237,103 @@ function populateManagerSelect(excludeId) {
     sel.value = current;
 }
 
+let estagioProvas = [];
+
+function populateEstagioSupervisorSelect(excludeId) {
+    const sel = document.getElementById('estagio-supervisor');
+    const current = sel.value;
+    sel.innerHTML =
+        '<option value="">Selecione</option>' +
+        employees
+            .filter((e) => e.status !== 'Inativo' && e.id !== excludeId && !EstagioDomain.isEstagio(e.contractType))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((e) => `<option value="${e.id}">${escapeHtml(e.name)}${e.role ? ' — ' + escapeHtml(e.role) : ''}</option>`)
+            .join('');
+    sel.value = current;
+}
+
+function renderEstagioProvas() {
+    const lista = document.getElementById('estagio-provas-lista');
+    lista.innerHTML = estagioProvas
+        .map(
+            (p, i) =>
+                `<li>${formatDateBR(p.inicio)} → ${formatDateBR(p.fim)}<button type="button" data-click="handleRemoveEstagioProva" data-click-args="${dargs(i)}" aria-label="Remover período de provas de ${formatDateBR(p.inicio)} a ${formatDateBR(p.fim)}"><i class="fas fa-xmark"></i></button></li>`
+        )
+        .join('');
+}
+
+window.handleAddEstagioProva = function () {
+    const inicio = getDateFieldValue('estagio-prova-inicio');
+    const fim = getDateFieldValue('estagio-prova-fim');
+    if (!inicio || !fim) {
+        showToast('Período Incompleto', 'Informe o início e o fim do período de provas.', 'error');
+        return;
+    }
+    if (fim < inicio) {
+        showToast('Período Inválido', 'O fim do período de provas deve ser igual ou posterior ao início.', 'error');
+        return;
+    }
+    estagioProvas = [...estagioProvas, { inicio, fim }].sort((a, b) => a.inicio.localeCompare(b.inicio));
+    setDateFieldValue(document.getElementById('estagio-prova-inicio'), '');
+    setDateFieldValue(document.getElementById('estagio-prova-fim'), '');
+    renderEstagioProvas();
+};
+
+window.handleRemoveEstagioProva = function (index) {
+    estagioProvas = estagioProvas.filter((_, i) => i !== index);
+    renderEstagioProvas();
+};
+
+function syncEstagioSection() {
+    const tipo = document.getElementById('contract-type')?.value;
+    const termino = document.getElementById('contrato-termino-details');
+    if (termino) termino.style.display = temTerminoContrato(tipo) ? 'block' : 'none';
+    const terminoHint = document.getElementById('contrato-termino-hint');
+    if (terminoHint) {
+        terminoHint.textContent = CLTDomain.isTemporario(tipo)
+            ? 'Temporário (Lei 6.019/1974): até 180 dias, mais 90 de prorrogação. Quem paga salário e verbas é a empresa de trabalho temporário; não cabe contrato de experiência.'
+            : CLTDomain.isPrazoDeterminado(tipo)
+              ? 'Prazo determinado (CLT art. 443): até 2 anos, com uma só prorrogação. Um novo contrato a prazo em menos de 6 meses vira contrato por prazo indeterminado (art. 452).'
+              : '';
+        terminoHint.classList.toggle('hidden', !terminoHint.textContent);
+    }
+    const aprendiz = document.getElementById('aprendiz-details');
+    if (aprendiz) aprendiz.style.display = CLTDomain.isAprendiz(tipo) ? 'block' : 'none';
+    const details = document.getElementById('estagio-details');
+    const ativo = EstagioDomain.isEstagio(tipo);
+    details.style.display = ativo ? 'block' : 'none';
+    details.classList.toggle('conditional-visible', ativo);
+    if (ativo) populateEstagioSupervisorSelect(document.getElementById('employee-id')?.value || null);
+}
+
+function lerEstagioDoFormulario() {
+    const obrigatorio = document.querySelector('input[name="estagio-obrigatorio"]:checked')?.value;
+    return {
+        estagioNivel: document.getElementById('estagio-nivel')?.value || '',
+        estagioInstituicao: document.getElementById('estagio-instituicao')?.value.trim() || '',
+        estagioSupervisorId: document.getElementById('estagio-supervisor')?.value || '',
+        estagioObrigatorio: obrigatorio === 'sim' ? true : obrigatorio === 'nao' ? false : null,
+        estagioAlternancia: document.querySelector('input[name="estagio-alternancia"]:checked')?.value === 'sim',
+        estagioAvaliacoes: estagioProvas.map((p) => ({ ...p })),
+    };
+}
+
+function restaurarEstagioNoFormulario(emp) {
+    setDateFieldValue(document.getElementById('contract-end-date'), temTerminoContrato(emp.contractType) ? emp.contractEndDate || '' : '');
+    const estagio = EstagioDomain.isEstagio(emp.contractType);
+    estagioProvas = estagio ? (emp.estagioAvaliacoes || []).map((p) => ({ ...p })) : [];
+    syncEstagioSection();
+    renderEstagioProvas();
+    if (!estagio) return;
+    document.getElementById('estagio-nivel').value = emp.estagioNivel || '';
+    document.getElementById('estagio-instituicao').value = emp.estagioInstituicao || '';
+    document.getElementById('estagio-supervisor').value = emp.estagioSupervisorId || '';
+    if (typeof emp.estagioObrigatorio === 'boolean') {
+        document.querySelector(`input[name="estagio-obrigatorio"][value="${emp.estagioObrigatorio ? 'sim' : 'nao'}"]`).checked = true;
+    }
+    document.querySelector(`input[name="estagio-alternancia"][value="${emp.estagioAlternancia ? 'sim' : 'nao'}"]`).checked = true;
+}
+
 function setFormHeader(icon, title) {
     const iconEl = document.getElementById('form-header-icon');
     const titleEl = document.getElementById('form-title');
@@ -2311,7 +2491,84 @@ function setupFormListener() {
             }
         }
 
+        const contractTypeVal = document.getElementById('contract-type').value;
+        const estagioDados = EstagioDomain.isEstagio(contractTypeVal) ? lerEstagioDoFormulario() : {};
+        if (EstagioDomain.isEstagio(contractTypeVal)) {
+            const anterior = idField ? employees.find((e) => e.id === idField) : null;
+            const erroEstagio = EstagioDomain.validar({
+                id: idField || null,
+                admissionDate: admissionDateVal,
+                birthDate: getDateFieldValue('data-nascimento') || anterior?.birthDate || null,
+                workLoad: document.getElementById('work-load').value,
+                pcd: pcd === 'sim',
+                nivel: estagioDados.estagioNivel,
+                obrigatorio: estagioDados.estagioObrigatorio,
+                alternancia: estagioDados.estagioAlternancia,
+                instituicao: estagioDados.estagioInstituicao,
+                fim: getDateFieldValue('contract-end-date'),
+                supervisorId: estagioDados.estagioSupervisorId,
+                salary: Number(document.getElementById('salary').value.replace(/\D/g, '')) / 100,
+                valeTransporte: valeTransporte === 'sim',
+                avaliacoes: estagioDados.estagioAvaliacoes,
+            });
+            if (erroEstagio) {
+                showToast('Regra do Estágio', erroEstagio, 'error');
+                return;
+            }
+        }
+        const anteriorAprendiz = idField ? employees.find((e) => e.id === idField) : null;
+        const birthDateVal = getDateFieldValue('data-nascimento') || anteriorAprendiz?.birthDate || '';
+        const fundamentalCompleto = !!document.getElementById('aprendiz-fundamental')?.checked;
+        if (CLTDomain.isAprendiz(contractTypeVal)) {
+            const errosAprendiz = CLTDomain.validarAprendiz({
+                birthDate: birthDateVal,
+                admissionDate: admissionDateVal,
+                contractEndDate: getDateFieldValue('contract-end-date'),
+                pcd: pcd === 'sim',
+                workLoad: document.getElementById('work-load').value,
+                fundamentalCompleto,
+                salary: Number(document.getElementById('salary').value.replace(/\D/g, '')) / 100,
+                salarioMinimo: window.TABELA_FISCAL?.salarioMinimo?.valor,
+            });
+            if (errosAprendiz.length) {
+                showToast('Regra do Aprendiz', errosAprendiz[0], 'error');
+                return;
+            }
+        }
+
+        const estabilidadeMotivoVal = document.getElementById('estabilidade-motivo')?.value || '';
+        const estabilidadeAteVal = getDateFieldValue('estabilidade-ate');
+        if (!semDireitosClt(contractTypeVal) && !!estabilidadeMotivoVal !== !!estabilidadeAteVal) {
+            showToast('Estabilidade', 'Informe o motivo e a data final da estabilidade juntos (ou deixe os dois em branco).', 'error');
+            return;
+        }
+
+        const tipoPensaoVal = document.querySelector('input[name="tipo-pensao"]:checked')?.value || '';
+        const pensaoValorVal = parseNumeroBR(document.getElementById('pensao-valor')?.value);
+        if (pensaoAlimenticia === 'sim') {
+            const erroPensao = CLTDomain.validarPensao({ tipo: tipoPensaoVal, valor: pensaoValorVal });
+            if (erroPensao) {
+                showToast('Pensão Alimentícia', erroPensao, 'error');
+                return;
+            }
+        }
+
+        const erroContratoAPrazo = CLTDomain.validarContratoAPrazo({
+            contractType: contractTypeVal,
+            admissionDate: admissionDateVal,
+            contractEndDate: getDateFieldValue('contract-end-date'),
+            isProbation: isProbation === 'sim',
+        });
+        if (erroContratoAPrazo) {
+            showToast('Regra do Contrato', erroContratoAPrazo, 'error');
+            return;
+        }
+
         const empData = {
+            ...estagioDados,
+            contractEndDate: temTerminoContrato(contractTypeVal) ? getDateFieldValue('contract-end-date') : '',
+            birthDate: birthDateVal,
+            aprendizFundamentalCompleto: fundamentalCompleto,
             name: document.getElementById('name').value.trim(),
             role: document.getElementById('role').value.trim(),
             cpf: cpfDigitado,
@@ -2339,7 +2596,13 @@ function setupFormListener() {
             isAvisoPrevio,
             avisoPrevioEndDate: isAvisoPrevio === 'sim' ? getDateFieldValue('aviso-previo-end-date') : '',
             pensaoAlimenticia,
-            tipoPensao: pensaoAlimenticia === 'sim' ? document.querySelector('input[name="tipo-pensao"]:checked')?.value || '' : '',
+            tipoPensao: pensaoAlimenticia === 'sim' ? tipoPensaoVal : '',
+            pensaoValor: pensaoAlimenticia === 'sim' ? pensaoValorVal : null,
+            convencaoColetivaId: document.getElementById('convencao-coletiva')?.value || '',
+            adicionalPericulosidade: document.getElementById('rem-periculosidade')?.value === 'sim',
+            grauInsalubridade: document.getElementById('rem-insalubridade')?.value || '',
+            estabilidadeMotivo: estabilidadeMotivoVal,
+            estabilidadeAte: estabilidadeAteVal,
             valeTransporte,
             valorPassagem: valeTransporte === 'sim' ? document.getElementById('valor-passagem')?.value || '' : '',
             conducoesdia: valeTransporte === 'sim' ? document.getElementById('conducoes-dia')?.value || '' : '',
@@ -2535,7 +2798,9 @@ window.submitPromotion = async function () {
 
     if (btn) btn.disabled = true;
     try {
-        const { error } = await sb.from('employees').update({ role: newRole, contract_type: newContractType, salary: newSalary }).eq('id', id);
+        const atualizacao = { role: newRole, contract_type: newContractType, salary: newSalary };
+        if (contractChanged && temTerminoContrato(emp.contractType) && !temTerminoContrato(newContractType)) atualizacao.contract_end_date = null;
+        const { error } = await sb.from('employees').update(atualizacao).eq('id', id);
         if (error) throw error;
         await logEmployeeEdit(id, emp.name, changes);
 
@@ -2689,6 +2954,135 @@ window.deleteJobTitle = async function (id) {
     renderJobTitlesList();
     await fetchJobTitlesPublic();
     showToast('Cargo Excluído!', 'O cargo foi removido do catálogo.', 'error');
+};
+
+let convencoes = [];
+
+async function fetchConvencoes() {
+    const { data } = await sb.from('convencoes_coletivas').select('*').order('vigencia_fim', { ascending: false });
+    convencoes = data || [];
+}
+
+function rotuloVigencia(cct) {
+    const fmt = (d) => d.split('-').reverse().join('/');
+    const hoje = localISODate(new Date());
+    const situacao = CLTDomain.convencaoVigente(cct, hoje) ? 'vigente' : cct.vigencia_fim < hoje ? 'vencida' : 'ainda não começou';
+    return { texto: `${fmt(cct.vigencia_inicio)} a ${fmt(cct.vigencia_fim)}`, situacao };
+}
+
+function populateConvencaoSelect(selecionada) {
+    const select = document.getElementById('convencao-coletiva');
+    select.innerHTML =
+        '<option value="">Nenhuma</option>' +
+        convencoes
+            .map(
+                (c) =>
+                    `<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome)} — piso ${escapeHtml(formatCurrency(c.piso_salarial))} (${rotuloVigencia(c).situacao})</option>`
+            )
+            .join('');
+    select.value = convencoes.some((c) => c.id === selecionada) ? selecionada : '';
+}
+
+function abaixoDoPiso(cct) {
+    if (!CLTDomain.convencaoVigente(cct, localISODate(new Date()))) return [];
+    return employees.filter(
+        (e) =>
+            e.convencaoColetivaId === cct.id &&
+            e.status !== 'Inativo' &&
+            !semDireitosClt(e.contractType) &&
+            !CLTDomain.isAprendiz(e.contractType) &&
+            Number(e.salary) < CLTDomain.pisoProporcional({ piso: cct.piso_salarial, workLoad: e.workLoad })
+    );
+}
+
+function renderConvencoesList() {
+    const wrap = document.getElementById('convencoes-list');
+    if (!convencoes.length) {
+        wrap.innerHTML = `<p class="onb-empty">Nenhuma convenção cadastrada ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = convencoes
+        .map((c) => {
+            const vig = rotuloVigencia(c);
+            const vinculados = employees.filter((e) => e.convencaoColetivaId === c.id && e.status !== 'Inativo').length;
+            const abaixo = abaixoDoPiso(c);
+            const alerta = abaixo.length
+                ? `<div class="onb-chip-desc cct-alerta" role="alert">${abaixo.length} colaborador${abaixo.length > 1 ? 'es' : ''} abaixo do piso: ${escapeHtml(abaixo.map((e) => e.name).join(', '))}</div>`
+                : '';
+            const badge = vig.situacao === 'vigente' ? '' : `<span class="jt-inactive-badge">${escapeHtml(vig.situacao)}</span>`;
+            const meta = [c.sindicato, vig.texto].filter(Boolean).join(' · ');
+            return `<div class="onb-chip">
+                <div class="onb-chip-body">
+                    <div class="onb-chip-title">${escapeHtml(c.nome)}${badge}</div>
+                    <div class="onb-chip-desc">${escapeHtml(meta)} · piso ${escapeHtml(formatCurrency(c.piso_salarial))} · ${vinculados} vinculado${vinculados === 1 ? '' : 's'}</div>
+                    ${alerta}
+                </div>
+                <button type="button" data-click="deleteConvencao" data-click-args="${dargs(c.id)}" title="Excluir" aria-label="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        })
+        .join('');
+}
+
+const CCT_CAMPOS = ['cct-add-nome', 'cct-add-sindicato', 'cct-add-inicio', 'cct-add-fim', 'cct-add-piso'];
+
+window.openConvencoesModal = async function () {
+    document.getElementById('convencoes-list').innerHTML = `<p class="onb-empty">Carregando…</p>`;
+    document.getElementById('convencoes-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    await fetchConvencoes();
+    renderConvencoesList();
+};
+
+window.closeConvencoesModal = function () {
+    document.getElementById('convencoes-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    CCT_CAMPOS.forEach((id) => (document.getElementById(id).value = ''));
+};
+
+window.addConvencao = async function () {
+    const nome = document.getElementById('cct-add-nome').value.trim();
+    const inicio = document.getElementById('cct-add-inicio').value;
+    const fim = document.getElementById('cct-add-fim').value;
+    const piso = parseNumeroBR(document.getElementById('cct-add-piso').value);
+    if (!nome || !inicio || !fim || !(piso > 0)) {
+        showToast('Campos obrigatórios', 'Informe o nome, a vigência e o piso salarial.', 'warning');
+        return;
+    }
+    const doisAnos = new Date(`${inicio}T00:00:00`);
+    doisAnos.setFullYear(doisAnos.getFullYear() + 2);
+    if (fim < inicio || fim > localISODate(doisAnos)) {
+        showToast('Vigência inválida', 'O fim da vigência deve ser depois do início e em no máximo 2 anos (CLT art. 614 §3º).', 'warning');
+        return;
+    }
+    const sindicato = document.getElementById('cct-add-sindicato').value.trim() || null;
+    const { error } = await sb.from('convencoes_coletivas').insert({ nome, sindicato, vigencia_inicio: inicio, vigencia_fim: fim, piso_salarial: piso });
+    if (error) {
+        showToast('Erro!', error.code === '23505' ? 'Já existe uma convenção com esse nome.' : 'Não foi possível adicionar a convenção.', 'error');
+        return;
+    }
+    CCT_CAMPOS.forEach((id) => (document.getElementById(id).value = ''));
+    await fetchConvencoes();
+    renderConvencoesList();
+    populateConvencaoSelect(document.getElementById('convencao-coletiva').value);
+    showToast('Convenção Adicionada!', `"${nome}" já pode ser vinculada aos colaboradores.`, 'success');
+};
+
+window.deleteConvencao = async function (id) {
+    if (!confirm('Excluir esta convenção? Os colaboradores vinculados ficam sem convenção.')) return;
+    const { error } = await sb.from('convencoes_coletivas').delete().eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível excluir a convenção.', 'error');
+        return;
+    }
+    employees.forEach((e) => {
+        if (e.convencaoColetivaId === id) e.convencaoColetivaId = '';
+    });
+    await fetchConvencoes();
+    renderConvencoesList();
+    populateConvencaoSelect(document.getElementById('convencao-coletiva').value);
+    showToast('Convenção Excluída!', 'A convenção foi removida.', 'error');
 };
 
 const TRAINING_STATUS_LABEL = {
@@ -3004,6 +3398,14 @@ window.handleOpenDisciplinary = async function () {
     if (!emp) return;
     document.getElementById('drawer-dropdown')?.classList.remove('show');
     backToMainMenu();
+    if (CLTDomain.isPJ(emp.contractType)) {
+        showToast(
+            'Contrato PJ',
+            'Prestador PJ não está sujeito a advertência ou suspensão. Descumprimentos são tratados pelas cláusulas do contrato de prestação de serviços.',
+            'warning'
+        );
+        return;
+    }
 
     disciplinaryEmployeeId = id;
     const nameEl = document.getElementById('disciplinary-emp-name');
@@ -3344,6 +3746,10 @@ window.editEmployee = function (id) {
         const genderRadio = document.querySelector(`input[name="sexo"][value="${emp.gender}"]`);
         if (genderRadio) genderRadio.checked = true;
     }
+    setDateFieldValue(document.getElementById('data-nascimento'), emp.birthDate || '');
+    const fundamental = document.getElementById('aprendiz-fundamental');
+    if (fundamental) fundamental.checked = !!emp.aprendizFundamentalCompleto;
+    restaurarEstagioNoFormulario(emp);
     restoreConditionalField('em-experiencia', emp.isProbation, 'experiencia-details');
     if (emp.isProbation === 'sim') setDateFieldValue(document.getElementById('probation-end-date'), emp.probationEndDate || '');
     restoreConditionalField('em-aviso-previo', emp.isAvisoPrevio, 'aviso-previo-details');
@@ -3360,6 +3766,17 @@ window.editEmployee = function (id) {
         const r = document.querySelector(`input[name="tipo-pensao"][value="${emp.tipoPensao}"]`);
         if (r) r.checked = true;
     }
+    document.getElementById('pensao-valor').value = emp.pensaoValor ? String(emp.pensaoValor).replace('.', ',') : '';
+    atualizarRotuloPensao();
+    populateConvencaoSelect(emp.convencaoColetivaId);
+    const periculosidade = document.getElementById('rem-periculosidade');
+    if (periculosidade) periculosidade.value = emp.adicionalPericulosidade ? 'sim' : 'nao';
+    const insalubridade = document.getElementById('rem-insalubridade');
+    if (insalubridade) insalubridade.value = emp.grauInsalubridade || '';
+    const estabilidadeMotivo = document.getElementById('estabilidade-motivo');
+    if (estabilidadeMotivo) estabilidadeMotivo.value = emp.estabilidadeMotivo || '';
+    const estabilidadeAte = document.getElementById('estabilidade-ate');
+    if (estabilidadeAte) setDateFieldValue(estabilidadeAte, emp.estabilidadeAte || '');
     restoreConditionalField('vale-transporte', emp.valeTransporte, 'vale-transporte-details');
     if (emp.valeTransporte === 'sim') {
         if (document.getElementById('valor-passagem')) document.getElementById('valor-passagem').value = maskedBRL(emp.valorPassagem);
@@ -3495,6 +3912,7 @@ function setupConditionalFields() {
     setupToggleField('possui-dependentes', 'sim', 'dependentes-details');
     setupToggleField('pcd', 'sim', 'pcd-details');
     setupToggleField('pensao-alimenticia', 'sim', 'pensao-details');
+    document.querySelectorAll('input[name="tipo-pensao"]').forEach((r) => r.addEventListener('change', atualizarRotuloPensao));
     setupToggleField('vale-transporte', 'sim', 'vale-transporte-details');
     setupPaymentMethodToggle();
     setupBancoOutroToggle();
@@ -3574,7 +3992,11 @@ function setupBancoOutroToggle() {
 }
 
 function resetConditionalFields() {
+    estagioProvas = [];
+    renderEstagioProvas();
     [
+        'contrato-termino-details',
+        'estagio-details',
         'experiencia-details',
         'aviso-previo-details',
         'seguro-vida-details',
@@ -3675,7 +4097,7 @@ function setupCepListener() {
 }
 
 function setupSalaryMask() {
-    ['salary', 'rem-salario', 'promote-salary', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
+    ['salary', 'promote-salary', 'jt-add-salary-min', 'jt-add-salary-max'].forEach((id) => {
         const input = document.getElementById(id);
         input.type = 'text';
         input.inputMode = 'numeric';
@@ -3749,10 +4171,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!(await requireRhAccess())) return;
     await fetchEmployees();
     await fetchJobTitlesPublic();
+    await fetchConvencoes();
+    populateConvencaoSelect('');
     await fetchTrainingsCatalogPublic();
     await fetchExpiringDocuments();
     await fetchAdmissionalDocTypes();
     document.getElementById('contract-type')?.addEventListener('change', () => {
+        syncEstagioSection();
         renderRegDocTypeList();
         renderRegDocList();
     });
@@ -3775,7 +4200,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCepMask();
     setupSalaryMask();
     setupPisPasepMask();
-    setupCurrencyMask('rem-hora-extra');
     setupCurrencyMask('ben-vale-refeicao');
     setupCurrencyMask('ben-vale-alimentacao');
     setupCurrencyMask('valor-passagem');

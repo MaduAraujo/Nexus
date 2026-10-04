@@ -158,10 +158,30 @@ describe('Férias no banco — o que o colaborador pede passa pelas regras da CL
     });
 
     test('estagiário segue a Lei do Estágio: pode começar na sexta, mas não vende abono', async () => {
-        await cadastro({ contract_type: 'estagio' });
+        await withServiceRole((db) =>
+            db.query(
+                `UPDATE employees SET contract_type = 'Estágio', work_load = '30h', admission_date = $2::date, contract_end_date = $2::date + 700,
+                        estagio_nivel = 'superior', estagio_obrigatorio = true, estagio_instituicao = 'Universidade Teste', estagio_supervisor_id = $3
+                  WHERE id = $1`,
+                [E_A, somar(hoje, -400), E_GESTOR]
+            )
+        );
         const { rows } = await pedir(U_A, { inicio: proximaSexta(somar(hoje, 35)) });
         assert.equal(rows[0].status, 'pendente');
         await assert.rejects(pedir(U_A, { inicio: inicioLivre(somar(hoje, 80)), abono: true }), { ...REGRA, message: /Sem abono pecuniário/ });
+    });
+
+    test('PJ não segue a CLT: começa na sexta, menos de 5 dias e sem limite de frações, mas sem abono', async () => {
+        await cadastro({ contract_type: 'pj', admission_date: somar(hoje, -425) });
+        const sexta = proximaSexta(somar(hoje, 35));
+        const { rows } = await pedir(U_A, { inicio: sexta, dias: 3 });
+        assert.equal(rows[0].status, 'pendente');
+        for (const n of [1, 2, 3]) {
+            const r = await pedir(U_A, { inicio: inicioLivre(somar(sexta, 10 * n)), dias: 2 });
+            assert.equal(r.rows[0].status, 'pendente', `pedido ${n + 1}`);
+        }
+        await assert.rejects(pedir(U_A, { inicio: inicioLivre(somar(sexta, 60)), abono: true }), { ...REGRA, message: /Contrato PJ não tem abono/ });
+        await assert.rejects(pedir(U_A, { inicio: somar(hoje, 10), dias: 3 }), { ...REGRA, message: /30 dias de antecedência/ });
     });
 
     test('frações (art. 134 §1º): a terceira sem nenhuma de 14 dias e a quarta são recusadas; abono só uma vez por ciclo', async () => {

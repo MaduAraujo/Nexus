@@ -14,6 +14,7 @@ let rhUser = null;
 let currentSlipData = null;
 const selectedIds = new Set();
 let lastRescisaoCalc = null;
+let bancoVencimentoMeses = 6;
 
 document.addEventListener('DOMContentLoaded', async () => {
     setLoading(true);
@@ -48,27 +49,30 @@ function setLoading(show) {
 }
 
 async function loadData() {
-    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }, { data: vacData }, { data: reciboData }] = await Promise.all([
-        sb
-            .from('employees_decrypted')
-            .select(
-                'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao,avatar_url'
-            )
-            .in('status', ['Ativo', 'ativo'])
-            .order('name'),
-        sb.from('payslips_decrypted').select('*').eq('mes', currentMonth),
-        sb
-            .from('vacations')
-            .select('employee_id,start_date,end_date,days,abono')
-            .in('status', ['aprovado', 'concluido'])
-            .lte('start_date', lastDayOfMonthKey(currentMonth))
-            .gte('end_date', `${currentMonth}-01`),
-        sb
-            .from('payslips_decrypted')
-            .select('*')
-            .gte('mes', `${prevMonthKey(currentMonth)}-F`)
-            .lt('mes', `${currentMonth}-G`),
-    ]);
+    const [{ data: empData, error: empErr }, { data: slipData, error: slipErr }, { data: vacData }, { data: reciboData }, { data: settingsData }] =
+        await Promise.all([
+            sb
+                .from('employees_decrypted')
+                .select(
+                    'id,name,cpf,role,dept,salary,contract_type,work_load,admission_date,email,vale_transporte,valor_passagem,conducoes_dia,vale_refeicao,vale_alimentacao,avatar_url,estagio_avaliacoes,contract_end_date,possui_dependentes,qtd_dependentes,adicional_periculosidade,grau_insalubridade,estabilidade_ate,estabilidade_motivo,pensao_alimenticia,tipo_pensao,pensao_valor'
+                )
+                .in('status', ['Ativo', 'ativo'])
+                .order('name'),
+            sb.from('payslips_decrypted').select('*').eq('mes', currentMonth),
+            sb
+                .from('vacations')
+                .select('employee_id,start_date,end_date,days,abono')
+                .in('status', ['aprovado', 'concluido'])
+                .lte('start_date', lastDayOfMonthKey(currentMonth))
+                .gte('end_date', `${currentMonth}-01`),
+            sb
+                .from('payslips_decrypted')
+                .select('*')
+                .gte('mes', `${prevMonthKey(currentMonth)}-F`)
+                .lt('mes', `${currentMonth}-G`),
+            sb.from('hr_settings').select('banco_horas_vencimento_meses').eq('id', 1).maybeSingle(),
+        ]);
+    bancoVencimentoMeses = Number(settingsData?.banco_horas_vencimento_meses) || 6;
 
     if (empErr) console.error('Erro ao carregar colaboradores:', empErr.message);
     if (slipErr) console.error('Erro ao carregar holerites:', slipErr.message);
@@ -82,7 +86,9 @@ async function loadData() {
         salary: e.salary,
         contractType: e.contract_type,
         workLoad: e.work_load,
+        estagioAvaliacoes: e.estagio_avaliacoes,
         admissionDate: e.admission_date,
+        contractEndDate: e.contract_end_date,
         email: e.email,
         valeTransporte: e.vale_transporte ? 'sim' : 'nao',
         valorPassagem: e.valor_passagem,
@@ -90,6 +96,12 @@ async function loadData() {
         benValeRefeicao: e.vale_refeicao ? String(e.vale_refeicao) : null,
         benValeAlimentacao: e.vale_alimentacao ? String(e.vale_alimentacao) : null,
         avatarUrl: e.avatar_url,
+        dependentes: e.possui_dependentes ? Number(e.qtd_dependentes) || 0 : 0,
+        adicionalPericulosidade: !!e.adicional_periculosidade,
+        grauInsalubridade: e.grau_insalubridade || null,
+        estabilidadeAte: e.estabilidade_ate || null,
+        estabilidadeMotivo: e.estabilidade_motivo || null,
+        pensao: e.pensao_alimenticia && Number(e.pensao_valor) > 0 ? { tipo: e.tipo_pensao || 'percentual', valor: Number(e.pensao_valor) } : null,
     }));
     payslips = slipData || [];
     recibosFerias = (reciboData || []).filter((r) => /^\d{4}-\d{2}-F\d{2}$/.test(r.mes));
@@ -126,6 +138,32 @@ function calcIRRF(base) {
     return window.Impostos.calcIRRF(base);
 }
 
+function calcIRRFMensal(params) {
+    return window.Impostos.calcIRRFMensal(params);
+}
+
+function irrfEPensao({ pensao, rendimento, inss, dependentes }) {
+    if (!pensao) return { irrf: calcIRRFMensal({ rendimento, inss, dependentes }), pensao: 0 };
+    return window.Impostos.calcPensaoAlimenticia({ ...pensao, rendimento, inss, dependentes });
+}
+
+function descontoPensao(valor, pensao) {
+    const referencia =
+        pensao.tipo === 'valor-fixo' ? 'Valor fixo' : pensao.tipo === 'salario-minimo' ? `${pensao.valor}% do salário mínimo` : `${pensao.valor}% do líquido`;
+    return { cod: '907', descricao: 'Pensão alimentícia (decisão judicial)', referencia, valor };
+}
+
+function adicionalRiscoEmp(emp) {
+    const ct = emp?.contractType;
+    if (CLTDomain.isPJ(ct) || CLTDomain.isEstagio(ct)) return null;
+    return CLTDomain.adicionalRisco({
+        salario: Number(emp.salary) || 0,
+        periculosidade: !!emp.adicionalPericulosidade,
+        grauInsalubridade: emp.grauInsalubridade,
+        salarioMinimo: TABELA_FISCAL.salarioMinimo.valor,
+    });
+}
+
 function parseCurrency(str) {
     if (!str) return 0;
     return (
@@ -141,16 +179,19 @@ function calcRow(emp) {
     const salary = Number(emp.salary) || 0;
     const ct = (emp.contractType || 'clt').toLowerCase();
     const isPJ = ct === 'pj';
-    const isAprendiz = ct === 'aprendiz';
     const isEstagio = CLTDomain.isEstagio(ct);
     let inss = 0,
         irrf = 0,
+        pensao = 0,
         benef = 0,
-        descVT = 0;
+        descVT = 0,
+        adicional = 0;
 
     if (!isPJ) {
-        inss = isEstagio ? 0 : isAprendiz ? +(salary * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(salary);
-        if (!isAprendiz) irrf = calcIRRF(salary - inss);
+        adicional = adicionalRiscoEmp(emp)?.valor || 0;
+        const tributavel = salary + adicional;
+        inss = isEstagio ? 0 : calcINSS(tributavel);
+        ({ irrf, pensao } = irrfEPensao({ pensao: emp.pensao, rendimento: tributavel, inss, dependentes: emp.dependentes }));
 
         if (emp.benValeRefeicao) benef += parseCurrency(emp.benValeRefeicao) * 22;
         if (emp.benValeAlimentacao) benef += parseCurrency(emp.benValeAlimentacao);
@@ -164,9 +205,9 @@ function calcRow(emp) {
         }
     }
     benef = +benef.toFixed(2);
-    const bruto = +(salary + benef).toFixed(2);
-    const liquido = +(bruto - inss - irrf - descVT).toFixed(2);
-    return { salary, inss, irrf, benef, bruto, descontos: +(inss + irrf + descVT).toFixed(2), liquido, isPJ };
+    const bruto = +(salary + adicional + benef).toFixed(2);
+    const liquido = +(bruto - inss - irrf - descVT - pensao).toFixed(2);
+    return { salary, inss, irrf, benef, bruto, descontos: +(inss + irrf + descVT + pensao).toFixed(2), liquido, isPJ };
 }
 
 const EVENTOS_PRESERVADOS = ['040', '041', '042', '043'];
@@ -206,27 +247,27 @@ function feriasNaCompetencia(recibos, monthKey) {
     return { base: +base.toFixed(2), inssRetido: +inssRetido.toFixed(2) };
 }
 
-function calcImpostosMes({ contractType, baseMensal, baseFerias = 0, inssRetidoRecibo = 0, irrfFeriasNoRecibo = false }) {
-    const isAprendiz = (contractType || '').toLowerCase() === 'aprendiz';
+function calcImpostosMes({ contractType, baseMensal, baseFerias = 0, inssRetidoRecibo = 0, irrfFeriasNoRecibo = false, dependentes = 0, pensao = null }) {
     const isEstagio = CLTDomain.isEstagio(contractType);
     const mensal = Math.max(0, +Number(baseMensal).toFixed(2));
     const ferias = Math.max(0, +Number(baseFerias).toFixed(2));
     const base = +(mensal + ferias).toFixed(2);
-    const inss = isEstagio ? 0 : isAprendiz ? +(base * TABELA_FISCAL.aprendizInssAliquota).toFixed(2) : calcINSS(base);
+    const inss = isEstagio ? 0 : calcINSS(base);
     const inssFerias = base > 0 && inss > 0 ? +((inss * ferias) / base).toFixed(2) : 0;
-    const irrf = isAprendiz ? 0 : calcIRRF(mensal - (inss - inssFerias));
-    const irrfFerias = isAprendiz || !ferias || irrfFeriasNoRecibo ? 0 : calcIRRF(ferias - inssFerias);
+    const { irrf, pensao: valorPensao } = irrfEPensao({ pensao, rendimento: mensal, inss: inss - inssFerias, dependentes });
+    const irrfFerias = !ferias || irrfFeriasNoRecibo ? 0 : calcIRRFMensal({ rendimento: ferias, inss: inssFerias, dependentes });
     const inssDevido = Math.max(0, +(inss - inssRetidoRecibo).toFixed(2));
 
     const descontos = [];
     if (inssDevido > 0) {
-        const ref = isAprendiz ? `${(TABELA_FISCAL.aprendizInssAliquota * 100).toFixed(0)}%` : `${((inss / base) * 100).toFixed(1)}%`;
+        const ref = `${((inss / base) * 100).toFixed(1)}%`;
         const descricao = inssRetidoRecibo > 0 ? 'INSS (salário + férias, menos o retido no recibo)' : ferias ? 'INSS (salário + férias)' : 'INSS';
         descontos.push({ cod: '901', descricao, referencia: ref, valor: inssDevido });
     }
     if (irrf > 0) descontos.push({ cod: '902', descricao: 'IRRF', referencia: 'Tabela', valor: irrf });
     if (irrfFerias > 0) descontos.push({ cod: '906', descricao: 'IRRF sobre Férias', referencia: 'Tabela', valor: irrfFerias });
-    return { inss, inssFerias, irrf, irrfFerias, descontos };
+    if (valorPensao > 0) descontos.push(descontoPensao(valorPensao, pensao));
+    return { inss, inssFerias, irrf, irrfFerias, pensao: valorPensao, descontos };
 }
 
 function validarTributacaoFerias(slip, contractType) {
@@ -271,11 +312,20 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
             }
         }
 
+        const risco = adicionalRiscoEmp(emp);
+        let valorRisco = 0;
+        if (risco) {
+            valorRisco = diasSalario === 30 ? risco.valor : +((risco.valor / 30) * diasSalario).toFixed(2);
+            if (valorRisco > 0) proventos.push({ cod: risco.cod, descricao: risco.descricao, referencia: `${diasSalario} dias`, valor: valorRisco });
+        }
+
         const jornadaMin = getJornadaMinRH(emp);
-        const { noturnoMin, feriadoMin, intervaloDeficitMin } = await calcAdicionaisMes(emp.id, jornadaMin, monthKey);
-        const valorHora = calc.salary / CLTDomain.getDivisorHoraMensal(jornadaMin, emp.workLoad);
+        const { noturnoMin, feriadoMin, intervaloDeficitMin, feriadosDoMes } = await calcAdicionaisMes(emp.id, jornadaMin, monthKey, emp);
+        const valorHora = (calc.salary + (risco?.valor || 0)) / CLTDomain.getDivisorHoraMensal(jornadaMin, emp.workLoad);
         let valorNoturno = 0,
-            valorFeriado = 0;
+            valorFeriado = 0,
+            valorHoraExtra = 0,
+            valorDsrVariaveis = 0;
         if (noturnoMin > 0) {
             valorNoturno = +((noturnoMin / 52.5) * valorHora * CLTDomain.ADICIONAL_NOTURNO_PERCENTUAL).toFixed(2);
             if (valorNoturno > 0)
@@ -297,6 +347,30 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
                 });
         }
 
+        const bucketsHE = estagio ? [] : await bucketsBancoVencidos(emp, jornadaMin, monthKey);
+        const minutosHE = bucketsHE.reduce((t, b) => t + b.minutos, 0);
+        if (minutosHE > 0) {
+            valorHoraExtra = +((minutosHE / 60) * valorHora * (1 + CLTDomain.ADICIONAL_HORA_EXTRA_PERCENTUAL)).toFixed(2);
+            proventos.push({
+                cod: '025',
+                descricao: 'Horas Extras 50% — banco de horas vencido sem compensação (CLT art. 59 §§1º e 5º)',
+                referencia: `${(minutosHE / 60).toFixed(1)}h`,
+                valor: valorHoraExtra,
+                buckets: bucketsHE,
+            });
+        }
+
+        if (!estagio) {
+            valorDsrVariaveis = CLTDomain.reflexoDsr(valorNoturno + valorHoraExtra, monthKey, feriadosDoMes);
+            if (valorDsrVariaveis > 0)
+                proventos.push({
+                    cod: '026',
+                    descricao: 'DSR sobre horas extras e adicional noturno (Lei 605/49 art. 7º; Súmula 172 TST)',
+                    referencia: 'Mês',
+                    valor: valorDsrVariaveis,
+                });
+        }
+
         if (intervaloDeficitMin > 0) {
             const valorIntervalo = +((intervaloDeficitMin / 60) * valorHora * CLTDomain.INTERVALO_INDENIZACAO_MULTIPLICADOR).toFixed(2);
             if (valorIntervalo > 0)
@@ -309,7 +383,7 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
         }
 
         const faltas = await window.NexusFaltas.listar(emp.id, `${monthKey}-01`, lastDayOfMonthKey(monthKey), { workLoad: emp.workLoad });
-        const faltaCalc = CLTDomain.descontoFaltasDsr({ salario: calc.salary, faltas });
+        const faltaCalc = CLTDomain.descontoFaltasDsr({ salario: calc.salary + (risco?.valor || 0), faltas });
         const falta = estagio ? { ...faltaCalc, semanas: 0, valorDsr: 0 } : faltaCalc;
         if (falta.valorFaltas > 0)
             descontos.push({
@@ -332,10 +406,12 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
         const ferias = feriasNaCompetencia(recibos, monthKey);
         const impostos = calcImpostosMes({
             contractType: emp.contractType,
-            baseMensal: salarioMes + valorNoturno + valorFeriado - falta.valorFaltas - falta.valorDsr,
+            baseMensal: salarioMes + valorRisco + valorNoturno + valorFeriado + valorHoraExtra + valorDsrVariaveis - falta.valorFaltas - falta.valorDsr,
             baseFerias: somaCods(legado, COD_FERIAS_TRIBUTAVEIS) + ferias.base,
             inssRetidoRecibo: ferias.inssRetido,
             irrfFeriasNoRecibo: ferias.base > 0 && !legado.length,
+            dependentes: emp.dependentes,
+            pensao: emp.pensao,
         });
         descontos.push(...impostos.descontos);
     } else {
@@ -360,8 +436,12 @@ async function buildPayslipData(emp, monthKey, existingSlip = null) {
     };
 }
 
+function naFolha(emp) {
+    return !CLTDomain.isTemporario(emp.contractType);
+}
+
 function buildFolhaRows() {
-    allRows = employees.map((emp) => {
+    allRows = employees.filter(naFolha).map((emp) => {
         const calc = calcRow(emp);
         const slip = payslips.find((p) => p.employee_id === emp.id) || null;
         const pago = slip?.status === 'pago';
@@ -483,7 +563,11 @@ function renderFolha() {
 
     tbody.innerHTML = filtered.map((r) => buildFolhaRow(r)).join('');
     if (cardsEl) cardsEl.innerHTML = filtered.map((r) => buildFolhaCard(r)).join('');
-    setText('folha-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''} na folha`);
+    const temporarios = employees.length - employees.filter(naFolha).length;
+    const notaTemporarios = temporarios
+        ? ` · ${temporarios} temporário${temporarios !== 1 ? 's' : ''} fora da folha: pago${temporarios !== 1 ? 's' : ''} pela empresa de trabalho temporário (Lei 6.019/1974)`
+        : '';
+    setText('folha-count', `${filtered.length} colaborador${filtered.length !== 1 ? 'es' : ''} na folha${notaTemporarios}`);
     updateSummary(filtered);
     updateSelectionUI(filtered);
 }
@@ -650,6 +734,12 @@ window.marcarSelecionadosPagos = async function () {
             showToast(`Erro: ${error.message}`, 'error');
             return;
         }
+        const erroBaixa = await baixarHorasExtrasPagas(slipsData, currentMonth);
+        if (erroBaixa)
+            showToast(
+                `Folha fechada, mas as horas extras pagas não foram baixadas do banco de horas (${erroBaixa.message}). Lance o débito manualmente para não pagar duas vezes.`,
+                'warning'
+            );
         rows.forEach((r) => {
             r.pago = true;
             r.gerado = true;
@@ -847,7 +937,17 @@ window.emitirReciboFerias = async function (empId, startDate) {
     const emp = employees.find((e) => e.id === empId);
     const v = (feriasDoMes[empId] || []).find((x) => x.start_date === startDate);
     if (!emp || !v) return;
-    const recibo = window.EventosFolha.reciboFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: v.days, abono: v.abono });
+    const mediaVariaveis = await calcMediaAdicionaisHabituais(empId, startDate).catch(() => 0);
+    const recibo = window.EventosFolha.reciboFerias({
+        contractType: emp.contractType,
+        salario: emp.salary,
+        startDate,
+        dias: v.days,
+        abono: v.abono,
+        adicionalFixo: adicionalRiscoEmp(emp)?.valor || 0,
+        mediaVariaveis,
+        dependentes: emp.dependentes,
+    });
     if (!recibo) return;
     const { error } = await sb.rpc('apply_ferias_recibo', {
         p_employee_id: empId,
@@ -986,6 +1086,10 @@ function getJornadaMinRH(emp) {
     return CLTDomain.resolveJornadaMin({ contractType: emp?.contractType, workLoad: emp?.workLoad });
 }
 
+function jornadaNoDiaRH(jornadaMin, dataISO, emp) {
+    return CLTDomain.jornadaNoDia(jornadaMin, dataISO, { contractType: emp?.contractType, avaliacoes: emp?.estagioAvaliacoes });
+}
+
 function diffMinRH(a, b) {
     return CLTDomain.diffMin(a, b);
 }
@@ -993,7 +1097,7 @@ function diffMinRH(a, b) {
 let holidaysCacheRH = null;
 async function getHolidaysMapRH() {
     if (holidaysCacheRH) return holidaysCacheRH;
-    const { data } = await sb.from('holidays').select('date,name');
+    const { data } = await sb.from('holidays').select('date,name,abrangencia');
     holidaysCacheRH = {};
     (data || []).forEach((h) => {
         holidaysCacheRH[h.date] = h;
@@ -1005,10 +1109,6 @@ function isSundayRH(dateKey) {
     return CLTDomain.isSunday(dateKey);
 }
 
-function nightOverlapMinRH(start, end) {
-    return CLTDomain.nightOverlapMin(start, end);
-}
-
 function workSegmentsRH(r) {
     return CLTDomain.workSegments(r);
 }
@@ -1017,7 +1117,7 @@ function calcIntervaloDeficitMinRH(rec, jornadaMin) {
     return CLTDomain.calcIntervaloDeficitMin(rec, jornadaMin);
 }
 
-async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
+async function calcAdicionaisMes(empId, jornadaMin, monthKey, emp) {
     const [{ data: recs }, holidaysMap] = await Promise.all([
         sb
             .from('time_records')
@@ -1033,17 +1133,57 @@ async function calcAdicionaisMes(empId, jornadaMin, monthKey) {
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
         const segs = workSegmentsRH(r);
-        segs.forEach(([s, e]) => {
-            noturnoMin += nightOverlapMinRH(s, e);
-        });
+        noturnoMin += CLTDomain.noturnoMinRegistro(r);
         if (isSundayRH(r.date) || holidaysMap[r.date]) {
             segs.forEach(([s, e]) => {
                 feriadoMin += diffMinRH(s, e);
             });
         }
-        intervaloDeficitMin += calcIntervaloDeficitMinRH(r, jornadaMin);
+        intervaloDeficitMin += calcIntervaloDeficitMinRH(r, jornadaNoDiaRH(jornadaMin, r.date, emp));
     });
-    return { noturnoMin, feriadoMin, intervaloDeficitMin };
+    const feriadosDoMes = CLTDomain.feriadosQueContam(Object.values(holidaysMap)).filter((d) => d.startsWith(monthKey));
+    return { noturnoMin, feriadoMin, intervaloDeficitMin, feriadosDoMes };
+}
+
+async function bucketsBancoVencidos(emp, jornadaMin, monthKey) {
+    if (jornadaMin === null) return [];
+    const fim = lastDayOfMonthKey(monthKey);
+    const [{ data: recs }, { data: adjs }] = await Promise.all([
+        sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', emp.id).lte('date', fim),
+        sb.from('bank_adjustments').select('tipo,minutos,date').eq('employee_id', emp.id).lte('date', fim).is('deleted_at', null),
+    ]);
+    const porMes = {};
+    (recs || []).forEach((r) => {
+        if (!r.entrada || !r.saida) return;
+        const mk = r.date.slice(0, 7);
+        porMes[mk] = (porMes[mk] || 0) + CLTDomain.calcWorkedMin(r) - jornadaNoDiaRH(jornadaMin, r.date, emp);
+    });
+    (adjs || []).forEach((a) => {
+        const mk = a.date.slice(0, 7);
+        porMes[mk] = (porMes[mk] || 0) + (a.tipo === 'credito' ? a.minutos : -a.minutos);
+    });
+    return CLTDomain.bucketsVencidosNoMes(porMes, bancoVencimentoMeses, monthKey);
+}
+
+async function baixarHorasExtrasPagas(slipsData, monthKey) {
+    const competencia = monthKey.split('-').reverse().join('/');
+    const linhas = slipsData.flatMap((slip) =>
+        slip.proventos
+            .filter((p) => p.cod === '025')
+            .flatMap((p) =>
+                (p.buckets || []).map((b) => ({
+                    employee_id: slip.employee_id,
+                    tipo: 'debito',
+                    minutos: b.minutos,
+                    date: `${b.mk}-01`,
+                    justificativa: `Pago como hora extra 50% na folha de ${competencia} (banco vencido — CLT art. 59 §5º)`,
+                    created_by_name: 'Folha de pagamento',
+                }))
+            )
+    );
+    if (!linhas.length) return null;
+    const { error } = await sb.from('bank_adjustments').insert(linhas);
+    return error || null;
 }
 
 async function renderSlipBankInfo(emp, slip) {
@@ -1057,7 +1197,7 @@ async function renderSlipBankInfo(emp, slip) {
     const [{ data: recs }, { data: adjs }] = await Promise.all([
         sb
             .from('time_records')
-            .select('entrada,saida_almoco,retorno_almoco,saida')
+            .select('date,entrada,saida_almoco,retorno_almoco,saida')
             .eq('employee_id', emp.id)
             .gte('date', `${slip.mes}-01`)
             .lt('date', nextMonthKey(slip.mes)),
@@ -1072,7 +1212,7 @@ async function renderSlipBankInfo(emp, slip) {
     let net = 0;
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - jornadaNoDiaRH(jornadaMin, r.date, emp);
     });
     (adjs || []).forEach((a) => {
         net += a.tipo === 'credito' ? a.minutos : -a.minutos;
@@ -1086,7 +1226,12 @@ async function renderSlipBankInfo(emp, slip) {
     el.className = `slip-bank-info ${net > 0 ? 'positivo' : net < 0 ? 'negativo' : ''}`;
 }
 
-async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr) {
+async function getRecessoGozadoDias(empId, ateDataStr) {
+    const { data } = await sb.from('vacations').select('days').eq('employee_id', empId).in('status', ['aprovado', 'concluido']).lte('start_date', ateDataStr);
+    return (data || []).reduce((s, v) => s + (Number(v.days) || 0), 0);
+}
+
+async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr, emp) {
     if (jornadaMin === null) return 0;
     const [{ data: recs }, { data: adjs }] = await Promise.all([
         sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).lte('date', ateDataStr),
@@ -1095,7 +1240,7 @@ async function getSaldoBancoHorasReal(empId, jornadaMin, ateDataStr) {
     let net = 0;
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - jornadaNoDiaRH(jornadaMin, r.date, emp);
     });
     (adjs || []).forEach((a) => {
         net += a.tipo === 'credito' ? a.minutos : -a.minutos;
@@ -1109,15 +1254,17 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
     const ateKey = ateDataStr.slice(0, 7);
 
     const { data: slips } = await sb.from('payslips_decrypted').select('mes,proventos').eq('employee_id', empId).gte('mes', desdeKey).lt('mes', ateKey);
-    if (!slips || !slips.length) return 0;
+    return window.EventosFolha.mediaVariaveisDosHolerites(slips || []);
+}
 
-    let total = 0;
-    slips.forEach((s) => {
-        s.proventos.forEach((p) => {
-            if (p.cod === '020' || p.cod === '021') total += Number(p.valor);
-        });
-    });
-    return +(total / slips.length).toFixed(2);
+async function getDiasFeriasConsumidos(empId, ateDataStr) {
+    const { data } = await sb
+        .from('vacations')
+        .select('days,abono')
+        .eq('employee_id', empId)
+        .in('status', ['aprovado', 'concluido'])
+        .lte('start_date', ateDataStr);
+    return (data || []).reduce((s, v) => s + CLTDomain.diasConsumidosFerias(v), 0);
 }
 
 function nextMonthKey(monthKey) {
@@ -1165,7 +1312,7 @@ window.openDecimoTerceiroModal = function () {
     openModal('decimo-terceiro-modal');
 };
 
-window.calcularDecimoTerceiroModal = function () {
+window.calcularDecimoTerceiroModal = async function () {
     const errEl = document.getElementById('dt-error');
     const resultEl = document.getElementById('dt-result');
     const genBtn = document.getElementById('btn-gerar-decimo-terceiro');
@@ -1186,17 +1333,19 @@ window.calcularDecimoTerceiroModal = function () {
 
     const elegiveis = employees.filter((e) => e.admissionDate && window.EventosFolha.isElegivel13(e.contractType) && Number(e.salary) > 0);
     if (!elegiveis.length) {
-        errEl.textContent = 'Nenhum colaborador elegível ao 13º encontrado (PJ e Estágio não entram).';
+        errEl.textContent = 'Nenhum colaborador elegível ao 13º encontrado (PJ e Estágio não entram; o 13º do temporário é pago pela agência).';
         errEl.classList.remove('hidden');
         return;
     }
 
+    const medias = await Promise.all(elegiveis.map((emp) => calcMediaAdicionaisHabituais(emp.id, `${ano}-12-31`).catch(() => 0)));
     const rows = elegiveis
-        .map((emp) => {
+        .map((emp, i) => {
             const { avos, valorIntegral } = window.EventosFolha.calcDecimoTerceiroIntegral({
-                salario: Number(emp.salary),
+                salario: Number(emp.salary) + (adicionalRiscoEmp(emp)?.valor || 0),
                 admissaoISO: emp.admissionDate,
                 anoBase: ano,
+                mediaAdicionaisHabituais: medias[i],
             });
             if (avos <= 0 || valorIntegral <= 0) return null;
             const { valor: valorParcela } = window.EventosFolha.calcParcela13({ valorIntegral, parcela });
@@ -1204,7 +1353,7 @@ window.calcularDecimoTerceiroModal = function () {
                 irrf = 0;
             if (parcela === 2) {
                 inss = calcINSS(valorIntegral);
-                irrf = calcIRRF(valorIntegral - inss);
+                irrf = calcIRRFMensal({ rendimento: valorIntegral, inss, dependentes: emp.dependentes });
             }
             const liquido = +(valorParcela - inss - irrf).toFixed(2);
             return { emp, avos, valorIntegral, valorParcela, inss, irrf, liquido };
@@ -1299,6 +1448,7 @@ window.openRescisaoModal = function () {
     const tipoHidden = document.getElementById('rescisao-tipo');
     if (tipoHidden) tipoHidden.value = 'sem_justa_causa';
     document.querySelectorAll('#rescisao-tipo-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.tipo === 'sem_justa_causa'));
+    setAvisoEmpregado('cumprido');
     const errEl = document.getElementById('rescisao-error');
     if (errEl) errEl.textContent = '';
     document.getElementById('rescisao-result')?.classList.add('hidden');
@@ -1306,6 +1456,9 @@ window.openRescisaoModal = function () {
     document.getElementById('btn-calcular-rescisao')?.classList.remove('hidden');
     setRescisaoInputsDisabled(false);
     lastRescisaoCalc = null;
+    aplicarModoRescisaoPJ(false);
+    aplicarModoRescisaoTemporario(false);
+    aplicarModoRescisaoCards('clt');
     updateRescisaoBtnState();
     openModal('rescisao-modal');
 };
@@ -1313,7 +1466,14 @@ window.openRescisaoModal = function () {
 function setRescisaoInputsDisabled(disabled) {
     document.getElementById('rescisao-emp-trigger').disabled = disabled;
     document.getElementById('rescisao-tipo-toggle')?.classList.toggle('disabled', disabled);
+    document.getElementById('rescisao-aviso-toggle')?.classList.toggle('disabled', disabled);
     document.getElementById('rescisao-data-trigger').disabled = disabled;
+}
+
+function setAvisoEmpregado(valor) {
+    const hidden = document.getElementById('rescisao-aviso-empregado');
+    if (hidden) hidden.value = valor;
+    document.querySelectorAll('#rescisao-aviso-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.aviso === valor));
 }
 
 window.onRescisaoEmpChange = function () {
@@ -1321,13 +1481,77 @@ window.onRescisaoEmpChange = function () {
     const emp = employees.find((e) => e.id === empId);
     document.getElementById('rescisao-admissao').value = emp ? fmtDate(emp.admissionDate) : '';
     document.getElementById('rescisao-salario').value = emp ? fmtCurrency(emp.salary) : '';
+    aplicarModoRescisaoPJ(CLTDomain.isPJ(emp?.contractType));
+    aplicarModoRescisaoTemporario(CLTDomain.isTemporario(emp?.contractType));
+    aplicarModoRescisaoCards(modoCardsRescisao(emp?.contractType));
     updateRescisaoBtnState();
 };
+
+const CARDS_RESCISAO_APRENDIZ = [
+    ['aprendiz_termino', 'Término do Contrato', 'Fim do prazo ou 24 anos'],
+    ['aprendiz_desempenho', 'Desempenho Insuficiente', 'Art. 433, I'],
+    ['aprendiz_falta_grave', 'Falta Disciplinar Grave', 'Art. 433, II'],
+    ['aprendiz_ausencia_escolar', 'Perda do Ano Letivo', 'Art. 433, III'],
+    ['aprendiz_pedido', 'A Pedido do Aprendiz', 'Art. 433, IV'],
+    ['aprendiz_sem_justa_causa', 'Dispensa Antecipada', 'Sem justa causa — art. 479'],
+];
+const CARDS_RESCISAO_PRAZO = [
+    ['prazo_termino', 'Término do Contrato', 'Na data combinada'],
+    ['prazo_sem_justa_causa', 'Dispensa Antecipada', 'Sem justa causa — art. 479'],
+    ['prazo_pedido', 'Pedido Antecipado', 'Pelo empregado — art. 480'],
+    ['prazo_justa_causa', 'Justa Causa', 'Art. 482'],
+];
+const MODOS_CARDS_RESCISAO = {
+    aprendiz: { cards: CARDS_RESCISAO_APRENDIZ, padrao: 'aprendiz_termino', hint: 'rescisao-aprendiz-hint' },
+    prazo: { cards: CARDS_RESCISAO_PRAZO, padrao: 'prazo_termino', hint: 'rescisao-prazo-hint' },
+};
+let cardsRescisaoCLT = null;
+let modoRescisaoAtual = 'clt';
+
+function modoCardsRescisao(contractType) {
+    if (CLTDomain.isAprendiz(contractType)) return 'aprendiz';
+    if (CLTDomain.isPrazoDeterminado(contractType)) return 'prazo';
+    return 'clt';
+}
+
+function aplicarModoRescisaoCards(modo) {
+    Object.entries(MODOS_CARDS_RESCISAO).forEach(([nome, cfg]) => document.getElementById(cfg.hint)?.classList.toggle('hidden', nome !== modo));
+    const toggle = document.getElementById('rescisao-tipo-toggle');
+    cardsRescisaoCLT ??= toggle.innerHTML;
+    if (modo === modoRescisaoAtual) return;
+    modoRescisaoAtual = modo;
+    const cfg = MODOS_CARDS_RESCISAO[modo];
+    const padrao = cfg ? cfg.padrao : 'sem_justa_causa';
+    toggle.innerHTML = cfg
+        ? cfg.cards
+              .map(
+                  ([tipo, titulo, sub]) =>
+                      `<button type="button" class="type-toggle-card" data-tipo="${escapeHtml(tipo)}"><div class="type-toggle-body"><span class="type-toggle-title">${escapeHtml(titulo)}</span><span class="type-toggle-sub">${escapeHtml(sub)}</span></div></button>`
+              )
+              .join('')
+        : cardsRescisaoCLT;
+    document.getElementById('rescisao-tipo').value = padrao;
+    toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.tipo === padrao));
+}
+
+function aplicarModoRescisaoTemporario(temporario) {
+    document.getElementById('rescisao-temporario-hint')?.classList.toggle('hidden', !temporario);
+    if (temporario) document.getElementById('rescisao-tipo-group')?.classList.add('hidden');
+}
+
+function aplicarModoRescisaoPJ(pj) {
+    document.getElementById('rescisao-pj-hint')?.classList.toggle('hidden', !pj);
+    document.getElementById('rescisao-tipo-group')?.classList.toggle('hidden', pj);
+    const label = document.getElementById('rescisao-salario-label');
+    if (label) label.textContent = pj ? 'Valor Mensal do Contrato' : 'Salário Bruto';
+}
 
 function updateRescisaoBtnState() {
     const btn = document.getElementById('btn-calcular-rescisao');
     const empId = document.getElementById('rescisao-emp').value;
     const tipo = document.getElementById('rescisao-tipo').value;
+    const tipoVisivel = !document.getElementById('rescisao-tipo-group')?.classList.contains('hidden');
+    document.getElementById('rescisao-aviso-empregado-group')?.classList.toggle('hidden', !(tipoVisivel && tipo === 'pedido_demissao'));
     const data = document.getElementById('rescisao-data')?.value || '';
     btn.disabled = !(empId && tipo && data);
 }
@@ -1377,6 +1601,17 @@ window.calcularRescisaoModal = async function () {
         return;
     }
 
+    const estabilidade = CLTDomain.avaliarEstabilidade({
+        estabilidadeAte: emp.estabilidadeAte,
+        motivo: emp.estabilidadeMotivo,
+        demissaoISO: dataStr,
+        tipo,
+    });
+    if (estabilidade?.bloqueia) {
+        if (errEl) errEl.textContent = estabilidade.mensagem;
+        return;
+    }
+
     const btnOriginalHTML = calcBtn?.innerHTML;
     if (calcBtn) {
         calcBtn.disabled = true;
@@ -1384,12 +1619,17 @@ window.calcularRescisaoModal = async function () {
     }
     const jornadaMin = getJornadaMinRH(emp);
     let saldoBancoHorasMin = 0,
-        mediaAdicionaisHabituais = 0;
+        mediaAdicionaisHabituais = 0,
+        recessoGozadoDias = 0,
+        diasFeriasGozados = 0;
     try {
-        [saldoBancoHorasMin, mediaAdicionaisHabituais] = await Promise.all([
-            getSaldoBancoHorasReal(emp.id, jornadaMin, dataStr),
-            calcMediaAdicionaisHabituais(emp.id, dataStr),
-        ]);
+        if (CLTDomain.isEstagio(emp.contractType)) recessoGozadoDias = await getRecessoGozadoDias(emp.id, dataStr);
+        if (!CLTDomain.isPJ(emp.contractType))
+            [saldoBancoHorasMin, mediaAdicionaisHabituais, diasFeriasGozados] = await Promise.all([
+                getSaldoBancoHorasReal(emp.id, jornadaMin, dataStr, emp),
+                calcMediaAdicionaisHabituais(emp.id, dataStr),
+                getDiasFeriasConsumidos(emp.id, dataStr),
+            ]);
     } catch (err) {
         console.error('Erro ao apurar banco de horas/médias habituais para a rescisão:', err.message);
     } finally {
@@ -1409,11 +1649,17 @@ window.calcularRescisaoModal = async function () {
         workLoad: emp.workLoad,
         mediaAdicionaisHabituais,
         contractType: emp.contractType,
+        contratoFim: emp.contractEndDate ? new Date(`${emp.contractEndDate}T00:00:00`) : null,
+        recessoGozadoDias,
+        adicionalFixo: adicionalRiscoEmp(emp)?.valor || 0,
+        diasFeriasGozados,
+        avisoEmpregado: document.getElementById('rescisao-aviso-empregado')?.value || 'cumprido',
     });
+    r.avisoEstabilidade = estabilidade?.mensagem || null;
     renderRescisaoResult(r);
     resultEl?.classList.remove('hidden');
 
-    lastRescisaoCalc = { emp, dataStr, resultado: r };
+    lastRescisaoCalc = { emp, dataStr, tipo, resultado: r };
     calcBtn?.classList.add('hidden');
     document.getElementById('btn-confirmar-desligamento')?.classList.remove('hidden');
     setRescisaoInputsDisabled(true);
@@ -1428,13 +1674,13 @@ function gerarPdfRescisao(emp, r, dataStr) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(255, 255, 255);
-    doc.text('Nexus RH — Termo de Cálculo de Rescisão', 14, 14);
+    doc.text(r.pj ? 'Nexus RH — Termo de Encerramento de Contrato PJ' : 'Nexus RH — Termo de Cálculo de Rescisão', 14, 14);
 
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Colaborador: ${emp.name}`, 14, 30);
-    doc.text(`Tipo de rescisão: ${r.label}`, 14, 36);
+    doc.text(`${r.pj ? 'Tipo de encerramento' : 'Tipo de rescisão'}: ${r.label}`, 14, 36);
     doc.text(`Data de desligamento: ${fmtDate(dataStr)}`, 14, 42);
     doc.text(`Tempo de casa: ${r.anosCompletos} ano(s)`, 14, 48);
 
@@ -1469,14 +1715,22 @@ function gerarPdfRescisao(emp, r, dataStr) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text('Estimativa gerada pelo simulador de rescisão do Nexus RH — não substitui o cálculo trabalhista oficial.', 14, finalY + 12);
+    doc.text(
+        r.pj
+            ? 'Contrato PJ: multas, aviso ou outras condições de encerramento seguem o contrato de prestação de serviços.'
+            : r.temporario
+              ? 'Trabalhador temporário: as verbas rescisórias são pagas pela empresa de trabalho temporário (Lei 6.019/1974).'
+              : 'Estimativa gerada pelo simulador de rescisão do Nexus RH — não substitui o cálculo trabalhista oficial.',
+        14,
+        finalY + 12
+    );
 
     return doc.output('blob');
 }
 
 window.confirmarDesligamento = async function () {
     if (!lastRescisaoCalc) return;
-    const { emp, dataStr, resultado: r } = lastRescisaoCalc;
+    const { emp, dataStr, tipo, resultado: r } = lastRescisaoCalc;
 
     if (
         !confirm(
@@ -1497,9 +1751,12 @@ window.confirmarDesligamento = async function () {
             return;
         }
 
-        const { error: statusError } = await sb.from('employees').update({ status: 'Inativo', termination_date: dataStr }).eq('id', emp.id);
+        const { error: statusError } = await sb
+            .from('employees')
+            .update({ status: 'Inativo', termination_date: dataStr, termination_type: tipo })
+            .eq('id', emp.id);
         if (statusError) {
-            showToast('Não foi possível atualizar o status do colaborador.', 'error');
+            showToast(statusError.code === '23514' ? statusError.message : 'Não foi possível atualizar o status do colaborador.', 'error');
             return;
         }
 
@@ -1584,8 +1841,28 @@ function renderRescisaoResult(r) {
         </div>`
         : '';
 
+    const avisoTermino = r.contratoFimAusente
+        ? `<div class="modal-alert error"><i class="fas fa-exclamation-circle"></i> ${r.prazoDeterminado ? 'Contrato por prazo determinado' : 'Contrato de aprendizagem'} sem data de término no cadastro: a indenização do art. 479 (metade dos salários até o término) não foi calculada. Informe o término no cadastro e recalcule.</div>`
+        : '';
+    const avisoTemporario = r.temporario
+        ? `<div class="modal-alert info"><i class="fas fa-people-arrows"></i> Trabalhador temporário (Lei 6.019/1974): o empregador é a empresa de trabalho temporário, que paga saldo de salário, 13º e férias proporcionais com 1/3 e libera o FGTS. Aqui só fica registrado o fim do trabalho na empresa e o acesso é encerrado. Se a agência não pagar, a empresa responde de forma subsidiária (art. 10 §7º).</div>`
+        : '';
+    const aviso480 = r.aviso480
+        ? `<div class="modal-alert info"><i class="fas fa-circle-info"></i> Pedido antes do término (CLT art. 480): o empregado pode ter de indenizar os prejuízos que causar, limitados ao que receberia pelo art. 479. Esse desconto não entra na estimativa.</div>`
+        : '';
+    const avisoEstagio = r.estagio
+        ? `<div class="modal-alert info"><i class="fas fa-user-graduate"></i> Estágio (Lei 11.788/2008): sem aviso prévio, 13º, FGTS ou multa. Recesso devido no período: ${r.recessoDevidoDias} dia(s), já gozados ${r.recessoGozadoDias}. Emita o termo de realização do estágio (art. 9º, V).</div>`
+        : '';
+    const avisoEstabilidade = r.avisoEstabilidade
+        ? `<div class="modal-alert error"><i class="fas fa-shield-halved"></i> ${escHtml(r.avisoEstabilidade)}</div>`
+        : '';
+    const avisoPrazo =
+        r.prazoPagamento && !r.temporario
+            ? `<div class="modal-alert info"><i class="fas fa-calendar-check"></i> Pagar as verbas e entregar os documentos até ${fmtDate(r.prazoPagamento)} (CLT art. 477 §6º). Atrasar gera multa de um salário (art. 477 §8º).</div>`
+            : '';
     el.innerHTML = `
-        <p class="slip-section-title">Verbas Rescisórias</p>
+        ${avisoEstabilidade}${avisoTermino}${avisoEstagio}${avisoTemporario}${aviso480}${avisoPrazo}
+        <p class="slip-section-title">${r.pj ? 'Valores do Encerramento' : 'Verbas Rescisórias'}</p>
         <div class="slip-table-wrap">
         <table class="slip-table">
             <thead><tr><th>Descrição</th><th>Referência</th><th class="th-num">Valor (R$)</th></tr></thead>
@@ -1814,6 +2091,10 @@ function setupRescisaoTipoToggle() {
         toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c === btn));
         updateRescisaoBtnState();
     });
+    document.getElementById('rescisao-aviso-toggle')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.type-toggle-card');
+        if (btn) setAvisoEmpregado(btn.dataset.aviso);
+    });
 }
 
 window.printCurrentSlip = function () {
@@ -1987,7 +2268,8 @@ function setupExportDropdown() {
 }
 
 async function exportCSV() {
-    if (!employees.length) {
+    const daFolha = employees.filter(naFolha);
+    if (!daFolha.length) {
         showToast('Nada para exportar neste mês.', 'warning');
         return;
     }
@@ -1999,7 +2281,7 @@ async function exportCSV() {
     setLoading(true);
     try {
         const slips = await Promise.all(
-            employees.map((emp) =>
+            daFolha.map((emp) =>
                 buildPayslipData(
                     emp,
                     currentMonth,
@@ -2010,7 +2292,7 @@ async function exportCSV() {
 
         const header = ['Competência', 'Colaborador', 'CPF', 'Departamento', 'Cargo', 'Tipo de Contrato', 'Tipo', 'Código', 'Descrição', 'Referência', 'Valor'];
         const body = [];
-        employees.forEach((emp, i) => {
+        daFolha.forEach((emp, i) => {
             const slip = slips[i];
             const common = [slip.competencia, emp.name, emp.cpf || '', emp.dept || '—', emp.role || '—', (emp.contractType || 'CLT').toUpperCase()];
             slip.proventos.forEach((p) => body.push([...common, 'Provento', p.cod, p.descricao, p.referencia, p.valor]));
@@ -2020,7 +2302,7 @@ async function exportCSV() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `Folha ${currentMonth}`);
         XLSX.writeFile(wb, `folha-pagamento-${currentMonth}-contabilidade.csv`);
-        NexusAuth.logExport('folha-pagamento.csv', employees.length);
+        NexusAuth.logExport('folha-pagamento.csv', daFolha.length);
         showToast('Exportação CSV concluída.', 'success');
     } catch (e) {
         console.error('exportCSV:', e);

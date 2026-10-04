@@ -36,22 +36,38 @@ function dbToEmp(row) {
         birthDate: row.birth_date,
         contractType: (row.contract_type || 'clt').toLowerCase(),
         workLoad: row.work_load || '',
+        estagioAvaliacoes: row.estagio_avaliacoes || [],
         status: row.status,
         avatarUrl: row.avatar_url,
         avatarColor: row.avatar_color,
         salary: row.salary,
+        dependentes: row.possui_dependentes ? Number(row.qtd_dependentes) || 0 : 0,
+        adicionalPericulosidade: !!row.adicional_periculosidade,
+        grauInsalubridade: row.grau_insalubridade || null,
     };
 }
 
-function isEstagioOuAprendiz(emp) {
-    const t = emp.contractType;
-    return t === 'estagio' || t === 'estágio' || t === 'aprendiz';
+function isEstagio(emp) {
+    return CLTDomain.isEstagio(emp.contractType);
+}
+
+function avisoFeriasEscolaresAprendiz(emp, hoje = new Date()) {
+    if (!CLTDomain.isAprendiz(emp?.contractType)) return '';
+    const pad0 = (n) => String(n).padStart(2, '0');
+    const idade = CLTDomain.idadeEm(emp.birthDate, `${hoje.getFullYear()}-${pad0(hoje.getMonth() + 1)}-${pad0(hoje.getDate())}`);
+    return idade !== null && idade < CLTDomain.MAIORIDADE
+        ? 'aprendiz menor de 18 anos: as férias têm de coincidir com as férias escolares (CLT art. 136 §2º)'
+        : 'aprendiz: as férias devem coincidir com as férias escolares e com o previsto no programa de aprendizagem (Decreto 9.579/2018, art. 68)';
 }
 
 async function fetchData() {
     const [{ data: vData }, { data: eData }, { data: hData }] = await Promise.all([
         sb.from('vacations').select('*').order('created_at', { ascending: false }),
-        sb.from('employees_decrypted').select('id,name,dept,role,admission_date,birth_date,contract_type,work_load,status,avatar_url,avatar_color,salary'),
+        sb
+            .from('employees_decrypted')
+            .select(
+                'id,name,dept,role,admission_date,birth_date,contract_type,work_load,status,avatar_url,avatar_color,salary,estagio_avaliacoes,possui_dependentes,qtd_dependentes,adicional_periculosidade,grau_insalubridade'
+            ),
         sb.from('holidays').select('date,abrangencia'),
     ]);
     vacations = (vData || []).map(dbToVacation);
@@ -158,6 +174,19 @@ function currentCycleOf(emp, today) {
     return cycles.length ? cycles[cycles.length - 1] : null;
 }
 
+function saldoRecessoEstagio(emp, ignorarId) {
+    const hoje = new Date();
+    const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+    const adquirido = EstagioDomain.recessoAdquirido(emp.admissionDate, hojeISO);
+    return Math.max(0, adquirido - saldoRecessoGozado(emp.id, ignorarId));
+}
+
+function saldoRecessoGozado(empId, ignorarId = null) {
+    return vacations
+        .filter((v) => v.employeeId === empId && v.id !== ignorarId && (v.status === 'aprovado' || v.status === 'concluido'))
+        .reduce((s, v) => s + (Number(v.days) || 0), 0);
+}
+
 function countFractionsInCycle(empId, cycle) {
     return vacations.filter(
         (v) =>
@@ -170,7 +199,7 @@ function countFractionsInCycle(empId, cycle) {
 }
 
 function computeFeriasVencidas(emp, today) {
-    if (!emp?.admissionDate || isEstagioOuAprendiz(emp)) return null;
+    if (!emp?.admissionDate || isEstagio(emp) || CLTDomain.isPJ(emp.contractType) || CLTDomain.isTemporario(emp.contractType)) return null;
     const admDate = new Date(emp.admissionDate + 'T00:00:00');
     const closedCycles = buildAcquisitiveCycles(admDate, today).filter((c) => c.end < today);
     if (!closedCycles.length) return null;
@@ -548,10 +577,36 @@ function checkDeptConflict(vacation) {
     return conflicts.length > 0 ? { dept, count: conflicts.length, names: conflicts.map((v) => getEmployee(v.employeeId).name) } : null;
 }
 
+async function mediaVariaveisAte(empId, ateISO) {
+    const [ano, mes] = ateISO.split('-');
+    const { data } = await sb
+        .from('payslips_decrypted')
+        .select('mes,proventos')
+        .eq('employee_id', empId)
+        .gte('mes', `${Number(ano) - 1}-${mes}`)
+        .lt('mes', ateISO.slice(0, 7));
+    return window.EventosFolha.mediaVariaveisDosHolerites(data || []);
+}
+
 async function gerarEventoAdiantamentoFerias({ employeeId, startDate, days, abono }) {
     const emp = getEmployee(employeeId);
     if (!emp) return;
-    const recibo = window.EventosFolha.reciboFerias({ contractType: emp.contractType, salario: emp.salary, startDate, dias: days, abono });
+    const risco = CLTDomain.adicionalRisco({
+        salario: Number(emp.salary) || 0,
+        periculosidade: emp.adicionalPericulosidade,
+        grauInsalubridade: emp.grauInsalubridade,
+        salarioMinimo: TABELA_FISCAL.salarioMinimo.valor,
+    });
+    const recibo = window.EventosFolha.reciboFerias({
+        contractType: emp.contractType,
+        salario: emp.salary,
+        startDate,
+        dias: days,
+        abono,
+        adicionalFixo: risco?.valor || 0,
+        mediaVariaveis: await mediaVariaveisAte(employeeId, startDate),
+        dependentes: emp.dependentes,
+    });
     if (!recibo) return;
 
     const { error } = await sb.rpc('apply_ferias_recibo', {
@@ -745,6 +800,17 @@ async function renderEmpFeriasInfo(empId) {
         return;
     }
     const emp = getEmployee(empId);
+    if (CLTDomain.isPJ(emp?.contractType)) {
+        if (abonoEl) {
+            abonoEl.checked = false;
+            abonoEl.disabled = true;
+        }
+        el.innerHTML =
+            '<i class="fas fa-umbrella-beach"></i> Contrato PJ: descanso conforme o contrato de prestação de serviços, sem período aquisitivo, frações ou abono da CLT';
+        el.className = 'add-emp-ferias-info';
+        el.classList.remove('hidden');
+        return;
+    }
     if (!emp?.admissionDate) {
         el.classList.add('hidden');
         return;
@@ -758,14 +824,19 @@ async function renderEmpFeriasInfo(empId) {
         return;
     }
 
-    const estagio = isEstagioOuAprendiz(emp);
+    const estagio = isEstagio(emp);
     const fractions = countFractionsInCycle(empId, cycle);
 
     let html = `<i class="fas fa-umbrella-beach"></i> Ciclo atual: <strong>${fractions.length}/3</strong> fraç${fractions.length === 1 ? 'ão utilizada' : 'ões utilizadas'}`;
     let negativo = false;
 
     if (estagio) {
-        html += ' · estagiário/aprendiz: recesso remunerado, sem abono pecuniário';
+        const hojeISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const adquirido = EstagioDomain.recessoAdquirido(emp.admissionDate, hojeISO);
+        const gozado = saldoRecessoGozado(empId);
+        const saldoRecesso = Math.max(0, adquirido - gozado);
+        html = `<i class="fas fa-umbrella-beach"></i> Estagiário: recesso proporcional de <strong>${adquirido} dias</strong> (2,5 por mês completo) · ${gozado} já gozados · saldo <strong>${saldoRecesso} dias</strong> · sem abono pecuniário; prefira as férias escolares (Lei 11.788 art. 13)`;
+        negativo = saldoRecesso === 0;
         if (abonoEl) {
             abonoEl.checked = false;
             abonoEl.disabled = true;
@@ -782,6 +853,8 @@ async function renderEmpFeriasInfo(empId) {
             negativo = true;
         }
         if (abonoEl) abonoEl.disabled = false;
+        const avisoAprendiz = avisoFeriasEscolaresAprendiz(emp);
+        if (avisoAprendiz) html += ` · ${avisoAprendiz}`;
     }
     el.innerHTML = html;
     el.className = `add-emp-ferias-info${negativo ? ' negativo' : ''}`;
@@ -806,13 +879,13 @@ async function renderEmpSaldoBanco() {
     const now = new Date();
     const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const [{ data: recs }, { data: adjs }] = await Promise.all([
-        sb.from('time_records').select('entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${mk}-01`),
+        sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${mk}-01`),
         sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', empId).gte('date', `${mk}-01`).is('deleted_at', null),
     ]);
     let net = 0;
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;
-        net += CLTDomain.calcWorkedMin(r) - jornadaMin;
+        net += CLTDomain.calcWorkedMin(r) - CLTDomain.jornadaNoDia(jornadaMin, r.date, { contractType: tipo, avaliacoes: emp.estagioAvaliacoes });
     });
     (adjs || []).forEach((a) => {
         net += a.tipo === 'credito' ? a.minutos : -a.minutos;
@@ -886,21 +959,37 @@ window.submitAdd = async function () {
         return;
     }
     const days = Math.round((eDate - sDate) / 86400000) + 1;
-    if (days < 5) {
+    const emp = getEmployee(empId);
+    const pj = CLTDomain.isPJ(emp?.contractType);
+    if (pj && abono) {
+        showAlert('add-alert', 'Contrato PJ não tem abono pecuniário.', 'error');
+        return;
+    }
+    const estagio = isEstagio(emp);
+    if (!pj && !estagio && days < 5) {
         showAlert('add-alert', 'O período mínimo de férias é de 5 dias.', 'error');
         return;
+    }
+    if (estagio && status !== 'recusado' && status !== 'cancelado') {
+        const saldoRecesso = saldoRecessoEstagio(emp, editingId);
+        if (
+            days > saldoRecesso &&
+            !confirm(
+                `O estagiário tem ${saldoRecesso} dia(s) de recesso adquiridos (2,5 por mês completo, Lei 11.788 art. 13). Deseja conceder ${days} dias mesmo assim?`
+            )
+        )
+            return;
     }
     if (abono && days + CLTDomain.DIAS_ABONO_PECUNIARIO > 30) {
         showAlert('add-alert', 'Com abono pecuniário o descanso é de no máximo 20 dias: os 10 vendidos não entram no período.', 'error');
         return;
     }
 
-    const emp = getEmployee(empId);
     if (status !== 'recusado' && status !== 'cancelado') {
         const vedado = CLTDomain.motivoInicioFeriasVedado(start, { feriados, contractType: emp?.contractType, workLoad: emp?.workLoad });
         if (vedado && !confirm(`${vedado} Deseja registrar mesmo assim?`)) return;
     }
-    if (emp?.admissionDate && status !== 'recusado' && status !== 'cancelado') {
+    if (!pj && emp?.admissionDate && status !== 'recusado' && status !== 'cancelado') {
         const cycle = currentCycleOf(emp, sDate) || currentCycleOf(emp, new Date());
         if (cycle) {
             const others = countFractionsInCycle(empId, cycle).filter((v) => v.id !== editingId);
@@ -1225,7 +1314,10 @@ window.submitColetiva = async function () {
         return;
     }
 
-    const targets = employees.filter((e) => e.status !== 'Inativo' && (!dept || e.dept === dept) && !isEstagioOuAprendiz(e));
+    const targets = employees.filter(
+        (e) =>
+            e.status !== 'Inativo' && (!dept || e.dept === dept) && !isEstagio(e) && !CLTDomain.isPJ(e.contractType) && !CLTDomain.isTemporario(e.contractType)
+    );
     if (targets.length === 0) {
         showAlert('coletiva-alert', 'Nenhum colaborador elegível encontrado para este filtro.', 'error');
         return;
@@ -1846,6 +1938,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         gerarEventoAdiantamentoFerias,
         reverterEventoAdiantamentoFerias,
+        avisoFeriasEscolaresAprendiz,
         cancelApprovedVacation: window.cancelApprovedVacation,
         __setStateForTest(next) {
             if ('vacations' in next) vacations = next.vacations;

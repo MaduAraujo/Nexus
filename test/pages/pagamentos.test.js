@@ -1,7 +1,7 @@
 const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { openPage, FakeSupabase } = require('../../test-support/page-harness');
-const { RH_USER, ANA, BIA, baseTables } = require('../../test-support/page-fixtures');
+const { RH_USER, ANA, BIA, CAIO, baseTables } = require('../../test-support/page-fixtures');
 
 let page;
 afterEach(() => page?.close());
@@ -101,6 +101,10 @@ describe('pagamentos.html — folha do mês', () => {
         const noturno = slip.proventos.find((p) => p.cod === '020');
         assert.ok(noturno, 'adicional noturno lançado');
         assert.equal(noturno.referencia, '4.0h reais');
+        assert.ok(
+            slip.proventos.some((p) => p.cod === '026'),
+            'reflexo do noturno no DSR'
+        );
         assert.ok(slip.descontos.some((d) => d.cod === '901'));
         assert.equal(slip.salario_liquido, +(slip.total_proventos - slip.total_descontos).toFixed(2));
         assert.match(page.toasts().join(' '), /1 colaborador marcado como pago/);
@@ -143,10 +147,10 @@ describe('pagamentos.html — folha do mês', () => {
         assert.equal(inss.descricao, 'INSS (salário + férias)');
         assert.equal(inss.valor, page.window.calcINSS(base), 'férias + 1/3 entram na base do INSS');
         const inssFerias = +((inss.valor * (2666.67 + 888.89)) / base).toFixed(2);
-        const irrfFerias = slipAna.descontos.find((d) => d.cod === '906');
-        assert.equal(irrfFerias.valor, page.window.calcIRRF(2666.67 + 888.89 - inssFerias), 'IRRF das férias apurado em separado');
-        const irrf = slipAna.descontos.find((d) => d.cod === '902');
-        assert.equal(irrf.valor, page.window.calcIRRF(4000 - (inss.valor - inssFerias)));
+        const irrfFerias = slipAna.descontos.find((d) => d.cod === '906')?.valor ?? 0;
+        assert.equal(irrfFerias, page.window.calcIRRFMensal({ rendimento: 2666.67 + 888.89, inss: inssFerias }), 'IRRF das férias apurado em separado');
+        const irrf = slipAna.descontos.find((d) => d.cod === '902')?.valor ?? 0;
+        assert.equal(irrf, page.window.calcIRRFMensal({ rendimento: 4000, inss: inss.valor - inssFerias }));
     });
 
     test('recibo de férias na competência: INSS do mês soma férias + 1/3 e desconta o já retido; abono e IRRF ficam no recibo', async () => {
@@ -172,11 +176,14 @@ describe('pagamentos.html — folha do mês', () => {
         assert.ok(!slipAna.descontos.some((d) => d.cod === '906'), 'IRRF de férias já foi no recibo');
     });
 
-    test('aprendiz: INSS de 8% sobre salário + férias e sem IRRF', async () => {
+    test('aprendiz: INSS progressivo sobre salário + férias e IRRF pela tabela normal', async () => {
         page = await openPage('pagamentos', { client: rhClient(), now: NOW });
         const r = page.window.calcImpostosMes({ contractType: 'aprendiz', baseMensal: 1000, baseFerias: 500 });
-        assert.deepEqual([r.inss, r.irrf, r.irrfFerias], [120, 0, 0]);
-        assert.deepEqual(page.plain(r.descontos.map((d) => [d.cod, d.referencia])), [['901', '8%']]);
+        assert.deepEqual([r.inss, r.irrf, r.irrfFerias], [page.window.calcINSS(1500), 0, 0]);
+        assert.deepEqual(page.plain(r.descontos.map((d) => [d.cod, d.referencia])), [['901', '7.5%']]);
+        assert.ok(page.window.calcImpostosMes({ contractType: 'aprendiz', baseMensal: 9000 }).irrf > 0);
+        const comDependentes = page.window.calcImpostosMes({ contractType: 'clt', baseMensal: 9000, dependentes: 2 });
+        assert.ok(comDependentes.irrf < page.window.calcImpostosMes({ contractType: 'clt', baseMensal: 9000 }).irrf);
     });
 
     test('holerite com férias sem INSS não fecha (trava do RH antes do banco)', async () => {
@@ -346,7 +353,7 @@ describe('pagamentos.html — folha do mês', () => {
         );
         for (const t of ['employees', 'employees_decrypted']) {
             const ana = client.tables[t].find((e) => e.id === ANA.id);
-            if (ana) Object.assign(ana, { contract_type: 'estagio', salary: 3000 });
+            if (ana) Object.assign(ana, { contract_type: 'estagio', salary: 8000 });
         }
         page = await openPage('pagamentos', { client, now: '2026-07-25T10:00:00-03:00' });
         assert.equal(page.visible('#recibos-ferias'), false, 'recesso de estágio não gera recibo de férias');
@@ -355,13 +362,13 @@ describe('pagamentos.html — folha do mês', () => {
         const slip = client.writes('payslips', 'upsert')[0].payload.find((s) => s.employee_id === ANA.id);
         assert.deepEqual(
             slip.proventos.map((p) => [p.cod, p.descricao, p.referencia, p.valor]),
-            [['001', 'Bolsa de Estágio', '30 dias', 3000]]
+            [['001', 'Bolsa de Estágio', '30 dias', 8000]]
         );
         assert.ok(!slip.descontos.some((d) => d.cod === '901'), 'sem INSS');
         assert.ok(!slip.descontos.some((d) => d.cod === '904'), 'sem DSR');
         assert.equal(slip.descontos.find((d) => d.cod === '905')?.referencia, '1 dia', 'só o dia 24 (fora do recesso) é falta');
         const irrf = slip.descontos.find((d) => d.cod === '902');
-        assert.equal(irrf.valor, page.window.calcIRRF(3000 - 100), 'IRRF sobre a bolsa, sem dedução de INSS');
+        assert.equal(irrf.valor, page.window.calcIRRFMensal({ rendimento: 8000 - 266.67 }), 'IRRF sobre a bolsa, sem dedução de INSS');
     });
 
     function comBeneficios(client, extra = {}) {
@@ -537,6 +544,40 @@ describe('pagamentos.html — rescisão', () => {
         assert.equal(doc.payload[0].retido_ate, '2056-07-20');
         assert.equal(client.writes('employee_audit', 'insert')[0].payload[0].changes[0].newValue, 'Inativo');
         assert.equal(page.fetches.filter((f) => /nexus-files/.test(f.url)).length, 1, 'termo enviado ao Storage');
+    });
+
+    test('PJ: encerramento pelo contrato de prestação de serviços, sem verbas da CLT e sem consultar banco de horas', async () => {
+        const client = rhClient();
+        page = await openPage('pagamentos', { client, now: NOW, fetch: async () => new Response('{}', { status: 200 }) });
+        await page.click('[data-click="openRescisaoModal"]');
+        assert.equal(page.visible('#rescisao-pj-hint'), false);
+        await page.click('#rescisao-emp-trigger');
+        await page.click(`#rescisao-emp-popover .select-option[data-value="${CAIO.id}"]`);
+        page.window.setRescisaoDate('2026-07-10');
+        await page.settle();
+        assert.equal(page.visible('#rescisao-pj-hint'), true);
+        assert.equal(page.visible('#rescisao-tipo-group'), false);
+        assert.equal(page.text('#rescisao-salario-label'), 'Valor Mensal do Contrato');
+        const leiturasAntes = client.calls.filter((c) => c.table === 'time_records').length;
+        await page.click('#btn-calcular-rescisao');
+        assert.equal(client.calls.filter((c) => c.table === 'time_records').length, leiturasAntes, 'PJ não tem banco de horas');
+        const texto = page.text('#rescisao-result');
+        assert.match(texto, /Valores do Encerramento/);
+        assert.match(texto, /Saldo de Serviços Prestados no Mês/);
+        assert.doesNotMatch(texto, /Aviso Prévio|13º|Férias|1\/3|FGTS|Banco de Horas/);
+
+        await page.click('#btn-confirmar-desligamento');
+        await page.waitFor(() => page.toasts().some((t) => /Desligamento confirmado/.test(t)));
+        const pdf = page.pdfs.at(-1);
+        const textos = pdf.calls.filter(([m]) => m === 'text').map(([, a]) => String(a[0]));
+        assert.ok(textos.includes('Nexus RH — Termo de Encerramento de Contrato PJ'));
+        assert.ok(textos.some((t) => /Tipo de encerramento: Encerramento de Contrato de Prestação de Serviços \(PJ\)/.test(t)));
+        assert.equal(client.writes('employee_audit', 'insert')[0].payload[0].changes[1].newValue.totalEncargos, 0);
+
+        await page.click('[data-click="openRescisaoModal"]');
+        assert.equal(page.visible('#rescisao-pj-hint'), false);
+        assert.equal(page.visible('#rescisao-tipo-group'), true);
+        assert.equal(page.text('#rescisao-salario-label'), 'Salário Bruto');
     });
 
     test('data anterior à admissão é recusada', async () => {

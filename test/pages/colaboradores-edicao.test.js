@@ -129,6 +129,7 @@ describe('colaboradores.html — editar sem perder dados', () => {
             deficiencia: 'Visual',
             pensao_alimenticia: true,
             tipo_pensao: 'percentual',
+            pensao_valor: 30,
             is_probation: true,
             probation_end_date: '2026-07-20',
             is_aviso_previo: false,
@@ -148,6 +149,8 @@ describe('colaboradores.html — editar sem perder dados', () => {
         assert.equal(page.$('input[name="pcd"][value="sim"]').checked, true);
         assert.equal(page.$('#tipo-deficiencia').value, 'Visual');
         assert.equal(page.$('input[name="tipo-pensao"][value="percentual"]').checked, true);
+        assert.equal(page.$('#pensao-valor').value, '30');
+        assert.equal(page.$('#pensao-valor-label').textContent, 'Percentual do salário líquido (%)');
         assert.equal(page.$('#banco').value, 'Itaú');
         assert.equal(page.$('#agencia').value, '1234');
 
@@ -156,6 +159,7 @@ describe('colaboradores.html — editar sem perder dados', () => {
         await page.settle(20);
         const upd = c.writes('employees', 'update')[0]?.payload;
         assert.ok(upd, page.toasts().join(' | '));
+        assert.equal(upd.pensao_valor, '30');
         for (const k of [
             'pcd',
             'deficiencia',

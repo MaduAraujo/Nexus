@@ -320,9 +320,9 @@ describe('perfil-colaborador.html — falhas e casos de borda', () => {
         }
     });
 
-    test('contrato temporário não tem férias; sem admissão mostra traço', async () => {
+    test('temporário tem férias proporcionais pagas pela agência (Lei 6.019, art. 12); sem admissão mostra traço', async () => {
         page = await openPage('perfil-colaborador', { client: client({ emp: { contract_type: 'temporario' } }), now: NOW });
-        assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), 'Não aplicável');
+        assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), 'Proporcionais');
         page.close();
         page = await openPage('perfil-colaborador', { client: client({ emp: { admission_date: null } }), now: NOW });
         assert.equal(page.text('#prof-highlight-ferias .prof-highlight-value'), '—');

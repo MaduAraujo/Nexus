@@ -331,7 +331,82 @@ describe('ferias-colaborador.html — validações do envio, tempo real e navega
         client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'estagio';
         page = await openPage('ferias-colaborador', { client, now: NOW });
         assert.equal(page.$('#req-abono').closest('.form-group').style.display, 'none');
-        assert.match(page.text('#request-modal'), /Lei do Estágio \(11\.788\/2008\) — sem abono pecuniário/);
+        assert.match(page.text('#request-modal'), /Lei do Estágio \(11\.788\/2008\).*sem abono pecuniário.*férias escolares/);
+    });
+
+    test('estagiário com menos de 1 ano: recesso proporcional de 2,5 dias por mês e pedido curto liberado (Lei 11.788 art. 13)', async () => {
+        const client = colabClient();
+        Object.assign(
+            client.tables.employees_decrypted.find((e) => e.id === ANA.id),
+            { contract_type: 'Estágio', admission_date: '2025-10-10' }
+        );
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.text('#val-saldo'), '20 dias');
+        assert.match(page.text('#sub-saldo'), /20 de recesso proporcional \(2,5 por mês completo\) · 0 utilizados/);
+        assert.equal(page.$('#btn-solicitar').disabled, false);
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = '2026-08-03';
+        page.$('#req-end').value = '2026-08-05';
+        page.window.calcDays();
+        await page.window.submitRequest();
+        await page.settle();
+        assert.equal(client.writes('vacations', 'insert').length, 1, page.text('#modal-alert'));
+    });
+
+    test('temporário: férias proporcionais pagas pela agência, sem alerta de vencidas e sem pedido', async () => {
+        const client = colabClient();
+        Object.assign(
+            client.tables.employees_decrypted.find((e) => e.id === ANA.id),
+            {
+                contract_type: 'Temporário',
+                admission_date: '2026-03-02',
+                contract_end_date: '2026-08-28',
+            }
+        );
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.visible('#expired-banner'), false);
+        assert.equal(page.text('#val-saldo'), 'Proporcionais');
+        assert.equal(page.text('#val-periodo'), 'Até 28/08/2026');
+        assert.equal(page.$('#btn-solicitar').disabled, true);
+        assert.match(page.$('#btn-solicitar').title, /pagas pela agência/);
+    });
+
+    test('temporário sem término no cadastro mostra traço no período', async () => {
+        const client = colabClient();
+        Object.assign(
+            client.tables.employees_decrypted.find((e) => e.id === ANA.id),
+            { contract_type: 'temporario', contract_end_date: null }
+        );
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.text('#val-periodo'), '—');
+    });
+
+    test('PJ: sem saldo da CLT nem alerta de vencidas; pedido sem frações, abono, valores ou mínimo de 5 dias', async () => {
+        const client = colabClient();
+        client.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'PJ';
+        page = await openPage('ferias-colaborador', { client, now: NOW });
+        assert.equal(page.visible('#expired-banner'), false);
+        assert.equal(page.text('#val-saldo'), 'Negociado');
+        assert.equal(page.text('#val-periodo'), 'Não se aplica');
+        assert.equal(page.text('#val-vencer'), '—');
+        assert.equal(page.$('#btn-solicitar').disabled, false);
+
+        await page.click('#btn-solicitar');
+        assert.equal(page.visible('#fraction-info'), false);
+        assert.equal(page.$('#req-abono').closest('.form-group').style.display, 'none');
+        assert.match(page.text('#request-modal'), /Contrato PJ: os dias de descanso e a remuneração seguem o seu contrato/);
+
+        await pickDate(page, 'req-start', '2026-08-07');
+        await pickDate(page, 'req-end', '2026-08-09');
+        assert.equal(page.text('#days-count'), '3 dias de descanso');
+        assert.equal(page.$('#btn-confirm').disabled, false);
+        assert.equal(page.visible('#valor-ferias-preview'), false);
+        assert.equal(page.text('#abono-hint'), 'Sem abono pecuniário para contrato PJ.');
+
+        await page.click('#btn-confirm');
+        const [ins] = client.writes('vacations', 'insert');
+        assert.equal(ins.payload[0].days, 3);
+        assert.equal(ins.payload[0].abono, false);
     });
 
     test('RH decide em tempo real: avisa a aprovação e a recusa e atualiza o histórico', async () => {
@@ -567,9 +642,22 @@ describe('ferias-colaborador.html — vencimento, substituto, calendário e vali
         assert.equal(c.writes('vacations', 'insert').length, 0);
     });
 
+    test('aprendiz tem férias da CLT: vê frações e abono, com aviso das férias escolares', async () => {
+        const c = colabClient();
+        c.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'Aprendiz';
+        page = await openPage('ferias-colaborador', { client: c, now: NOW });
+        assert.match(page.text(page.$('#req-obs').closest('.form-group').previousElementSibling), /coincidir com as férias escolares/);
+        assert.notEqual(page.$('#req-abono').closest('.form-group').style.display, 'none');
+        await page.click('#btn-solicitar');
+        page.$('#req-start').value = '2026-08-03';
+        page.$('#req-end').value = '2026-08-12';
+        page.window.calcDays();
+        assert.equal(page.$('#fraction-info').classList.contains('hidden'), false);
+    });
+
     test('estagiário não vê o contador de frações', async () => {
         const c = colabClient();
-        c.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'aprendiz';
+        c.tables.employees_decrypted.find((e) => e.id === ANA.id).contract_type = 'Estágio';
         page = await openPage('ferias-colaborador', { client: c, now: NOW });
         await page.click('#btn-solicitar');
         page.$('#req-start').value = '2026-08-03';

@@ -27,18 +27,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupRealtimeSync();
 });
 
-function isEstagioOuAprendiz(emp) {
-    const t = (emp?.contract_type || '').toLowerCase();
-    return t === 'estagio' || t === 'estágio' || t === 'aprendiz';
+function isEstagio(emp) {
+    return CLTDomain.isEstagio(emp?.contract_type);
+}
+
+function isPJ(emp) {
+    return CLTDomain.isPJ(emp?.contract_type);
 }
 
 function applyContractTypeUI() {
-    if (!isEstagioOuAprendiz(myEmployee)) return;
+    const pj = isPJ(myEmployee);
+    if (CLTDomain.isAprendiz(myEmployee?.contract_type)) {
+        const aviso = document.createElement('p');
+        aviso.className = 'form-hint-block';
+        aviso.innerHTML =
+            '<i class="fas fa-circle-info"></i> Como aprendiz, suas férias devem coincidir com as férias escolares e com o previsto no programa de aprendizagem (Decreto 9.579/2018, art. 68). Para menores de 18 anos isso é obrigatório (CLT art. 136 §2º).';
+        document.getElementById('req-obs')?.closest('.form-group')?.before(aviso);
+        return;
+    }
+    if (!pj && !isEstagio(myEmployee)) return;
     const abonoRow = document.getElementById('req-abono')?.closest('.form-group');
     if (abonoRow) abonoRow.style.display = 'none';
     const hint = document.createElement('p');
     hint.className = 'form-hint-block';
-    hint.innerHTML = '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008) — sem abono pecuniário.';
+    hint.innerHTML = pj
+        ? '<i class="fas fa-circle-info"></i> Contrato PJ: os dias de descanso e a remuneração seguem o seu contrato de prestação de serviços, não a CLT (sem período aquisitivo, 1/3 ou abono). Este pedido serve para combinar as datas com a empresa.'
+        : '<i class="fas fa-circle-info"></i> Como estagiário, seu recesso remunerado segue a Lei do Estágio (11.788/2008): 30 dias por ano, proporcionais aos meses completos, sem abono pecuniário. Prefira marcar o recesso nas suas férias escolares (art. 13).';
     document.getElementById('req-obs')?.closest('.form-group')?.before(hint);
 }
 
@@ -176,7 +190,7 @@ async function calcFaltasInjustificadas(cycleStart, cycleEnd) {
 }
 
 function computeFeriasVencidas() {
-    if (!myEmployee?.admission_date || isEstagioOuAprendiz(myEmployee)) return null;
+    if (!myEmployee?.admission_date || isEstagio(myEmployee) || isPJ(myEmployee) || CLTDomain.isTemporario(myEmployee.contract_type)) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const admDate = new Date(myEmployee.admission_date + 'T00:00:00');
@@ -216,7 +230,40 @@ function renderExpiredBanner() {
     el.classList.remove('hidden');
 }
 
+function loadSummaryPJ() {
+    setEl('val-saldo', 'Negociado');
+    setEl('sub-saldo', 'Dias definidos no seu contrato PJ');
+    setEl('val-periodo', 'Não se aplica');
+    setEl('sub-periodo', 'Contrato PJ não tem período aquisitivo');
+    setEl('val-vencer', '—');
+    setEl('sub-vencer', 'Sem vencimento: não é férias da CLT');
+}
+
+function loadSummaryTemporario() {
+    setEl('val-saldo', 'Proporcionais');
+    setEl('sub-saldo', 'Pagas com 1/3 pela empresa de trabalho temporário no fim do contrato');
+    const fim = myEmployee.contract_end_date;
+    setEl('val-periodo', fim ? `Até ${fmtBR(new Date(fim + 'T00:00:00'))}` : '—');
+    setEl('sub-periodo', 'Fim do contrato temporário (Lei 6.019/1974)');
+    setEl('val-vencer', '—');
+    setEl('sub-vencer', 'Sem período aquisitivo na empresa');
+    const btn = document.getElementById('btn-solicitar');
+    if (btn) {
+        btn.disabled = true;
+        btn.title = 'As férias do temporário são pagas pela agência ao fim do contrato (Lei 6.019, art. 12)';
+        btn.style.opacity = '0.5';
+    }
+}
+
 async function loadSummary() {
+    if (isPJ(myEmployee)) {
+        loadSummaryPJ();
+        return;
+    }
+    if (CLTDomain.isTemporario(myEmployee.contract_type)) {
+        loadSummaryTemporario();
+        return;
+    }
     const admission = myEmployee.admission_date;
     if (!admission) {
         ['val-saldo', 'val-periodo', 'val-vencer'].forEach((id) => setEl(id, '—'));
@@ -227,11 +274,11 @@ async function loadSummary() {
     const admDate = new Date(admission + 'T00:00:00');
     const months = monthsDiff(admDate, today);
     const periods = Math.floor(months / 12);
-    const estagio = isEstagioOuAprendiz(myEmployee);
+    const estagio = isEstagio(myEmployee);
 
     let earned = 0;
     if (estagio) {
-        earned = periods * 30;
+        earned = EstagioDomain.recessoAdquirido(admission, today);
     } else {
         const closedCycles = buildAcquisitiveCycles(admDate, today).filter((c) => c.end < today);
         try {
@@ -260,9 +307,11 @@ async function loadSummary() {
     setEl('val-saldo', `${availableDays} dias`);
     setEl(
         'sub-saldo',
-        periods < 1
-            ? `Aguardando completar 12 meses (${12 - months} meses restantes)`
-            : `${earned} ganhos · ${taken} utilizados${reducedByFaltas > 0 ? ` · reduzido em ${reducedByFaltas}d por faltas` : ''}`
+        estagio
+            ? `${earned} de recesso proporcional (2,5 por mês completo) · ${taken} utilizados`
+            : periods < 1
+              ? `Aguardando completar 12 meses (${12 - months} meses restantes)`
+              : `${earned} ganhos · ${taken} utilizados${reducedByFaltas > 0 ? ` · reduzido em ${reducedByFaltas}d por faltas` : ''}`
     );
     setEl('val-periodo', `${fmtBR(acquisitivePeriod.start)} – ${fmtBR(acquisitivePeriod.end)}`);
     setEl('sub-periodo', `${daysLeft} dias restantes no ciclo`);
@@ -286,7 +335,7 @@ async function loadSummary() {
 
 function updateRequestBtn(periods) {
     const btn = document.getElementById('btn-solicitar');
-    if (periods < 1) {
+    if (periods < 1 && !isEstagio(myEmployee)) {
         btn.disabled = true;
         btn.title = 'Disponível após 12 meses';
         btn.style.opacity = '0.5';
@@ -725,7 +774,7 @@ function currentCycleFor(refDate) {
 
 function renderFractionInfo(refDate) {
     const el = document.getElementById('fraction-info');
-    if (!el || isEstagioOuAprendiz(myEmployee)) {
+    if (!el || isEstagio(myEmployee) || isPJ(myEmployee)) {
         if (el) el.classList.add('hidden');
         return;
     }
@@ -767,7 +816,7 @@ function fmtBRLFerias(v) {
 function updateValorFeriasPreview(days, abono) {
     const wrap = document.getElementById('valor-ferias-preview');
     const salario = Number(myEmployee?.salary) || 0;
-    if (!salario || !days || days <= 0) {
+    if (!salario || !days || days <= 0 || isPJ(myEmployee)) {
         wrap.classList.add('hidden');
         return;
     }
@@ -794,7 +843,8 @@ function updateValorFeriasPreview(days, abono) {
 }
 
 function motivoSemAbono(inicio, days) {
-    if (isEstagioOuAprendiz(myEmployee)) return 'Sem abono pecuniário para estágio/aprendiz.';
+    if (isEstagio(myEmployee)) return 'Sem abono pecuniário para estágio.';
+    if (isPJ(myEmployee)) return 'Sem abono pecuniário para contrato PJ.';
     if (days + CLTDomain.DIAS_ABONO_PECUNIARIO > availableDays)
         return `Saldo insuficiente para vender 10 dias: ${days} de descanso + 10 vendidos passam dos ${availableDays} disponíveis.`;
     if (countFractionsInCycle(currentCycleFor(inicio)).some((v) => v.abono)) return 'O abono já foi pedido neste período aquisitivo.';
@@ -831,13 +881,14 @@ window.calcDays = function () {
     const advance = Math.round((s - today) / 86400000);
     const errors = [];
     if (advance < 30) errors.push(`Antecedência mínima de 30 dias (a partir de ${fmtBR(addDays(today, 30))})`);
+    const pj = isPJ(myEmployee);
     const vedado = motivoInicioVedado(startVal);
     if (vedado) errors.push(vedado);
-    if (days > availableDays) errors.push(`Saldo insuficiente — você tem apenas ${availableDays} dias disponíveis`);
-    if (days < 5) errors.push('O período mínimo de férias é de 5 dias corridos');
+    if (!pj && days > availableDays) errors.push(`Saldo insuficiente — você tem apenas ${availableDays} dias disponíveis`);
+    if (!pj && !isEstagio(myEmployee) && days < 5) errors.push('O período mínimo de férias é de 5 dias corridos');
 
     renderFractionInfo(s);
-    if (!isEstagioOuAprendiz(myEmployee)) {
+    if (!pj && !isEstagio(myEmployee)) {
         const cycle = currentCycleFor(s);
         const others = countFractionsInCycle(cycle);
         const fractionNumber = others.length + 1;
@@ -897,7 +948,8 @@ window.submitRequest = async function () {
         showAlert(`<i class="fas fa-exclamation-triangle"></i> ${escHtml(vedado)}`);
         return;
     }
-    if (days > availableDays) {
+    const pj = isPJ(myEmployee);
+    if (!pj && days > availableDays) {
         showAlert(`<i class="fas fa-exclamation-triangle"></i> Saldo insuficiente (${availableDays} dias disponíveis).`);
         return;
     }
@@ -906,12 +958,12 @@ window.submitRequest = async function () {
         showAlert(`<i class="fas fa-exclamation-triangle"></i> ${semAbono}`);
         return;
     }
-    if (days < 5) {
+    if (!pj && !isEstagio(myEmployee) && days < 5) {
         showAlert('<i class="fas fa-exclamation-triangle"></i> Período mínimo de 5 dias.');
         return;
     }
 
-    if (!isEstagioOuAprendiz(myEmployee)) {
+    if (!pj && !isEstagio(myEmployee)) {
         const cycle = currentCycleFor(s);
         const others = countFractionsInCycle(cycle);
         const fractionNumber = others.length + 1;

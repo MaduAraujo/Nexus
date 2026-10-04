@@ -1,8 +1,9 @@
 const SEM_DIREITO_13 = ['pj', 'estagio', 'estágio'];
+const PAGOS_PELA_AGENCIA = ['temporário', 'temporario'];
 
 function isElegivel13(contractType) {
     const ct = String(contractType || 'clt').toLowerCase();
-    return !SEM_DIREITO_13.includes(ct);
+    return !SEM_DIREITO_13.includes(ct) && !PAGOS_PELA_AGENCIA.includes(ct);
 }
 
 function calcAvos13(inicio, fim) {
@@ -18,6 +19,18 @@ function calcDecimoTerceiroIntegral({ salario, admissaoISO, anoBase, mediaAdicio
     const base = Number(salario || 0) + Number(mediaAdicionaisHabituais || 0);
     const valorIntegral = +((base / 12) * avos).toFixed(2);
     return { avos, valorIntegral };
+}
+
+const COD_VARIAVEIS_HABITUAIS = ['020', '021', '025', '026'];
+
+function mediaVariaveisDosHolerites(slips = []) {
+    const mensais = slips.filter((s) => /^\d{4}-\d{2}$/.test(s.mes || ''));
+    if (!mensais.length) return 0;
+    const total = mensais.reduce(
+        (soma, s) => soma + (s.proventos || []).filter((p) => COD_VARIAVEIS_HABITUAIS.includes(p.cod)).reduce((t, p) => t + Number(p.valor), 0),
+        0
+    );
+    return +(total / mensais.length).toFixed(2);
 }
 
 function calcParcela13({ valorIntegral, parcela }) {
@@ -44,13 +57,16 @@ const MESES_FOLHA = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
 
 const SEM_RECIBO_FERIAS = ['pj', 'estagio', 'estágio'];
 
-function proventosFerias({ contractType, salario, startDate, dias, abono }) {
-    if (SEM_RECIBO_FERIAS.includes(String(contractType || 'clt').toLowerCase()) || !Number(salario)) return null;
+function proventosFerias({ contractType, salario, startDate, dias, abono, adicionalFixo = 0, mediaVariaveis = 0 }) {
+    const ct = String(contractType || 'clt').toLowerCase();
+    if (SEM_RECIBO_FERIAS.includes(ct) || PAGOS_PELA_AGENCIA.includes(ct) || !Number(salario)) return null;
     const diasDescanso = Number(dias) || 0;
-    const r = calcAdiantamentoFerias({ salario: Number(salario), dias: diasDescanso, abono: !!abono });
+    const remuneracao = Number(salario) + (Number(adicionalFixo) || 0) + (Number(mediaVariaveis) || 0);
+    const r = calcAdiantamentoFerias({ salario: remuneracao, dias: diasDescanso, abono: !!abono });
     if (r.total <= 0) return null;
+    const notaMedias = Number(mediaVariaveis) > 0 ? ' + médias' : '';
     const proventos = [
-        { cod: '040', descricao: 'Adiantamento de Férias', referencia: `${diasDescanso} dias`, valor: r.ferias },
+        { cod: '040', descricao: 'Adiantamento de Férias', referencia: `${diasDescanso} dias${notaMedias}`, valor: r.ferias },
         { cod: '041', descricao: '1/3 Constitucional de Férias', referencia: '—', valor: r.tercoFerias },
     ];
     if (r.abonoPecuniario > 0) {
@@ -95,15 +111,14 @@ function diasPorCompetencia(startDate, dias) {
     return out;
 }
 
-function reciboFerias({ contractType, salario, startDate, dias, abono }) {
-    const evento = proventosFerias({ contractType, salario, startDate, dias, abono });
+function reciboFerias({ contractType, salario, startDate, dias, abono, adicionalFixo = 0, mediaVariaveis = 0, dependentes = 0 }) {
+    const evento = proventosFerias({ contractType, salario, startDate, dias, abono, adicionalFixo, mediaVariaveis });
     if (!evento) return null;
-    const { calcIRRF, calcINSSContrato } = window.Impostos;
+    const { calcIRRFMensal, calcINSSContrato } = window.Impostos;
     const base = +evento.proventos
         .filter((p) => p.cod === '040' || p.cod === '041')
         .reduce((s, p) => s + p.valor, 0)
         .toFixed(2);
-    const aprendiz = String(contractType || '').toLowerCase() === 'aprendiz';
     const porMes = diasPorCompetencia(startDate, Number(dias));
     const meses = Object.keys(porMes).sort();
     const descontos = [];
@@ -126,7 +141,7 @@ function reciboFerias({ contractType, salario, startDate, dias, abono }) {
             });
         }
     });
-    const irrf = aprendiz ? 0 : calcIRRF(base - inss);
+    const irrf = calcIRRFMensal({ rendimento: base, inss, dependentes });
     if (irrf > 0) descontos.push({ cod: '906', descricao: 'IRRF sobre férias', referencia: 'Tabela', valor: irrf });
     const totalProventos = +evento.proventos.reduce((s, p) => s + p.valor, 0).toFixed(2);
     const totalDescontos = +descontos.reduce((s, d) => s + d.valor, 0).toFixed(2);
@@ -146,6 +161,7 @@ function reciboFerias({ contractType, salario, startDate, dias, abono }) {
 
 window.EventosFolha = {
     isElegivel13,
+    mediaVariaveisDosHolerites,
     calcAvos13,
     calcDecimoTerceiroIntegral,
     calcParcela13,
@@ -161,6 +177,7 @@ window.EventosFolha = {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         isElegivel13,
+        mediaVariaveisDosHolerites,
         calcAvos13,
         calcDecimoTerceiroIntegral,
         calcParcela13,

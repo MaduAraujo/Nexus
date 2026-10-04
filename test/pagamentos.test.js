@@ -75,9 +75,9 @@ describe('parseCurrency', () => {
 
 describe('calcRow', () => {
     test('CLT sem benefícios: bruto = salário, com INSS/IRRF descontados', () => {
-        const r = calcRow({ salary: 3000, contractType: 'clt' });
+        const r = calcRow({ salary: 8000, contractType: 'clt' });
         assert.equal(r.isPJ, false);
-        assert.equal(r.bruto, 3000);
+        assert.equal(r.bruto, 8000);
         assert.ok(r.inss > 0);
         assert.ok(r.irrf > 0);
         assert.equal(r.liquido, +(r.bruto - r.inss - r.irrf).toFixed(2));
@@ -92,10 +92,13 @@ describe('calcRow', () => {
         assert.equal(r.liquido, 5000);
     });
 
-    test('Aprendiz usa alíquota simplificada de INSS e não paga IRRF', () => {
+    test('Aprendiz paga INSS pela tabela progressiva e IRRF pela tabela normal', () => {
         const r = calcRow({ salary: 1200, contractType: 'aprendiz' });
-        assert.equal(r.inss, +(1200 * 0.08).toFixed(2));
+        assert.equal(r.inss, 90);
         assert.equal(r.irrf, 0);
+        const alto = calcRow({ salary: 8000, contractType: 'Aprendiz' });
+        assert.equal(alto.inss, calcRow({ salary: 8000, contractType: 'clt' }).inss);
+        assert.ok(alto.irrf > 0);
     });
 
     test('benefícios (VR/VA/VT) somam ao bruto; desconto de VT é limitado a 6% do salário', () => {
@@ -113,6 +116,19 @@ describe('calcRow', () => {
         const descVT = +(r.descontos - r.inss - r.irrf).toFixed(2);
         assert.ok(descVT > 0);
         assert.ok(descVT <= +(4000 * 0.06).toFixed(2) + 0.01, 'desconto de VT não deveria passar de 6% do salário');
+    });
+
+    test('até R$ 5 mil não há IRRF (Lei 15.270/2025); dependentes reduzem o IRRF', () => {
+        assert.equal(calcRow({ salary: 4900, contractType: 'clt' }).irrf, 0);
+        assert.ok(calcRow({ salary: 9000, contractType: 'clt', dependentes: 3 }).irrf < calcRow({ salary: 9000, contractType: 'clt' }).irrf);
+    });
+
+    test('periculosidade entra no bruto e na base do INSS/IRRF; PJ e estágio não recebem', () => {
+        const r = calcRow({ salary: 3000, contractType: 'clt', adicionalPericulosidade: true });
+        assert.equal(r.bruto, 3900);
+        assert.equal(r.inss, calcINSS(3900));
+        assert.equal(calcRow({ salary: 3000, contractType: 'pj', adicionalPericulosidade: true }).bruto, 3000);
+        assert.equal(calcRow({ salary: 1500, contractType: 'estagio', grauInsalubridade: 'maximo' }).bruto, 1500);
     });
 
     test('salário ausente/inválido não quebra o cálculo', () => {

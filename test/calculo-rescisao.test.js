@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 global.window = global;
 
 require('../src/javascript/domain/clt-domain.js');
+require('../src/javascript/domain/estagio-domain.js');
 const { calcularRescisao, getDivisorHoraMensal } = require('../src/javascript/domain/calculo-rescisao.js');
 
 describe('justa_causa', () => {
@@ -13,6 +14,7 @@ describe('justa_causa', () => {
             salario: 3000,
             admissao: new Date(2020, 0, 10),
             demissao: new Date(2026, 2, 15),
+            diasFeriasGozados: 180,
         });
         assert.equal(r.diasAviso, 0);
         assert.deepEqual(r.verbas, [{ descricao: 'Saldo de Salário', dias: 15, valor: 1500 }]);
@@ -30,6 +32,7 @@ describe('sem_justa_causa', () => {
             salario: 3000,
             admissao: new Date(2024, 0, 10),
             demissao: new Date(2026, 0, 20),
+            diasFeriasGozados: 60,
         });
         assert.equal(r.anosCompletos, 2);
         assert.equal(r.diasAviso, 36);
@@ -64,6 +67,7 @@ describe('pedido_demissao', () => {
             demissao: new Date(2026, 0, 20),
             saldoBancoHorasMin: -120,
             jornadaMin: 480,
+            diasFeriasGozados: 60,
         });
         assert.equal(r.diasAviso, 0);
         assert.equal(r.encargos.length, 0, 'pedido de demissão não gera multa de FGTS');
@@ -85,6 +89,7 @@ describe('acordo_mutuo', () => {
             demissao: new Date(2026, 0, 20),
             saldoBancoHorasMin: 120,
             jornadaMin: 480,
+            diasFeriasGozados: 60,
         });
         assert.equal(r.diasAviso, 18);
 
@@ -152,20 +157,58 @@ describe('estágio (Lei 11.788/08) — não é rescisão CLT', () => {
         assert.ok(!r.verbas.some((v) => /13º|1\/3|Aviso|Banco de Horas/.test(v.descricao)));
     });
 
-    test('com "estágio" acentuado e ano completo, o recesso do ciclo já vencido não se repete', () => {
+    test('com "estágio" acentuado e ano completo já gozado, o recesso do ciclo vencido não se repete', () => {
         const r = calcularRescisao({
             tipo: 'pedido_demissao',
             salario: 1200,
             admissao: new Date(2025, 0, 10),
             demissao: new Date(2026, 0, 20),
             contractType: 'estágio',
+            recessoGozadoDias: 30,
         });
         assert.deepEqual(
             r.verbas.map((v) => v.descricao),
             ['Saldo de Bolsa']
         );
         assert.equal(r.anosCompletos, 1);
+        assert.deepEqual([r.recessoDevidoDias, r.recessoGozadoDias], [30, 30]);
     });
+
+    test('recesso de ano completo que não foi gozado é pago no desligamento (art. 13)', () => {
+        const r = calcularRescisao({
+            tipo: 'pedido_demissao',
+            salario: 1200,
+            admissao: new Date(2025, 0, 10),
+            demissao: new Date(2026, 1, 9),
+            contractType: 'estagio',
+            recessoGozadoDias: 10,
+        });
+        assert.deepEqual(r.verbas[1], { descricao: 'Recesso Proporcional (Lei 11.788 art. 13)', dias: 23, valor: 920 });
+        assert.equal(r.recessoDevidoDias, 33);
+    });
+});
+
+describe('PJ — encerramento de contrato de prestação de serviços, não rescisão CLT', () => {
+    for (const tipo of ['sem_justa_causa', 'pedido_demissao', 'acordo_mutuo', 'justa_causa']) {
+        test(`${tipo}: só o saldo de serviços do mês; sem aviso, 13º, férias, 1/3, banco de horas, FGTS ou multa`, () => {
+            const r = calcularRescisao({
+                tipo,
+                salario: 9000,
+                admissao: new Date(2022, 2, 1),
+                demissao: new Date(2026, 5, 10),
+                contractType: 'PJ',
+                saldoBancoHorasMin: 1200,
+                jornadaMin: null,
+                mediaAdicionaisHabituais: 500,
+            });
+            assert.deepEqual(r.verbas, [{ descricao: 'Saldo de Serviços Prestados no Mês', dias: 10, valor: 3000 }]);
+            assert.deepEqual(r.encargos, []);
+            assert.deepEqual([r.diasAviso, r.fgtsEstimado, r.totalEncargos, r.totalVerbas, r.custoTotal], [0, 0, 0, 3000, 3000]);
+            assert.equal(r.label, 'Encerramento de Contrato de Prestação de Serviços (PJ)');
+            assert.equal(r.pj, true);
+            assert.equal(r.anosCompletos, 4);
+        });
+    }
 });
 
 describe('ramos de regra que faltavam', () => {

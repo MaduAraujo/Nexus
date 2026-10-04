@@ -62,8 +62,18 @@ describe('TABELA_FISCAL.irrf', () => {
     });
 });
 
-test('aprendizInssAliquota é uma fração plausível (entre 0 e 1)', () => {
-    assert.ok(TABELA_FISCAL.aprendizInssAliquota > 0 && TABELA_FISCAL.aprendizInssAliquota < 1);
+describe('aprendiz: INSS normal e salário mínimo de referência', () => {
+    const { calcINSS, calcINSSContrato } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('INSS do aprendiz segue a tabela progressiva, como qualquer empregado', () => {
+        assert.equal(calcINSSContrato(1500, 'aprendiz'), calcINSS(1500));
+        assert.equal(calcINSSContrato(3000, 'Aprendiz'), calcINSS(3000));
+    });
+
+    test('salário mínimo com vigência', () => {
+        assert.ok(TABELA_FISCAL.salarioMinimo.valor > 0);
+        assert.match(TABELA_FISCAL.salarioMinimo.vigencia, /^\d{4}-\d{2}$/);
+    });
 });
 
 describe('entradas inválidas nunca propagam NaN para a folha', () => {
@@ -78,5 +88,40 @@ describe('entradas inválidas nunca propagam NaN para a folha', () => {
     test('contrato não informado é tratado como CLT', () => {
         assert.equal(calcINSSContrato(3000, undefined), calcINSS(3000));
         assert.equal(calcINSSContrato(3000, null), calcINSS(3000));
+    });
+});
+
+describe('IRRF 2026 com o redutor da Lei 15.270/2025', () => {
+    const { calcINSS, calcIRRF, calcIRRFMensal, reducaoIRRF } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('rendimento de até R$ 5.000 fica isento', () => {
+        for (const r of [1621, 2500, 3500, 4999.99, 5000]) assert.equal(calcIRRFMensal({ rendimento: r, inss: calcINSS(r) }), 0, `rendimento ${r}`);
+    });
+
+    test('entre R$ 5.000,01 e R$ 7.350 a redução cai em linha reta: 978,62 − 0,133145 × rendimento', () => {
+        const inss = calcINSS(6000);
+        const imposto = calcIRRF(6000 - inss);
+        assert.equal(calcIRRFMensal({ rendimento: 6000, inss }), +(imposto - (978.62 - 0.133145 * 6000)).toFixed(2));
+        assert.equal(calcIRRFMensal({ rendimento: 6000, inss }), 385.1);
+    });
+
+    test('acima de R$ 7.350 não há redução', () => {
+        const inss = calcINSS(10000);
+        assert.equal(calcIRRFMensal({ rendimento: 10000, inss }), calcIRRF(10000 - inss));
+        assert.equal(reducaoIRRF(7350.01, 500), 0);
+    });
+
+    test('a redução nunca passa do imposto e não se aplica sem rendimento ou sem imposto', () => {
+        assert.equal(reducaoIRRF(4000, 100), 100);
+        assert.equal(reducaoIRRF(0, 100), 0);
+        assert.equal(reducaoIRRF(4000, 0), 0);
+    });
+
+    test('dependentes deduzem R$ 189,59 cada; vale o desconto simplificado de R$ 607,20 quando ele é maior', () => {
+        const inss = calcINSS(10000);
+        assert.equal(calcIRRFMensal({ rendimento: 10000, inss, dependentes: 2 }), calcIRRF(10000 - inss - 2 * 189.59));
+        assert.equal(calcIRRFMensal({ rendimento: 8000, inss: 0 }), calcIRRF(8000 - 607.2));
+        assert.equal(calcIRRFMensal({ rendimento: 8000, inss: 0, dependentes: 'x' }), calcIRRF(8000 - 607.2));
+        assert.equal(calcIRRFMensal({ rendimento: -5 }), 0);
     });
 });

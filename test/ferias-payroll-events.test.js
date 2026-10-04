@@ -34,6 +34,13 @@ before(() => {
     ferias = require('../src/javascript/ferias.js');
 });
 
+function holerites(slips = []) {
+    return () => {
+        const q = { select: () => q, eq: () => q, gte: () => q, lt: () => q, then: (ok) => ok({ data: slips }) };
+        return q;
+    };
+}
+
 function emp(overrides = {}) {
     return { id: 'e1', name: 'Ana Fixture', contractType: 'clt', salary: 3000, ...overrides };
 }
@@ -43,9 +50,9 @@ beforeEach(() => {
 });
 
 describe('gerarEventoAdiantamentoFerias', () => {
-    test('emite o recibo de férias próprio (não o holerite do mês), já com INSS e IRRF', async () => {
+    test('emite o recibo de férias próprio (não o holerite do mês), já com INSS e IRRF quando houver', async () => {
         const calls = [];
-        global.sb = { rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
+        global.sb = { from: holerites(), rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
 
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: false });
 
@@ -61,13 +68,14 @@ describe('gerarEventoAdiantamentoFerias', () => {
         );
         assert.deepEqual(
             calls[0].params.p_descontos.map((d) => d.cod),
-            ['901', '906']
+            ['901'],
+            'até R$ 5 mil o redutor da Lei 15.270/2025 zera o IRRF'
         );
     });
 
     test('com abono pecuniário, inclui os proventos 042/043 também', async () => {
         const calls = [];
-        global.sb = { rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
+        global.sb = { from: holerites(), rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
 
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: true });
 
@@ -80,7 +88,7 @@ describe('gerarEventoAdiantamentoFerias', () => {
     test('PJ não gera evento (não tem direito a férias remuneradas neste sistema)', async () => {
         ferias.__setStateForTest({ employees: [emp({ contractType: 'pj' })] });
         let called = false;
-        global.sb = { rpc: async () => ((called = true), { error: null }) };
+        global.sb = { from: holerites(), rpc: async () => ((called = true), { error: null }) };
 
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: false });
         assert.equal(called, false);
@@ -89,7 +97,7 @@ describe('gerarEventoAdiantamentoFerias', () => {
     test('colaborador sem salário cadastrado não gera evento (não quebra)', async () => {
         ferias.__setStateForTest({ employees: [emp({ salary: null })] });
         let called = false;
-        global.sb = { rpc: async () => ((called = true), { error: null }) };
+        global.sb = { from: holerites(), rpc: async () => ((called = true), { error: null }) };
 
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 20, abono: false });
         assert.equal(called, false);
@@ -97,7 +105,7 @@ describe('gerarEventoAdiantamentoFerias', () => {
 
     test('colaborador desconhecido (removido, id inválido) não quebra', async () => {
         let called = false;
-        global.sb = { rpc: async () => ((called = true), { error: null }) };
+        global.sb = { from: holerites(), rpc: async () => ((called = true), { error: null }) };
         await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'nao-existe', startDate: '2026-07-10', days: 20, abono: false });
         assert.equal(called, false);
     });
@@ -106,7 +114,7 @@ describe('gerarEventoAdiantamentoFerias', () => {
 describe('reverterEventoAdiantamentoFerias', () => {
     test('cancela o recibo de férias e limpa o lançamento legado no holerite do mês', async () => {
         const calls = [];
-        global.sb = { rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
+        global.sb = { from: holerites(), rpc: async (name, params) => (calls.push({ name, params }), { error: null }) };
 
         await ferias.reverterEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10' });
 
@@ -125,6 +133,7 @@ describe('reverterEventoAdiantamentoFerias', () => {
             return el;
         };
         global.sb = {
+            from: holerites(),
             rpc: async (name) => (name === 'revert_ferias_recibo' ? { error: { message: 'O recibo de férias de 2026-07-F10 já foi pago' } } : { error: null }),
         };
         await ferias.reverterEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10' });
@@ -147,6 +156,7 @@ describe('cancelApprovedVacation', () => {
             vacations: [{ id: 'v1', employeeId: 'e1', startDate: '2026-07-10', status: 'aprovado' }],
         });
         global.sb = {
+            from: holerites(),
             from(table) {
                 return {
                     update(patch) {
@@ -174,6 +184,7 @@ describe('cancelApprovedVacation', () => {
             vacations: [{ id: 'v1', employeeId: 'e1', startDate: '2026-07-10', status: 'aprovado' }],
         });
         global.sb = {
+            from: holerites(),
             from() {
                 touched = true;
                 return { update: () => ({ eq: () => Promise.resolve({ error: null }) }) };
@@ -189,5 +200,23 @@ describe('cancelApprovedVacation', () => {
     test('id de solicitação que não existe não quebra', async () => {
         ferias.__setStateForTest({ employees: [emp()], vacations: [] });
         await ferias.cancelApprovedVacation('nao-existe');
+    });
+});
+
+describe('gerarEventoAdiantamentoFerias — médias, adicional de risco e dependentes', () => {
+    test('soma a média das variáveis e a periculosidade à remuneração das férias', async () => {
+        ferias.__setStateForTest({ employees: [emp({ salary: 3000, adicionalPericulosidade: true, dependentes: 1 })], vacations: [] });
+        const calls = [];
+        global.sb = {
+            from: holerites([
+                { mes: '2026-05', proventos: [{ cod: '025', valor: 300 }] },
+                { mes: '2026-06', proventos: [{ cod: '020', valor: 100 }] },
+            ]),
+            rpc: async (name, params) => (calls.push({ name, params }), { error: null }),
+        };
+        await ferias.gerarEventoAdiantamentoFerias({ employeeId: 'e1', startDate: '2026-07-10', days: 30, abono: false });
+        const adiantamento = calls[0].params.p_proventos.find((p) => p.cod === '040');
+        assert.equal(adiantamento.valor, 3000 + 900 + 200);
+        assert.match(adiantamento.referencia, /\+ médias/);
     });
 });

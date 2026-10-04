@@ -28,7 +28,7 @@
             <button class="btn-icon-topbar" data-click="openModalAjuste" aria-label="Solicitar Ajuste" title="Solicitar Ajuste">
                 <i class="fas fa-edit"></i>
             </button>
-            <button class="btn-icon-topbar" data-click="openModalBankRequest" aria-label="Solicitar Compensação" title="Solicitar Compensação">
+            <button class="btn-icon-topbar" id="btn-bank-request" data-click="openModalBankRequest" aria-label="Solicitar Compensação" title="Solicitar Compensação">
                 <i class="fas fa-clock-rotate-left"></i>
             </button>
         </div>
@@ -36,6 +36,14 @@
 
     <main class="content">
             <div class="page-body">
+                <div class="info-banner hidden" id="ponto-pj-aviso">
+                    <i class="fas fa-circle-info"></i>
+                    <span>Contrato PJ: o registro de ponto é opcional e serve só para o seu controle de horas. Não há jornada, faltas, DSR, banco de horas nem intervalo da CLT — dias sem registro não geram desconto.</span>
+                </div>
+                <div class="info-banner hidden" id="ponto-aprendiz-aviso">
+                    <i class="fas fa-circle-info"></i>
+                    <span>Contrato de aprendizagem: você não pode fazer hora extra nem compensar horas em banco de horas (CLT art. 432). Se precisar sair depois do horário, o RH é avisado.</span>
+                </div>
                 <div class="hero-row">
                     <div class="saldo-card">
                         <div class="saldo-icon" id="saldo-icon">
@@ -408,7 +416,7 @@
                             <button type="button" class="select-option" data-value="saida-almoco">Correção de Saída p/ Almoço</button>
                             <button type="button" class="select-option" data-value="retorno-almoco">Correção de Retorno do Almoço</button>
                             <button type="button" class="select-option" data-value="saida">Correção de Saída</button>
-                            <button type="button" class="select-option" data-value="falta">Justificativa de Falta</button>
+                            <button type="button" class="select-option" id="ajuste-opcao-falta" data-value="falta">Justificativa de Falta</button>
                         </div>
                     </div>
                     <span class="field-error" id="err-ajuste-tipo"></span>

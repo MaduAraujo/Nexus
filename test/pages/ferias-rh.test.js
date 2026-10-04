@@ -404,6 +404,73 @@ describe('ferias.html (RH) — coletivas e lote', () => {
         );
     });
 
+    test('temporário fica fora da coletiva e das férias vencidas: as férias dele são da agência', async () => {
+        const client = rhClient([]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) Object.assign(ana, { contract_type: 'Temporário', admission_date: '2023-01-10' });
+        }
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.openExpiredModal();
+        assert.doesNotMatch(page.text('#expired-body'), /Ana Souza/);
+
+        await page.click('[data-click="openColetivaModal"]');
+        await pick(page, 'coletiva-dept', 'Financeiro');
+        page.eval(`setDatePickerValue('coletiva-start', '2026-12-21'); setDatePickerValue('coletiva-end', '2026-12-31'); updateColetivaSubmitState();`);
+        await page.settle();
+        await page.click('#btn-coletiva-submit');
+        assert.doesNotMatch(JSON.stringify(client.writes('vacations', 'insert').map((w) => w.payload)), new RegExp(ANA.id));
+    });
+
+    test('PJ fica fora da coletiva e das férias vencidas', async () => {
+        const client = rhClient([]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) Object.assign(ana, { contract_type: 'pj', admission_date: '2023-01-10' });
+        }
+        page = await openPage('ferias', { client, now: NOW });
+        page.window.openExpiredModal();
+        assert.doesNotMatch(page.text('#expired-body'), /Ana Souza/);
+        assert.match(page.text('#expired-body'), /Bia Lima/);
+
+        await page.click('[data-click="openColetivaModal"]');
+        await pick(page, 'coletiva-dept', 'Financeiro');
+        page.eval(`setDatePickerValue('coletiva-start', '2026-12-21'); setDatePickerValue('coletiva-end', '2026-12-31'); updateColetivaSubmitState();`);
+        await page.settle();
+        await page.click('#btn-coletiva-submit');
+        assert.doesNotMatch(JSON.stringify(client.writes('vacations', 'insert').map((w) => w.payload)), new RegExp(ANA.id));
+    });
+
+    test('cadastro manual de PJ: sem frações, abono nem mínimo de 5 dias', async () => {
+        const client = rhClient([
+            vac('v1', ANA.id, '2026-03-02', '2026-03-03', 'concluido'),
+            vac('v2', ANA.id, '2026-04-06', '2026-04-07', 'concluido'),
+            vac('v3', ANA.id, '2026-05-04', '2026-05-05', 'concluido'),
+        ]);
+        for (const t of ['employees', 'employees_decrypted']) {
+            const ana = client.tables[t].find((e) => e.id === ANA.id);
+            if (ana) ana.contract_type = 'pj';
+        }
+        page = await openPage('ferias', { client, now: NOW, confirm: false });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', ANA.id);
+        await page.settle(30);
+        assert.match(page.text('#add-emp-ferias-info'), /Contrato PJ: descanso conforme o contrato/);
+        assert.equal(page.$('#add-abono').disabled, true);
+
+        page.eval(`setDatePickerValue('add-start', '2026-08-07'); setDatePickerValue('add-end', '2026-08-09'); calcAddDays();`);
+        page.$('#add-abono').checked = true;
+        await page.click('#btn-add-submit');
+        assert.match(page.text('#add-alert'), /Contrato PJ não tem abono pecuniário/);
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+
+        page.$('#add-abono').checked = false;
+        await page.click('#btn-add-submit');
+        assert.equal(page.confirms.length, 0, 'sem pedir confirmação de frações ou de dia vedado');
+        const [ins] = client.writes('vacations', 'insert');
+        assert.equal(ins.payload[0].days, 3);
+    });
+
     test('coletiva: data final antes da inicial e departamento sem ninguém elegível', async () => {
         const client = rhClient([vac('v1', ANA.id, '2026-12-20', '2026-12-31', 'aprovado'), vac('v2', BIA.id, '2026-12-20', '2026-12-31', 'aprovado')]);
         page = await openPage('ferias', { client, now: NOW });
@@ -472,12 +539,75 @@ describe('ferias.html (RH) — painel do cadastro manual e validações', () => 
         assert.ok(!info.classList.contains('negativo'));
     });
 
-    test('estagiário: recesso sem abono no painel e abono desabilitado', async () => {
-        const client = rhClient([]);
+    test('estagiário: recesso proporcional no painel e abono desabilitado', async () => {
+        const client = rhClient([
+            vac('v1', ANA.id, '2025-12-01', '2025-12-10', 'concluido', { days: 10 }),
+            vac('v2', ANA.id, '2026-01-05', '2026-01-09', 'recusado', { days: 5 }),
+            vac('v3', ANA.id, '2026-02-02', '2026-02-02', 'aprovado', { days: null }),
+        ]);
         setEmp(client, ANA.id, { contract_type: 'estagio' });
         await abrirCadastro(client, ANA.id);
-        assert.match(page.text('#add-emp-ferias-info'), /estagiário\/aprendiz: recesso remunerado, sem abono pecuniário/);
+        assert.match(
+            page.text('#add-emp-ferias-info'),
+            /recesso proporcional de 70 dias \(2,5 por mês completo\) · 10 já gozados · saldo 60 dias · sem abono pecuniário/
+        );
         assert.equal(page.$('#add-abono').disabled, true);
+        assert.equal(page.$('#add-emp-ferias-info').classList.contains('negativo'), false);
+    });
+
+    test('estagiário sem recesso adquirido: painel em alerta; RH confirma antes de conceder além do saldo; sem mínimo de 5 dias', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'Estágio', admission_date: '2026-06-01' });
+        page = await openPage('ferias', { client, now: NOW, confirm: false });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', ANA.id);
+        await page.settle(30);
+        assert.match(page.text('#add-emp-ferias-info'), /saldo 0 dias/);
+        assert.equal(page.$('#add-emp-ferias-info').classList.contains('negativo'), true);
+        page.eval(`setDatePickerValue('add-start', '2026-08-03'); setDatePickerValue('add-end', '2026-08-05'); calcAddDays();`);
+        await page.settle();
+        await page.click('#btn-add-submit');
+        assert.ok(page.confirms.some((t) => /tem 0 dia\(s\) de recesso adquiridos/.test(t)));
+        assert.equal(client.writes('vacations', 'insert').length, 0);
+        assert.doesNotMatch(page.text('#add-alert'), /mínimo/);
+    });
+
+    test('estagiário dentro do saldo: 3 dias de recesso gravam sem perguntar', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'Estágio', admission_date: '2026-01-10' });
+        page = await openPage('ferias', { client, now: NOW, confirm: false });
+        await page.click('[data-click="openAddModal"]');
+        await pick(page, 'add-employee', ANA.id);
+        await page.settle(30);
+        page.eval(`setDatePickerValue('add-start', '2026-08-03'); setDatePickerValue('add-end', '2026-08-05'); calcAddDays();`);
+        await page.settle();
+        await page.click('#btn-add-submit');
+        assert.equal(page.confirms.length, 0);
+        assert.equal(client.writes('vacations', 'insert').length, 1);
+    });
+
+    test('aprendiz maior de 18: férias CLT com abono liberado e aviso de férias escolares', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'Aprendiz', birth_date: '2004-01-10' });
+        await abrirCadastro(client, ANA.id);
+        const texto = page.text('#add-emp-ferias-info');
+        assert.match(texto, /direito a 30 dias neste ciclo/);
+        assert.match(texto, /programa de aprendizagem \(Decreto 9\.579\/2018, art\. 68\)/);
+        assert.equal(page.$('#add-abono').disabled, false);
+    });
+
+    test('aprendiz menor de 18: férias obrigatoriamente nas férias escolares', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'aprendiz', birth_date: '2010-05-01' });
+        await abrirCadastro(client, ANA.id);
+        assert.match(page.text('#add-emp-ferias-info'), /menor de 18 anos: as férias têm de coincidir com as férias escolares/);
+    });
+
+    test('aprendiz sem data de nascimento recebe o aviso geral', async () => {
+        const client = rhClient([]);
+        setEmp(client, ANA.id, { contract_type: 'aprendiz', birth_date: null });
+        await abrirCadastro(client, ANA.id);
+        assert.match(page.text('#add-emp-ferias-info'), /aprendiz: as férias devem coincidir/);
     });
 
     test('saldo do banco de horas usa a jornada do contrato (44h = 8h48 por dia)', async () => {

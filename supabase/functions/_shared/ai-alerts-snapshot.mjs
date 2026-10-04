@@ -8,7 +8,9 @@ export function shapeSnapshot(today, rows, now = Date.now()) {
     const { employees = [], pendingVacations = [], pendingAdjustments = [], burnoutAlerts = [], pendingDocs = [], recentRecords = [], decisions = [] } = rows;
 
     const presentIds = new Set(recentRecords.filter((r) => r.entrada).map((r) => r.employee_id));
-    const noRecentRecords = employees.filter((e) => !presentIds.has(e.id)).map((e) => ({ name: e.name, dept: e.dept ?? 'N/A' }));
+    const noRecentRecords = employees
+        .filter((e) => !presentIds.has(e.id) && String(e.contract_type || '').toLowerCase() !== 'pj')
+        .map((e) => ({ name: e.name, dept: e.dept ?? 'N/A' }));
 
     const newHires = employees
         .filter((e) => e.admission_date && now - new Date(e.admission_date + 'T00:00:00').getTime() <= NEW_HIRE_WINDOW_DAYS * DAY_MS)

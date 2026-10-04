@@ -20,9 +20,13 @@ describe('isElegivel13', () => {
         assert.equal(isElegivel13('CLT - Prazo Indeterminado'), true);
         assert.equal(isElegivel13('CLT - Prazo Determinado'), true);
     });
-    test('Aprendiz e Temporário têm direito', () => {
+    test('Aprendiz e prazo determinado têm direito', () => {
         assert.equal(isElegivel13('Aprendiz'), true);
-        assert.equal(isElegivel13('Temporário'), true);
+        assert.equal(isElegivel13('Prazo determinado'), true);
+    });
+    test('o 13º do temporário é pago pela empresa de trabalho temporário, fora da folha da empresa (Lei 6.019)', () => {
+        assert.equal(isElegivel13('Temporário'), false);
+        assert.equal(isElegivel13('temporario'), false);
     });
     test('PJ e Estágio não têm direito', () => {
         assert.equal(isElegivel13('PJ'), false);
@@ -132,7 +136,7 @@ describe('proventosFerias', () => {
 
 describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT art. 145)', () => {
     const { reciboFerias, mesReciboFerias, inicioDoReciboFerias, pagarFeriasAte } = require('../src/javascript/domain/eventos-folha.js');
-    const { calcINSS, calcIRRF } = require('../src/javascript/domain/tabelas-fiscais.js');
+    const { calcINSS, calcIRRFMensal } = require('../src/javascript/domain/tabelas-fiscais.js');
 
     test('chave, vencimento e competência do recibo', () => {
         assert.equal(mesReciboFerias('2026-07-13'), '2026-07-F13');
@@ -147,10 +151,8 @@ describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT 
         const inss = calcINSS(base);
         assert.deepEqual(
             r.descontos.map((d) => [d.cod, d.valor]),
-            [
-                ['901', inss],
-                ['906', calcIRRF(base - inss)],
-            ]
+            [['901', inss]],
+            'até R$ 5 mil o redutor da Lei 15.270/2025 zera o IRRF'
         );
         assert.deepEqual([r.descontos[0].competencia, r.descontos[0].base], ['2026-07', base]);
         assert.equal(r.totalProventos, +(base + 1333.33 + 444.44).toFixed(2));
@@ -174,7 +176,7 @@ describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT 
         );
         assert.match(inss[1].descricao, /competência 08\/2026/);
         const totalInss = +(calcINSS(julho) + calcINSS(agosto)).toFixed(2);
-        assert.equal(r.descontos.find((d) => d.cod === '906')?.valor ?? 0, calcIRRF(base - totalInss));
+        assert.equal(r.descontos.find((d) => d.cod === '906')?.valor ?? 0, calcIRRFMensal({ rendimento: base, inss: totalInss }));
     });
 
     test('dias de gozo por competência', () => {
@@ -183,12 +185,15 @@ describe('reciboFerias (recibo próprio, pago até 2 dias antes do gozo — CLT 
         assert.deepEqual(diasPorCompetencia('2026-07-01', 10), { '2026-07': 10 });
     });
 
-    test('aprendiz: INSS de 8% e sem IRRF; PJ não tem recibo', () => {
+    test('aprendiz: INSS pela tabela progressiva e IRRF normal; PJ não tem recibo', () => {
+        const { calcINSS, calcIRRFMensal } = require('../src/javascript/domain/tabelas-fiscais.js');
         const r = reciboFerias({ contractType: 'aprendiz', salario: 1500, startDate: '2026-07-01', dias: 30, abono: false });
         assert.deepEqual(
             r.descontos.map((d) => [d.cod, d.valor]),
-            [['901', +((1500 + 500) * 0.08).toFixed(2)]]
+            [['901', calcINSS(2000)]]
         );
+        const alto = reciboFerias({ contractType: 'aprendiz', salario: 6000, startDate: '2026-07-01', dias: 30, abono: false });
+        assert.equal(alto.descontos.find((d) => d.cod === '906').valor, calcIRRFMensal({ rendimento: 8000, inss: calcINSS(8000) }));
         assert.equal(reciboFerias({ contractType: 'pj', salario: 9000, startDate: '2026-07-13', dias: 30 }), null);
     });
 });
@@ -261,5 +266,58 @@ describe('dados faltando no cálculo de 13º e férias', () => {
     test('recibo de férias sem tipo de contrato é calculado como CLT, com INSS', () => {
         const r = reciboFerias({ contractType: undefined, salario: 3000, startDate: '2026-08-03', dias: 20, abono: false });
         assert.ok(r.descontos.some((d) => d.cod === '901'));
+    });
+});
+
+describe('médias e adicionais nas férias (CLT art. 142 §§5º e 6º)', () => {
+    const { reciboFerias, mediaVariaveisDosHolerites } = require('../src/javascript/domain/eventos-folha.js');
+    const { calcINSS, calcIRRFMensal } = require('../src/javascript/domain/tabelas-fiscais.js');
+
+    test('média das variáveis só conta holerites mensais e só os códigos habituais', () => {
+        const slips = [
+            {
+                mes: '2026-01',
+                proventos: [
+                    { cod: '020', valor: 100 },
+                    { cod: '022', valor: 999 },
+                    { cod: '001', valor: 3000 },
+                ],
+            },
+            {
+                mes: '2026-02',
+                proventos: [
+                    { cod: '025', valor: 200 },
+                    { cod: '026', valor: 50 },
+                    { cod: '021', valor: 50 },
+                ],
+            },
+            { mes: '2026-02-F10', proventos: [{ cod: '020', valor: 5000 }] },
+            { mes: '2025-13-2', proventos: [{ cod: '020', valor: 5000 }] },
+            { mes: '2026-03' },
+        ];
+        assert.equal(mediaVariaveisDosHolerites(slips), 133.33);
+        assert.equal(mediaVariaveisDosHolerites([{ mes: '2026-01-F01', proventos: [] }]), 0);
+        assert.equal(mediaVariaveisDosHolerites(), 0);
+    });
+
+    test('adicional fixo e média entram na remuneração das férias; dependentes entram no IRRF', () => {
+        const r = reciboFerias({
+            contractType: 'clt',
+            salario: 6000,
+            adicionalFixo: 1800,
+            mediaVariaveis: 300,
+            startDate: '2026-07-06',
+            dias: 30,
+            dependentes: 2,
+        });
+        assert.equal(r.proventos[0].valor, 8100);
+        assert.match(r.proventos[0].referencia, /\+ médias/);
+        const base = 8100 + 2700;
+        const inss = +r.descontos
+            .filter((d) => d.cod === '901')
+            .reduce((t, d) => t + d.valor, 0)
+            .toFixed(2);
+        assert.ok(inss > 0 && inss <= 2 * calcINSS(base));
+        assert.equal(r.descontos.find((d) => d.cod === '906').valor, calcIRRFMensal({ rendimento: base, inss, dependentes: 2 }));
     });
 });

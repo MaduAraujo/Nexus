@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadTeam() {
     const { data } = await sb
         .from('team_roster')
-        .select('id,name,role,dept,status,avatar_url,avatar_color,contract_type,work_load')
+        .select('id,name,role,dept,status,avatar_url,avatar_color,contract_type,work_load,estagio_avaliacoes')
         .eq('manager_id', myEmployeeId)
         .order('name');
     teamMembers = data || [];
@@ -75,7 +75,7 @@ async function loadTeamBalances() {
     const [{ data: timeData }, { data: bankData }] = await Promise.all([
         sb
             .from('time_records')
-            .select('employee_id,entrada,saida_almoco,retorno_almoco,saida')
+            .select('employee_id,date,entrada,saida_almoco,retorno_almoco,saida')
             .in('employee_id', ids)
             .gte('date', monthStart)
             .lt('date', monthEnd),
@@ -105,7 +105,10 @@ async function loadTeamBalances() {
         }
         let saldo = 0;
         (timeByEmp[m.id] || []).forEach((rec) => {
-            if (rec.entrada && rec.saida) saldo += CLTDomain.calcWorkedMin(rec) - jornadaMin;
+            if (rec.entrada && rec.saida)
+                saldo +=
+                    CLTDomain.calcWorkedMin(rec) -
+                    CLTDomain.jornadaNoDia(jornadaMin, rec.date, { contractType: m.contract_type, avaliacoes: m.estagio_avaliacoes });
         });
         (adjByEmp[m.id] || []).forEach((a) => {
             saldo += a.tipo === 'credito' ? a.minutos : -a.minutos;

@@ -312,12 +312,32 @@
                         <input type="text" class="form-input" id="rescisao-admissao" readonly>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Salário Bruto</label>
+                        <label class="form-label" id="rescisao-salario-label">Salário Bruto</label>
                         <input type="text" class="form-input" id="rescisao-salario" readonly>
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="modal-alert info hidden" id="rescisao-pj-hint">
+                    <i class="fas fa-circle-info"></i>
+                    Contrato PJ: o encerramento segue o contrato de prestação de serviços, não a CLT. Não há aviso prévio, 13º, férias, 1/3, banco de horas nem FGTS — só o saldo dos serviços do mês. Multas ou aviso previstos no contrato devem ser acertados à parte.
+                </div>
+
+                <div class="modal-alert info hidden" id="rescisao-aprendiz-hint">
+                    <i class="fas fa-circle-info"></i>
+                    Contrato de aprendizagem (CLT art. 433): no término não há aviso prévio nem multa do FGTS, que é de 2%. Nas hipóteses antecipadas do art. 433 não se aplicam as indenizações dos arts. 479 e 480; só a dispensa antecipada sem justa causa paga metade dos salários até o término e a multa de 40%.
+                </div>
+
+                <div class="modal-alert info hidden" id="rescisao-prazo-hint">
+                    <i class="fas fa-circle-info"></i>
+                    Contrato por prazo determinado (CLT art. 443): no término na data combinada não há aviso prévio nem multa de 40% do FGTS. Se a empresa dispensar antes, paga metade dos salários até o término (art. 479) e a multa de 40%.
+                </div>
+
+                <div class="modal-alert info hidden" id="rescisao-temporario-hint">
+                    <i class="fas fa-circle-info"></i>
+                    Trabalhador temporário (Lei 6.019/1974): as verbas rescisórias são pagas pela empresa de trabalho temporário. Aqui você só registra o fim do trabalho na empresa e encerra o acesso.
+                </div>
+
+                <div class="form-group" id="rescisao-tipo-group">
                     <label class="form-label">Tipo de Rescisão <span class="req">*</span></label>
                     <div class="type-toggle" id="rescisao-tipo-toggle">
                         <button type="button" class="type-toggle-card active" data-tipo="sem_justa_causa">
@@ -346,6 +366,31 @@
                         </button>
                     </div>
                     <input type="hidden" id="rescisao-tipo" value="sem_justa_causa">
+                </div>
+
+                <div class="form-group hidden" id="rescisao-aviso-empregado-group">
+                    <label class="form-label">Aviso prévio do colaborador</label>
+                    <div class="type-toggle" id="rescisao-aviso-toggle">
+                        <button type="button" class="type-toggle-card active" data-aviso="cumprido">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Cumprido</span>
+                                <span class="type-toggle-sub">Trabalhou os 30 dias</span>
+                            </div>
+                        </button>
+                        <button type="button" class="type-toggle-card" data-aviso="dispensado">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Dispensado</span>
+                                <span class="type-toggle-sub">A empresa abriu mão</span>
+                            </div>
+                        </button>
+                        <button type="button" class="type-toggle-card" data-aviso="descontar">
+                            <div class="type-toggle-body">
+                                <span class="type-toggle-title">Não cumprido</span>
+                                <span class="type-toggle-sub">Desconta 30 dias (CLT art. 487 §2º)</span>
+                            </div>
+                        </button>
+                    </div>
+                    <input type="hidden" id="rescisao-aviso-empregado" value="cumprido">
                 </div>
 
                 <div class="form-group">
@@ -459,6 +504,7 @@
     <script src="../javascript/shared/search.js"></script>
     <script src="../javascript/domain/tabelas-fiscais.js"></script>
     <script src="../javascript/domain/clt-domain.js"></script>
+    <script src="../javascript/domain/estagio-domain.js"></script>
     <script src="../javascript/shared/faltas.js"></script>
     <script src="../javascript/domain/calculo-rescisao.js"></script>
     <script src="../javascript/domain/eventos-folha.js"></script>

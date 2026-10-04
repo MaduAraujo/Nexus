@@ -369,7 +369,10 @@ describe('pagamentos.html — 13º salário: parcelas, elegibilidade e erros', (
         page = await openPage('pagamentos', { client: c, now: NOW });
         await page.click('[data-click="openDecimoTerceiroModal"]');
         await page.click('[data-click="calcularDecimoTerceiroModal"]');
-        assert.equal(page.text('#dt-error'), 'Nenhum colaborador elegível ao 13º encontrado (PJ e Estágio não entram).');
+        assert.equal(
+            page.text('#dt-error'),
+            'Nenhum colaborador elegível ao 13º encontrado (PJ e Estágio não entram; o 13º do temporário é pago pela agência).'
+        );
         await page.window.gerarDecimoTerceiro();
         assert.equal(c.writes('payslips', 'upsert').length, 0);
     });

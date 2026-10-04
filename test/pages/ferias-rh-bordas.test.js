@@ -209,6 +209,7 @@ describe('ferias.html (RH) — bordas', () => {
             vac('b1', BIA.id, '2026-08-03', '2026-08-20', 'aprovado'),
         ]);
         setEmp(c, ANA.id, { role: null, dept: null, admission_date: '2020-01-01' });
+        setEmp(c, CAIO.id, { contract_type: 'clt' });
         page = await openPage('ferias', { client: c, now: NOW, confirm: false });
         page.window.toggleRowSelect('v1', true);
         await page.window.bulkApprove();

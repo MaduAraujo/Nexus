@@ -106,6 +106,7 @@
         'Termo de Compromisso de Estágio': 30,
         'Plano de Atividades de Estágio': 30,
         'Termo de Realização do Estágio': 30,
+        'Contrato com a Empresa de Trabalho Temporário': 5,
         'Aviso Prévio': 5,
         RG: 5,
         CPF: 5,

@@ -134,7 +134,7 @@ async function loadBankLedger() {
         const jornadaMin = getJornadaMin(emp);
         if (jornadaMin === null) return;
         if (isFalta(r) || !r.saida) return;
-        const s = calcSaldoMin(r, jornadaMin);
+        const s = calcSaldoMin(r, jornadaMin, emp);
         const mk = r.date.slice(0, 7);
         byEmpMonth[r.employee_id] = byEmpMonth[r.employee_id] || {};
         byEmpMonth[r.employee_id][mk] = (byEmpMonth[r.employee_id][mk] || 0) + s;
@@ -181,6 +181,7 @@ async function loadAllData() {
         email: e.email,
         admissionDate: e.admission_date,
         workLoad: e.work_load,
+        estagioAvaliacoes: e.estagio_avaliacoes,
         managerId: e.manager_id,
         avatarUrl: e.avatar_url,
     }));
@@ -234,12 +235,16 @@ function calcWorkedMin(rec) {
     return CLTDomain.calcWorkedMin(rec);
 }
 
-function calcSaldoMin(rec, jornadaMin) {
-    return CLTDomain.calcSaldoMin(rec, jornadaMin);
+function jornadaDoDia(rec, jornadaMin, emp) {
+    return CLTDomain.jornadaNoDia(jornadaMin, rec?.date, { contractType: emp?.contractType, avaliacoes: emp?.estagioAvaliacoes });
 }
 
-function calcIntervaloDeficitMin(rec, jornadaMin) {
-    return CLTDomain.calcIntervaloDeficitMin(rec, jornadaMin);
+function calcSaldoMin(rec, jornadaMin, emp) {
+    return CLTDomain.calcSaldoMin(rec, jornadaDoDia(rec, jornadaMin, emp));
+}
+
+function calcIntervaloDeficitMin(rec, jornadaMin, emp) {
+    return CLTDomain.calcIntervaloDeficitMin(rec, jornadaDoDia(rec, jornadaMin, emp));
 }
 
 function minToStr(min) {
@@ -260,7 +265,7 @@ function computeBalance(emp, monthKey) {
     const records = getPontoRecords(emp.id);
     const ajustes = getBancoAjustes(emp.id);
     const isPJ = jornadaMin === null;
-    const limiteExtra = hrSettings.limite_extra_diario_min;
+    const limiteExtra = CLTDomain.limiteExtraDiarioMin(emp.contractType, hrSettings.limite_extra_diario_min);
     let extrasMin = 0,
         faltaMin = 0,
         diasCompletos = 0,
@@ -275,14 +280,14 @@ function computeBalance(emp, monthKey) {
         const worked = calcWorkedMin(rec);
         totalWorkedMin += worked;
         if (!isPJ) {
-            const s = calcSaldoMin(rec, jornadaMin);
+            const s = calcSaldoMin(rec, jornadaMin, emp);
             if (s !== null) {
                 if (s > 0) {
                     extrasMin += s;
                     if (s > limiteExtra) diasExcesso++;
                 } else faltaMin += Math.abs(s);
             }
-            const intervaloDeficit = calcIntervaloDeficitMin(rec, jornadaMin);
+            const intervaloDeficit = calcIntervaloDeficitMin(rec, jornadaMin, emp);
             if (intervaloDeficit > 0) {
                 intervaloDeficitMin += intervaloDeficit;
                 diasIntervaloIrregular++;
@@ -690,12 +695,12 @@ function renderDetailModal(emp, monthKey) {
         diasCompletos++;
         totalWorked += calcWorkedMin(rec);
         if (!isPJ) {
-            const s = calcSaldoMin(rec, jornadaMin);
+            const s = calcSaldoMin(rec, jornadaMin, emp);
             if (s !== null) {
                 if (s > 0) extrasMin += s;
                 else faltaMin += Math.abs(s);
             }
-            const dInt = calcIntervaloDeficitMin(rec, jornadaMin);
+            const dInt = calcIntervaloDeficitMin(rec, jornadaMin, emp);
             if (dInt > 0) {
                 intervaloDeficitMin += dInt;
                 diasIntervaloIrregular++;
@@ -734,7 +739,7 @@ function renderDetailModal(emp, monthKey) {
     if (!monthRecs.length) {
         html += `<div class="empty-month-msg"><i class="fas fa-calendar-times"></i><p>Nenhum registro de ponto neste período.</p></div>`;
     } else {
-        html += `<div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>Data</th><th>Entrada</th><th>Saída Alm.</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${monthRecs.map(([key, rec]) => buildDayRow(key, rec, jornadaMin, isPJ, emp.id)).join('')}</tbody></table></div>`;
+        html += `<div class="detail-table-wrap"><table class="detail-table"><thead><tr><th>Data</th><th>Entrada</th><th>Saída Alm.</th><th>Retorno</th><th>Saída</th><th>Trabalhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody>${monthRecs.map(([key, rec]) => buildDayRow(key, rec, jornadaMin, isPJ, emp.id, emp)).join('')}</tbody></table></div>`;
     }
 
     html += `</div><div class="ajustes-section"><div class="ajustes-header"><p class="detail-section-title detail-section-title--flush"><i class="fas fa-pen-to-square"></i> Ajustes Manuais — ${fmtMonthLabel(monthKey)}</p><button class="btn-add-ajuste" data-click="openAdjustModalFromDetail" data-click-args="${dargs(emp.id)}" title="Novo Ajuste" aria-label="Novo Ajuste"><i class="fas fa-plus"></i></button></div>`;
@@ -781,7 +786,7 @@ async function renderSaldoTrendChart(emp) {
         ]);
         (recs || []).forEach((r) => {
             if (isFalta(r) || !r.saida) return;
-            const s = calcSaldoMin(r, jornadaMin);
+            const s = calcSaldoMin(r, jornadaMin, emp);
             const mk = r.date.slice(0, 7);
             if (mk in monthly) monthly[mk] += s;
         });
@@ -843,7 +848,7 @@ async function renderSaldoTrendChart(emp) {
     });
 }
 
-function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
+function buildDayRow(key, rec, jornadaMin, isPJ, empId, emp) {
     const [y, m, d] = key.split('-');
     const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const diaSem = dias[new Date(`${key}T12:00:00`).getDay()];
@@ -885,7 +890,7 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
             `<span class="badge-sm badge-sm-noturno" title="Horário noturno (22h-5h) — adicional de 20% calculado no holerite do mês (CLT art. 73)">Noturno</span>`
         );
     if (!isPJ) {
-        const intervaloDeficit = calcIntervaloDeficitMin(rec, jornadaMin);
+        const intervaloDeficit = calcIntervaloDeficitMin(rec, jornadaMin, emp);
         if (intervaloDeficit > 0)
             extraTags.push(
                 `<span class="badge-sm badge-sm-intervalo" title="Intervalo do art. 71 da CLT não cumprido — ${minToStr(intervaloDeficit)} devidos com adicional de 50%, pagos à parte">Intervalo -${minToStr(intervaloDeficit)}</span>`
@@ -897,13 +902,15 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId) {
         saldoStr = minToStr(worked);
         badgeHTML = `<span class="badge-sm badge-sm-pj">PJ</span>`;
     } else {
-        const saldo = calcSaldoMin(rec, jornadaMin);
+        const saldo = calcSaldoMin(rec, jornadaMin, emp);
         if (saldo !== null) {
             saldoStr = (saldo >= 0 ? '+' : '-') + minToStr(saldo);
             saldoCls = saldo > 0 ? 'positivo' : saldo < 0 ? 'negativo' : 'zero';
         }
-        const limiteExtra = hrSettings.limite_extra_diario_min;
+        const limiteExtra = CLTDomain.limiteExtraDiarioMin(emp.contractType, hrSettings.limite_extra_diario_min);
         if (rec.ajustado) badgeHTML = `<span class="badge-sm badge-sm-incompleto">Ajustado</span>`;
+        else if (saldo > limiteExtra && CLTDomain.isAprendiz(emp.contractType))
+            badgeHTML = `<span class="badge-sm badge-sm-excesso" title="Aprendiz não pode fazer hora extra nem compensar horas (CLT art. 432)">Extra proibida</span>`;
         else if (saldo > limiteExtra)
             badgeHTML = `<span class="badge-sm badge-sm-excesso" title="Excede o limite legal de 2h de horas extras diárias (art. 59 CLT)">Excesso 2h+</span>`;
         else if (saldo > 0) badgeHTML = `<span class="badge-sm badge-sm-extra">Extra</span>`;
@@ -982,6 +989,8 @@ window.submitAdjust = async function () {
     if (!data) return showErr('Informe a data de referência.');
     if (total <= 0) return showErr('Informe um valor de horas/minutos maior que zero.');
     if (!just) return showErr('A justificativa é obrigatória.');
+    if (CLTDomain.isAprendiz(allData.find((d) => d.emp.id === adjustingEmpId)?.emp.contractType))
+        return showErr('Aprendiz não tem banco de horas: hora extra e compensação de jornada são proibidas (CLT art. 432).');
 
     if (tipo === 'credito') {
         const limiteExtra = hrSettings.limite_extra_diario_min;

@@ -74,6 +74,22 @@ describe('shapeSnapshot — quem não bateu ponto nos últimos 7 dias', () => {
         assert.deepEqual(snap.employees_no_records_last_7days, [{ name: 'Ana', dept: 'TI' }]);
     });
 
+    test('prestador PJ sem registro não aparece: o ponto dele é opcional', () => {
+        const snap = shapeSnapshot(
+            '2026-06-15',
+            {
+                employees: [
+                    { id: 'e1', name: 'Ana', dept: 'TI', contract_type: 'PJ' },
+                    { id: 'e2', name: 'Bruno', dept: 'RH', contract_type: 'CLT' },
+                ],
+                recentRecords: [],
+            },
+            NOW
+        );
+        assert.deepEqual(snap.employees_no_records_last_7days, [{ name: 'Bruno', dept: 'RH' }]);
+        assert.equal(snap.active_employees, 2);
+    });
+
     test('departamento ausente vira "N/A"', () => {
         const snap = shapeSnapshot('2026-06-15', { employees: [{ id: 'e1', name: 'Ana', dept: null }], recentRecords: [] }, NOW);
         assert.deepEqual(snap.employees_no_records_last_7days, [{ name: 'Ana', dept: 'N/A' }]);

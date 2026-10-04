@@ -1,8 +1,12 @@
 export function getJornadaMin(emp) {
     const tipo = String(emp?.contract_type || 'clt').toLowerCase();
     if (tipo === 'pj') return null;
-    if (tipo === 'estagio' || tipo === 'estágio' || tipo === 'aprendiz') return 6 * 60;
     const workLoad = emp?.work_load || '';
+    if (tipo === 'estagio' || tipo === 'estágio') return { '20h': 4 * 60, '30h': 6 * 60, '40h': 8 * 60 }[workLoad] ?? 6 * 60;
+    if (tipo === 'aprendiz') {
+        const semanal = workLoad.match(/^(\d+)h/);
+        return semanal ? Math.min(Math.round((parseInt(semanal[1], 10) / 5) * 60), 8 * 60) : 6 * 60;
+    }
     if (workLoad === '12x36') return 12 * 60;
     const m = workLoad.match(/^(\d+)h/);
     if (m) return Math.round((parseInt(m[1], 10) / 5) * 60);
@@ -23,13 +27,25 @@ export function calcWorkedMin(rec) {
     return rec.saida ? diffMin(rec.entrada, rec.saida) : 0;
 }
 
-export function calcBancoHorasLedger(records, adjustments, jornadaMin, vencimentoMeses, hoje = new Date()) {
+function isEstagio(emp) {
+    const tipo = String(emp?.contract_type || '').toLowerCase();
+    return tipo === 'estagio' || tipo === 'estágio';
+}
+
+export function jornadaNoDia(jornadaMin, dataISO, emp) {
+    if (jornadaMin === null || !isEstagio(emp) || !dataISO || !Array.isArray(emp?.estagio_avaliacoes)) return jornadaMin;
+    const dia = String(dataISO).slice(0, 10);
+    const emProvas = emp.estagio_avaliacoes.some((p) => p?.inicio && p?.fim && p.inicio <= dia && dia <= p.fim);
+    return emProvas ? Math.round(jornadaMin / 2) : jornadaMin;
+}
+
+export function calcBancoHorasLedger(records, adjustments, jornadaMin, vencimentoMeses, hoje = new Date(), emp) {
     if (jornadaMin === null) return { saldoMin: 0, proximoVencimento: null, minutosVencendo: 0, minutosVencidos: 0 };
 
     const byMonth = {};
     for (const r of records) {
         if (!r.entrada || !r.saida) continue;
-        const s = calcWorkedMin(r) - jornadaMin;
+        const s = calcWorkedMin(r) - jornadaNoDia(jornadaMin, r.date, emp);
         const mk = r.date.slice(0, 7);
         byMonth[mk] = (byMonth[mk] || 0) + s;
     }
@@ -93,7 +109,8 @@ export function calcFeriasSnapshot(emp, vacations, today = new Date()) {
     const admDate = new Date(emp.admission_date + 'T00:00:00');
     const months = monthsDiff(admDate, today);
     const periods = Math.floor(months / 12);
-    const earned = periods * 30;
+    const mesesCompletos = Math.max(0, months - (today.getDate() < admDate.getDate() ? 1 : 0));
+    const earned = isEstagio(emp) ? Math.floor((mesesCompletos * 30) / 12) : periods * 30;
     const taken = vacations.filter((v) => v.status === 'aprovado' || v.status === 'concluido').reduce((s, v) => s + v.days, 0);
     const saldoEstimado = Math.max(0, earned - taken);
     const period = calcAcquisitivePeriod(admDate, today);

@@ -13,6 +13,7 @@ const E_RH = '00000000-0000-4000-9000-00000000f501';
 const E_MGR = '00000000-0000-4000-9000-00000000f502';
 const E_SUB = '00000000-0000-4000-9000-00000000f503';
 const E_OUT = '00000000-0000-4000-9000-00000000f504';
+const E_PJ = '00000000-0000-4000-9000-00000000f505';
 
 before(async () => {
     await withServiceRole(async (db) => {
@@ -29,6 +30,12 @@ before(async () => {
             [E_RH, E_MGR, E_SUB, E_OUT]
         );
         await db.query(
+            `INSERT INTO employees (id, name, cpf, email, dept, contract_type, status)
+             VALUES ($1, 'DA PJ Fixture', '910.000.000-05', 'da.pj@test.local', 'TI', 'PJ', 'Ativo')
+             ON CONFLICT (id) DO NOTHING`,
+            [E_PJ]
+        );
+        await db.query(
             `INSERT INTO profiles (id, profile, employee_id) VALUES
                 ($1, 'Administrador', $2),
                 ($3, 'colaborador', $4),
@@ -42,10 +49,10 @@ before(async () => {
 
 after(async () => {
     await withServiceRole(async (db) => {
-        await db.query('DELETE FROM disciplinary_actions WHERE employee_id = ANY($1)', [[E_RH, E_MGR, E_SUB, E_OUT]]);
+        await db.query('DELETE FROM disciplinary_actions WHERE employee_id = ANY($1)', [[E_RH, E_MGR, E_SUB, E_OUT, E_PJ]]);
         await db.query('DELETE FROM profiles WHERE id = ANY($1)', [[U_RH, U_MGR, U_SUB, U_OUT]]);
         await db.query('DELETE FROM auth.users WHERE id = ANY($1)', [[U_RH, U_MGR, U_SUB, U_OUT]]);
-        await db.query('DELETE FROM employees WHERE id = ANY($1)', [[E_RH, E_MGR, E_SUB, E_OUT]]);
+        await db.query('DELETE FROM employees WHERE id = ANY($1)', [[E_RH, E_MGR, E_SUB, E_OUT, E_PJ]]);
     });
 });
 
@@ -84,6 +91,29 @@ describe('RLS: disciplinary_actions — registro (só o RH)', () => {
                 db.query(`INSERT INTO disciplinary_actions (employee_id, type, reason) VALUES ($1, 'advertencia_verbal', 'Trapaça')`, [E_SUB]),
                 FORBIDDEN
             );
+        });
+    });
+});
+
+describe('disciplinary_actions — PJ não recebe medida disciplinar (migration 102)', () => {
+    test('RH não consegue advertir nem suspender prestador PJ', async () => {
+        await withUser({ sub: U_RH }, async (db) => {
+            await assert.rejects(
+                db.query(`INSERT INTO disciplinary_actions (employee_id, type, reason, created_by_name) VALUES ($1, 'advertencia_escrita', 'Atraso', 'RH')`, [
+                    E_PJ,
+                ]),
+                { code: '23514' }
+            );
+        });
+    });
+
+    test('nem movendo uma medida existente de um CLT para o PJ', async () => {
+        await withUser({ sub: U_RH }, async (db) => {
+            const { rows } = await db.query(
+                `INSERT INTO disciplinary_actions (employee_id, type, reason, created_by_name) VALUES ($1, 'advertencia_verbal', 'Teste PJ', 'RH') RETURNING id`,
+                [E_OUT]
+            );
+            await assert.rejects(db.query('UPDATE disciplinary_actions SET employee_id = $1 WHERE id = $2', [E_PJ, rows[0].id]), { code: '23514' });
         });
     });
 });

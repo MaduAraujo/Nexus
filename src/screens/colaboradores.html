@@ -56,6 +56,15 @@
                         </button>
                         <button
                             class="btn-topbar-icon"
+                            id="btn-open-convencoes"
+                            data-click="openConvencoesModal"
+                            title="Convenções Coletivas"
+                            aria-label="Convenções Coletivas"
+                        >
+                            <i class="fas fa-handshake"></i>
+                        </button>
+                        <button
+                            class="btn-topbar-icon"
                             id="btn-open-trainings-catalog"
                             data-click="openTrainingsCatalogModal"
                             title="Catálogo de Treinamentos"
@@ -207,6 +216,7 @@
                                                     <option value="Estágio">Estágio</option>
                                                     <option value="Aprendiz">Aprendiz</option>
                                                     <option value="Temporário">Temporário</option>
+                                                    <option value="Prazo determinado">Prazo determinado</option>
                                                 </select>
                                             </div>
                                             <div class="form-group flex-1">
@@ -244,6 +254,152 @@
                                                     <option value="">Selecione</option>
                                                 </select>
                                             </div>
+                                        </div>
+                                        <div id="contrato-termino-details" class="conditional-field" data-hide>
+                                            <div class="form-row">
+                                                <div class="form-group form-group--narrow">
+                                                    <label for="contract-end-date">Término do Contrato <span class="required-mark">*</span></label>
+                                                    <div class="date-field">
+                                                        <input type="text" id="contract-end-date" class="date-input" placeholder="dd/mm/aaaa" readonly />
+                                                        <i class="fas fa-calendar-day date-field-icon"></i>
+                                                        <div class="calendar-popover">
+                                                            <div class="calendar-header">
+                                                                <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior">
+                                                                    <i class="fas fa-chevron-left"></i>
+                                                                </button>
+                                                                <span class="calendar-title" data-cal-title>—</span>
+                                                                <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês">
+                                                                    <i class="fas fa-chevron-right"></i>
+                                                                </button>
+                                                            </div>
+                                                            <div class="calendar-weekdays">
+                                                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span
+                                                                ><span>S</span>
+                                                            </div>
+                                                            <div class="calendar-grid" data-cal-grid></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="form-hint-block hidden" id="contrato-termino-hint"></p>
+                                        </div>
+                                        <div id="aprendiz-details" class="conditional-field" data-hide>
+                                            <p class="form-section-title"><i class="fas fa-user-graduate"></i> Contrato de Aprendizagem (CLT arts. 428 a 433)</p>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label class="reg-doc-consent" for="aprendiz-fundamental">
+                                                        <input type="checkbox" id="aprendiz-fundamental" />
+                                                        Ensino fundamental completo (permite jornada de até 8 horas, contando as aulas teóricas)
+                                                    </label>
+                                                    <p class="form-hint-block">Aprendiz precisa ter de 14 a 24 anos (sem limite para PcD), contrato de até 2 anos, salário de pelo menos o mínimo por hora e jornada de até 6 horas por dia. A data de nascimento, obrigatória para aprendiz, fica na aba Dados Completos.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="estagio-details" class="conditional-field" data-hide>
+                                            <p class="form-section-title"><i class="fas fa-user-graduate"></i> Termo de Compromisso de Estágio (Lei 11.788/2008)</p>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label for="estagio-nivel">Nível de Ensino <span class="required-mark">*</span></label>
+                                                    <select id="estagio-nivel">
+                                                        <option value="" disabled selected>Selecione</option>
+                                                        <option value="superior">Educação superior</option>
+                                                        <option value="medio_profissional">Ensino médio profissional</option>
+                                                        <option value="medio">Ensino médio regular</option>
+                                                        <option value="especial">Educação especial</option>
+                                                        <option value="fundamental_eja">Anos finais do fundamental (EJA profissional)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group flex-1">
+                                                    <label for="estagio-instituicao">Instituição de Ensino <span class="required-mark">*</span></label>
+                                                    <input type="text" id="estagio-instituicao" maxlength="160" />
+                                                </div>
+                                                <div class="form-group flex-1">
+                                                    <label for="estagio-supervisor">Supervisor do Estágio <span class="required-mark">*</span></label>
+                                                    <select id="estagio-supervisor">
+                                                        <option value="">Selecione</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label>Tipo de Estágio <span class="required-mark">*</span></label>
+                                                    <div class="radio-group row-radio">
+                                                        <label><input type="radio" name="estagio-obrigatorio" value="sim" /> Obrigatório (exigido pelo curso)</label>
+                                                        <label><input type="radio" name="estagio-obrigatorio" value="nao" /> Não obrigatório</label>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group flex-1">
+                                                    <label>Curso alterna teoria e prática? (permite 40h fora das aulas)</label>
+                                                    <div class="radio-group row-radio">
+                                                        <label><input type="radio" name="estagio-alternancia" value="nao" /> Não</label>
+                                                        <label><input type="radio" name="estagio-alternancia" value="sim" /> Sim</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="form-hint-block" id="estagio-regras-hint">
+                                                <i class="fas fa-circle-info"></i> Máximo de 2 anos na empresa (exceto estagiário com deficiência), 6h/dia e 30h semanais
+                                                (4h/20h na educação especial e EJA), carga de 20h, 30h ou 40h. No estágio não obrigatório, bolsa e auxílio-transporte são
+                                                obrigatórios.
+                                            </p>
+                                            <div class="form-row">
+                                                <div class="form-group form-group--narrow">
+                                                    <label for="estagio-prova-inicio">Período de provas — início</label>
+                                                    <div class="date-field">
+                                                        <input type="text" id="estagio-prova-inicio" class="date-input" placeholder="dd/mm/aaaa" readonly />
+                                                        <i class="fas fa-calendar-day date-field-icon"></i>
+                                                        <div class="calendar-popover">
+                                                            <div class="calendar-header">
+                                                                <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior">
+                                                                    <i class="fas fa-chevron-left"></i>
+                                                                </button>
+                                                                <span class="calendar-title" data-cal-title>—</span>
+                                                                <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês">
+                                                                    <i class="fas fa-chevron-right"></i>
+                                                                </button>
+                                                            </div>
+                                                            <div class="calendar-weekdays">
+                                                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span
+                                                                ><span>S</span>
+                                                            </div>
+                                                            <div class="calendar-grid" data-cal-grid></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group form-group--narrow">
+                                                    <label for="estagio-prova-fim">Período de provas — fim</label>
+                                                    <div class="date-field">
+                                                        <input type="text" id="estagio-prova-fim" class="date-input" placeholder="dd/mm/aaaa" readonly />
+                                                        <i class="fas fa-calendar-day date-field-icon"></i>
+                                                        <div class="calendar-popover">
+                                                            <div class="calendar-header">
+                                                                <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior">
+                                                                    <i class="fas fa-chevron-left"></i>
+                                                                </button>
+                                                                <span class="calendar-title" data-cal-title>—</span>
+                                                                <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês">
+                                                                    <i class="fas fa-chevron-right"></i>
+                                                                </button>
+                                                            </div>
+                                                            <div class="calendar-weekdays">
+                                                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span
+                                                                ><span>S</span>
+                                                            </div>
+                                                            <div class="calendar-grid" data-cal-grid></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group form-group--narrow">
+                                                    <span class="form-label-spacer" aria-hidden="true">&nbsp;</span>
+                                                    <button type="button" class="btn-secondary" id="btn-estagio-prova-add" data-click="handleAddEstagioProva">
+                                                        <i class="fas fa-plus"></i> Adicionar período
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p class="form-hint-block">
+                                                <i class="fas fa-book-open"></i> Nos períodos de provas informados pela instituição, a jornada do estagiário cai pela metade no ponto
+                                                (art. 10, § 2º).
+                                            </p>
+                                            <ul class="estagio-provas-lista" id="estagio-provas-lista" aria-live="polite"></ul>
                                         </div>
                                         <div class="form-row">
                                             <div class="form-group flex-1">
@@ -645,43 +801,74 @@
                                             <p class="step-panel-title"><i class="fas fa-sack-dollar"></i> Remuneração</p>
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
-                                                    <label for="rem-salario">Salário Base (R$)</label>
-                                                    <input type="text" id="rem-salario" />
-                                                </div>
-                                                <div class="form-group flex-1">
-                                                    <label for="rem-tipo-salario">Tipo de Salário</label>
-                                                    <select id="rem-tipo-salario">
-                                                        <option value="" disabled selected>Selecione</option>
-                                                        <option value="Mensal Fixo">Mensal Fixo</option>
-                                                        <option value="Horista">Por hora</option>
-                                                        <option value="Diarista">Por dia</option>
-                                                        <option value="Comissao">Comissão</option>
-                                                        <option value="Fixo e Comissão">Fixo + Comissão</option>
+                                                    <label for="convencao-coletiva">Convenção coletiva</label>
+                                                    <select id="convencao-coletiva">
+                                                        <option value="">Nenhuma</option>
                                                     </select>
                                                 </div>
                                             </div>
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
-                                                    <label for="rem-hora-extra">Valor Hora Extra (R$)</label>
-                                                    <input type="text" id="rem-hora-extra" />
-                                                </div>
-                                                <div class="form-group flex-1">
                                                     <label for="rem-periculosidade">Periculosidade</label>
                                                     <select id="rem-periculosidade">
-                                                        <option value="" disabled selected>Selecione</option>
-                                                        <option value="30%">30%</option>
+                                                        <option value="nao">Não</option>
+                                                        <option value="sim">Sim — 30% do salário</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group flex-1">
                                                     <label for="rem-insalubridade">Insalubridade</label>
                                                     <select id="rem-insalubridade">
-                                                        <option value="" disabled selected>Selecione</option>
-                                                        <option value="10%">10%</option>
-                                                        <option value="20%">20%</option>
-                                                        <option value="40%">40%</option>
+                                                        <option value="">Não</option>
+                                                        <option value="minimo">Grau mínimo — 10% do salário mínimo</option>
+                                                        <option value="medio">Grau médio — 20% do salário mínimo</option>
+                                                        <option value="maximo">Grau máximo — 40% do salário mínimo</option>
                                                     </select>
                                                 </div>
                                             </div>
+                                            <p class="form-hint-block">
+                                                Os dois adicionais não se acumulam (CLT art. 193 §2º): a folha paga só o mais vantajoso para o colaborador. Horas extras, noturno e DSR são
+                                                calculados pelo ponto, não precisam ser informados aqui.
+                                            </p>
+                                            <p class="form-section-title"><i class="fas fa-shield-halved"></i> Estabilidade provisória</p>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label for="estabilidade-motivo">Motivo</label>
+                                                    <select id="estabilidade-motivo">
+                                                        <option value="">Sem estabilidade</option>
+                                                        <option value="gestante">Gestante (até 5 meses após o parto)</option>
+                                                        <option value="acidente_trabalho">Acidente de trabalho (12 meses após a alta do INSS)</option>
+                                                        <option value="cipa">Membro eleito da CIPA (até 1 ano após o mandato)</option>
+                                                        <option value="dirigente_sindical">Dirigente sindical (até 1 ano após o mandato)</option>
+                                                        <option value="outra">Outra (convenção coletiva ou acordo)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group form-group--narrow">
+                                                    <label for="estabilidade-ate">Estável até</label>
+                                                    <div class="date-field">
+                                                        <input type="text" id="estabilidade-ate" class="date-input" placeholder="dd/mm/aaaa" readonly />
+                                                        <i class="fas fa-calendar-day date-field-icon"></i>
+                                                        <div class="calendar-popover">
+                                                            <div class="calendar-header">
+                                                                <button type="button" class="calendar-nav-btn" data-cal-prev aria-label="Mês anterior">
+                                                                    <i class="fas fa-chevron-left"></i>
+                                                                </button>
+                                                                <span class="calendar-title" data-cal-title>—</span>
+                                                                <button type="button" class="calendar-nav-btn" data-cal-next aria-label="Próximo mês">
+                                                                    <i class="fas fa-chevron-right"></i>
+                                                                </button>
+                                                            </div>
+                                                            <div class="calendar-weekdays">
+                                                                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span
+                                                                ><span>S</span>
+                                                            </div>
+                                                            <div class="calendar-grid" data-cal-grid></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="form-hint-block">
+                                                Enquanto durar a estabilidade, a rescisão sem justa causa fica bloqueada. O motivo é guardado criptografado, como os demais dados sensíveis.
+                                            </p>
                                         </div>
 
                                         <div class="step-panel hidden" id="step-panel-5">
@@ -767,6 +954,15 @@
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div class="form-row">
+                                                            <div class="form-group flex-1">
+                                                                <label for="pensao-valor" id="pensao-valor-label">Percentual do salário líquido (%)</label>
+                                                                <input type="text" id="pensao-valor" inputmode="decimal" placeholder="Conforme a decisão judicial" />
+                                                            </div>
+                                                        </div>
+                                                        <p class="form-hint-block">
+                                                            Descontada todo mês na folha e abatida da base do IRRF (Lei 9.250/95, art. 4º, II).
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div class="benefit-item">
@@ -1074,7 +1270,7 @@
                                     <a href="#" data-click="handlePromoteEmployee"> <i class="fas fa-arrow-trend-up"></i> Promover </a>
                                     <a href="#" data-click="handleOpenPerformance"> <i class="fas fa-chart-line"></i> Avaliação de Desempenho </a>
                                     <a href="#" data-click="handleOpenTrainings"> <i class="fas fa-graduation-cap"></i> Treinamentos </a>
-                                    <a href="#" data-click="handleOpenDisciplinary"> <i class="fas fa-gavel"></i> Processos Disciplinares </a>
+                                    <a href="#" id="menu-disciplinary" data-click="handleOpenDisciplinary"> <i class="fas fa-gavel"></i> Processos Disciplinares </a>
                                     <a href="#" data-click="handleOpenMedicalLeaves"> <i class="fas fa-file-medical"></i> Atestados e Afastamentos </a>
                                     <a href="#" data-click="handleShowHistory"> <i class="fas fa-clock-rotate-left"></i> Ver Histórico </a>
                                     <a href="#" data-click="handleShowLgpd"> <i class="fas fa-shield-halved"></i> Privacidade (LGPD) </a>
@@ -1241,7 +1437,6 @@
                             <option value="PJ">PJ</option>
                             <option value="Estágio">Estágio</option>
                             <option value="Aprendiz">Aprendiz</option>
-                            <option value="Temporário">Temporário</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1389,6 +1584,38 @@
                             <button type="button" data-click="addJobTitle" aria-label="Adicionar cargo"><i class="fas fa-plus"></i> Adicionar</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="convencoes-modal">
+            <div class="modal-content modal-content--lg">
+                <div class="modal-header">
+                    <div class="modal-header-icon"><i class="fas fa-handshake"></i></div>
+                    <div>
+                        <h3 class="modal-title">Convenções Coletivas</h3>
+                        <p class="modal-subtitle">Piso salarial e vigência de cada convenção ou acordo coletivo</p>
+                    </div>
+                    <button class="close-modal" data-click="closeConvencoesModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="onb-chips" id="convencoes-list"></div>
+                    <div class="jt-add">
+                        <div class="jt-add-row">
+                            <input type="text" id="cct-add-nome" placeholder="Nome (ex.: CCT Comerciários 2026/2027)..." aria-label="Nome da convenção" />
+                            <input type="text" id="cct-add-sindicato" placeholder="Sindicato (opcional)..." aria-label="Sindicato" />
+                        </div>
+                        <div class="jt-add-row">
+                            <input type="date" id="cct-add-inicio" aria-label="Início da vigência" />
+                            <input type="date" id="cct-add-fim" aria-label="Fim da vigência" />
+                            <input type="text" id="cct-add-piso" placeholder="Piso salarial (R$)" aria-label="Piso salarial" />
+                            <button type="button" data-click="addConvencao" aria-label="Adicionar convenção"><i class="fas fa-plus"></i> Adicionar</button>
+                        </div>
+                    </div>
+                    <p class="form-hint-block">
+                        A convenção vale por até 2 anos (CLT art. 614 §3º). Enquanto estiver vigente, o sistema não deixa gravar salário abaixo do piso, proporcional à
+                        jornada para quem trabalha menos de 44h semanais (OJ 358 do TST). Não vale para PJ, estágio e aprendiz.
+                    </p>
                 </div>
             </div>
         </div>
@@ -1651,8 +1878,10 @@
         <script src="../javascript/shared/auth.js"></script>
         <script src="../javascript/shared/files.js"></script>
         <script src="../javascript/shared/search.js"></script>
+        <script src="../javascript/domain/tabelas-fiscais.js"></script>
         <script src="../javascript/domain/clt-domain.js"></script>
         <script src="../javascript/domain/requisitos-documentos.js"></script>
+        <script src="../javascript/domain/estagio-domain.js"></script>
         <script src="../javascript/colaboradores.js"></script>
     </body>
 </html>

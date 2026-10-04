@@ -60,7 +60,7 @@ describe('requiredTipos', () => {
 describe('CONTRACT_TYPES', () => {
     test('cobre os tipos de contrato do cadastro de colaboradores, cada um com base legal', () => {
         const values = RequisitosDocumentos.CONTRACT_TYPES.map((t) => t.value);
-        assert.deepEqual(values.sort(), ['Aprendiz', 'CLT', 'Estágio', 'PJ', 'Temporário']);
+        assert.deepEqual(values.sort(), ['Aprendiz', 'CLT', 'Estágio', 'PJ', 'Prazo determinado', 'Temporário']);
         RequisitosDocumentos.CONTRACT_TYPES.forEach((t) => assert.ok(t.base.length > 20));
     });
 });

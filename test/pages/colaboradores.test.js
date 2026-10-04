@@ -284,6 +284,19 @@ describe('colaboradores.html — importação, disciplinares, atestados, onboard
         assert.ok(page.toasts().some((t) => /Colunas Ausentes/.test(t)));
     });
 
+    test('medida disciplinar: PJ não tem a opção no menu nem consegue abrir o registro', async () => {
+        const c = client({ disciplinary_actions: [] });
+        page = await openPage('colaboradores', { client: c, now: NOW });
+        page.window.openDrawer(CAIO.id);
+        assert.ok(page.$('#menu-disciplinary').classList.contains('hidden'));
+        await page.window.handleOpenDisciplinary();
+        assert.equal(page.$('#disciplinary-modal').classList.contains('open'), false);
+        assert.ok(page.toasts().some((t) => /não está sujeito a advertência ou suspensão/.test(t)));
+        assert.equal(c.calls.filter((x) => x.table === 'disciplinary_actions').length, 0);
+        page.window.openDrawer(ANA.id);
+        assert.equal(page.$('#menu-disciplinary').classList.contains('hidden'), false);
+    });
+
     test('medida disciplinar: suspensão exige dias; registra', async () => {
         const c = client({ disciplinary_actions: [] });
         page = await openPage('colaboradores', { client: c, now: NOW });
