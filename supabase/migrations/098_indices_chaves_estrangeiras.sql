@@ -4,10 +4,20 @@ CREATE INDEX IF NOT EXISTS burnout_alerts_employee_id_idx ON public.burnout_aler
 CREATE INDEX IF NOT EXISTS chat_channel_members_employee_id_idx ON public.chat_channel_members (employee_id);
 CREATE INDEX IF NOT EXISTS chat_messages_employee_id_idx ON public.chat_messages (employee_id);
 CREATE INDEX IF NOT EXISTS document_audit_log_actor_id_idx ON public.document_audit_log (actor_id);
-CREATE INDEX IF NOT EXISTS document_notifications_document_id_idx ON public.document_notifications (document_id);
+DO $$
+BEGIN
+    IF to_regclass('public.document_notifications') IS NOT NULL THEN
+        CREATE INDEX IF NOT EXISTS document_notifications_document_id_idx ON public.document_notifications (document_id);
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS documents_created_by_idx ON public.documents (created_by);
 CREATE INDEX IF NOT EXISTS documents_deleted_by_idx ON public.documents (deleted_by);
-CREATE INDEX IF NOT EXISTS documents_previous_version_id_idx ON public.documents (previous_version_id);
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'documents' AND column_name = 'previous_version_id') THEN
+        CREATE INDEX IF NOT EXISTS documents_previous_version_id_idx ON public.documents (previous_version_id);
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS e2e_channel_keys_employee_id_idx ON public.e2e_channel_keys (employee_id);
 CREATE INDEX IF NOT EXISTS e2e_org_key_grants_granted_by_idx ON public.e2e_org_key_grants (granted_by);
 CREATE INDEX IF NOT EXISTS e2e_org_keys_created_by_idx ON public.e2e_org_keys (created_by);

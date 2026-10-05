@@ -315,6 +315,8 @@ Como funciona:
 
 **Continua visível para o servidor:** metadados (nome, tipo e dono do documento; quem conversa com quem e quando), cadastro, holerites e tudo que o sistema precisa processar (IA, alertas, folha, dashboard), que seguem cifrados em repouso com a chave do Vault. **Limite de todo E2E na web:** quem controla a hospedagem do front poderia publicar um JavaScript alterado; SRI, CSP e a revisão do código publicado reduzem, mas não eliminam, esse risco.
 
+**Limitação conhecida da plataforma (Supabase, imagem `17.6.1.111`):** nessa versão, a extensão `supautils` derruba o Postgres quando `anon` ou `authenticated` chamam uma função sem permissão de execução (o código que monta a dica do erro, ligado por `supautils.hint_roles`, causa a falha de segmentação). Como a API expõe as funções do schema `public`, uma chamada a `/rest/v1/rpc/<função revogada>` reinicia o banco. Foi reproduzido localmente na mesma imagem, com PostgREST v12 e v14, e não acontece na `17.6.1.166`. A correção é atualizar o Postgres do projeto (no plano Free, pelo suporte do Supabase). O teste `test-integration/rpc-revogada-nao-derruba.js` confere isso e deve entrar no `test:integration`, junto com a troca da imagem do CI, depois da atualização.
+
 **Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
 
 ### Proteções contra ataques

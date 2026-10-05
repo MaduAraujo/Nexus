@@ -385,12 +385,35 @@ function installStubs(w, opts, rec) {
     w.Tesseract = { recognize: async () => ({ data: { text: opts.ocrText || '' } }) };
 }
 
+const TRANSIENT_READ_ERRORS = new Set(['UNKNOWN', 'EBUSY', 'EPERM', 'EAGAIN', 'EMFILE', 'ENFILE']);
+const sourceCache = new Map();
+const scriptCache = new Map();
+
+function readSource(file) {
+    if (sourceCache.has(file)) return sourceCache.get(file);
+    for (let attempt = 1; ; attempt++) {
+        try {
+            const text = fs.readFileSync(file, 'utf8');
+            sourceCache.set(file, text);
+            return text;
+        } catch (e) {
+            if (attempt >= 8 || !TRANSIENT_READ_ERRORS.has(e.code)) throw e;
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25 * attempt);
+        }
+    }
+}
+
+function compiledScript(file) {
+    if (!scriptCache.has(file)) scriptCache.set(file, new vm.Script(readSource(file), { filename: file }));
+    return scriptCache.get(file);
+}
+
 async function openPage(screen, opts = {}) {
     resetInterceptors();
     const client = opts.client || new FakeSupabase(opts.supabase || {});
     const relPath = screen.startsWith('/') ? screen.slice(1) : `src/screens/${screen}.html`;
     const htmlPath = path.join(ROOT, relPath);
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readSource(htmlPath);
     const url = `${BASE_URL}/${relPath}${opts.query || ''}${opts.hash || ''}`;
 
     const rec = {
@@ -436,7 +459,7 @@ async function openPage(screen, opts = {}) {
         if (/^https?:\/\//.test(src)) continue;
         const file = src.startsWith('/') ? path.join(ROOT, src) : path.resolve(path.dirname(htmlPath), src);
         if ((opts.skipScripts || []).includes(path.basename(file))) continue;
-        new vm.Script(fs.readFileSync(file, 'utf8'), { filename: file }).runInContext(context);
+        compiledScript(file).runInContext(context);
     }
 
     if (w.document.readyState !== 'complete') await new Promise((r) => w.addEventListener('load', r, { once: true }));
