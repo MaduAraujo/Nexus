@@ -28,6 +28,24 @@ function client(messages = [], reads = [], opts = {}) {
 const abrir = (c, extra = {}) => openPage('inicio-colaborador', { client: c, now: NOW, ...extra });
 
 describe('inicio-colaborador.html — sino de avisos', () => {
+    test('comunicado que exige ciência só sai do sino com a ciência; visualizar não basta', async () => {
+        const c = client(
+            [msg('u1', { categoria: 'Urgente' }), msg('p1', { categoria: 'Política' }), msg('e1', { categoria: 'Evento' })],
+            [
+                { message_id: 'u1', employee_id: ANA.id, acknowledged_at: null },
+                { message_id: 'p1', employee_id: ANA.id, acknowledged_at: '2026-06-16T11:00:00Z' },
+                { message_id: 'e1', employee_id: ANA.id, acknowledged_at: null },
+            ]
+        );
+        page = await abrir(c);
+        assert.equal(page.text('#notif-badge'), '1');
+        const itens = [...page.document.querySelectorAll('.notif-item')];
+        assert.deepEqual(
+            itens.map((a) => a.getAttribute('href')),
+            ['../screens/comunicados-colaborador.html?id=u1']
+        );
+    });
+
     test('sem comunicados não lidos, o sino fica sem número e a lista avisa que não há nada novo', async () => {
         page = await abrir(client([msg('m1')], [{ message_id: 'm1', employee_id: ANA.id }]));
         assert.equal(page.visible('#notif-badge'), false);

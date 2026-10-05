@@ -168,3 +168,19 @@ describe('plainTextPreview', () => {
         assert.equal(pf.plainTextPreview(undefined), '');
     });
 });
+
+describe('isValidChatPushRequest', () => {
+    const ID = '11111111-1111-4111-8111-111111111111';
+
+    test('aceita os três tipos de aviso do chat com id uuid', () => {
+        for (const kind of ['chat', 'ticket_msg', 'ticket_escalated']) assert.equal(pf.isValidChatPushRequest({ kind, id: ID }), true);
+    });
+
+    test('recusa tipo desconhecido, id que não é uuid e corpo vazio', () => {
+        assert.equal(pf.isValidChatPushRequest({ kind: 'comunicado', id: ID }), false);
+        assert.equal(pf.isValidChatPushRequest({ kind: 'chat', id: 'x' }), false);
+        assert.equal(pf.isValidChatPushRequest({ kind: 'chat', id: 42 }), false);
+        assert.equal(pf.isValidChatPushRequest(null), false);
+        assert.equal(pf.isValidChatPushRequest(undefined), false);
+    });
+});

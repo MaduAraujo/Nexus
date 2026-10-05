@@ -375,17 +375,28 @@ describe('chat-colaborador.html — ponta a ponta, DMs e erros', () => {
     });
 
     test('mensagem nova em outra DM acende o contador; na conversa aberta, não', async () => {
-        const c = client({
-            chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
-        });
+        let resumo = [];
+        const c = client(
+            {
+                chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
+            },
+            { rpc: { ...client().handlers.rpc, chat_unread_summary: () => resumo } }
+        );
         page = await openPage('chat-colaborador', { client: c });
+        assert.equal(page.visible('#badge-dm1'), false);
+
+        resumo = [{ kind: 'channel', thread: 'dm1', unread: 1 }];
         c.emit('chat_messages', { new: { id: 'z1', channel_id: 'dm1', employee_id: BIA.id } });
-        await page.settle();
-        assert.equal(page.text('#badge-dm1'), '1');
-        c.emit('chat_messages', { new: { id: 'z2', channel_id: 'dm1', employee_id: ANA.id } });
-        c.emit('chat_messages', { new: { id: 'z3', channel_id: 'ch-geral', employee_id: BIA.id } });
-        await page.settle();
-        assert.equal(page.text('#badge-dm1'), '1', 'mensagem própria e de canal não contam como DM');
+        await page.waitFor(() => page.text('#badge-dm1') === '1');
+
+        await page.click('.dm-item[data-channel-id="dm1"]');
+        assert.equal(page.visible('#badge-dm1'), false);
+        assert.deepEqual(c.rpcCalls('chat_mark_read').at(-1).args, { p_kind: 'channel', p_thread: 'dm1' });
+
+        const marcadas = c.rpcCalls('chat_mark_read').length;
+        c.emit('chat_messages', { new: { id: 'z2', channel_id: 'dm1', employee_id: BIA.id } });
+        await page.waitFor(() => c.rpcCalls('chat_mark_read').length > marcadas);
+        assert.equal(page.visible('#badge-dm1'), false, 'na conversa aberta a mensagem já entra como lida');
     });
 
     test('criar atendimento com erro avisa; avaliação que falha não agradece', async () => {

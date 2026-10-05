@@ -126,3 +126,54 @@ describe('dynamic-style — nós que não são elementos', () => {
         assert.doesNotThrow(() => window.applyDynamicStyles(document.createTextNode('x')));
     });
 });
+
+describe('dynamic-style — fotos do bucket privado de avatares', () => {
+    let pendentes;
+
+    before(() => {
+        pendentes = [];
+        window.NexusAvatar = {
+            caminho: (v) => (v.startsWith('avatars/') ? v.slice(8) : null),
+            url: (v) =>
+                new Promise((resolve) => {
+                    pendentes.push({ v, resolve });
+                }),
+        };
+    });
+
+    const resolverTodos = async (url) => {
+        pendentes.splice(0).forEach((p) => p.resolve(url === undefined ? `https://storage.test/sign/${p.v}` : url));
+        await new Promise((r) => setTimeout(r, 0));
+    };
+
+    test('data-bg-img com referência de avatar usa o link assinado, não a referência', async () => {
+        const el = render('<div data-bg-img="avatars/e1?v=1"></div>');
+        assert.equal(el.style.backgroundImage, '');
+        await resolverTodos();
+        assert.match(el.style.backgroundImage, /https:\/\/storage\.test\/sign\/avatars\/e1\?v=1/);
+        assert.equal(el.style.backgroundSize, 'cover');
+    });
+
+    test('data-src põe o link assinado na imagem; endereço https comum passa direto; javascript: é ignorado', async () => {
+        const img = render('<img data-src="avatars/e2?v=1">');
+        await resolverTodos();
+        assert.equal(img.src, 'https://storage.test/sign/avatars/e2?v=1');
+        assert.equal(render('<img data-src="https://cdn.test/a.png">').src, 'https://cdn.test/a.png');
+        assert.equal(render('<img data-src="javascript:alert(1)">').getAttribute('src'), null);
+    });
+
+    test('se a foto mudou antes do link chegar, o link antigo não é aplicado', async () => {
+        const el = render('<div data-bg-img="avatars/velha"></div>');
+        el.setAttribute('data-bg-img', 'https://cdn.test/nova.png');
+        await new Promise((r) => setTimeout(r, 0));
+        await resolverTodos();
+        assert.match(el.style.backgroundImage, /nova\.png/);
+        assert.doesNotMatch(el.style.backgroundImage, /velha/);
+    });
+
+    test('sem link assinado (acesso negado ou falha), nada é aplicado', async () => {
+        const el = render('<div data-bg-img="avatars/sem-acesso"></div>');
+        await resolverTodos(null);
+        assert.equal(el.style.backgroundImage, '');
+    });
+});

@@ -657,6 +657,42 @@ body {
     display: none;
 }
 
+.nav-link {
+    position: relative;
+}
+
+.nav-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.nav-badge.hidden {
+    display: none;
+}
+
+.sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 0.6rem;
+    line-height: 16px;
+    box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+
 @keyframes notif-ring {
     0%,
     100% {

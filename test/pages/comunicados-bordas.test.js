@@ -68,14 +68,15 @@ describe('comunicados-colaborador.html — bordas', () => {
         Object.defineProperty(card, 'scrollHeight', { configurable: true, value: 1000 });
         await page.click('.comunicado-card[data-id="m1"]');
         const btn = page.$('#btn-marcar-lido');
+        const ciencias = () => c.writes('message_reads', 'upsert').filter((w) => w.payload[0].acknowledged_at);
         assert.equal(btn.disabled, true);
         await page.click(btn);
-        assert.equal(c.writes('message_reads', 'upsert').length, 0);
+        assert.equal(ciencias().length, 0);
 
         await page.click('#modal-close');
         card.dispatchEvent(new page.window.Event('scroll'));
         await page.click(btn);
-        assert.equal(c.writes('message_reads', 'upsert').length, 0);
+        assert.equal(ciencias().length, 0);
 
         await page.click('.comunicado-card[data-id="m1"]');
         Object.defineProperty(card, 'scrollHeight', { configurable: true, value: 0 });

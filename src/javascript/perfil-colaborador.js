@@ -18,6 +18,7 @@
     const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#14b8a6', '#f97316', '#84cc16'];
     const NOTIF_DEFAULTS = {
         comunicados: true,
+        chat: true,
         documentos: true,
         holerite: true,
         ferias: true,
@@ -149,10 +150,7 @@
             return;
         }
 
-        const {
-            data: { publicUrl },
-        } = sb.storage.from('avatars').getPublicUrl(storagePath);
-        const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+        const avatarUrl = NexusAvatar.referencia(storagePath);
 
         const { error } = await sb.from('employees').update({ avatar_url: avatarUrl }).eq('id', myEmployeeId);
         if (error) {
@@ -472,7 +470,7 @@
 
         if (myEmployee.avatar_url) {
             avatarImg?.classList.remove('hidden');
-            if (avatarImg) avatarImg.src = myEmployee.avatar_url;
+            avatarImg?.setAttribute('data-src', myEmployee.avatar_url);
             avatarDiv?.classList.add('hidden');
             if (removeBtn) removeBtn.style.display = 'flex';
         } else {

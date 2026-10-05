@@ -124,7 +124,7 @@ describe('CSP: sem unsafe-inline em style-src', () => {
         assert.deepEqual(
             problemas,
             [],
-            `Use uma classe CSS, ou data-bg/data-color/data-w/data-x/data-y/data-delay/data-bg-img/data-hide (src/javascript/shared/dynamic-style.js):\n${problemas.join('\n')}`
+            `Use uma classe CSS, ou data-bg/data-color/data-w/data-x/data-y/data-delay/data-bg-img/data-src/data-hide (src/javascript/shared/dynamic-style.js):\n${problemas.join('\n')}`
         );
     });
 

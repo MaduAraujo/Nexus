@@ -256,6 +256,18 @@
                                     </label>
                                 </div>
                                 <div class="notif-item">
+                                    <div class="notif-item-icon notif-icon--blue"><i class="fas fa-comments"></i></div>
+                                    <div class="notif-item-body">
+                                        <p class="notif-item-label">Mensagens do chat</p>
+                                        <p class="notif-item-desc">Mensagens diretas, canais e respostas do RH, só no horário comercial</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="notif-chat" checked
+                                               data-change="saveNotifPref" data-change-args='["chat",{"$":"this.checked"}]' />
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                <div class="notif-item">
                                     <div class="notif-item-icon notif-icon--purple"><i class="fas fa-file-signature"></i></div>
                                     <div class="notif-item-body">
                                         <p class="notif-item-label">Documentos do RH</p>
@@ -426,6 +438,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0" integrity="sha384-JBR+x8blGwjDRO63aHCGiZMD4VNiTR4ZUGA+N6ZKLf3zNt1fK8IBpcgPaMrxqWBp" crossorigin="anonymous"></script>
 <script src="../javascript/shared/events.js"></script>
+<script src="../javascript/shared/avatar.js"></script>
 <script src="../javascript/shared/dynamic-style.js"></script>
 <script src="../javascript/shared/datas.js"></script>
 <script src="../javascript/shared/html.js"></script>

@@ -334,6 +334,11 @@ class FakeBucket {
         if (err) return { data: null, error: err };
         return { data: { signedUrl: `https://storage.test/${this._bucket}/${path}?token=t` }, error: null };
     }
+    async createSignedUrls(paths, expiresIn) {
+        const err = this._log('createSignedUrls', paths, { expiresIn });
+        if (err) return { data: null, error: err };
+        return { data: paths.map((path) => ({ path, signedUrl: `https://storage.test/${this._bucket}/${path}?token=t`, error: null })), error: null };
+    }
     getPublicUrl(path) {
         this._client.calls.push({ storage: this._bucket, op: 'getPublicUrl', path });
         return { data: { publicUrl: `https://storage.test/public/${this._bucket}/${path}` } };

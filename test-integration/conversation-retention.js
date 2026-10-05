@@ -15,6 +15,8 @@ const TICKETS = [T_BOT_VELHO, T_RESOLVIDO_VELHO, T_ABERTO_VELHO, T_VELHO_COM_MSG
 
 const VELHO = "now() - interval '13 months'";
 const RECENTE = "now() - interval '11 months'";
+const TICKET_VELHO = "now() - interval '61 months'";
+const TICKET_RECENTE = "now() - interval '59 months'";
 
 const AI_VELHO = '00000000-0000-4000-c000-00000000d801';
 const AI_RECENTE = '00000000-0000-4000-c000-00000000d802';
@@ -52,17 +54,17 @@ before(async () => {
         await db.query('DELETE FROM hr_tickets WHERE id = ANY($1)', [TICKETS]);
         await db.query(
             `INSERT INTO hr_tickets (id, employee_id, status, created_at, updated_at) VALUES
-                ($1, $6, 'bot',            ${VELHO},   ${VELHO}),
-                ($2, $6, 'resolvido',      ${VELHO},   ${VELHO}),
-                ($3, $6, 'aguardando_rh',  ${VELHO},   ${VELHO}),
-                ($4, $6, 'bot',            ${VELHO},   ${VELHO}),
-                ($5, $6, 'resolvido',      ${RECENTE}, ${RECENTE})`,
+                ($1, $6, 'bot',            ${TICKET_VELHO}, ${TICKET_VELHO}),
+                ($2, $6, 'resolvido',      ${TICKET_VELHO}, ${TICKET_VELHO}),
+                ($3, $6, 'aguardando_rh',  ${TICKET_VELHO}, ${TICKET_VELHO}),
+                ($4, $6, 'bot',            ${TICKET_VELHO}, ${TICKET_VELHO}),
+                ($5, $6, 'resolvido',      ${VELHO},        ${VELHO})`,
             [...TICKETS, E_COLAB]
         );
         await db.query(
             `INSERT INTO hr_ticket_messages (ticket_id, employee_id, role, content, created_at) VALUES
-                ($1, $3, 'user', 'retencao: conversa com o assistente', ${VELHO}),
-                ($2, $3, 'user', 'retencao: voltou a conversar', ${RECENTE})`,
+                ($1, $3, 'user', 'retencao: conversa com o assistente', ${TICKET_VELHO}),
+                ($2, $3, 'user', 'retencao: voltou a conversar', ${TICKET_RECENTE})`,
             [T_BOT_VELHO, T_VELHO_COM_MSG_NOVA, E_COLAB]
         );
 
@@ -82,7 +84,7 @@ after(async () => {
     });
 });
 
-describe('purge_expired_conversations() — retenção de 12 meses', () => {
+describe('purge_expired_conversations() — 12 meses para chat e IA, 5 anos para atendimentos', () => {
     test('devolve quantas linhas apagou de cada tabela', () => {
         assert.ok(resultado.chat_messages >= 1);
         assert.ok(resultado.ai_chat_history >= 1);
@@ -109,7 +111,7 @@ describe('purge_expired_conversations() — retenção de 12 meses', () => {
         });
     });
 
-    test('conversas com o assistente e chamados resolvidos: somem após 12 meses de inatividade, com as mensagens', async () => {
+    test('atendimentos resolvidos ou só com o assistente: somem após 5 anos de inatividade, com as mensagens', async () => {
         await withServiceRole(async (db) => {
             const t = await db.query('SELECT id FROM hr_tickets WHERE id = ANY($1)', [[T_BOT_VELHO, T_RESOLVIDO_VELHO]]);
             assert.equal(t.rows.length, 0);
@@ -118,7 +120,7 @@ describe('purge_expired_conversations() — retenção de 12 meses', () => {
         });
     });
 
-    test('mantém chamado ainda aberto com o RH, conversa retomada recentemente e conversa nova', async () => {
+    test('mantém chamado aberto com o RH, conversa retomada há menos de 5 anos e atendimento resolvido há 13 meses', async () => {
         await withServiceRole(async (db) => {
             const { rows } = await db.query('SELECT id FROM hr_tickets WHERE id = ANY($1) ORDER BY id', [[T_ABERTO_VELHO, T_VELHO_COM_MSG_NOVA, T_NOVO]]);
             assert.deepEqual(

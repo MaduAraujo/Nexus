@@ -57,3 +57,9 @@ export function plainTextPreview(html, maxLen = 140) {
         .trim();
     return plain.length > maxLen ? `${plain.slice(0, maxLen)}…` : plain;
 }
+
+const CHAT_PUSH_KINDS = new Set(['chat', 'ticket_msg', 'ticket_escalated']);
+
+export function isValidChatPushRequest(body) {
+    return CHAT_PUSH_KINDS.has(body?.kind) && typeof body?.id === 'string' && UUID_RE.test(body.id);
+}

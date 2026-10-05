@@ -1,6 +1,7 @@
 ﻿document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
+    window.NexusChatUnread.iniciar();
 
     setupSidebar();
     setupCalendar();

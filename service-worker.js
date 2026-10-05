@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'nexus-v7';
+const CACHE_VERSION = 'nexus-v8';
 const PRECACHE_URLS = [
     '/index.html',
     '/manifest.json',
@@ -43,6 +43,10 @@ self.addEventListener('push', (event) => {
         badge: '/src/assets/icons/icon-192.png',
         data: { url: data.url || '/index.html' },
     };
+    if (data.tag) {
+        options.tag = data.tag;
+        options.renotify = true;
+    }
 
     event.waitUntil(self.registration.showNotification(title, options));
 });

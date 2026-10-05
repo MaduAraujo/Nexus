@@ -60,4 +60,14 @@
         const container = new DOMParser().parseFromString(String(html || ''), 'text/html').body;
         return (container.textContent || '').replace(/\s+/g, ' ').trim();
     };
+
+    const CATEGORIAS_COM_CIENCIA = new Set(['Urgente', 'Política']);
+
+    window.comunicadoExigeCiencia = function (msg) {
+        return CATEGORIAS_COM_CIENCIA.has(msg?.categoria);
+    };
+
+    window.comunicadoPendente = function (msg, lidos, cientes) {
+        return window.comunicadoExigeCiencia(msg) ? !cientes.has(msg.id) : !lidos.has(msg.id);
+    };
 })();

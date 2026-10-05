@@ -243,7 +243,8 @@ describe('chat-rh.html — painel, histórico, teclado e tempo real', () => {
         page = await openPage('chat-rh', { client: c, now: NOW });
         await page.click('.ticket-item[data-ticket-id="t1"]');
         await page.settle();
-        assert.match(page.$('#colab-avatar').style.background, /ana\.png/);
+        assert.equal(page.$('#colab-avatar').getAttribute('data-bg-img'), 'https://cdn.exemplo.com/ana.png');
+        assert.match(page.$('#colab-avatar').style.backgroundImage, /ana\.png/);
         assert.equal(page.text('#colab-avatar'), '');
         assert.match(page.text('#messages-list'), /Já estou vendo, Ana\./);
         assert.ok(page.$('#messages-list .rh-avatar'), 'resposta de outro analista aparece com o ícone do RH');

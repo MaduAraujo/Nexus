@@ -277,9 +277,10 @@ body {
     color: #fff;
     font-size: 0.62rem;
     font-weight: 700;
-    width: 16px;
+    min-width: 16px;
     height: 16px;
-    border-radius: 50%;
+    padding: 0 4px;
+    border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1613,6 +1614,12 @@ body {
     display: flex;
 }
 
+.channel-item.has-unread .ch-name,
+.ticket-item.has-unread .ticket-subject {
+    font-weight: 700;
+    color: var(--text-on-dark);
+}
+
 .list-loading {
     text-align: center;
     padding: 20px;
@@ -1673,4 +1680,8 @@ i.kudos-empty-icon {
 .msg-bubble.msg-bubble--locked {
     font-style: italic;
     opacity: 0.7;
+}
+
+.ticket-item-head .ch-badge {
+    margin-left: auto;
 }

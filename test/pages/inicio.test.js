@@ -223,7 +223,7 @@ describe('inicio-colaborador.html — navegação, teclado e tempo real', () => 
         await page.settle();
         assert.equal(page.text('#welcome-name'), 'Ana Souza Lima');
         assert.equal(page.text('#sidebar-role'), 'Analista Sênior');
-        assert.match(page.$('#welcome-avatar').style.background, /a\.jpg/);
+        assert.match(page.$('#welcome-avatar').style.backgroundImage, /a\.jpg/);
         assert.equal(page.text('#sidebar-avatar'), '');
     });
 
@@ -279,30 +279,28 @@ describe('comunicados-colaborador.html', () => {
         assert.match(page.text(novo), /Novo.*1.*Fechamento contábil.*há 30min/);
     });
 
-    test('abrir mostra o texto formatado (sanitizado) mas NÃO marca como lido; sair da página também não', async () => {
+    test('urgente: abrir mostra o texto sanitizado e registra só a visualização; continua pendente até a ciência', async () => {
         const c = client();
         page = await openPage('comunicados-colaborador', { client: c, now: '2026-06-17T10:00:00-03:00' });
         await page.click('.comunicado-card[data-id="m2"]');
         assert.equal(page.visible('#msg-modal'), true);
         assert.equal(page.$('#modal-body strong').textContent, 'contábil');
+        assert.deepEqual(c.writes('message_reads', 'upsert')[0].payload, [{ message_id: 'm2', employee_id: ANA.id }]);
         await page.key(page.document, 'Escape');
         assert.equal(page.visible('#msg-modal'), false);
-        page.window.dispatchEvent(new page.window.Event('beforeunload'));
-        await page.settle();
-        assert.equal(c.writes('message_reads', 'upsert').length, 0);
         assert.equal(page.text('#unread-count'), '1');
+        assert.match(page.text('.comunicado-card[data-id="m2"]'), /Ciência pendente/);
     });
 
-    test('comunicado comum: "Marcar como lido" grava a leitura', async () => {
+    test('comunicado comum: abrir já registra a leitura, sem botão de confirmação', async () => {
         const c = client();
         c.tables.message_reads = [];
         page = await openPage('comunicados-colaborador', { client: c, now: '2026-06-17T10:00:00-03:00' });
         await page.click('.comunicado-card[data-id="m1"]');
         assert.equal(page.visible('#modal-ciencia-wrap'), false, 'comum não pede ciência');
-        assert.equal(page.$('#btn-marcar-lido').disabled, false);
-        await page.click('#btn-marcar-lido');
         assert.deepEqual(c.writes('message_reads', 'upsert')[0].payload, [{ message_id: 'm1', employee_id: ANA.id }]);
         assert.equal(page.visible('#modal-lido'), true);
+        assert.match(page.text('#modal-lido'), /Leitura registrada/);
         assert.equal(page.visible('#btn-marcar-lido'), false);
     });
 
@@ -327,8 +325,28 @@ describe('comunicados-colaborador.html', () => {
         await page.check(ciencia);
         assert.equal(btn.disabled, false);
         await page.click(btn);
-        assert.deepEqual(c.writes('message_reads', 'upsert')[0].payload, [{ message_id: 'm2', employee_id: ANA.id }]);
+        const [visto, ciente] = c.writes('message_reads', 'upsert').map((w) => w.payload[0]);
+        assert.deepEqual(visto, { message_id: 'm2', employee_id: ANA.id });
+        assert.equal(ciente.message_id, 'm2');
+        assert.ok(ciente.acknowledged_at);
         assert.equal(page.$('#unread-badge').classList.contains('hidden'), true);
+        assert.match(page.text('#modal-lido'), /Ciência confirmada/);
+        assert.equal(page.visible('#btn-marcar-lido'), false);
+    });
+
+    test('urgente: se o banco recusa a ciência, avisa e o botão volta', async () => {
+        const c = client();
+        page = await openPage('comunicados-colaborador', { client: c, now: '2026-06-17T10:00:00-03:00' });
+        const card = page.$('.msg-modal-card');
+        Object.defineProperty(card, 'scrollHeight', { configurable: true, value: 0 });
+        await page.click('.comunicado-card[data-id="m2"]');
+        c.errors['message_reads:upsert'] = { message: 'recusado' };
+        await page.check('#modal-ciencia');
+        await page.click('#btn-marcar-lido');
+        assert.deepEqual(page.alerts, ['Não foi possível registrar a sua ciência. Tente novamente.']);
+        assert.equal(page.visible('#btn-marcar-lido'), true);
+        assert.equal(page.$('#btn-marcar-lido').disabled, false);
+        assert.equal(page.text('#unread-count'), '1');
     });
 
     test('filtro de não lidos e busca', async () => {

@@ -95,6 +95,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     let dbMensagens = [];
     let dbEmployees = [];
     let readCountMap = {};
+    let ackCountMap = {};
+
+    function contarLeituras(reads) {
+        readCountMap = {};
+        ackCountMap = {};
+        (reads || []).forEach((r) => {
+            readCountMap[r.message_id] = (readCountMap[r.message_id] || 0) + 1;
+            if (r.acknowledged_at) ackCountMap[r.message_id] = (ackCountMap[r.message_id] || 0) + 1;
+        });
+    }
     let histFilter = 'todos';
     let histCatFilter = 'todas';
     let searchQuery = '';
@@ -720,13 +730,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadMessages() {
         const [{ data: msgs }, { data: reads }] = await Promise.all([
             sb.from('messages').select('*').order('created_at', { ascending: false }),
-            sb.from('message_reads').select('message_id'),
+            sb.from('message_reads').select('message_id,acknowledged_at'),
         ]);
         dbMensagens = msgs || [];
-        readCountMap = {};
-        (reads || []).forEach((r) => {
-            readCountMap[r.message_id] = (readCountMap[r.message_id] || 0) + 1;
-        });
+        contarLeituras(reads);
         updateStats();
     }
 
@@ -868,7 +875,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function readsBadge(m) {
         const reads = readCountMap[m.id] || 0;
-        return `<button type="button" class="reads-badge" data-id="${m.id}" title="Ver engajamento"><i class="fas fa-eye"></i> ${reads}</button>`;
+        if (!comunicadoExigeCiencia(m))
+            return `<button type="button" class="reads-badge" data-id="${m.id}" title="Ver engajamento"><i class="fas fa-eye"></i> ${reads}</button>`;
+        const acks = ackCountMap[m.id] || 0;
+        return `<button type="button" class="reads-badge" data-id="${m.id}" title="Visualizaram · confirmaram ciência"><i class="fas fa-eye"></i> ${reads} <i class="fas fa-check-double"></i> ${acks}</button>`;
     }
 
     function renderizarTabela() {
@@ -1087,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const requestId = ++engagementRequestId;
         const { data } = await sb
             .from('message_reads')
-            .select('read_at, employees(name, dept, avatar_color, avatar_url)')
+            .select('read_at, acknowledged_at, employees(name, dept, avatar_color, avatar_url)')
             .in('message_id', liveIds)
             .order('read_at', { ascending: false });
         if (requestId !== engagementRequestId) return;
@@ -1140,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${avatar}
                 <div class="reads-popover-info">
                     <span class="reads-popover-name">${escHTML(name)}${emp?.dept ? ` <span class="engagement-reader-dept">· ${escHTML(deptLabel(emp.dept))}</span>` : ''}</span>
-                    <span class="reads-popover-time">${escHTML(fmtDateTime(r.read_at))}</span>
+                    <span class="reads-popover-time">${escHTML(fmtDateTime(r.read_at))}${r.acknowledged_at ? ` · Ciência em ${escHTML(fmtDateTime(r.acknowledged_at))}` : ''}</span>
                 </div>
             </div>`;
                       })
@@ -1371,7 +1381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         editModalSave.disabled = false;
         if (error) {
             console.error('[Nexus] edit:', error);
-            alert('Não foi possível salvar a edição. Tente novamente.');
+            alert(error.code === '55000' ? error.message : 'Não foi possível salvar a edição. Tente novamente.');
             return;
         }
         if (editRemovedPaths.length) await sb.storage.from('message-attachments').remove(editRemovedPaths);
@@ -1424,12 +1434,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (error) {
             confirmDeleteConfirm.disabled = false;
             closeConfirmDeleteModal();
-            alert('Não foi possível excluir o comunicado. Tente novamente.');
+            alert(error.code === '55000' ? error.message : 'Não foi possível excluir o comunicado. Tente novamente.');
             return;
         }
         if (paths.length) await sb.storage.from('message-attachments').remove(paths);
         dbMensagens = dbMensagens.filter((m) => m.id !== id);
         delete readCountMap[id];
+        delete ackCountMap[id];
         updateStats();
         renderizarMensagens();
 
@@ -1451,11 +1462,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (currentSection === 'history') renderizarMensagens();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reads' }, async () => {
-            const { data: reads } = await sb.from('message_reads').select('message_id');
-            readCountMap = {};
-            (reads || []).forEach((r) => {
-                readCountMap[r.message_id] = (readCountMap[r.message_id] || 0) + 1;
-            });
+            const { data: reads } = await sb.from('message_reads').select('message_id,acknowledged_at');
+            contarLeituras(reads);
             updateStats();
             if (currentSection === 'history') renderizarMensagens();
         })

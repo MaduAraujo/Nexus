@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
+    window.NexusChatUnread.iniciar();
     const myEmployeeId = auth.profile.employee_id;
     let myEmployee = auth.employee;
 
@@ -113,9 +114,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sidebarRole = document.getElementById('sidebar-role');
         if (sidebarAvatar) {
             if (e.avatar_url) {
-                sidebarAvatar.style.background = `url(${e.avatar_url}) center/cover`;
+                sidebarAvatar.style.background = '';
+                sidebarAvatar.setAttribute('data-bg-img', e.avatar_url);
                 sidebarAvatar.textContent = '';
             } else {
+                sidebarAvatar.removeAttribute('data-bg-img');
                 sidebarAvatar.style.background = window.nexusFundoLegivel(color);
                 sidebarAvatar.textContent = ini;
             }
@@ -131,9 +134,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (welcomeAvatar) {
             if (e.avatar_url) {
-                welcomeAvatar.style.background = `url(${e.avatar_url}) center/cover`;
+                welcomeAvatar.style.background = '';
+                welcomeAvatar.setAttribute('data-bg-img', e.avatar_url);
                 welcomeAvatar.textContent = '';
             } else {
+                welcomeAvatar.removeAttribute('data-bg-img');
                 welcomeAvatar.style.background = window.nexusFundoLegivel(color);
                 welcomeAvatar.textContent = ini;
             }
@@ -318,10 +323,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const orFilter = dept ? `destino.eq.Todos,destino.eq."${dept.replace(/["\\]/g, '\\$&')}"` : 'destino.eq.Todos';
         const [{ data: msgs }, { data: reads }] = await Promise.all([
             sb.from('messages').select('id,texto,categoria,created_at').or(orFilter).order('created_at', { ascending: false }),
-            sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
+            sb.from('message_reads').select('message_id,acknowledged_at').eq('employee_id', myEmployeeId),
         ]);
         const lidos = new Set((reads || []).map((r) => r.message_id));
-        const naoLidos = (msgs || []).filter((m) => !lidos.has(m.id));
+        const cientes = new Set((reads || []).filter((r) => r.acknowledged_at).map((r) => r.message_id));
+        const naoLidos = (msgs || []).filter((m) => comunicadoPendente(m, lidos, cientes));
         const n = naoLidos.length;
         const rotulo = `${n} não lido${n > 1 ? 's' : ''}`;
 

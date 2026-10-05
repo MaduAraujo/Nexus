@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('colaborador', '*');
     if (!auth) return;
+    window.NexusChatUnread.iniciar();
     const myEmployeeId = auth.profile.employee_id;
     const myEmployee = auth.employee;
 
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activeChatSub = null;
     let activeTicketSub = null;
     let typingTimer = null;
-    const unreadCounts = {};
+    const unread = window.NexusChatUnread;
 
     const esc = (s) =>
         String(s || '')
@@ -93,6 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const kudosArea = $('kudos-area');
 
     function showWelcome() {
+        unread.abrir(null);
         chatWelcome?.classList.remove('hidden');
         chatArea?.classList.add('hidden');
         hrArea?.classList.add('hidden');
@@ -100,6 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showChatArea() {
+        unread.abrir('channel', currentChannelId);
         chatWelcome?.classList.add('hidden');
         chatArea?.classList.remove('hidden');
         hrArea?.classList.add('hidden');
@@ -107,6 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showHrArea() {
+        unread.abrir('ticket', currentTicketId);
         chatWelcome?.classList.add('hidden');
         chatArea?.classList.add('hidden');
         hrArea?.classList.remove('hidden');
@@ -114,6 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showKudosArea() {
+        unread.abrir(null);
         chatWelcome?.classList.add('hidden');
         chatArea?.classList.add('hidden');
         hrArea?.classList.add('hidden');
@@ -217,6 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!mine.length && !other.length) {
             list.innerHTML = '<li class="ch-loading"><span>Nenhum canal disponível</span></li>';
         }
+        updateUnreadUI();
     }
 
     function buildChannelItem(channel, isMember) {
@@ -268,10 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.channel-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.channelId === channel.id);
         });
-
-        unreadCounts[channel.id] = 0;
-        updateChannelBadge(channel.id);
-        updateSidebarUnread();
 
         const areaIcon = $('chat-area-icon');
         const areaName = $('chat-area-name');
@@ -395,12 +397,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const { data: decrypted } = await sb.from('chat_messages_decrypted').select('*').eq('id', msg.id).single();
                     if (!decrypted) return;
                     appendMessage(await revealMessage(decrypted));
-
-                    if (currentChannelId !== channelId) {
-                        unreadCounts[channelId] = (unreadCounts[channelId] || 0) + 1;
-                        updateChannelBadge(channelId);
-                        updateSidebarUnread();
-                    }
                 }
             )
             .subscribe();
@@ -497,14 +493,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         appendMessage({ ...msg, content: text, employees: myEmployee, e2e: Boolean(sealed) });
     }
 
-    function updateChannelBadge(channelId) {
-        const badge = document.getElementById(`badge-${channelId}`);
-        const count = unreadCounts[channelId] || 0;
-        badge.textContent = count;
+    function paintBadge(badge, count) {
+        if (!badge) return;
+        badge.textContent = unread.rotulo(count);
         badge.style.display = count > 0 ? 'flex' : 'none';
     }
 
-    function updateSidebarUnread() {}
+    async function openFromLink() {
+        const params = new URLSearchParams(window.location.search);
+        const find = (sel, key, id) => [...document.querySelectorAll(sel)].find((li) => li.dataset[key] === id);
+        const ticketId = params.get('ticket');
+        const channelId = params.get('canal');
+        if (ticketId) {
+            const li = find('.ticket-item[data-ticket-id]', 'ticketId', ticketId);
+            if (!li) return;
+            $('tab-rh')?.click();
+            li.click();
+        } else if (channelId) {
+            find('.channel-item[data-channel-id]', 'channelId', channelId)?.click();
+        }
+    }
+
+    function updateUnreadUI() {
+        document.querySelectorAll('.channel-item[data-channel-id]').forEach((li) => {
+            const count = unread.contar('channel', li.dataset.channelId);
+            li.classList.toggle('has-unread', count > 0);
+            paintBadge(li.querySelector('.ch-badge'), count);
+        });
+        document.querySelectorAll('.ticket-item[data-ticket-id]').forEach((li) => {
+            const count = unread.contar('ticket', li.dataset.ticketId);
+            li.classList.toggle('has-unread', count > 0);
+            paintBadge(li.querySelector('.ch-badge'), count);
+        });
+        paintBadge($('social-tab-badge'), unread.total('channel'));
+        paintBadge($('rh-tab-badge'), unread.total('ticket'));
+    }
 
     let dms = [];
     let dmStarting = false;
@@ -557,6 +580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         dms.forEach((dm) => list.appendChild(buildDmItem(dm)));
         updateDmPresence();
+        updateUnreadUI();
     }
 
     function buildDmItem(dm) {
@@ -565,11 +589,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         li.dataset.channelId = dm.id;
         li.dataset.otherId = dm.other.id;
 
-        const unread = unreadCounts[dm.id] || 0;
+        const count = unread.contar('channel', dm.id);
+        if (count > 0) li.classList.add('has-unread');
         li.innerHTML = `
             <span class="dm-avatar-wrap">${dmAvatar(dm.other)}</span>
             <span class="ch-name">${esc(dm.name)}</span>
-            <span class="ch-badge${unread > 0 ? ' ch-badge--flex' : ''}" id="badge-${dm.id}" ${unread > 0 ? '' : 'data-hide'}>${unread}</span>`;
+            <span class="ch-badge" id="badge-${dm.id}" ${count > 0 ? '' : 'data-hide'}>${unread.rotulo(count)}</span>`;
 
         li.addEventListener('click', () => selectChannel(dm, true));
         return li;
@@ -661,10 +686,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (msg.employee_id === myEmployeeId || allChannels.some((c) => c.id === msg.channel_id)) return;
 
                 if (!dms.some((d) => d.id === msg.channel_id)) await loadDms();
-                if (!dms.some((d) => d.id === msg.channel_id) || currentChannelId === msg.channel_id) return;
-
-                unreadCounts[msg.channel_id] = (unreadCounts[msg.channel_id] || 0) + 1;
-                updateChannelBadge(msg.channel_id);
             })
             .subscribe();
     }
@@ -697,6 +718,7 @@ Com o que posso te ajudar hoje?`;
         }
 
         allTickets.forEach((t) => list.appendChild(buildTicketItem(t)));
+        updateUnreadUI();
     }
 
     const statusLabel = { bot: 'Bot', aguardando_rh: 'Aguardando RH', em_atendimento: 'Em atendimento', resolvido: 'Resolvido' };
@@ -714,6 +736,7 @@ Com o que posso te ajudar hoje?`;
         li.innerHTML = `
             <div class="ticket-item-head">
                 <span class="ticket-subject">${esc(ticket.subject)}</span>
+                <span class="ch-badge" data-hide>0</span>
                 <div class="ticket-menu-wrap">
                     <button class="ticket-menu-btn" aria-label="Opções da conversa" title="Opções">
                         <i class="fas fa-ellipsis-vertical"></i>
@@ -1447,4 +1470,6 @@ Tempo estimado de resposta: **até 1 dia útil**.`,
     setupDmInbox();
     await loadKudos();
     setupKudosRealtime();
+    unread.aoMudar(updateUnreadUI);
+    await openFromLink();
 });

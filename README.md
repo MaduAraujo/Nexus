@@ -95,7 +95,7 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 ### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
 
-As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `mfa-recover`, `send-push`, `send-alert-push` e `send-document-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
+As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `mfa-recover`, `send-push`, `send-alert-push`, `send-document-push` e `send-chat-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
 
 ```bash
 npx supabase functions deploy
@@ -131,6 +131,8 @@ npx supabase secrets set VAPID_PUBLIC_KEY=sua_chave_publica VAPID_PRIVATE_KEY=su
 ```
 
 A function `send-document-push` avisa por push o colaborador quando o RH lhe entrega um documento (contrato, termos, políticas). Usa os mesmos secrets VAPID, só envia em horário comercial (fora dele o aviso fica apenas na tela inicial do colaborador) e respeita a preferência "Documentos do RH" em Meu Perfil.
+
+A function `send-chat-push` avisa por push quem recebe mensagem no chat (DM, canal, resposta do RH no atendimento) e o RH quando um colaborador pede atendimento. É chamada por triggers da migration `113` (via Vault, como as de alerta), só envia em horário comercial, nunca leva o conteúdo da mensagem (que pode estar cifrado de ponta a ponta) e respeita a preferência "Mensagens do chat" em Meu Perfil. Em canais com várias pessoas só a primeira mensagem não lida avisa; as seguintes aparecem no contador do menu.
 
 A chave pública também precisa ser colada em `VAPID_PUBLIC_KEY` no topo de `src/javascript/perfil-colaborador.js` (client-side, por isso não é secret) — mantenha as duas em sincronia. Sem isso configurado, o botão "Notificações push do navegador" em Meu Perfil aparece normalmente, mas o envio real falha silenciosamente (log no `send-push`).
 
@@ -344,7 +346,7 @@ Como funciona:
 ## Privacidade (LGPD) e operação
 
 - **Backup e restauração:** o backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions. O relatório fica em `test-results/restore-drill/`.
-- **Retenção:** `purge_security_events()` apaga eventos de segurança com mais de 180 dias e `purge_expired_conversations()` (migration 081) apaga chat interno, histórico do assistente de IA do RH e conversas/chamados resolvidos 12 meses após a última mensagem; chamados em atendimento ficam até serem resolvidos. As duas rodam todo dia pelo pg_cron. A política pública fica em `src/screens/privacidade.html` (versão de demonstração com empresa fictícia).
+- **Retenção:** `purge_security_events()` apaga eventos de segurança com mais de 180 dias e `purge_expired_conversations()` (migrations 081 e 110) apaga chat interno e histórico do assistente de IA do RH após 12 meses, e atendimentos resolvidos (ou só com o assistente) 5 anos após a última mensagem, por serem prova em reclamação trabalhista; atendimentos abertos ficam até serem resolvidos. As duas rodam todo dia pelo pg_cron. A política pública fica em `src/screens/privacidade.html` (versão de demonstração com empresa fictícia).
 - **Acessos:** `scripts/ops/revisao-de-acessos.sql` lista quem tem acesso a quê.
 - O schema não vai ao ar: o `.vercelignore` o exclui da hospedagem.
 

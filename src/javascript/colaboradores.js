@@ -282,7 +282,7 @@ function getInitials(name) {
 
 function avatarHtml(emp, sizeClass) {
     if (emp.avatarUrl) {
-        return `<img class="${sizeClass}-img" src="${escapeHtml(emp.avatarUrl)}" alt="${escHtml(emp.name)}">`;
+        return `<img class="${sizeClass}-img" data-src="${escapeHtml(emp.avatarUrl)}" alt="${escHtml(emp.name)}">`;
     }
     return `<div class="${sizeClass}" data-bg="${escHtml(emp.avatarColor || '#6366f1')}">${getInitials(emp.name)}</div>`;
 }
@@ -1316,7 +1316,7 @@ window.openDrawer = function (id) {
     }
     if (avatarImgEl) {
         if (emp.avatarUrl) {
-            avatarImgEl.src = emp.avatarUrl;
+            avatarImgEl.setAttribute('data-src', emp.avatarUrl);
             avatarImgEl.classList.remove('hidden');
             avatarEl?.classList.add('hidden');
         } else {

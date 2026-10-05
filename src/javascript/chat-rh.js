@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const auth = await NexusAuth.requireProfile('Administrador');
     if (!auth) return;
+    window.NexusChatUnread.iniciar();
 
     const analystEmpId = auth.profile.employee_id;
 
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentTicket = null;
     let activeTicketSub = null;
     const seenTickets = new Set();
+    const unread = window.NexusChatUnread;
 
     const esc = (s) =>
         String(s || '')
@@ -207,7 +209,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? `<div class="ti-avatar" data-bg-img="${escapeHtml(e.avatar_url)}"></div>`
             : `<div class="ti-avatar" data-bg="${esc(e.avatar_color || '#6366f1')}">${esc(initials(e.name))}</div>`;
 
-        const isNew = ticket.status === 'aguardando_rh' && currentTicketId !== ticket.id;
+        const count = unread.contar('ticket', ticket.id);
+        const isNew = ticket.status === 'aguardando_rh' && currentTicketId !== ticket.id && count === 0;
+        if (count > 0) li.classList.add('has-unread');
 
         li.innerHTML = `
             ${avatarHtml}
@@ -224,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
             <div class="ti-time">${fmtAgo(ticket.updated_at || ticket.created_at)}</div>
             ${isNew ? `<div class="ti-new-dot" title="Aguardando resposta"></div>` : ''}
+            ${count > 0 ? `<span class="ti-unread" title="Mensagens não lidas">${unread.rotulo(count)}</span>` : ''}
         `;
 
         li.addEventListener('click', () => selectTicket(ticket));
@@ -233,6 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function selectTicket(ticket) {
         currentTicketId = ticket.id;
         currentTicket = ticket;
+        unread.abrir('ticket', ticket.id);
         const emp = ticket.employees || {};
 
         document.querySelectorAll('.ticket-item').forEach((li) => {
@@ -242,9 +248,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const avatar = $('colab-avatar');
         if (avatar) {
             if (emp.avatar_url) {
-                avatar.style.background = `url(${emp.avatar_url}) center/cover`;
+                avatar.style.background = '';
+                avatar.setAttribute('data-bg-img', emp.avatar_url);
                 avatar.textContent = '';
             } else {
+                avatar.removeAttribute('data-bg-img');
                 avatar.style.background = window.nexusFundoLegivel(emp.avatar_color || '#6366f1');
                 avatar.textContent = initials(emp.name);
             }
@@ -727,6 +735,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     subscribeToNewTickets();
     await loadAnonFeedback();
     subscribeToAnonFeedback();
+
+    unread.aoMudar(() => {
+        renderTicketList();
+        if (currentTicketId) {
+            document.querySelectorAll('.ticket-item').forEach((li) => {
+                li.classList.toggle('active', li.dataset.ticketId === currentTicketId);
+            });
+        }
+    });
+
+    const linkTicket = allTickets.find((t) => t.id === new URLSearchParams(window.location.search).get('ticket'));
+    if (linkTicket) await selectTicket(linkTicket);
 
     setInterval(() => {
         renderTicketList();

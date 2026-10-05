@@ -14,6 +14,8 @@ before(() => {
     require('../src/javascript/comunicado-format.js');
     global.comunicadoPlainText = dom.window.comunicadoPlainText;
     global.sanitizeComunicadoHTML = dom.window.sanitizeComunicadoHTML;
+    global.comunicadoExigeCiencia = dom.window.comunicadoExigeCiencia;
+    global.comunicadoPendente = dom.window.comunicadoPendente;
 
     global.document = { addEventListener: () => {} };
     comunicados = require('../src/javascript/comunicados-colaborador.js');
@@ -71,6 +73,63 @@ describe('loadData', () => {
         await comunicados.loadData();
         const { lidos } = comunicados.__getStateForTest();
         assert.ok(lidos.has('m1'));
+    });
+
+    test('separa o que foi só visualizado do que teve ciência confirmada', async () => {
+        global.sb = createMockSupabase({
+            messages: [msg('m1', { categoria: 'Urgente' }), msg('m2', { categoria: 'Urgente' })],
+            message_reads: [
+                { message_id: 'm1', employee_id: 'c1', acknowledged_at: null },
+                { message_id: 'm2', employee_id: 'c1', acknowledged_at: '2026-09-10T11:00:00Z' },
+            ],
+        });
+        await comunicados.loadData();
+        const { lidos, cientes } = comunicados.__getStateForTest();
+        assert.deepEqual([...lidos].sort(), ['m1', 'm2']);
+        assert.deepEqual([...cientes], ['m2']);
+    });
+});
+
+describe('confirmarCiencia', () => {
+    beforeEach(() => {
+        comunicados.__setStateForTest({ myEmployeeId: 'c1', myDept: 'TI' });
+    });
+
+    test('grava a ciência junto com a visualização e marca os dois conjuntos', async () => {
+        global.sb = createMockSupabase({ messages: [msg('m1', { categoria: 'Urgente' })], message_reads: [] });
+        await comunicados.loadData();
+        assert.equal(await comunicados.confirmarCiencia('m1'), true);
+        const [row] = global.sb.upsertCalls[0].rows;
+        assert.equal(row.message_id, 'm1');
+        assert.equal(row.employee_id, 'c1');
+        assert.ok(row.acknowledged_at);
+        const { lidos, cientes } = comunicados.__getStateForTest();
+        assert.ok(lidos.has('m1'));
+        assert.ok(cientes.has('m1'));
+    });
+
+    test('ciência já confirmada não grava de novo', async () => {
+        global.sb = createMockSupabase({
+            messages: [msg('m1', { categoria: 'Urgente' })],
+            message_reads: [{ message_id: 'm1', employee_id: 'c1', acknowledged_at: '2026-09-10T11:00:00Z' }],
+        });
+        await comunicados.loadData();
+        assert.equal(await comunicados.confirmarCiencia('m1'), true);
+        assert.equal(global.sb.upsertCalls.length, 0);
+    });
+
+    test('se o banco recusa, não finge que houve ciência', async () => {
+        global.sb = createMockSupabase({ messages: [msg('m1', { categoria: 'Urgente' })], message_reads: [] });
+        await comunicados.loadData();
+        global.sb.from = () => ({ upsert: async () => ({ error: { message: 'recusado' } }) });
+        assert.equal(await comunicados.confirmarCiencia('m1'), false);
+        assert.equal(comunicados.__getStateForTest().cientes.has('m1'), false);
+    });
+
+    test('Urgente e Política exigem ciência; as demais categorias, não', () => {
+        assert.equal(comunicados.exigeCiencia(msg('x', { categoria: 'Política' })), true);
+        for (const categoria of ['Institucional', 'Benefícios', 'Evento']) assert.equal(comunicados.exigeCiencia(msg('x', { categoria })), false, categoria);
+        assert.equal(comunicados.exigeCiencia(null), false);
     });
 });
 
@@ -163,6 +222,15 @@ describe('filterMsgs (o que a tela mostra por aba/busca)', () => {
         assert.deepEqual(
             out.map((m) => m.id),
             ['m2']
+        );
+    });
+
+    test('aba "nao-lidos": comunicado crítico só visualizado continua pendente até a ciência', () => {
+        const criticos = [msg('u1', { categoria: 'Urgente' }), msg('u2', { categoria: 'Política' })];
+        const out = comunicados.filterMsgs(criticos, new Set(['u1', 'u2']), 'nao-lidos', '', new Set(['u2']));
+        assert.deepEqual(
+            out.map((m) => m.id),
+            ['u1']
         );
     });
 

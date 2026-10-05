@@ -41,15 +41,17 @@ let myDept = '';
 let filtroAtivo = 'todos-vis';
 let allMsgs = [];
 let lidos = new Set();
+let cientes = new Set();
 
 async function loadData() {
     const orFilter = myDept ? `destino.eq.Todos,destino.eq."${myDept.replace(/["\\]/g, '\\$&')}"` : 'destino.eq.Todos';
     const [{ data: msgs }, { data: reads }] = await Promise.all([
         sb.from('messages').select('*').or(orFilter).order('created_at', { ascending: false }),
-        sb.from('message_reads').select('message_id').eq('employee_id', myEmployeeId),
+        sb.from('message_reads').select('message_id,acknowledged_at').eq('employee_id', myEmployeeId),
     ]);
     allMsgs = msgs || [];
     lidos = new Set((reads || []).map((r) => r.message_id));
+    cientes = new Set((reads || []).filter((r) => r.acknowledged_at).map((r) => r.message_id));
 }
 
 async function marcarLido(msgId) {
@@ -58,8 +60,23 @@ async function marcarLido(msgId) {
     await sb.from('message_reads').upsert({ message_id: msgId, employee_id: myEmployeeId }, { onConflict: 'message_id,employee_id' });
 }
 
+async function confirmarCiencia(msgId) {
+    if (cientes.has(msgId)) return true;
+    const { error } = await sb
+        .from('message_reads')
+        .upsert({ message_id: msgId, employee_id: myEmployeeId, acknowledged_at: new Date().toISOString() }, { onConflict: 'message_id,employee_id' });
+    if (error) return false;
+    lidos.add(msgId);
+    cientes.add(msgId);
+    return true;
+}
+
 function exigeCiencia(msg) {
-    return msg?.categoria === 'Urgente';
+    return comunicadoExigeCiencia(msg);
+}
+
+function pendente(msg) {
+    return comunicadoPendente(msg, lidos, cientes);
 }
 
 async function marcarTodosLidos() {
@@ -72,9 +89,9 @@ async function marcarTodosLidos() {
     );
 }
 
-function filterMsgs(msgs, lidosSet, filtro, query) {
+function filterMsgs(msgs, lidosSet, filtro, query, cientesSet = new Set()) {
     const q = (query || '').toLowerCase().trim();
-    let filtered = filtro === 'nao-lidos' ? msgs.filter((m) => !lidosSet.has(m.id)) : msgs;
+    let filtered = filtro === 'nao-lidos' ? msgs.filter((m) => comunicadoPendente(m, lidosSet, cientesSet)) : msgs;
     if (q) filtered = filtered.filter((m) => comunicadoPlainText(m.texto).toLowerCase().includes(q) || m.destino.toLowerCase().includes(q));
     return filtered;
 }
@@ -105,12 +122,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function atualizarConfirmacao() {
         if (!msgAberta) return;
-        const lido = lidos.has(msgAberta.id);
         const critico = exigeCiencia(msgAberta);
-        btnMarcarLido?.classList.toggle('hidden', lido);
-        lidoInfo?.classList.toggle('hidden', !lido);
-        cienciaWrap?.classList.toggle('hidden', lido || !critico);
-        scrollHint?.classList.toggle('hidden', lido || !critico || chegouAoFim);
+        const feito = critico ? cientes.has(msgAberta.id) : lidos.has(msgAberta.id);
+        btnMarcarLido?.classList.toggle('hidden', feito || !critico);
+        lidoInfo?.classList.toggle('hidden', !feito);
+        if (lidoInfo) lidoInfo.innerHTML = `<i class="fas fa-check-double"></i> ${critico ? 'Ciência confirmada' : 'Leitura registrada'}`;
+        cienciaWrap?.classList.toggle('hidden', feito || !critico);
+        scrollHint?.classList.toggle('hidden', feito || !critico || chegouAoFim);
         if (cienciaCheck) cienciaCheck.disabled = !chegouAoFim;
         if (btnMarcarLido) btnMarcarLido.disabled = critico && !(chegouAoFim && cienciaCheck?.checked);
     }
@@ -125,12 +143,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     cienciaCheck?.addEventListener('change', atualizarConfirmacao);
     btnMarcarLido?.addEventListener('click', async () => {
         if (!msgAberta || btnMarcarLido.disabled) return;
-        await marcarLido(msgAberta.id);
+        btnMarcarLido.disabled = true;
+        const ok = await confirmarCiencia(msgAberta.id);
+        if (!ok) alert('Não foi possível registrar a sua ciência. Tente novamente.');
         atualizarConfirmacao();
         render();
     });
 
-    function openModal(msg) {
+    async function openModal(msg) {
         const dateEl = document.getElementById('modal-date');
         const bodyEl = document.getElementById('modal-body');
         const catEl = document.getElementById('modal-cat');
@@ -157,6 +177,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (cienciaCheck) cienciaCheck.checked = false;
         if (modalCard) modalCard.scrollTop = 0;
         verificarFim();
+        await marcarLido(msg.id);
+        atualizarConfirmacao();
+        render();
     }
 
     function closeModal() {
@@ -173,7 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function render() {
         const q = searchInput?.value.toLowerCase().trim() || '';
-        const naoLidosCount = allMsgs.filter((m) => !lidos.has(m.id)).length;
+        const naoLidosCount = allMsgs.filter(pendente).length;
 
         document.getElementById('stat-total').textContent = allMsgs.length;
         document.getElementById('stat-todos').textContent = allMsgs.filter((m) => m.destino === 'Todos').length;
@@ -185,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         btnMarcarTodos?.classList.toggle('hidden', !allMsgs.some((m) => !lidos.has(m.id) && !exigeCiencia(m)));
 
-        const filtered = filterMsgs(allMsgs, lidos, filtroAtivo, q);
+        const filtered = filterMsgs(allMsgs, lidos, filtroAtivo, q, cientes);
 
         if (!filtered.length) {
             lista.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><p>${q || filtroAtivo === 'nao-lidos' ? 'Nenhum resultado encontrado' : 'Nenhum comunicado disponível'}</p><span>${q ? `Nenhum resultado para "${escHTML(q)}"` : filtroAtivo === 'nao-lidos' ? 'Todos os comunicados já foram lidos.' : 'Quando o RH enviar comunicados, eles aparecerão aqui.'}</span></div>`;
@@ -194,11 +217,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         lista.innerHTML = filtered
             .map((m) => {
-                const lido = lidos.has(m.id);
+                const lido = !pendente(m);
                 const destInfo = DEST_ICON_MAP[m.destino] || { icon: 'fa-users', cls: 'dest--outros' };
                 const plainTexto = comunicadoPlainText(m.texto);
                 const preview = plainTexto.length > PREVIEW_LEN ? plainTexto.slice(0, PREVIEW_LEN) + '…' : plainTexto;
-                const metaHtml = `${!lido ? '<span class="badge-novo"><i class="fas fa-circle"></i> Novo</span>' : ''}${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}`;
+                const selo = exigeCiencia(m) && lidos.has(m.id) ? 'Ciência pendente' : 'Novo';
+                const metaHtml = `${!lido ? `<span class="badge-novo"><i class="fas fa-circle"></i> ${selo}</span>` : ''}${(m.anexos || []).length ? `<span class="badge-attach"><i class="fas fa-paperclip"></i> ${m.anexos.length}</span>` : ''}`;
                 return `
                 <article class="comunicado-card${lido ? '' : ' nao-lido'}" data-id="${m.id}" role="button" tabindex="0">
                     ${metaHtml ? `<div class="comunicado-top"><div class="comunicado-meta">${metaHtml}</div></div>` : ''}
@@ -268,7 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const pedidoId = new URLSearchParams(location.search).get('id');
     const pedido = pedidoId && allMsgs.find((m) => String(m.id) === pedidoId);
-    if (pedido) openModal(pedido);
+    if (pedido) await openModal(pedido);
 });
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -276,6 +300,7 @@ if (typeof module !== 'undefined' && module.exports) {
         loadData,
         marcarLido,
         marcarTodosLidos,
+        confirmarCiencia,
         filterMsgs,
         exigeCiencia,
         escHTML,
@@ -287,7 +312,7 @@ if (typeof module !== 'undefined' && module.exports) {
             if ('myDept' in next) myDept = next.myDept;
         },
         __getStateForTest() {
-            return { allMsgs, lidos };
+            return { allMsgs, lidos, cientes };
         },
     };
 }

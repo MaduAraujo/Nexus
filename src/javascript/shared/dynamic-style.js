@@ -43,6 +43,16 @@
 
     window.nexusFundoLegivel = fundoParaTextoBranco;
 
+    function comImagem(el, attr, v, aplicar) {
+        if (window.NexusAvatar?.caminho(v)) {
+            window.NexusAvatar.url(v).then((url) => {
+                if (url && el.getAttribute(attr)?.trim() === v) aplicar(url);
+            });
+            return;
+        }
+        if (SAFE_URL.test(v)) aplicar(v);
+    }
+
     const RULES = {
         'data-bg': (el, v) => COLOR.test(v) && (el.style.background = fundoLegivel(el, v)),
         'data-color': (el, v) => COLOR.test(v) && (el.style.color = v),
@@ -50,12 +60,16 @@
         'data-x': (el, v) => NUMBER.test(v) && (el.style.left = `${Number(v)}px`),
         'data-y': (el, v) => NUMBER.test(v) && (el.style.top = `${Number(v)}px`),
         'data-delay': (el, v) => NUMBER.test(v) && (el.style.animationDelay = `${clamp(Number(v), 0, 10)}s`),
-        'data-bg-img': (el, v) => {
-            if (!SAFE_URL.test(v)) return;
-            el.style.backgroundImage = `url(${cssString(v)})`;
-            el.style.backgroundPosition = 'center';
-            el.style.backgroundSize = 'cover';
-        },
+        'data-bg-img': (el, v) =>
+            comImagem(el, 'data-bg-img', v, (url) => {
+                el.style.backgroundImage = `url(${cssString(url)})`;
+                el.style.backgroundPosition = 'center';
+                el.style.backgroundSize = 'cover';
+            }),
+        'data-src': (el, v) =>
+            comImagem(el, 'data-src', v, (url) => {
+                el.src = url;
+            }),
         'data-hide': (el) => {
             el.style.display = 'none';
             el.removeAttribute('data-hide');

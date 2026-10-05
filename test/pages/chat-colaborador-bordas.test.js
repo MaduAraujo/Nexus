@@ -124,7 +124,8 @@ describe('chat-colaborador.html — bordas', () => {
     });
 
     test('tempo real: mensagem própria e mensagem que não carrega são ignoradas; no atendimento, a mensagem do canal vira contador', async () => {
-        const c = client({ hr_tickets: [ticket('t1')] });
+        let resumo = [];
+        const c = client({ hr_tickets: [ticket('t1')] }, { rpc: { ...client().handlers.rpc, chat_unread_summary: () => resumo } });
         page = await openPage('chat-colaborador', { client: c, now: NOW });
         await page.click('.channel-item[data-channel-id="ch-geral"]');
         c.emit('chat_messages', { new: { id: 'eu', channel_id: 'ch-geral', employee_id: ANA.id } });
@@ -141,9 +142,11 @@ describe('chat-colaborador.html — bordas', () => {
             content: 'Novidade',
             created_at: '2026-06-17T09:59:00-03:00',
         });
+        resumo = [{ kind: 'channel', thread: 'ch-geral', unread: 1 }];
         c.emit('chat_messages', { new: { id: 'n1', channel_id: 'ch-geral', employee_id: BIA.id } });
-        await page.settle();
-        assert.equal(page.text('#badge-ch-geral'), '1');
+        await page.waitFor(() => page.text('#badge-ch-geral') === '1');
+        assert.ok(page.$('.channel-item[data-channel-id="ch-geral"]').classList.contains('has-unread'));
+        assert.equal(page.visible('#social-tab-badge'), true);
     });
 
     test('DMs: colega com foto e sem cargo, DM de alguém fora do diretório some, reabrir lista mantém ativa e contador', async () => {
@@ -176,16 +179,19 @@ describe('chat-colaborador.html — bordas', () => {
     });
 
     test('DM com mensagem não lida aparece com contador ao redesenhar a lista', async () => {
-        const c = client({
-            chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
-        });
+        const c = client(
+            {
+                chat_channel_members: [{ employee_id: ANA.id, channel_id: 'dm1', chat_channels: { id: 'dm1', kind: 'dm', dm_key: `${ANA.id}:${BIA.id}` } }],
+            },
+            { rpc: { ...client().handlers.rpc, chat_unread_summary: [{ kind: 'channel', thread: 'dm1', unread: 3 }] } }
+        );
         page = await openPage('chat-colaborador', { client: c, now: NOW });
-        c.emit('chat_messages', { new: { id: 'q1', channel_id: 'dm1', employee_id: BIA.id } });
-        await page.settle();
         await page.click('#dm-new-btn');
         await page.click(page.$$('.dm-picker-item').find((b) => b.dataset.id === CAIO.id));
         await page.settle(30);
-        assert.ok(page.$('#badge-dm1').classList.contains('ch-badge--flex'));
+        assert.equal(page.text('#badge-dm1'), '3');
+        assert.equal(page.visible('#badge-dm1'), true);
+        assert.ok(page.$('.dm-item[data-channel-id="dm1"]').classList.contains('has-unread'));
     });
 
     test('atendimentos: situação desconhecida, sem assunto, horas atrás, erros de mensagens e da saudação, segundo atendimento', async () => {

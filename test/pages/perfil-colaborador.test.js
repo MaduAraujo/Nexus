@@ -59,7 +59,7 @@ describe('perfil-colaborador.html — dados', () => {
         assert.equal(page.visible('#info-edit'), false);
     });
 
-    test('foto: recusa não-imagem, envia imagem e grava a URL; remover volta às iniciais', async () => {
+    test('foto: recusa não-imagem, envia imagem e grava a referência privada; mostra por link assinado; remover volta às iniciais', async () => {
         const c = client();
         page = await openPage('perfil-colaborador', { client: c, now: NOW });
         await page.setFiles('#photo-input', [page.file('cv.pdf', '%PDF', 'application/pdf')]);
@@ -68,8 +68,14 @@ describe('perfil-colaborador.html — dados', () => {
         await page.setFiles('#photo-input', [page.file('eu.png', 'png', 'image/png')]);
         const up = c.calls.find((x) => x.storage === 'avatars' && x.op === 'upload');
         assert.equal(up.path, ANA.id);
-        assert.match(c.writes('employees', 'update')[0].payload.avatar_url, /^https:\/\/storage\.test\/public\/avatars\/emp-ana\?t=\d+$/);
+        assert.match(c.writes('employees', 'update')[0].payload.avatar_url, /^avatars\/emp-ana\?v=\d+$/);
+        assert.equal(
+            c.calls.some((x) => x.op === 'getPublicUrl'),
+            false
+        );
+        await page.settle();
         assert.equal(page.visible('#profile-avatar-img'), true);
+        assert.equal(page.$('#profile-avatar-img').src, 'https://storage.test/avatars/emp-ana?token=t');
 
         await page.click('[data-click="removePhoto"]');
         assert.equal(c.writes('employees', 'update').at(-1).payload.avatar_url, null);

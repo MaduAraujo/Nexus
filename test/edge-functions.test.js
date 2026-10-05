@@ -34,7 +34,17 @@ const profiles = [
 ];
 
 describe('Edge Functions — comum', () => {
-    for (const fn of ['invite-employee', 'mfa-recover', 'nexus-files', 'send-push', 'send-alert-push', 'send-document-push', 'ai-alerts', 'ai-employee-chat']) {
+    for (const fn of [
+        'invite-employee',
+        'mfa-recover',
+        'nexus-files',
+        'send-push',
+        'send-alert-push',
+        'send-document-push',
+        'send-chat-push',
+        'ai-alerts',
+        'ai-employee-chat',
+    ]) {
         test(`${fn}: OPTIONS responde o CORS só para a origem de produção ou local`, async () => {
             const handler = await loadEdgeFunction(fn, { env: ENV, createClient: () => new FakeSupabase({}) });
             const ok = await handler(request('https://x/fn', { method: 'OPTIONS' }));
@@ -298,6 +308,138 @@ describe('send-alert-push', () => {
         assert.equal((await h(request('https://x', { body: '' }))).status, 400);
         assert.equal((await h(request('https://x', { body: { table: 'employees', id: 'x' } }))).status, 400);
         assert.equal((await h(request('https://x', { body: { table: 'burnout_alerts', id: 'x' }, headers: { Authorization: AAL2 } }))).status, 401);
+    });
+});
+
+describe('send-chat-push', () => {
+    const ID = '22222222-2222-4222-8222-222222222222';
+    const SERVICE = { Authorization: `Bearer ${ENV.SUPABASE_SERVICE_ROLE_KEY}` };
+
+    function setup({ targets, rpcError, falha } = {}) {
+        const admin = new FakeSupabase({
+            tables: {
+                push_subscriptions: [
+                    { id: 's1', employee_id: 'e1', endpoint: 'https://push/1', p256dh: 'k', auth: 'a' },
+                    { id: 's2', employee_id: 'e1', endpoint: 'https://push/velho', p256dh: 'k', auth: 'a' },
+                    { id: 's3', employee_id: 'e9', endpoint: 'https://push/9', p256dh: 'k', auth: 'a' },
+                ],
+                admin_push_subscriptions: [
+                    { id: 'a1', profile_id: 'u-rh', endpoint: 'https://push/rh', p256dh: 'k', auth: 'a' },
+                    { id: 'a2', profile_id: 'u-rh', endpoint: 'https://push/rh-velho', p256dh: 'k', auth: 'a' },
+                ],
+            },
+            rpc: { chat_push_targets: rpcError ? { data: null, error: { message: rpcError } } : (args) => (targets ? targets(args) : []) },
+        });
+        const enviados = [];
+        const webpush = {
+            setVapidDetails() {},
+            sendNotification: async (sub, p) => {
+                if (sub.endpoint.endsWith('velho')) throw Object.assign(new Error('gone'), { statusCode: 410 });
+                if (falha && sub.endpoint === falha) throw Object.assign(new Error('x'), { statusCode: 500 });
+                enviados.push({ endpoint: sub.endpoint, ...JSON.parse(p) });
+            },
+        };
+        return { admin, enviados, webpush };
+    }
+
+    test('valida o corpo antes de tudo e só o sistema (service role) chama', async () => {
+        const { admin, webpush } = setup();
+        const h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => admin, webpush });
+        assert.equal((await h(request('https://x', { body: '' }))).status, 400);
+        assert.equal((await h(request('https://x', { body: { kind: 'chat', id: 'x' }, headers: SERVICE }))).status, 400);
+        assert.equal((await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: { Authorization: AAL2 } }))).status, 401);
+        assert.equal((await h(request('https://x', { body: { kind: 'chat', id: ID } }))).status, 401);
+    });
+
+    test('fora do horário comercial não envia nada (direito à desconexão)', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-26T13:00:00Z') });
+        const { admin, enviados, webpush } = setup({ targets: () => [{ employee_id: 'e1', profile_id: null, title: 't', body: 'b', url: '/u', tag: 'x' }] });
+        const h = await loadEdgeFunction('send-chat-push', {
+            env: { ...ENV, QUIET_HOURS_START_HOUR: '8', QUIET_HOURS_END_HOUR: '18' },
+            createClient: () => admin,
+            webpush,
+        });
+        const r = await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: SERVICE }));
+        assert.deepEqual(await r.json(), { sent: 0, skipped: 'fora_do_horario' });
+        assert.equal(enviados.length, 0);
+        assert.equal(admin.rpcCalls('chat_push_targets').length, 0);
+    });
+
+    test('envia a cada destinatário o texto do banco, sem o conteúdo da mensagem, e limpa inscrições vencidas', async (t) => {
+        emDiaUtil(t);
+        const { admin, enviados, webpush } = setup({
+            targets: () => [
+                {
+                    employee_id: 'e1',
+                    profile_id: null,
+                    title: 'Bia Lima',
+                    body: 'Enviou uma mensagem para você.',
+                    url: '/src/screens/chat-colaborador.html?canal=c1',
+                    tag: 'chat-c1',
+                },
+                {
+                    employee_id: null,
+                    profile_id: 'u-rh',
+                    title: 'Atendimento RH',
+                    body: 'Nova mensagem de Ana.',
+                    url: '/src/screens/chat-rh.html?ticket=t1',
+                    tag: 'ticket-t1',
+                },
+            ],
+        });
+        const h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => admin, webpush });
+        const r = await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: SERVICE }));
+        assert.deepEqual(await r.json(), { sent: 2 });
+        assert.deepEqual(admin.rpcCalls('chat_push_targets')[0].args, { p_kind: 'chat', p_id: ID });
+        assert.deepEqual(
+            enviados.sort((a, b) => a.endpoint.localeCompare(b.endpoint)),
+            [
+                {
+                    endpoint: 'https://push/1',
+                    title: 'Bia Lima',
+                    body: 'Enviou uma mensagem para você.',
+                    url: '/src/screens/chat-colaborador.html?canal=c1',
+                    tag: 'chat-c1',
+                },
+                {
+                    endpoint: 'https://push/rh',
+                    title: 'Atendimento RH',
+                    body: 'Nova mensagem de Ana.',
+                    url: '/src/screens/chat-rh.html?ticket=t1',
+                    tag: 'ticket-t1',
+                },
+            ]
+        );
+        assert.equal(admin.writes('push_subscriptions', 'delete').length, 1);
+        assert.equal(admin.writes('admin_push_subscriptions', 'delete').length, 1);
+    });
+
+    test('sem destinatários não consulta inscrições; só colaborador não consulta as do RH; erro comum de envio não apaga a inscrição', async (t) => {
+        emDiaUtil(t);
+        let s = setup();
+        let h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => s.admin, webpush: s.webpush });
+        assert.deepEqual(await (await h(request('https://x', { body: { kind: 'ticket_msg', id: ID }, headers: SERVICE }))).json(), { sent: 0 });
+        assert.equal(s.admin.calls.filter((c) => c.table).length, 0);
+
+        s = setup({ targets: () => [{ employee_id: 'e9', profile_id: null, title: 't', body: 'b', url: '/u', tag: 'x' }], falha: 'https://push/9' });
+        h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => s.admin, webpush: s.webpush });
+        assert.deepEqual(await (await h(request('https://x', { body: { kind: 'ticket_msg', id: ID }, headers: SERVICE }))).json(), { sent: 0 });
+        assert.equal(s.admin.calls.filter((c) => c.table === 'admin_push_subscriptions').length, 0);
+        assert.equal(s.admin.writes('push_subscriptions', 'delete').length, 0);
+
+        s = setup({ targets: () => [{ employee_id: null, profile_id: 'u-rh', title: 't', body: 'b', url: '/u', tag: 'x' }] });
+        h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => s.admin, webpush: s.webpush });
+        assert.deepEqual(await (await h(request('https://x', { body: { kind: 'ticket_escalated', id: ID }, headers: SERVICE }))).json(), { sent: 1 });
+        assert.equal(s.admin.calls.filter((c) => c.table === 'push_subscriptions').length, 0);
+    });
+
+    test('erro do banco ao calcular os destinatários responde 500 genérico', async (t) => {
+        emDiaUtil(t);
+        const { admin, webpush } = setup({ rpcError: 'boom' });
+        const h = await loadEdgeFunction('send-chat-push', { env: ENV, createClient: () => admin, webpush });
+        const r = await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: SERVICE }));
+        assert.equal(r.status, 500);
+        assert.deepEqual(await r.json(), { error: 'Não foi possível enviar a notificação' });
     });
 });
 

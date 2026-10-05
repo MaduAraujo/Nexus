@@ -163,4 +163,70 @@ describe('comunicacao.html — bordas', () => {
         await page.click('#stat-card-leituras');
         await page.waitFor(() => /Nenhuma leitura ainda/.test(page.text('#engagement-readers-list')));
     });
+
+    test('comunicado que exige ciência mostra visualizações e ciências separadas; comum mostra só visualizações', async () => {
+        const c = client({
+            messages: [
+                { id: 'm1', texto: 'Norma', destino: 'Todos', categoria: 'Política', created_at: '2026-06-10T10:00:00-03:00', anexos: [] },
+                { id: 'm2', texto: 'Festa', destino: 'Todos', categoria: 'Evento', created_at: '2026-06-11T10:00:00-03:00', anexos: [] },
+            ],
+            reads: [
+                {
+                    message_id: 'm1',
+                    employee_id: ANA.id,
+                    read_at: '2026-06-10T11:00:00-03:00',
+                    acknowledged_at: '2026-06-10T11:05:00-03:00',
+                    employees: { name: ANA.name, dept: ANA.dept },
+                },
+                {
+                    message_id: 'm1',
+                    employee_id: 'x',
+                    read_at: '2026-06-10T12:00:00-03:00',
+                    acknowledged_at: null,
+                    employees: { name: 'Bia Lima', dept: 'TI' },
+                },
+                {
+                    message_id: 'm2',
+                    employee_id: ANA.id,
+                    read_at: '2026-06-11T11:00:00-03:00',
+                    acknowledged_at: null,
+                    employees: { name: ANA.name, dept: ANA.dept },
+                },
+            ],
+        });
+        page = await openPage('comunicacao', { client: c, now: NOW });
+        await historico(page);
+        const ciencia = page.$('#messages-list .reads-badge[data-id="m1"]');
+        assert.equal(page.text(ciencia), '2 1');
+        assert.ok(ciencia.querySelector('.fa-check-double'));
+        assert.equal(page.$('#messages-list .reads-badge[data-id="m2"] .fa-check-double'), null);
+
+        await page.click(ciencia);
+        await page.waitFor(() => /Ciência em/.test(page.text('#engagement-readers-list')));
+        const itens = page.$$('#engagement-readers-list .reads-popover-item').map((el) => page.text(el));
+        assert.equal(itens.filter((t) => /Ciência em 10\/06, 11:05/.test(t)).length, 1);
+        assert.ok(itens.some((t) => /Bia Lima/.test(t) && !/Ciência/.test(t)));
+    });
+
+    test('banco recusa editar ou excluir comunicado com ciência: o RH vê o motivo, não um erro genérico', async () => {
+        const trava = { code: '55000', message: 'Este comunicado já tem ciência confirmada por colaboradores e não pode ser excluído.' };
+        const c = client({
+            messages: [{ id: 'm1', texto: 'Norma', destino: 'Todos', categoria: 'Urgente', created_at: '2026-06-10T10:00:00-03:00', anexos: [] }],
+            errors: { 'messages:update': { ...trava, message: 'não pode ser editado' }, 'messages:delete': trava },
+        });
+        page = await openPage('comunicacao', { client: c, now: NOW });
+        await historico(page);
+        await page.click('#messages-list .edit-btn');
+        await escrever(page, 'Norma corrigida', '#edit-message-text');
+        await page.click('#edit-modal-save');
+        await page.click('#messages-list .delete-btn');
+        await page.click('#confirm-delete-confirm');
+        assert.deepEqual(page.alerts, ['não pode ser editado', trava.message]);
+        assert.equal(page.$$('#messages-list .delete-btn').length, 1);
+
+        c.errors['messages:delete'] = { message: 'rede' };
+        await page.click('#messages-list .delete-btn');
+        await page.click('#confirm-delete-confirm');
+        assert.equal(page.alerts.at(-1), 'Não foi possível excluir o comunicado. Tente novamente.');
+    });
 });

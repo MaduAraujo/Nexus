@@ -563,6 +563,26 @@ body {
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
 }
 
+.ti-unread {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--warning);
+    color: #111;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+.ticket-item.has-unread .ti-name {
+    font-weight: 800;
+}
+
 .chat-overlay {
     display: none;
     position: absolute;
