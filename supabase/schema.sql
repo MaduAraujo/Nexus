@@ -8639,6 +8639,9 @@ ALTER TABLE chat_reads ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "chat_reads_own_select" ON chat_reads;
 CREATE POLICY "chat_reads_own_select" ON chat_reads FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS mfa_required ON chat_reads;
+CREATE POLICY mfa_required ON chat_reads AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()));
+
 REVOKE ALL ON chat_reads FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON chat_reads TO authenticated;
 
