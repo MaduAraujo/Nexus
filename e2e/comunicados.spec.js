@@ -41,23 +41,57 @@ test.describe('Comunicados (Supabase local real)', () => {
         await expect(cards).toHaveCount(1);
         const card = page.locator(`#comunicados-list .comunicado-card[data-id="${msg.id}"]`);
         await expect(card).toHaveClass(/nao-lido/);
+        const leituras = () =>
+            withServiceRole(
+                async (db) => (await db.query('SELECT message_id, acknowledged_at FROM message_reads WHERE employee_id = $1', [COLAB.employeeId])).rows
+            );
+        expect(await leituras()).toEqual([]);
         await card.click();
         await expect(page.locator('#modal-body')).toContainText('reunião geral amanhã');
+        await expect(page.locator('#modal-lido')).toContainText('Leitura registrada');
+        await expect(page.locator('#btn-marcar-lido')).toBeHidden();
+        await expect.poll(leituras).toEqual([{ message_id: msg.id, acknowledged_at: null }]);
         await page.keyboard.press('Escape');
-        await card.click();
-        const lidas = async () => (await withServiceRole((db) => db.query('SELECT 1 FROM message_reads WHERE employee_id = $1', [COLAB.employeeId]))).rowCount;
-        expect(await lidas()).toBe(0);
-        await page.click('#btn-marcar-lido');
-        await expect(page.locator('#modal-lido')).toBeVisible();
-        await expect
-            .poll(() => withServiceRole(async (db) => (await db.query('SELECT message_id FROM message_reads WHERE employee_id = $1', [COLAB.employeeId])).rows))
-            .toEqual([{ message_id: msg.id }]);
+        await expect(card).not.toHaveClass(/nao-lido/);
 
         await switchUser(page, ADMIN, 'Administrador');
         await page.goto('/src/screens/comunicacao.html');
         await expect(page.locator('#stat-reads')).toHaveText('1');
         await page.click('#main-toggle-btn');
         await expect(page.locator(`#messages-list [data-id="${msg.id}"]`).first()).toBeVisible();
+    });
+
+    test('comunicado Urgente só conta como lido depois da ciência confirmada', async ({ page }) => {
+        const [{ id }] = await withServiceRole(
+            async (db) =>
+                (
+                    await db.query(`INSERT INTO messages (texto, destino, categoria, created_by) VALUES ($1, 'Todos', 'Urgente', $2) RETURNING id`, [
+                        `${MARCA} urgente`,
+                        ADMIN.userId,
+                    ])
+                ).rows
+        );
+        const leituras = () =>
+            withServiceRole(
+                async (db) => (await db.query('SELECT message_id, acknowledged_at FROM message_reads WHERE employee_id = $1', [COLAB.employeeId])).rows
+            );
+
+        await login(page, COLAB, 'colaborador');
+        await page.goto('/src/screens/comunicados-colaborador.html');
+        const card = page.locator(`#comunicados-list .comunicado-card[data-id="${id}"]`);
+        await card.click();
+        await expect(page.locator('#btn-marcar-lido')).toBeVisible();
+        await expect(page.locator('#btn-marcar-lido')).toBeDisabled();
+        await expect(page.locator('#modal-lido')).toBeHidden();
+        await expect.poll(leituras).toEqual([{ message_id: id, acknowledged_at: null }]);
+        await expect(card).toHaveClass(/nao-lido/);
+
+        await page.check('#modal-ciencia');
+        await page.click('#btn-marcar-lido');
+        await expect(page.locator('#modal-lido')).toContainText('Ciência confirmada');
+        await expect.poll(async () => (await leituras())[0]?.acknowledged_at).not.toBeNull();
+        await page.keyboard.press('Escape');
+        await expect(card).not.toHaveClass(/nao-lido/);
     });
 
     test('colaborador não consegue publicar comunicado', async ({ page, supabaseErrors }) => {

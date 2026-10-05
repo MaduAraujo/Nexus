@@ -63,9 +63,7 @@ test.describe('Teclado (foco visível e navegável)', () => {
 
     test('comunicado: abrir, confirmar a leitura e fechar só com o teclado', async ({ page }) => {
         await withServiceRole((db) =>
-            db.query(`INSERT INTO messages (texto, destino, categoria, created_by) VALUES ('Teclado E2E: aviso geral', 'Todos', 'Institucional', $1)`, [
-                ADMIN.userId,
-            ])
+            db.query(`INSERT INTO messages (texto, destino, categoria, created_by) VALUES ('Teclado E2E: aviso geral', 'Todos', 'Urgente', $1)`, [ADMIN.userId])
         );
         await login(page, COLAB, 'colaborador');
         await page.goto('/src/screens/comunicados-colaborador.html');
@@ -73,13 +71,19 @@ test.describe('Teclado (foco visível e navegável)', () => {
         await card.focus();
         await page.keyboard.press('Enter');
         await expect(page.locator('#msg-modal')).toBeVisible();
-        await page.locator('#btn-marcar-lido').focus();
+        await page.locator('#modal-ciencia').focus();
+        await page.keyboard.press('Space');
+        await expect(page.locator('#modal-ciencia')).toBeChecked();
+        await page.keyboard.press('Tab');
+        await expect(page.locator('#btn-marcar-lido')).toBeFocused();
         await page.keyboard.press('Enter');
-        await expect(page.locator('#modal-lido')).toBeVisible();
+        await expect(page.locator('#modal-lido')).toContainText('Ciência confirmada');
         await page.keyboard.press('Escape');
         await expect(page.locator('#msg-modal')).toBeHidden();
         const lidas = await withServiceRole(
-            async (db) => (await db.query('SELECT count(*)::int AS n FROM message_reads WHERE employee_id = $1', [COLAB.employeeId])).rows[0].n
+            async (db) =>
+                (await db.query('SELECT count(*)::int AS n FROM message_reads WHERE employee_id = $1 AND acknowledged_at IS NOT NULL', [COLAB.employeeId]))
+                    .rows[0].n
         );
         expect(lidas).toBe(1);
     });
