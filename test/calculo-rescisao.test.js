@@ -101,13 +101,13 @@ describe('acordo_mutuo', () => {
         assert.ok(multa);
         assert.equal(multa.valor, 1152);
 
-        const saldoBanco = r.verbas.find((v) => v.descricao === 'Saldo de Banco de Horas');
+        const saldoBanco = r.verbas.find((v) => v.descricao === 'Horas do banco não compensadas, pagas como extras com 50% (CLT art. 59 §3º)');
         assert.ok(saldoBanco, 'saldo positivo de banco de horas deveria ser pago neste tipo');
-        assert.equal(saldoBanco.valor, 30);
+        assert.equal(saldoBanco.valor, 45, 'hora do banco não compensada paga com 50% (CLT art. 59 §3º)');
 
         assert.equal(r.verbas.find((v) => v.descricao === '13º Salário Proporcional').dias, '1/12', 'no acordo o aviso não projeta: 20 dias de janeiro');
         assert.equal(r.verbas.find((v) => v.descricao === 'Férias Proporcionais').dias, '0/12', '10/01 a 20/01 são só 11 dias');
-        assert.equal(r.custoTotal, 5232);
+        assert.equal(r.custoTotal, 5247);
     });
 });
 

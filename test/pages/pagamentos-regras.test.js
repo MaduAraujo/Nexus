@@ -434,7 +434,7 @@ describe('pagamentos.html — rescisão: validações, banco de horas, médias e
         await page.settle();
         await page.click('#btn-calcular-rescisao');
         const texto = page.text('#rescisao-result');
-        assert.match(texto, /Saldo de Banco de Horas 2h 00min R\$\s*40,00/, '2h a R$ 20/h');
+        assert.match(texto, /pagas como extras com 50% \(CLT art\. 59 §3º\) 2h 00min R\$\s*60,00/, '2h a R$ 20/h + 50%');
         assert.match(texto, /médias habituais/, 'média de R$ 150 (100 + 200 em 2 holerites) entra em férias/13º');
         assert.equal(page.$('#rescisao-emp-trigger').disabled, true, 'depois de calcular, os campos travam');
     });
@@ -603,7 +603,11 @@ describe('pagamentos.html — carregamento, ordenação e ajustes', () => {
         page.window.setRescisaoDate('2026-07-31');
         await page.settle();
         await page.click('#btn-calcular-rescisao');
-        assert.match(page.text('#rescisao-result'), /Saldo de Banco de Horas 2h 00min R\$\s*40,00/, '1h de ponto + 1h30 de crédito - 30min de débito');
+        assert.match(
+            page.text('#rescisao-result'),
+            /pagas como extras com 50% \(CLT art\. 59 §3º\) 2h 00min R\$\s*60,00/,
+            '1h de ponto + 1h30 de crédito - 30min de débito, com 50%'
+        );
     });
 
     test('recibos de férias pendentes aparecem na ordem do início do gozo', async () => {

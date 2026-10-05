@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentTicketId = null;
     let currentDm = null;
     let e2eReady = false;
+    const E2E_HINT = 'As mensagens são protegidas com a criptografia de ponta a ponta.';
     let isEscalated = false;
     let activeChatSub = null;
     let activeTicketSub = null;
@@ -300,22 +301,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const hintIcon = $('compliance-hint-icon');
         const hintText = $('compliance-hint-text');
-        if (hintIcon) hintIcon.className = `fas ${isDm ? 'fa-lock' : 'fa-shield-alt'}`;
-        if (hintText) {
-            hintText.textContent = isDm
-                ? `Conversa privada — somente você e ${channel.name.split(' ')[0]} veem estas mensagens`
-                : 'Ambiente corporativo — comunicações monitoradas conforme política de compliance';
-        }
+        if (hintIcon) hintIcon.className = 'fas fa-lock';
+        if (hintText) hintText.textContent = E2E_HINT;
         e2eReady = false;
         const ready = await NexusE2E.channelReady(channel.id, { isDm }).catch(() => false);
         if (currentChannelId === channel.id) e2eReady = ready;
-        if (hintText && currentChannelId === channel.id) {
-            if (isDm) {
-                hintText.textContent = e2eReady ? 'As mensagens são protegidas com a criptografia de ponta a ponta.' : 'Conversa privada e criptografada';
-            } else if (e2eReady) {
-                if (hintIcon) hintIcon.className = 'fas fa-lock';
-                hintText.textContent = 'As mensagens são protegidas com a criptografia de ponta a ponta.';
-            }
+        if (hintText && currentChannelId === channel.id && !e2eReady) {
+            if (hintIcon) hintIcon.className = 'fas fa-lock-open';
+            hintText.textContent = 'Criptografia de ponta a ponta indisponível nesta conversa no momento';
         }
 
         showChatArea();

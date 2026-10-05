@@ -164,15 +164,11 @@ function adicionalRiscoEmp(emp) {
     });
 }
 
-function parseCurrency(str) {
-    if (!str) return 0;
-    return (
-        parseFloat(
-            String(str)
-                .replace(/[^\d,]/g, '')
-                .replace(',', '.')
-        ) || 0
-    );
+function parseCurrency(valor) {
+    if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+    const texto = String(valor ?? '').replace(/[R$\s]/g, '');
+    const normalizado = texto.includes(',') ? texto.replace(/\./g, '').replace(',', '.') : texto;
+    return parseFloat(normalizado) || 0;
 }
 
 function calcRow(emp) {
@@ -764,7 +760,7 @@ function updateSummary(rows) {
         benef = 0,
         liquido = 0;
     rows.forEach((r) => {
-        bruto += r.calc.salary;
+        bruto += r.calc.bruto;
         inss += r.calc.inss;
         irrf += r.calc.irrf;
         benef += r.calc.benef;
@@ -1257,6 +1253,20 @@ async function calcMediaAdicionaisHabituais(empId, ateDataStr) {
     return window.EventosFolha.mediaVariaveisDosHolerites(slips || []);
 }
 
+async function getDecimoTerceiroPagoNoAno(empId, ano) {
+    const { data } = await sb
+        .from('payslips_decrypted')
+        .select('status,proventos')
+        .eq('employee_id', empId)
+        .in('mes', [`${ano}-13-1`, `${ano}-13-2`]);
+    return +(data || [])
+        .filter((s) => s.status === 'pago')
+        .flatMap((s) => s.proventos || [])
+        .filter((p) => p.cod === '030' || p.cod === '031')
+        .reduce((t, p) => t + Number(p.valor), 0)
+        .toFixed(2);
+}
+
 async function getDiasFeriasConsumidos(empId, ateDataStr) {
     const { data } = await sb
         .from('vacations')
@@ -1338,8 +1348,24 @@ window.calcularDecimoTerceiroModal = async function () {
         return;
     }
 
-    const medias = await Promise.all(elegiveis.map((emp) => calcMediaAdicionaisHabituais(emp.id, `${ano}-12-31`).catch(() => 0)));
-    const rows = elegiveis
+    const { data: existentes } = await sb
+        .from('payslips_decrypted')
+        .select('employee_id,mes,status,proventos')
+        .in('mes', [`${ano}-13-1`, `${ano}-13-2`]);
+    const doAno = existentes || [];
+    const jaPagos = new Set(doAno.filter((s) => s.mes === `${ano}-13-${parcela}` && s.status === 'pago').map((s) => s.employee_id));
+    const primeiraPaga = (empId) => {
+        const slip = doAno.find((s) => s.mes === `${ano}-13-1` && s.employee_id === empId);
+        return slip
+            ? +(slip.proventos || [])
+                  .filter((p) => p.cod === '030')
+                  .reduce((t, p) => t + Number(p.valor), 0)
+                  .toFixed(2)
+            : null;
+    };
+    const aCalcular = elegiveis.filter((e) => !jaPagos.has(e.id));
+    const medias = await Promise.all(aCalcular.map((emp) => calcMediaAdicionaisHabituais(emp.id, `${ano}-12-31`).catch(() => 0)));
+    const rows = aCalcular
         .map((emp, i) => {
             const { avos, valorIntegral } = window.EventosFolha.calcDecimoTerceiroIntegral({
                 salario: Number(emp.salary) + (adicionalRiscoEmp(emp)?.valor || 0),
@@ -1348,7 +1374,9 @@ window.calcularDecimoTerceiroModal = async function () {
                 mediaAdicionaisHabituais: medias[i],
             });
             if (avos <= 0 || valorIntegral <= 0) return null;
-            const { valor: valorParcela } = window.EventosFolha.calcParcela13({ valorIntegral, parcela });
+            const adiantado = parcela === 2 ? primeiraPaga(emp.id) : null;
+            const valorParcela =
+                adiantado === null ? window.EventosFolha.calcParcela13({ valorIntegral, parcela }).valor : Math.max(0, +(valorIntegral - adiantado).toFixed(2));
             let inss = 0,
                 irrf = 0;
             if (parcela === 2) {
@@ -1360,8 +1388,13 @@ window.calcularDecimoTerceiroModal = async function () {
         })
         .filter(Boolean);
 
+    const notaPagos = jaPagos.size
+        ? `<p class="dt-note">${jaPagos.size} colaborador${jaPagos.size === 1 ? ' já recebeu' : 'es já receberam'} esta parcela e ${jaPagos.size === 1 ? 'ficou' : 'ficaram'} de fora: holerite pago não é refeito.</p>`
+        : '';
     if (!rows.length) {
-        errEl.textContent = 'Nenhum colaborador tem meses suficientes de trabalho neste ano.';
+        errEl.textContent = jaPagos.size
+            ? 'Esta parcela já foi paga a todos os colaboradores elegíveis.'
+            : 'Nenhum colaborador tem meses suficientes de trabalho neste ano.';
         errEl.classList.remove('hidden');
         return;
     }
@@ -1372,6 +1405,7 @@ window.calcularDecimoTerceiroModal = async function () {
             <div><span>Colaboradores</span><strong>${rows.length}</strong></div>
             <div><span>Total líquido</span><strong>${fmtCurrency(totalLiquido)}</strong></div>
         </div>
+        ${notaPagos}
         <div class="dt-list">
             ${rows
                 .map(
@@ -1621,14 +1655,16 @@ window.calcularRescisaoModal = async function () {
     let saldoBancoHorasMin = 0,
         mediaAdicionaisHabituais = 0,
         recessoGozadoDias = 0,
-        diasFeriasGozados = 0;
+        diasFeriasGozados = 0,
+        decimoTerceiroPagoNoAno = 0;
     try {
         if (CLTDomain.isEstagio(emp.contractType)) recessoGozadoDias = await getRecessoGozadoDias(emp.id, dataStr);
         if (!CLTDomain.isPJ(emp.contractType))
-            [saldoBancoHorasMin, mediaAdicionaisHabituais, diasFeriasGozados] = await Promise.all([
+            [saldoBancoHorasMin, mediaAdicionaisHabituais, diasFeriasGozados, decimoTerceiroPagoNoAno] = await Promise.all([
                 getSaldoBancoHorasReal(emp.id, jornadaMin, dataStr, emp),
                 calcMediaAdicionaisHabituais(emp.id, dataStr),
                 getDiasFeriasConsumidos(emp.id, dataStr),
+                getDecimoTerceiroPagoNoAno(emp.id, dataStr.slice(0, 4)),
             ]);
     } catch (err) {
         console.error('Erro ao apurar banco de horas/médias habituais para a rescisão:', err.message);
@@ -1654,6 +1690,7 @@ window.calcularRescisaoModal = async function () {
         adicionalFixo: adicionalRiscoEmp(emp)?.valor || 0,
         diasFeriasGozados,
         avisoEmpregado: document.getElementById('rescisao-aviso-empregado')?.value || 'cumprido',
+        decimoTerceiroPagoNoAno,
     });
     r.avisoEstabilidade = estabilidade?.mensagem || null;
     renderRescisaoResult(r);
@@ -1728,6 +1765,34 @@ function gerarPdfRescisao(emp, r, dataStr) {
     return doc.output('blob');
 }
 
+async function anexarTermoRescisao(emp, r, dataStr) {
+    const blob = gerarPdfRescisao(emp, r, dataStr);
+    const fileName = `rescisao_${emp.name.replace(/\s+/g, '_')}.pdf`;
+    const storagePath = `rh/${Date.now()}_${fileName}`;
+    const { error: uploadError } = await NexusFiles.upload('documents', storagePath, blob, { contentType: 'application/pdf', employeeId: emp.id });
+    if (uploadError) throw uploadError;
+    const retidoAte = new Date();
+    retidoAte.setFullYear(retidoAte.getFullYear() + 30);
+    const { error } = await sb.from('documents').insert({
+        name: fileName,
+        employee_id: emp.id,
+        category: 'demissional',
+        tipo: 'Termo de Rescisão',
+        size_label: `${Math.round(blob.size / 1024)} KB`,
+        storage_path: storagePath,
+        source: 'Administrador',
+        status: 'aprovado',
+        created_by: rhUser.id,
+        retido_ate: localISODate(retidoAte),
+        lgpd_consentimento: true,
+        lgpd_consentimento_em: new Date().toISOString(),
+    });
+    if (error) {
+        await sb.storage.from('documents').remove([storagePath]);
+        throw error;
+    }
+}
+
 window.confirmarDesligamento = async function () {
     if (!lastRescisaoCalc) return;
     const { emp, dataStr, tipo, resultado: r } = lastRescisaoCalc;
@@ -1760,39 +1825,17 @@ window.confirmarDesligamento = async function () {
             return;
         }
 
-        await sb
+        const pendencias = [];
+        const { error: feriasError } = await sb
             .from('vacations')
             .update({ status: 'recusado', rejection_reason: 'Colaborador desligado pelo RH.', rejected_at: new Date().toISOString() })
             .eq('employee_id', emp.id)
             .eq('status', 'pendente');
+        if (feriasError) pendencias.push('as férias pendentes não foram recusadas (recuse-as na tela de Férias)');
 
-        const blob = gerarPdfRescisao(emp, r, dataStr);
-        const fileName = `rescisao_${emp.name.replace(/\s+/g, '_')}.pdf`;
-        const storagePath = `rh/${Date.now()}_${fileName}`;
+        await anexarTermoRescisao(emp, r, dataStr).catch(() => pendencias.push('não foi possível anexar o documento de rescisão'));
 
-        const { error: uploadError } = await NexusFiles.upload('documents', storagePath, blob, { contentType: 'application/pdf', employeeId: emp.id });
-        if (uploadError) {
-            showToast('Colaborador desligado, mas não foi possível anexar o documento de rescisão.', 'warning');
-        } else {
-            const retidoAte = new Date();
-            retidoAte.setFullYear(retidoAte.getFullYear() + 30);
-            await sb.from('documents').insert({
-                name: fileName,
-                employee_id: emp.id,
-                category: 'demissional',
-                tipo: 'Termo de Rescisão',
-                size_label: `${Math.round(blob.size / 1024)} KB`,
-                storage_path: storagePath,
-                source: 'Administrador',
-                status: 'aprovado',
-                created_by: rhUser.id,
-                retido_ate: localISODate(retidoAte),
-                lgpd_consentimento: true,
-                lgpd_consentimento_em: new Date().toISOString(),
-            });
-        }
-
-        await sb.from('employee_audit').insert({
+        const auditoria = {
             employee_id: emp.id,
             changes: [
                 { field: 'status', label: 'Status', oldValue: 'Ativo', newValue: 'Inativo' },
@@ -1811,9 +1854,13 @@ window.confirmarDesligamento = async function () {
             ],
             operator_name: rhUser.email.split('@')[0],
             operator_email: rhUser.email,
-        });
+        };
+        let { error: auditError } = await sb.from('employee_audit').insert(auditoria);
+        if (auditError) ({ error: auditError } = await sb.from('employee_audit').insert(auditoria));
+        if (auditError) pendencias.push('o registro da rescisão no histórico do colaborador não foi gravado (anote o desligamento manualmente)');
 
-        showToast(`Desligamento confirmado: ${emp.name} foi inativado e o termo de rescisão foi anexado ao perfil.`, 'success');
+        if (pendencias.length) showToast(`Colaborador desligado, mas ${pendencias.join('; ')}.`, 'warning');
+        else showToast(`Desligamento confirmado: ${emp.name} foi inativado e o termo de rescisão foi anexado ao perfil.`, 'success');
         closeModal('rescisao-modal');
         await refresh();
     } finally {

@@ -2131,6 +2131,12 @@ select.form-input {
     gap: 10px;
     margin: 14px 0;
 }
+
+.dt-note {
+    margin: 0 0 10px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
 .dt-summary > div {
     flex: 1;
     padding: 12px 14px;

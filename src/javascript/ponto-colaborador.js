@@ -1583,7 +1583,7 @@ window.confirmarRegistro = async function () {
 
     if (!navigator.onLine) {
         applyLocalPunch(entry);
-        queueOfflinePunch(entry);
+        queueOfflinePunch({ ...entry, offline: true });
         showToast('Sem conexão — ponto salvo no aparelho e será sincronizado automaticamente.', 'warning');
         renderUI();
         return;
@@ -1595,9 +1595,20 @@ window.confirmarRegistro = async function () {
         renderUI();
         return;
     }
+    if (ok === JA_REGISTRADO) {
+        await loadData();
+        showToast('Essa marcação já estava registrada.', 'info');
+        renderUI();
+        return;
+    }
+    if (ok?.recusado) {
+        showToast(ok.recusado, 'error');
+        renderUI();
+        return;
+    }
     if (!ok) {
         applyLocalPunch(entry);
-        queueOfflinePunch(entry);
+        queueOfflinePunch({ ...entry, offline: true });
         showToast('Falha de conexão — ponto salvo no aparelho e será sincronizado automaticamente.', 'warning');
         renderUI();
         return;
@@ -1636,6 +1647,11 @@ function applyLocalPunch({ step, date, timestamp, loc }) {
 }
 
 const REJEITADO_BIOMETRIA = 'rejeitado-biometria';
+const JA_REGISTRADO = 'ja-registrado';
+
+function recusaDefinitiva(error) {
+    return /^[0-9A-Z]{5}$/.test(String(error?.code || ''));
+}
 
 async function tokenBiometrico({ biometricToken: token, selfie }) {
     if (token || !selfie || !(await biometriaCadastrada())) return { token: token || null };
@@ -1653,7 +1669,7 @@ async function tokenBiometrico({ biometricToken: token, selfie }) {
     return { token: data?.verification_id || null };
 }
 
-async function syncPunch({ step, date, loc, selfie, biometricToken: token, excessoLegalMin, justificativaExcesso }) {
+async function syncPunch({ step, date, timestamp, offline, loc, selfie, biometricToken: token, excessoLegalMin, justificativaExcesso }) {
     try {
         const bio = await tokenBiometrico({ biometricToken: token, selfie });
         if (bio.rejeitado) return REJEITADO_BIOMETRIA;
@@ -1674,9 +1690,11 @@ async function syncPunch({ step, date, loc, selfie, biometricToken: token, exces
                 p_loc: loc,
                 p_selfie_path: selfiePath,
                 p_biometric_token: bio.token,
+                p_marcado_em: offline ? timestamp : null,
             })
             .single();
-        if (error) return false;
+        if (error?.code === '23505') return JA_REGISTRADO;
+        if (error) return recusaDefinitiva(error) ? { recusado: error.message } : false;
         recordsMap[date] = upserted;
     } catch {
         return false;
@@ -1712,24 +1730,41 @@ async function syncPunch({ step, date, loc, selfie, biometricToken: token, exces
     return true;
 }
 
+let sincronizando = false;
+
 async function flushOfflineQueue() {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || sincronizando) return;
     const queue = loadOfflineQueue();
     if (!queue.length) return;
+    sincronizando = true;
     let synced = 0;
     let rejeitados = 0;
-    while (queue.length) {
-        const ok = await syncPunch(queue[0]);
-        if (!ok) break;
-        queue.shift();
-        saveOfflineQueue(queue);
-        if (ok === REJEITADO_BIOMETRIA) rejeitados++;
-        else synced++;
+    let descartados = 0;
+    const motivos = [];
+    try {
+        while (queue.length) {
+            const ok = await syncPunch(queue[0]);
+            if (!ok) break;
+            queue.shift();
+            saveOfflineQueue(queue);
+            if (ok === REJEITADO_BIOMETRIA) rejeitados++;
+            else if (ok === JA_REGISTRADO) descartados++;
+            else if (ok.recusado) motivos.push(ok.recusado);
+            else synced++;
+        }
+    } finally {
+        sincronizando = false;
     }
+    if (rejeitados || descartados || motivos.length) await loadData();
     if (rejeitados) {
-        await loadData();
         showToast(
             `${rejeitados} registro${rejeitados > 1 ? 's' : ''} offline recusado${rejeitados > 1 ? 's' : ''}: o rosto não confere com a biometria cadastrada.`,
+            'error'
+        );
+    }
+    if (motivos.length) {
+        showToast(
+            `${motivos.length} registro${motivos.length > 1 ? 's' : ''} offline não ${motivos.length > 1 ? 'puderam' : 'pôde'} ser enviado${motivos.length > 1 ? 's' : ''}: ${motivos[0]} Peça um ajuste de ponto ao RH.`,
             'error'
         );
     }

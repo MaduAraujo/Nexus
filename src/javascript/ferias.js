@@ -75,6 +75,18 @@ async function fetchData() {
     feriados = CLTDomain.feriadosQueContam(hData || []);
 }
 
+async function recarregarAposMudanca(qtd = 1) {
+    await fetchData();
+    loadKPIs();
+    renderTable();
+    showToast(
+        qtd === 1
+            ? 'Esta solicitação mudou desde que a tela foi aberta (cancelada ou já decidida). A lista foi atualizada.'
+            : `${qtd} solicitações mudaram desde que a tela foi aberta e não foram alteradas. A lista foi atualizada.`,
+        'warning'
+    );
+}
+
 function getEmployee(empId) {
     return employees.find((e) => e.id === empId) || null;
 }
@@ -328,21 +340,29 @@ window.bulkApprove = async function () {
     } else if (!confirm(`Aprovar ${ids.length} solicitaç${ids.length === 1 ? 'ão' : 'ões'} selecionada${ids.length === 1 ? '' : 's'}?`)) return;
 
     const nowIso = new Date().toISOString();
-    const { error } = await sb
+    const { data: aprovadas, error } = await sb
         .from('vacations')
         .update({ status: 'aprovado', approved_at: nowIso, decided_by_name: 'Administrador', decided_by_email: rhUserEmail })
-        .in('id', ids);
+        .in('id', ids)
+        .eq('status', 'pendente')
+        .select('id');
     if (error) {
         showToast('Erro ao aprovar em lote.', 'error');
         return;
     }
-    targets.forEach((v) => {
+    const idsAprovados = new Set((aprovadas || []).map((r) => r.id));
+    const efetivas = targets.filter((v) => idsAprovados.has(v.id));
+    efetivas.forEach((v) => {
         v.status = 'aprovado';
         v.approvedAt = nowIso;
     });
-    await Promise.all(targets.map((v) => gerarEventoAdiantamentoFerias(v)));
+    await Promise.all(efetivas.map((v) => gerarEventoAdiantamentoFerias(v)));
     selectedIds.clear();
     await autoExpireVacations();
+    if (efetivas.length < ids.length) {
+        await recarregarAposMudanca(ids.length - efetivas.length);
+        return;
+    }
     loadKPIs();
     renderTable();
     showToast(`${ids.length} solicitaç${ids.length === 1 ? 'ão aprovada' : 'ões aprovadas'} com sucesso!`, 'success');
@@ -646,9 +666,13 @@ window.cancelApprovedVacation = async function (id) {
     );
     if (!ok) return;
 
-    const { error } = await sb.from('vacations').update({ status: 'cancelado' }).eq('id', id);
+    const { data: canceladas, error } = await sb.from('vacations').update({ status: 'cancelado' }).eq('id', id).eq('status', 'aprovado').select('id');
     if (error) {
         showToast('Não foi possível cancelar.', 'error');
+        return;
+    }
+    if (!canceladas?.length) {
+        await recarregarAposMudanca();
         return;
     }
     vac.status = 'cancelado';
@@ -668,12 +692,18 @@ window.approveRequest = async function (id) {
         );
         if (!ok) return;
     }
-    const { error } = await sb
+    const { data: aprovadas, error } = await sb
         .from('vacations')
         .update({ status: 'aprovado', approved_at: new Date().toISOString(), decided_by_name: 'Administrador', decided_by_email: rhUserEmail })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'pendente')
+        .select('id');
     if (error) {
         showToast('Erro ao aprovar.', 'error');
+        return;
+    }
+    if (!aprovadas?.length) {
+        await recarregarAposMudanca();
         return;
     }
     vac.status = 'aprovado';
@@ -715,7 +745,7 @@ window.confirmReject = async function () {
     }
     const ids = Array.isArray(rejectingId) ? rejectingId : [rejectingId];
     const nowIso = new Date().toISOString();
-    const { error } = await sb
+    const { data: recusadas, error } = await sb
         .from('vacations')
         .update({
             status: 'recusado',
@@ -724,9 +754,17 @@ window.confirmReject = async function () {
             decided_by_name: 'Administrador',
             decided_by_email: rhUserEmail,
         })
-        .in('id', ids);
+        .in('id', ids)
+        .eq('status', 'pendente')
+        .select('id');
     if (error) {
         showToast('Erro ao recusar.', 'error');
+        return;
+    }
+    if ((recusadas || []).length < ids.length) {
+        selectedIds.clear();
+        closeRejectModal();
+        await recarregarAposMudanca(ids.length - (recusadas || []).length);
         return;
     }
     ids.forEach((id) => {
@@ -882,6 +920,7 @@ async function renderEmpSaldoBanco() {
         sb.from('time_records').select('date,entrada,saida_almoco,retorno_almoco,saida').eq('employee_id', empId).gte('date', `${mk}-01`),
         sb.from('bank_adjustments').select('tipo,minutos').eq('employee_id', empId).gte('date', `${mk}-01`).is('deleted_at', null),
     ]);
+    if (document.getElementById('add-employee')?.value !== empId) return;
     let net = 0;
     (recs || []).forEach((r) => {
         if (!r.entrada || !r.saida) return;

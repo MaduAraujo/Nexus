@@ -111,14 +111,7 @@ function direitosCltToDb(emp) {
 }
 
 function employeeToDb(emp) {
-    const parseVal = (v) =>
-        v
-            ? parseFloat(
-                  String(v)
-                      .replace(/[R$\s.]/g, '')
-                      .replace(',', '.')
-              ) || null
-            : null;
+    const parseVal = (v) => parseNumeroBR(v) || null;
     return {
         name: emp.name,
         role: emp.role || null,
@@ -705,7 +698,7 @@ window.bulkUpdateStatus = async function (newStatus) {
     const targetIds = targets.map((e) => e.id);
     const { error } = await sb.from('employees').update({ status: newStatus }).in('id', targetIds);
     if (error) {
-        showToast('Erro!', 'Não foi possível atualizar o status em lote.', 'error');
+        showToast('Erro!', error.code === '23514' ? error.message : 'Não foi possível atualizar o status em lote.', 'error');
         return;
     }
 
@@ -1429,7 +1422,7 @@ window.updateStatus = async function (newStatus) {
 
     const { error } = await sb.from('employees').update(updateData).eq('id', currentEmployeeId);
     if (error) {
-        showToast('Erro!', 'Não foi possível atualizar o status.', 'error');
+        showToast('Erro!', error.code === '23514' ? error.message : 'Não foi possível atualizar o status.', 'error');
         return;
     }
 

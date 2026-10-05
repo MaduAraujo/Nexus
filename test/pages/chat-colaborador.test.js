@@ -124,7 +124,8 @@ describe('chat-colaborador.html — conversas diretas', () => {
         await page.click('.dm-picker-item');
         assert.deepEqual(c.rpcCalls('get_or_create_dm')[0].args, { p_other: CAIO.id });
         assert.equal(page.text('#chat-area-name'), 'Caio Prado');
-        assert.match(page.text('#compliance-hint-text'), /Conversa privada/);
+        assert.equal(page.text('#compliance-hint-text'), 'Criptografia de ponta a ponta indisponível nesta conversa no momento');
+        assert.equal(page.$('#compliance-hint-icon').className, 'fas fa-lock-open');
         assert.match(page.text('#dm-list'), /Caio Prado/);
     });
 

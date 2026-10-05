@@ -749,7 +749,7 @@ function renderDetailModal(emp, monthKey) {
         html += monthAjustes
             .map(
                 (a) =>
-                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${escapeHtml(a.tipo)}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div><button class="btn-delete-ajuste" data-click="deleteAjuste" data-click-args="${dargs(emp.id, a.id)}" title="Excluir ajuste"><i class="fas fa-trash"></i></button></div>`
+                    `<div class="ajuste-item"><span class="ajuste-tipo-badge ${escapeHtml(a.tipo)}"><i class="fas ${a.tipo === 'credito' ? 'fa-plus' : 'fa-minus'}"></i>${a.tipo === 'credito' ? 'Crédito' : 'Débito'}</span><div class="ajuste-info"><p class="ajuste-valor">${a.tipo === 'credito' ? '+' : '-'}${minToStr(a.minutos)}</p><p class="ajuste-just">${esc(a.justificativa)}</p><p class="ajuste-meta">${a.date} &bull; por ${esc(a.created_by_name) || 'RH'} &bull; ${new Date(a.created_at).toLocaleDateString('pt-BR')}</p></div>${a.created_by_name === 'Folha de pagamento' ? '' : `<button class="btn-delete-ajuste" data-click="deleteAjuste" data-click-args="${dargs(emp.id, a.id)}" title="Excluir ajuste"><i class="fas fa-trash"></i></button>`}</div>`
             )
             .join('');
     }
@@ -860,7 +860,10 @@ function buildDayRow(key, rec, jornadaMin, isPJ, empId, emp) {
         const selfieBtn = selfiePath
             ? `<button type="button" class="btn-selfie-view" data-click="viewPontoSelfie" data-click-args="${dargs(selfiePath)}" title="Ver selfie do registro"><i class="fas fa-camera"></i></button>`
             : '';
-        return `<span class="dt-time${rec[field + '_ajustado'] ? ' ajustado' : ''}">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}${selfieBtn}</span>`;
+        const offline = (rec.offline_steps || []).includes(field)
+            ? `<i class="fas fa-cloud-arrow-up dt-offline" title="Registrado sem internet: vale o horário do aparelho" aria-label="Registrado sem internet"></i>`
+            : '';
+        return `<span class="dt-time${rec[field + '_ajustado'] ? ' ajustado' : ''}">${pad0(dt.getHours())}:${pad0(dt.getMinutes())}${offline}${selfieBtn}</span>`;
     };
     const holiday = holidaysMap[key];
     const ferias = isOnVacation(empId, key);
@@ -1244,7 +1247,7 @@ window.deleteAjuste = async function (empId, adjId) {
     if (!confirm('Excluir este ajuste do banco de horas? A exclusão fica registrada na auditoria.')) return;
     const { error } = await sb.from('bank_adjustments').update({ deleted_at: new Date().toISOString() }).eq('id', adjId);
     if (error) {
-        showToast('Não foi possível excluir o ajuste.', 'error');
+        showToast(error.code === '55000' ? error.message : 'Não foi possível excluir o ajuste.', 'error');
         return;
     }
     await sb.from('activity_logs').insert({

@@ -84,7 +84,7 @@ describe('remuneração da rescisão', () => {
             jornadaMin: 480,
         });
         assert.equal(verba(r, 'Saldo de Salário').valor, 2600);
-        assert.equal(verba(r, 'Saldo de Banco de Horas').valor, 19.5);
+        assert.equal(verba(r, 'Horas do banco não compensadas, pagas como extras com 50% (CLT art. 59 §3º)').valor, 29.25, '1h a R$ 19,50 + 50%');
         assert.equal(r.adicionalFixo, 900);
         assert.equal(r.fgtsEstimado, +(3900 * 0.08 * 7).toFixed(2));
     });

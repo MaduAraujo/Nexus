@@ -264,6 +264,7 @@ function calcularRescisao({
     adicionalFixo = 0,
     diasFeriasGozados = 0,
     avisoEmpregado = 'cumprido',
+    decimoTerceiroPagoNoAno = 0,
 }) {
     if (CLTDomain.isEstagio(contractType)) return calcularRescisaoEstagio({ tipo, salario, admissao, demissao, recessoGozadoDias });
     if (CLTDomain.isPJ(contractType)) return calcularRescisaoPJ({ tipo, salario, admissao, demissao });
@@ -281,7 +282,7 @@ function calcularRescisao({
     const diariaComMedias = baseFerias13 / 30;
 
     const mesesCasaAteDemissao = diffInMonths(admissao, demissao);
-    const anosCompletos = Math.floor(mesesCasaAteDemissao / 12);
+    const anosCompletos = Math.floor(Math.max(0, mesesCasaAteDemissao - (demissao.getDate() < admissao.getDate() ? 1 : 0)) / 12);
 
     const diasAvisoIntegral = diasAvisoPrevioIntegral(anosCompletos);
     const diasAviso = Math.round(diasAvisoIntegral * config.avisoFactor);
@@ -326,6 +327,19 @@ function calcularRescisao({
     if (config.direito13Proporcional) {
         verbas.push({ descricao: '13º Salário Proporcional', dias: `${avos13}/12${notaMedias}`, valor: decimoTerceiroProporcional });
     }
+    const pago13 = Math.max(0, Number(decimoTerceiroPagoNoAno) || 0);
+    if (pago13 > 0) {
+        const abatido = Math.min(pago13, decimoTerceiroProporcional);
+        const compensado = Math.min(pago13 - abatido, remuneracao);
+        verbas.push({
+            descricao:
+                compensado > 0
+                    ? '13º já pago no ano, descontado (excedente compensado até 1 remuneração — CLT art. 477 §5º)'
+                    : '13º já pago no ano (adiantamento), descontado',
+            dias: '—',
+            valor: -+(abatido + compensado).toFixed(2),
+        });
+    }
     if (config.direitoFeriasProporcional) {
         verbas.push({ descricao: 'Férias Proporcionais', dias: `${avosFerias}/12${notaMedias}`, valor: feriasProporcionais });
         verbas.push({ descricao: '1/3 Constitucional de Férias', dias: '—', valor: tercoConstitucional });
@@ -366,8 +380,12 @@ function calcularRescisao({
             valor: +((saldoBancoHorasMin / 60) * valorHora * 1.5).toFixed(2),
         });
     } else if (saldoBancoHorasMin > 0) {
-        const valorBancoHoras = +((saldoBancoHorasMin / 60) * valorHora).toFixed(2);
-        verbas.push({ descricao: 'Saldo de Banco de Horas', dias: minToStrRescisao(saldoBancoHorasMin), valor: valorBancoHoras });
+        const valorBancoHoras = +((saldoBancoHorasMin / 60) * valorHora * (1 + CLTDomain.ADICIONAL_HORA_EXTRA_PERCENTUAL)).toFixed(2);
+        verbas.push({
+            descricao: 'Horas do banco não compensadas, pagas como extras com 50% (CLT art. 59 §3º)',
+            dias: minToStrRescisao(saldoBancoHorasMin),
+            valor: valorBancoHoras,
+        });
     } else if (saldoBancoHorasMin < 0 && config.descontaBancoHorasNegativo) {
         const valorDesconto = +((saldoBancoHorasMin / 60) * valorHora).toFixed(2);
         verbas.push({ descricao: 'Desconto de Saldo Negativo de Banco de Horas', dias: minToStrRescisao(saldoBancoHorasMin), valor: valorDesconto });

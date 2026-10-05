@@ -2815,3 +2815,9 @@ i.meta-icon {
     color: var(--text-secondary);
     max-width: 180px;
 }
+
+.dt-offline {
+    margin-left: 4px;
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}

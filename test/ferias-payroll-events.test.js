@@ -160,8 +160,13 @@ describe('cancelApprovedVacation', () => {
             from(table) {
                 return {
                     update(patch) {
-                        dbCalls.push({ table, patch });
-                        return { eq: () => Promise.resolve({ error: null }) };
+                        const filtros = {};
+                        dbCalls.push({ table, patch, filtros });
+                        const cadeia = {
+                            eq: (col, val) => ((filtros[col] = val), cadeia),
+                            select: () => Promise.resolve({ data: [{ id: filtros.id }], error: null }),
+                        };
+                        return cadeia;
                     },
                 };
             },
@@ -172,7 +177,7 @@ describe('cancelApprovedVacation', () => {
 
         const { vacations } = ferias.__getStateForTest();
         assert.equal(vacations[0].status, 'cancelado');
-        assert.deepEqual(dbCalls[0], { table: 'vacations', patch: { status: 'cancelado' } });
+        assert.deepEqual(dbCalls[0], { table: 'vacations', patch: { status: 'cancelado' }, filtros: { id: 'v1', status: 'aprovado' } });
         assert.deepEqual(dbCalls[1], { rpc: 'revert_ferias_recibo', params: { p_employee_id: 'e1', p_mes: '2026-07-F10' } });
     });
 
