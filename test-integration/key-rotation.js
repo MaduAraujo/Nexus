@@ -254,6 +254,7 @@ describe('Rotação da chave de cifragem de colunas (migration 067)', () => {
     });
 
     test('depois da rotação o RH segue editando colaborador e holerite (upsert como o pagamentos.js)', async () => {
+        await withServiceRole((db) => db.query(`UPDATE payslips SET status = 'publicado' WHERE employee_id = $1 AND mes = '2026-10'`, [E1]));
         await withUser({ sub: U_RH }, async (db) => {
             await db.query('UPDATE employees SET salary = 7100 WHERE id = $1', [E1]);
             await db.query(
@@ -270,7 +271,7 @@ describe('Rotação da chave de cifragem de colunas (migration 067)', () => {
         await withServiceRole(async (db) => {
             await db.query('UPDATE employees SET salary = 7000.5 WHERE id = $1', [E1]);
             await db.query(
-                `UPDATE payslips SET proventos = '[{"descricao":"Base","valor":7000.5}]', descontos = '[{"descricao":"INSS","valor":700}]', total_proventos = 7000.5, total_descontos = 700, salario_liquido = 6300.5
+                `UPDATE payslips SET proventos = '[{"descricao":"Base","valor":7000.5}]', descontos = '[{"descricao":"INSS","valor":700}]', total_proventos = 7000.5, total_descontos = 700, salario_liquido = 6300.5, status = 'pago'
                   WHERE employee_id = $1 AND mes = '2026-10'`,
                 [E1]
             );

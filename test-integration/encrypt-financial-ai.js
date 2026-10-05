@@ -104,6 +104,7 @@ describe('Holerites cifrados (migration 064)', () => {
     });
 
     test('upsert do RH (INSERT ... ON CONFLICT DO UPDATE, como o pagamentos.js) continua legível', async () => {
+        await withServiceRole((db) => db.query(`UPDATE payslips SET status = 'publicado' WHERE employee_id = $1 AND mes = $2`, [E_A, MES]));
         await withUser({ sub: U_RH }, async (db) => {
             await db.query(
                 `INSERT INTO payslips (employee_id, mes, proventos, descontos, total_proventos, total_descontos, salario_liquido, status)
