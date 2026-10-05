@@ -107,7 +107,12 @@ describe('Migration 113 — mensagens não lidas e push do chat', () => {
         await recusa(como(U_C, 'SELECT chat_mark_read($1, $2)', ['channel', DM]), '42501');
         await recusa(como(U_A, 'SELECT chat_mark_read($1, $2)', ['grupo', CANAL]), '22023');
         await recusa(como(U_A, `INSERT INTO chat_reads (user_id, thread_kind, thread_id) VALUES ($1, 'channel', $2)`, [U_A, DM]), '42501');
-        await recusa(como(U_A, 'SELECT * FROM chat_push_targets($1, $2)', ['chat', m1]), '42501');
+        await withServiceRole(async (db) => {
+            for (const role of ['anon', 'authenticated']) {
+                const { rows } = await db.query("SELECT has_function_privilege($1, 'chat_push_targets(text, uuid)', 'EXECUTE') AS ok", [role]);
+                assert.equal(rows[0].ok, false, `${role} não pode chamar chat_push_targets`);
+            }
+        });
     });
 
     test('push: autor e quem desligou o chat ficam de fora; em grupo, só a primeira não lida avisa', async () => {
