@@ -125,13 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         kudosArea?.classList.remove('hidden');
     }
 
-    function setTopbarChannel(icon, name) {
-        const iconEl = $('topbar-channel-icon');
-        const nameEl = $('topbar-channel-name');
-        if (iconEl) iconEl.innerHTML = icon;
-        if (nameEl) nameEl.textContent = name;
-    }
-
     let onlineCount = 0;
     let onlineIds = new Set();
 
@@ -281,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const input = $('chat-input');
 
         if (isDm) {
-            setTopbarChannel(dmAvatar(channel.other, 'dm-avatar--sm'), channel.name);
             if (areaIcon) {
                 areaIcon.innerHTML = dmAvatar(channel.other);
                 areaIcon.classList.add('dm-icon');
@@ -291,7 +283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (input) input.placeholder = `Mensagem para ${channel.name.split(' ')[0]}...`;
             closeChatLeft();
         } else {
-            setTopbarChannel('#', channel.name);
             if (areaIcon) {
                 areaIcon.textContent = '#';
                 areaIcon.classList.remove('dm-icon');
@@ -831,8 +822,6 @@ Com o que posso te ajudar hoje?`;
         document.querySelectorAll('.ticket-item').forEach((li) => {
             li.classList.toggle('active', li.dataset.ticketId === ticket.id);
         });
-
-        setTopbarChannel('<i class="fas fa-headset icon-accent-hr"></i>', 'Agente RH');
 
         const areaName = $('hr-area-name');
         const areaStatus = $('hr-area-status');

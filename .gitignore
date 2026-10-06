@@ -11,3 +11,4 @@ supabase/.branches/
 backups/
 *.dump
 *.dump.gpg
+desktop.ini

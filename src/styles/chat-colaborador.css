@@ -157,24 +157,6 @@ body {
     color: #fff;
 }
 
-.topbar-channel-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.topbar-channel-icon {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text-on-dark2);
-}
-
-.topbar-channel-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-on-dark);
-}
-
 .presence-pill {
     display: flex;
     align-items: center;
@@ -423,11 +405,6 @@ body {
     background-size: cover !important;
     background-position: center !important;
 }
-.dm-avatar--sm {
-    width: 20px;
-    height: 20px;
-    font-size: 0.56rem;
-}
 .chat-area-icon.dm-icon {
     width: 38px;
     height: 38px;
@@ -437,10 +414,6 @@ body {
     width: 38px;
     height: 38px;
     font-size: 0.8rem;
-}
-.topbar-channel-icon .dm-avatar {
-    display: inline-flex;
-    vertical-align: middle;
 }
 
 .dm-avatar-wrap {
@@ -1540,13 +1513,13 @@ body {
     .topbar-panels-btn {
         display: flex;
     }
-    .topbar-channel-info {
-        display: none;
-    }
 }
 
 @media (min-width: 769px) {
     .topbar-panels-btn {
+        display: none;
+    }
+    .topbar-divider {
         display: none;
     }
     .chat-overlay {

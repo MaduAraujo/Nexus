@@ -56,12 +56,17 @@ O projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC), com o obj
 ### Demonstração
 
 <p align="center">
-  <img src="README/Captura%20de%20tela%202026-05-18%20134234.png" alt="Painel do RH com os atalhos de acesso rápido" width="900">
+  <img src="README/portal%20rh.png" alt="Painel do RH com os atalhos de acesso rápido" width="900">
   <br><em>Painel do RH</em>
 </p>
 
 <p align="center">
-  <img src="README/Captura%20de%20tela%202026-05-18%20140350.png" alt="Central de Alertas com o Assistente RH" width="900">
+  <img src="README/portal%20colaborador.png" alt="Painel do colaborador com dados do cargo e atalhos de acesso rápido" width="900">
+  <br><em>Portal do colaborador</em>
+</p>
+
+<p align="center">
+  <img src="README/chat%20IA.png" alt="Central de Alertas com o Assistente RH" width="900">
   <br><em>Central de Alertas com o assistente de IA</em>
 </p>
 
