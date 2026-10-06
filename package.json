@@ -1,4 +1,7 @@
 {
+    "name": "nexus",
+    "version": "1.0.0",
+    "private": true,
     "scripts": {
         "test": "node --test --test-concurrency=4",
         "test:coverage": "node --test --test-concurrency=4 --experimental-test-coverage --test-coverage-include=src/** --test-coverage-include=supabase/** --test-coverage-include=scripts/** --test-coverage-lines=99 --test-coverage-branches=99 --test-coverage-functions=99",
