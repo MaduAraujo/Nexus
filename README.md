@@ -2,11 +2,17 @@
 
 # Nexus
 
-### Plataforma de Gestão de Recursos Humanos
+### Software de Recursos Humanos
 
+[![CI](https://img.shields.io/github/actions/workflow/status/MaduAraujo/Nexus/tests.yml?branch=main&label=CI&style=flat-square)](https://github.com/MaduAraujo/Nexus/actions/workflows/tests.yml)
+[![Cobertura](https://img.shields.io/badge/cobertura-99%25-22c55e?style=flat-square)](#5-rodar-os-testes)
 [![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)](https://nexus-nine-zeta.vercel.app)
-[![Versão](https://img.shields.io/badge/versão-1.0-6366f1?style=flat-square)](https://github.com/MaduAraujo/Nexus)
+[![Versão](https://img.shields.io/badge/versão-1.0.0-6366f1?style=flat-square)](https://github.com/MaduAraujo/Nexus/releases/tag/v1.0.0)
+[![JavaScript](https://img.shields.io/badge/JavaScript-puro-f7df1e?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Supabase](https://img.shields.io/badge/backend-Supabase-3ecf8e?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Deploy](https://img.shields.io/badge/deploy-Vercel-black?style=flat-square&logo=vercel)](https://nexus-nine-zeta.vercel.app)
+[![Licença](https://img.shields.io/badge/licença-todos%20os%20direitos%20reservados-lightgrey?style=flat-square)](LICENSE)
 
 **[→ Acessar o Nexus](https://nexus-nine-zeta.vercel.app)**
 
@@ -14,57 +20,146 @@
 
 ---
 
-## Sobre
-
-O Nexus centraliza tudo que o time de RH e os colaboradores precisam em um único ambiente digital — ponto, férias, documentos, comunicados, holerites e monitoramento de bem-estar com inteligência artificial.
-
-Empresas perdem horas toda semana gerenciando ponto em planilha, férias por e-mail e documentos em pastas compartilhadas. O Nexus elimina esse retrabalho com um sistema estruturado, em tempo real e acessível a qualquer empresa, independente do porte.
-
----
-
 ## Índice
 
-- [Como começar](#como-começar)
-- [Configuração local](#configuração-local)
+- [Sobre o Projeto](#sobre-o-projeto)
 - [Painel do RH](#painel-do-rh)
 - [Portal do Colaborador](#portal-do-colaborador)
 - [Inteligência Artificial](#inteligência-artificial)
-- [Segurança e criptografia](#segurança-e-criptografia)
-- [Privacidade (LGPD) e operação](#privacidade-lgpd-e-operação)
-- [Tecnologias](#tecnologias)
-- [Equipe](#equipe)
+- [Arquitetura e Tecnologias](#arquitetura-e-tecnologias)
+- [Guia de Instalação](#guia-de-instalação)
+- [Instruções de Uso](#instruções-de-uso)
+- [Estrutura de Diretórios](#estrutura-de-diretórios)
+- [Segurança e Criptografia](#segurança-e-criptografia)
+- [Privacidade (LGPD) e Operação](#privacidade-lgpd-e-operação)
+- [Governança e Autoria](#governança-e-autoria)
 
 ---
 
-## Como começar
+## Sobre o Projeto
 
-A plataforma opera com dois perfis de acesso: **RH / Administrador** e **Colaborador**.
+A palavra **Nexus** significa "conexão" ou "ponto de junção". O sistema atua como o elo central que une dados, processos e talentos, cobrindo todo o ciclo de vida do colaborador — da admissão (*onboarding*) ao desligamento (*offboarding*).
 
-**1. Acesse o painel do RH**
+O Nexus resolve os gargalos do ciclo de vida do funcionário contratado através de dois ambientes espelhados e em tempo real: um **Painel do RH** para gestão completa e um **Portal do Colaborador**.
 
-As credenciais de demonstração não ficam publicadas aqui — solicite acesso diretamente à autora do projeto.
+O projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC), com o objetivo de mostrar como um sistema web pode substituir planilhas, registro de ponto em dispositivos físicos e pastas compartilhadas na rotina do RH, aplicando as regras da legislação trabalhista e da LGPD no próprio sistema.
 
-**2. Cadastre os colaboradores:**
-No módulo **Colaboradores**, adicione os membros da equipe.
+| | |
+|---|---|
+| **Curso** | Bacharelado em Ciência da Computação |
+| **Instituição** | FAM — Centro Universitário das Américas |
+| **Orientador** | Prof. Me. Ranieri Marinho de Souza |
+| **Ano** | 2026 |
 
-**3. Convites automáticos:**
-Ao cadastrar, a plataforma envia automaticamente um convite por e-mail para o colaborador, com a identidade visual do Nexus. Se o e-mail já tiver conta, ele recebe um link para definir uma nova senha.
+> **Nota de Escopo:** o Nexus é focado inteiramente na jornada do colaborador ativo. Ele não possui módulos de recrutamento e seleção nem suporte a múltiplas empresas na mesma conta.
 
-**4. Colaborador acessa o portal:**
-O colaborador clica em **Ativar minha conta**, define sua senha e passa a ter acesso ao próprio portal — com ponto, holerites, documentos e muito mais. O link é de uso único e tem prazo de validade; se vencer, o RH reenvia o convite.
+### Demonstração
+
+<p align="center">
+  <img src="README/Captura%20de%20tela%202026-05-18%20134234.png" alt="Painel do RH com os atalhos de acesso rápido" width="900">
+  <br><em>Painel do RH</em>
+</p>
+
+<p align="center">
+  <img src="README/Captura%20de%20tela%202026-05-18%20140350.png" alt="Central de Alertas com o Assistente RH" width="900">
+  <br><em>Central de Alertas com o assistente de IA</em>
+</p>
 
 ---
 
-## Configuração local
+## Painel do RH
+
+| Módulo | Descrição |
+|---|---|
+| **Painel** | Tela inicial com calendário e acesso rápido a todos os módulos |
+| **Dashboard** | Indicadores da equipe em tempo real, incluindo horas de treinamento e taxa de promoção |
+| **Colaboradores** | Cadastro com checklist de documentos por tipo de contrato, convite por e-mail, catálogo de cargos e salários, treinamentos, processos disciplinares, atestados e consulta às avaliações de desempenho |
+| **Gestão de Horas** | Aprovação de registros de ponto, ajustes e banco de horas |
+| **Férias** | Solicitações com fluxo de aprovação, férias coletivas, abono pecuniário e recibo de férias |
+| **Pagamentos** | Folha mensal com faltas e DSR, INSS e IRRF, adicionais, hora extra do banco de horas, pensão alimentícia, 13º salário, recibo de férias e rescisão, com regras próprias para CLT, aprendiz, estágio, temporário, prazo determinado e PJ |
+| **Comunicação Interna** | Comunicados (com envio respeitando o horário comercial e ciência obrigatória nos urgentes e de política) e chat com a equipe |
+| **Atendimento ao Colaborador** | Chamados abertos pelos colaboradores, com avaliação do atendimento |
+| **Arquivos** | Documentos por colaborador, com guarda legal (documento aprovado não pode ser apagado antes do prazo) |
+| **Central de Alertas** | Detecção de risco de burnout e de prazos de compliance com inteligência artificial |
+| **Segurança** | Alertas de comportamento anormal, chaves de criptografia de ponta a ponta e proteção de arquivos antigos |
+
+---
+
+## Portal do Colaborador
+
+Cada colaborador tem um espaço personalizado com seus dados de cargo, departamento e data de admissão.
+
+| Módulo | Descrição |
+|---|---|
+| **Painel** | Tela inicial com sino de avisos (comunicados não lidos) e alerta de documentos do RH para assinar |
+| **Ponto** | Registro com selfie e reconhecimento facial com prova de vida, funcionamento offline e pedidos de ajuste |
+| **Férias** | Saldo, solicitações, venda de 10 dias (abono) e status de cada pedido |
+| **Holerites** | Histórico de contracheques e recibos de férias, com assinatura eletrônica e informe de rendimentos |
+| **Documentos** | Envio das pendências do checklist e documentos entregues pelo RH, cifrados de ponta a ponta |
+| **Comunicados** | Comunicados da empresa com controle de leitura e confirmação de ciência |
+| **Meu Desempenho** | Avaliações concluídas, metas do PDI, treinamentos (inclusive cursos externos), processos disciplinares com ciência eletrônica e atestados |
+| **Minha Equipe** | Para gestores: time, avaliações de desempenho, treinamentos e aprovação de férias |
+| **Chat** | Conversas com colegas e canais, e atendimento com o RH, com contador de não lidas e aviso por push |
+| **Perfil** | Dados pessoais, foto, biografia, MFA e preferências de notificação |
+
+---
+
+## Inteligência Artificial
+
+O módulo **Central de Alertas** usa a API da Groq (modelo GPT-OSS 120B) para analisar padrões de comportamento — excesso de horas, ausências frequentes, baixa interação — e sinalizar automaticamente possíveis riscos de burnout para o RH. A gestão de pessoas passa a agir de forma preventiva, antes que o problema se agrave.
+
+---
+
+## Arquitetura e Tecnologias
+
+### Stack
+
+| Camada | Tecnologias |
+|---|---|
+| **Front-end** | HTML5, CSS3 e JavaScript · PWA instalável com Service Worker |
+| **Back-end** | [Supabase](https://supabase.com/): PostgreSQL (regras de negócio em funções, triggers e RLS), Auth com MFA (TOTP), Storage, Realtime, Vault e pg_cron |
+| **Serverless** | Supabase Edge Functions em TypeScript (Deno): convites, IA, arquivos cifrados, recuperação do MFA e notificações push |
+| **Banco de dados** | PostgreSQL |
+| **Inteligência Artificial** | API da [Groq](https://groq.com/) com o modelo GPT-OSS 120B (`openai/gpt-oss-120b`) |
+| **Bibliotecas** | `supabase-js` · Chart.js (gráficos) · jsPDF e jsPDF-AutoTable (holerites, recibos e relatórios) · SheetJS (planilhas) · face-api.js (reconhecimento facial no ponto) · Tesseract.js (leitura de documentos por OCR) · Leaflet (mapa do ponto) · marked (respostas da IA) |
+| **Qualidade** | `node:test` + jsdom (unidade e telas) · Playwright (E2E) · axe-core (acessibilidade) · ESLint · Prettier · OWASP ZAP · GitHub Actions |
+| **Hospedagem** | Vercel (front-end) e Supabase (back-end) |
+
+### Features e Qualidade
+
+- **Criptografia em três camadas.** Dados sensíveis (CPF, salário, conta bancária, holerites, histórico de edição) ficam cifrados no banco com AES-256 (`pgcrypto`) e chave guardada no Vault. O CPF tem um índice cego por HMAC-SHA256, que barra cadastro duplicado sem precisar decifrar nada. Documentos, selfies do ponto e mensagens do chat são cifrados **de ponta a ponta** no navegador, e o servidor nunca vê a chave. Detalhes em [Segurança e Criptografia](#segurança-e-criptografia).
+- **Regras de negócio no banco.** As regras da CLT (folha, férias, 13º, rescisão, estabilidade, banco de horas) e as dos regimes de aprendiz, estágio, temporário, prazo determinado e PJ são validadas por triggers e funções do PostgreSQL. Uma chamada direta à API não consegue burlar o que a tela impede.
+- **Isolamento de dados por usuário.** Row Level Security em todas as tabelas, MFA obrigatório para o RH e acesso cortado automaticamente para quem é desligado.
+- **Tempo real e persistência offline.** Os dois ambientes se atualizam pelo Supabase Realtime, sem polling. O ponto registrado sem internet fica numa fila local e é enviado com o horário do aparelho quando a conexão volta.
+- **IA com privacidade.** Antes de chegar ao modelo, os nomes dos colaboradores são trocados por apelidos (`[P1]`, `[P2]`…), e cada usuário tem limite de chamadas por hora.
+- **Biometria com prova de vida.** O ponto compara o rosto no banco, a partir de um modelo facial cifrado e fora do alcance da API, e pede que a pessoa pisque para recusar foto ou vídeo gravado.
+- **LGPD e direito à desconexão.** Retenção automática de dados pelo pg_cron, backup cifrado com ensaio mensal de restauração, e comunicados e notificações enviados só em horário comercial.
+- **Segurança do front-end.** Content-Security-Policy sem `'unsafe-inline'`, bibliotecas externas com versão fixa e SRI, e um teste que analisa o código (AST) e falha se algum texto de usuário entrar no HTML sem escape.
+- **Testes e CI.** Mais de 2.000 testes automatizados, com cobertura mínima de 99% de linhas, ramos e funções exigida no CI. Também rodam no CI testes de integração das políticas de RLS contra um PostgreSQL real, E2E no navegador (folha, rescisão, documentos, comunicados, vários perfis), acessibilidade WCAG 2.1 AA, navegação por teclado, carga e varredura OWASP ZAP.
+
+---
+
+## Guia de Instalação
 
 O Nexus é **HTML/CSS/JS puro, sem framework e sem build step** — não há bundler, então basta servir os arquivos estaticamente. O backend é 100% Supabase (Postgres + Auth + Storage + Realtime + Edge Functions).
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) 20+ (só para rodar lint, testes e o servidor estático de desenvolvimento — não é usado em produção)
-- Uma conta/projeto no [Supabase](https://supabase.com/) (para rodar contra a nuvem) **ou** [Docker](https://www.docker.com/) + [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) (para rodar 100% localmente, inclusive os testes de integração e E2E)
+| Ferramenta | Versão | Para quê |
+|---|---|---|
+| [Git](https://git-scm.com/) | qualquer recente | Clonar o repositório |
+| [Node.js](https://nodejs.org/) | **22 ou superior** (a mesma do CI) | Servidor local, testes, lint e Supabase CLI via `npx`. Não é usado em produção |
+| Projeto no [Supabase](https://supabase.com/) | plano Free já serve | Banco, autenticação, arquivos e Edge Functions |
+| Cliente `psql` ([PostgreSQL](https://www.postgresql.org/download/)) | 15 ou superior | Carregar o `schema.sql` no banco (ou use o SQL Editor do Supabase) |
+| [OpenSSL](https://www.openssl.org/) | qualquer recente | Gerar a chave de cifragem dos arquivos (já vem com o Git Bash no Windows) |
+| [Docker](https://www.docker.com/) | opcional | Só para rodar o Supabase local e os testes de integração e E2E |
+| [Deno](https://deno.com/) | 2.x, opcional | Só para `npm run check:edge` (checagem de tipos das Edge Functions) |
 
-### 1. Clonar e instalar dependências
+Não há ambiente virtual como no Python: o `npm install` instala tudo dentro da pasta `node_modules/` do próprio projeto.
+
+### Passo a Passo de Configuração
+
+#### 1. Clonar e Instalar Dependências
 
 ```bash
 git clone https://github.com/MaduAraujo/Nexus.git
@@ -72,7 +167,7 @@ cd Nexus
 npm install
 ```
 
-### 2. Configurar o cliente Supabase
+#### 2. Configurar o Cliente Supabase
 
 Copie o arquivo de exemplo e preencha com as credenciais do seu projeto Supabase (Project Settings → API):
 
@@ -82,7 +177,7 @@ cp src/javascript/shared/supabase-client.example.js src/javascript/shared/supaba
 
 Edite `SUPABASE_URL` e `SUPABASE_ANON_KEY` em `src/javascript/shared/supabase-client.js`. A `anon key` é uma chave pública (protegida pela RLS do banco, não por sigilo) — pode ficar commitada, ao contrário da `service_role key`, que nunca deve sair do backend/Edge Functions.
 
-### 3. Aplicar o schema do banco
+#### 3. Aplicar o Schema do Banco
 
 Em um projeto Supabase **novo** (recém-criado), carregue o schema consolidado primeiro — as migrations em `supabase/migrations/` são incrementais e assumem que as tabelas base (`employees` etc.) já existem, então `db push` sozinho falha em um banco vazio:
 
@@ -93,59 +188,28 @@ psql "SUA_CONNECTION_STRING" -f supabase/schema.sql
 
 (a connection string fica em Project Settings → Database → Connection string no dashboard; alternativamente, cole o conteúdo de `supabase/schema.sql` direto no SQL Editor). Só depois disso, para futuras alterações incrementais, use `npx supabase db push` normalmente — a partir daí o banco já está na baseline que as migrations esperam.
 
-### 4. Configurar as Edge Functions (opcional, para IA, convites e push)
+#### 4. Configurar as Edge Functions
 
-As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `mfa-recover`, `send-push`, `send-alert-push`, `send-document-push` e `send-chat-push`. As de IA (`ai-alerts` e `ai-employee-chat`) precisam da chave da [Groq](https://console.groq.com/):
+As functions em `supabase/functions/` são `invite-employee`, `ai-alerts`, `ai-employee-chat`, `nexus-files`, `mfa-recover`, `send-push`, `send-alert-push`, `send-document-push` e `send-chat-push`. A `nexus-files` é **obrigatória**: sem ela nenhum arquivo é enviado ou aberto. As demais ligam recursos específicos (IA, convites por e-mail, recuperação do MFA e notificações push). Preencha as chaves conforme [Variáveis de Ambiente](#variáveis-de-ambiente) e publique:
 
 ```bash
+cp supabase/functions/.env.example supabase/functions/.env
+npx supabase secrets set --env-file supabase/functions/.env
 npx supabase functions deploy
-npx supabase secrets set GROQ_API_KEY=sua_chave_aqui
 ```
 
-A `nexus-files` cifra e decifra os arquivos do Storage (documentos, anexos de ponto e de chat, selfies). **Sem ela publicada, nenhum upload nem abertura de arquivo funciona**, porque o front não tem alternativa. Ela precisa de uma chave mestra própria, em base64 de 32 bytes (guarde uma cópia fora do Supabase: sem ela os arquivos cifrados são irrecuperáveis):
+Depois, confira no painel do Supabase (Edge Functions) que as nove aparecem. Uma função ausente responde 404 ao front.
 
-```bash
-npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32)
-```
-
-**Trocar a chave dos arquivos** (cada arquivo guarda no cabeçalho o identificador da chave que o cifrou; sem as variáveis abaixo a chave atual vale como `v1`):
-
-```bash
-# 1. chave nova ativa + a antiga só para leitura, e republique a nexus-files
-npx supabase secrets set FILES_ENCRYPTION_KEY=$(openssl rand -base64 32) FILES_ENCRYPTION_KEY_ID=v2 FILES_ENCRYPTION_OLD_KEYS=v1:CHAVE_ANTIGA
-npx supabase functions deploy nexus-files
-# 2. recifre o que já está no Storage (mesmas três variáveis + SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente)
-node scripts/rotate-file-key.mjs --dry-run
-node scripts/rotate-file-key.mjs
-# 3. quando o script disser que nada depende mais da chave antiga, tire-a de FILES_ENCRYPTION_OLD_KEYS
-```
-
-A `mfa-recover` recebe o código de recuperação do MFA, confere no banco (uso único, até 5 tentativas a cada 15 min) e desvincula o app autenticador pela API de admin do Auth. Não precisa de segredo próprio.
-
-Depois de publicar as funções, confira no painel do Supabase (Edge Functions) que as oito aparecem. Uma função ausente responde 404 ao front.
-
-A function `send-push` envia notificações push (Web Push) quando o RH publica um comunicado imediato (não agendado). Ela precisa de um par de chaves VAPID como secret — gere o seu com `npx web-push generate-vapid-keys` e configure:
-
-```bash
-npx supabase secrets set VAPID_PUBLIC_KEY=sua_chave_publica VAPID_PRIVATE_KEY=sua_chave_privada
-```
-
-A function `send-document-push` avisa por push o colaborador quando o RH lhe entrega um documento (contrato, termos, políticas). Usa os mesmos secrets VAPID, só envia em horário comercial (fora dele o aviso fica apenas na tela inicial do colaborador) e respeita a preferência "Documentos do RH" em Meu Perfil.
-
-A function `send-chat-push` avisa por push quem recebe mensagem no chat (DM, canal, resposta do RH no atendimento) e o RH quando um colaborador pede atendimento. É chamada por triggers da migration `113` (via Vault, como as de alerta), só envia em horário comercial, nunca leva o conteúdo da mensagem (que pode estar cifrado de ponta a ponta) e respeita a preferência "Mensagens do chat" em Meu Perfil. Em canais com várias pessoas só a primeira mensagem não lida avisa; as seguintes aparecem no contador do menu.
-
-A chave pública também precisa ser colada em `VAPID_PUBLIC_KEY` no topo de `src/javascript/perfil-colaborador.js` (client-side, por isso não é secret) — mantenha as duas em sincronia. Sem isso configurado, o botão "Notificações push do navegador" em Meu Perfil aparece normalmente, mas o envio real falha silenciosamente (log no `send-push`).
-
-**Este passo é diferente do anterior** — é o Vault do Postgres (não `supabase secrets`), e sem ele **nenhum push server-side sai**: nem o reenvio de comunicado adiado por horário comercial (direito à desconexão), nem os alertas de compliance/burnout. As funções `dispatch_deferred_pushes()` e `notify_alert_push()` (rodam via `pg_cron`/triggers, não recebem `Authorization` de usuário) leem a URL do projeto e a service role key do Vault — sem eles, elas dão `RETURN` silencioso (mas emitem `RAISE WARNING`, visível nos Postgres Logs do dashboard ou via `get_logs`). Rode uma vez no SQL Editor do projeto (Project Settings → API para pegar a URL e a `service_role` key):
+Os avisos automáticos (comunicados adiados para o horário comercial, alertas e push do chat) saem do banco e precisam da URL do projeto e da `service_role key` no **Vault do Postgres**. Rode **uma única vez** no SQL Editor:
 
 ```sql
 select vault.create_secret('https://SEU_PROJECT_REF.supabase.co', 'project_url');
 select vault.create_secret('SUA_SERVICE_ROLE_KEY', 'service_role_key');
 ```
 
-Se os secrets já existirem (confira com `select name from vault.secrets where name in ('project_url','service_role_key');`), **não rode `create_secret` de novo** — isso cria um registro duplicado com o mesmo nome, e as funções acima (que fazem `SELECT ... INTO` sem `LIMIT`) podem silenciosamente pegar o valor errado. Para atualizar um valor existente, use `vault.update_secret(id, novo_valor)` pelo `id` do secret.
+O que cada função faz, como trocar a chave dos arquivos e como atualizar os valores do Vault estão em [docs/EDGE-FUNCTIONS.md](docs/EDGE-FUNCTIONS.md).
 
-### E-mails de convite e de senha
+#### E-mails de Convite e de Senha
 
 Os modelos ficam em `supabase/templates/`:
 
@@ -163,16 +227,7 @@ Para o link do e-mail abrir o app, configure em Authentication → URL Configura
 - **Gmail com senha de app** (grátis, usado na demonstração): host `smtp.gmail.com`, porta `465`, usuário e remetente = o Gmail, senha = uma [senha de app](https://myaccount.google.com/apppasswords) (exige verificação em duas etapas). Limite de cerca de 500 e-mails por dia. O Supabase avisa que o Gmail é um provedor pessoal; o envio funciona, mas para uso real prefira a opção abaixo.
 - **Serviço transacional com domínio próprio** (ex.: Resend): verifique o domínio com os registros SPF, DKIM e DMARC que o serviço indicar e use host `smtp.resend.com`, porta `465`, usuário `resend` e a API key como senha.
 
-### 5. Rodar o app localmente
-
-Sem build step — qualquer servidor estático funciona:
-
-```bash
-node test-support/static-server.js
-# abre em http://127.0.0.1:4173/src/screens/login.html
-```
-
-### 6. Rodar os testes
+#### 5. Rodar os Testes
 
 O projeto tem 3 camadas de teste automatizado (o número exato de casos muda a cada mudança; rode os comandos para ver):
 
@@ -188,9 +243,11 @@ npm run format:check    # Prettier (não rode Prettier em .html)
 Os testes de **integração** (RLS real contra Postgres) e de **sistema/E2E** (Playwright, navegador real) precisam de uma instância local do Supabase via Docker:
 
 ```bash
-npx supabase start --exclude analytics,storage,studio,realtime,imgproxy,vector,edge-runtime,functions
+mv supabase/migrations supabase/migrations.off
+npx supabase start --exclude logflare,studio,realtime,imgproxy,vector,edge-runtime
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/schema.sql
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f test-support/local-test-db-grants.sql
+mv supabase/migrations.off supabase/migrations
 
 npm run test:integration   # RLS, criptografia, MFA, regras de folha/férias/documentos no banco, biometria e funções abertas a anônimos
 
@@ -199,184 +256,380 @@ npm run test:e2e           # fluxos completos no navegador: login, folha, rescis
 npm run test:load          # carga: 20 colaboradores + 3 RH simultâneos, p95 ≤ 2 s
 ```
 
-> **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,storage-api,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`.
+A pasta de migrations sai do lugar só enquanto o Supabase local sobe, porque o `supabase start` aplica as migrations sozinho e elas pressupõem as tabelas base que o `schema.sql` cria. O CI faz o mesmo.
+
+> **Já tem um Supabase local com o esquema antigo?** O `schema.sql` é para um banco vazio e não se sobrepõe a tabelas existentes. Em vez de recriar o seu banco de desenvolvimento, suba um segundo stack isolado: copie `supabase/config.toml` para uma pasta nova (`supabase/config.toml` dentro dela), troque o `project_id` e some 1000 às portas 543xx, rode `npx supabase start --exclude logflare,studio,realtime,imgproxy,vector,edge-runtime` ali, carregue `schema.sql` e `local-test-db-grants.sql` na porta `55322` e rode os testes com `TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres` e `E2E_SUPABASE_URL=http://127.0.0.1:55321`.
 
 Tudo isso roda automaticamente em CI a cada push/PR para `main` (`.github/workflows/tests.yml`): jobs `test` (unidade com cobertura, lint, formatação, Edge Functions, PWA e `npm audit`), `rls-integration` (integração), `e2e` (fluxos no navegador com acessibilidade e teclado, e carga) e `security-scan` (varredura OWASP ZAP). O ensaio de restauração do backup roda todo mês (`restore-drill.yml`).
 
+### Variáveis de Ambiente
+
+O Nexus não tem um `.env` único, porque cada parte lê a configuração de um lugar diferente:
+
+| Onde | Arquivo ou comando | O que vai lá |
+|---|---|---|
+| Front-end (navegador) | `src/javascript/shared/supabase-client.js`, criado a partir de `supabase-client.example.js` (passo 2) | URL do projeto e `anon key` |
+| Edge Functions | `supabase/functions/.env`, criado a partir de `supabase/functions/.env.example` | Chaves de IA, de cifragem e de push |
+| Banco (Postgres) | Vault, pelo SQL Editor (passo 4) | URL do projeto e `service_role key`, usadas pelos avisos automáticos |
+
+**Edge Functions.** Copie o modelo, preencha e envie para o Supabase:
+
+```bash
+cp supabase/functions/.env.example supabase/functions/.env
+npx supabase secrets set --env-file supabase/functions/.env
+```
+
+| Variável | Obrigatória | Como obter |
+|---|---|---|
+| `GROQ_API_KEY` | Para a IA | Crie em [console.groq.com](https://console.groq.com/keys) |
+| `FILES_ENCRYPTION_KEY` | **Sim** (sem ela nenhum arquivo abre) | `openssl rand -base64 32`. Guarde uma cópia fora do Supabase: sem ela os arquivos cifrados são irrecuperáveis |
+| `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` | Para notificações push | `npx web-push generate-vapid-keys`. A pública também vai em `src/javascript/perfil-colaborador.js` |
+| `QUIET_HOURS_START_HOUR` e `QUIET_HOURS_END_HOUR` | Não (padrão 8 e 18) | Horário comercial em que os avisos push podem sair |
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` **não** entram nesse arquivo: o Supabase já as entrega às Edge Functions automaticamente. O `supabase/functions/.env` está no `.gitignore` e nunca deve ser commitado.
+
+**Testes e scripts** (só no terminal, não precisam de arquivo):
+
+| Variável | Usada por | Padrão |
+|---|---|---|
+| `TEST_DATABASE_URL` | `npm run test:integration` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
+| `E2E_SUPABASE_URL` | `npm run test:e2e` | `http://127.0.0.1:54321` |
+| `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` | `scripts/rotate-file-key.mjs` | nenhum |
+
 ---
 
-## Painel do RH
+## Instruções de Uso
 
-<div align="center">
+### Iniciar a Aplicação Localmente
 
-![Painel RH](README/Captura%20de%20tela%202026-05-18%20134234.png)
+Com a [instalação](#guia-de-instalação) feita, suba o servidor estático na raiz do projeto:
 
-</div>
+```bash
+node test-support/static-server.js
+```
 
-| Módulo | Descrição |
+| Endereço | O que abre |
 |---|---|
-| **Painel** | Tela inicial com calendário e acesso rápido a todos os módulos |
-| **Dashboard** | Indicadores da equipe em tempo real, incluindo horas de treinamento e taxa de promoção |
-| **Colaboradores** | Cadastro com checklist de documentos por tipo de contrato, convite por e-mail, catálogo de cargos e salários, treinamentos, processos disciplinares, atestados e consulta às avaliações de desempenho |
-| **Gestão de Horas** | Aprovação de registros de ponto, ajustes e banco de horas |
-| **Férias** | Solicitações com fluxo de aprovação, férias coletivas, abono pecuniário e recibo de férias |
-| **Pagamentos** | Folha mensal com faltas e DSR, INSS e IRRF, 13º salário, recibo de férias, rescisão e regras de estágio |
-| **Comunicação Interna** | Comunicados (com envio respeitando o horário comercial) e chat com a equipe |
-| **Atendimento ao Colaborador** | Chamados abertos pelos colaboradores, com avaliação do atendimento |
-| **Arquivos** | Documentos por colaborador, com guarda legal (documento aprovado não pode ser apagado antes do prazo) |
-| **Central de Alertas** | Detecção de risco de burnout e de prazos de compliance com inteligência artificial |
-| **Segurança** | Alertas de comportamento anormal, chaves de criptografia de ponta a ponta e proteção de arquivos antigos |
+| `http://127.0.0.1:4173/` | Página inicial pública |
+| `http://127.0.0.1:4173/src/screens/login.html` | Login do RH e do colaborador |
+
+Variações do mesmo comando:
+
+```bash
+E2E_STATIC_PORT=8080 node test-support/static-server.js
+COMO_PRODUCAO=1 node test-support/static-server.js
+```
+
+A primeira troca a porta. A segunda aplica os mesmos cabeçalhos de segurança da Vercel (CSP, HSTS etc.) e esconde as pastas que não vão para produção, para testar o app como ele fica no ar.
+
+### Criar o Primeiro Administrador
+
+Em um projeto novo ainda não existe ninguém do RH para cadastrar os outros. Crie o usuário em **Authentication → Users → Add user** (marque *Auto Confirm User*) e, no SQL Editor, dê a ele o perfil de administrador:
+
+```sql
+insert into profiles (id, profile)
+select id, 'Administrador' from auth.users where email = 'rh@suaempresa.com';
+```
+
+No primeiro login o sistema pede para configurar o MFA (aplicativo autenticador), obrigatório para o RH.
+
+### Fluxo de Uso
+
+A plataforma opera com dois perfis de acesso: **RH / Administrador** e **Colaborador**. As credenciais da demonstração publicada não ficam aqui; solicite acesso diretamente à equipe do projeto pelos [Contatos](#contatos).
+
+1. **O RH cadastra os colaboradores** no módulo **Colaboradores**, com cargo, salário e tipo de contrato.
+2. **O convite sai automaticamente** por e-mail, com a identidade visual do Nexus. Se o e-mail já tiver conta, a pessoa recebe um link para definir uma nova senha.
+3. **O colaborador ativa a conta** em **Ativar minha conta**, define a senha e passa a usar o próprio portal: ponto, holerites, férias, documentos, chat e muito mais. O link é de uso único e tem prazo de validade; se vencer, o RH reenvia o convite.
+4. **Os dois lados conversam em tempo real:** um pedido de férias ou um ajuste de ponto feito pelo colaborador aparece na hora para o RH aprovar, e a resposta volta para o portal sem recarregar a página.
+
+### Exemplos com o Código
+
+As regras de cálculo ficam em `src/javascript/domain/` e rodam também no Node, sem navegador. Salve como `exemplo.js` na raiz do projeto e rode `node exemplo.js`.
+
+**Descontos da folha (tabelas de 2026):**
+
+```js
+global.window = global;
+const { calcINSS, calcIRRFMensal } = require('./src/javascript/domain/tabelas-fiscais.js');
+
+const inss = calcINSS(5000);
+const irrf = calcIRRFMensal({ rendimento: 5000, inss, dependentes: 1 });
+console.log({ inss, irrf });
+```
+
+```text
+{ inss: 501.51, irrf: 0 }
+```
+
+O IRRF sai zerado porque, desde 2026, a redução da Lei 15.270/2025 isenta quem ganha até R$ 5.000.
+
+**Rescisão por pedido de demissão:**
+
+```js
+global.window = global;
+require('./src/javascript/domain/clt-domain.js');
+const { calcularRescisao } = require('./src/javascript/domain/calculo-rescisao.js');
+
+const r = calcularRescisao({
+    tipo: 'pedido_demissao',
+    salario: 3000,
+    admissao: new Date(2025, 2, 10),
+    demissao: new Date(2026, 5, 30),
+});
+console.log(r.verbas, r.totalVerbas, r.prazoPagamento);
+```
+
+```text
+[
+  { descricao: 'Saldo de Salário', dias: 30, valor: 3000 },
+  { descricao: '13º Salário Proporcional', dias: '6/12', valor: 1500 },
+  { descricao: 'Férias Proporcionais', dias: '4/12', valor: 1000 },
+  { descricao: '1/3 Constitucional de Férias', dias: '—', valor: 333.33 },
+  { descricao: 'Férias Vencidas (CLT art. 146)', dias: 30, valor: 3000 },
+  { descricao: '1/3 Constitucional sobre Férias Vencidas', dias: '—', valor: 1000 }
+]
+9833.33 2026-07-10
+```
+
+O mesmo `calcularRescisao` aceita `contractType` (`'Aprendiz'`, `'Estágio'`, `'PJ'`, `'Temporário'` etc.) e aplica a regra de cada regime.
+
+### Exemplos de API
+
+O front conversa com o Supabase por HTTP, e as mesmas chamadas funcionam no terminal. Troque `SEU_PROJECT_REF` e `SUA_ANON_KEY` pelos valores do passo 2 da instalação.
+
+**1. Login (recebe o token de acesso):**
+
+```bash
+curl -X POST "https://SEU_PROJECT_REF.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: SUA_ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"email":"colaborador@suaempresa.com","password":"SuaSenha123"}'
+```
+
+```json
+{ "access_token": "eyJhbGciOi...", "token_type": "bearer", "expires_in": 3600, "refresh_token": "...", "user": { "id": "...", "email": "colaborador@suaempresa.com" } }
+```
+
+Quem tem MFA ativado (todo o RH) precisa concluir o segundo fator antes de usar as RPCs; para testar pelo terminal, use um colaborador sem MFA.
+
+**2. RPC: mensagens não lidas do chat**
+
+```bash
+curl -X POST "https://SEU_PROJECT_REF.supabase.co/rest/v1/rpc/chat_unread_summary" \
+  -H "apikey: SUA_ANON_KEY" -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" -d '{}'
+```
+
+```json
+[
+  { "kind": "channel", "thread": "4f1c2a9e-...", "unread": 3 },
+  { "kind": "ticket", "thread": "b7d03e51-...", "unread": 1 }
+]
+```
+
+Sem o cabeçalho `Authorization`, a resposta é `401`. O banco usa o token para saber quem chama, então ninguém consulta as conversas de outra pessoa.
+
+**3. Edge Function: assistente de IA do colaborador**
+
+```bash
+curl -N -X POST "https://SEU_PROJECT_REF.supabase.co/functions/v1/ai-employee-chat" \
+  -H "apikey: SUA_ANON_KEY" -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Quantos dias de férias eu tenho?","history":[]}'
+```
+
+A resposta chega em *streaming* (Server-Sent Events), um pedaço de texto por linha:
+
+```text
+data: {"choices":[{"index":0,"delta":{"content":"Você tem "}}]}
+
+data: {"choices":[{"index":0,"delta":{"content":"30 dias disponíveis"}}]}
+
+data: [DONE]
+```
+
+| Situação | Status | Corpo |
+|---|---|---|
+| Sem `message` | `400` | `{"error":"message é obrigatório"}` |
+| Sem token ou token inválido | `401` | `{"error":"Não autorizado"}` |
+| Usuário do RH chamando a função do colaborador | `403` | `{"error":"Acesso restrito ao colaborador"}` |
+| Mais de 60 mensagens na mesma hora | `429` | `{"error":"Você atingiu o limite de mensagens por hora. ..."}` |
 
 ---
 
-## Portal do Colaborador
+## Estrutura de Diretórios
 
-Cada colaborador tem um espaço personalizado com seus dados de cargo, departamento e data de admissão.
+```text
+Nexus/
+├── index.html                  # página inicial pública
+├── service-worker.js           # cache e funcionamento offline do PWA
+├── manifest.json               # instalação do PWA (nome, ícones, cores)
+├── vercel.json                 # cabeçalhos de segurança (CSP, HSTS) da hospedagem
+│
+├── src/                        # front-end (o que vai para o navegador)
+│   ├── screens/                # telas em HTML: login, painel do RH e portal do colaborador
+│   ├── styles/                 # um CSS por tela, mais os de impressão (holerite, recibos)
+│   ├── assets/                 # ícones, fontes e capturas de tela do PWA
+│   └── javascript/             # comportamento de cada tela (um .js por tela)
+│       ├── domain/             # lógica de negócio: CLT, folha, impostos, rescisão, estágio, burnout
+│       └── shared/             # código comum: cliente Supabase, autenticação, MFA, criptografia de ponta a ponta
+│
+├── supabase/                   # back-end
+│   ├── schema.sql              # banco completo, para um projeto novo
+│   ├── migrations/             # alterações do banco em ordem (tabelas, RLS, triggers, cifragem)
+│   ├── functions/              # Edge Functions em TypeScript (IA, convites, arquivos, push, MFA)
+│   │   └── _shared/            # código comum às functions (cifragem de arquivos, pseudonimização)
+│   ├── templates/              # e-mails de convite e de redefinição de senha
+│   └── config.toml             # configuração do Supabase local
+│
+├── scripts/                    # operação
+│   ├── backup/                 # backup cifrado do banco e ensaio de restauração
+│   ├── ops/                    # revisão de acessos
+│   ├── pentest/                # sondagem da API em ambiente parecido com produção
+│   └── rotate-file-key.mjs     # troca da chave de cifragem dos arquivos
+│
+├── test/                       # testes de unidade e de tela (node:test + jsdom)
+├── test-integration/           # testes de RLS e regras do banco contra PostgreSQL real
+├── e2e/                        # testes ponta a ponta no navegador (Playwright)
+├── test-support/               # servidor local, simuladores do Supabase e dados de teste
+│
+├── docs/                       # documentação técnica: segurança, migrations e Edge Functions
+├── .github/workflows/          # CI: testes, varredura OWASP ZAP e ensaio mensal de backup
+└── README/                     # imagens usadas neste README
+```
 
-<div align="center">
+**Onde fica cada coisa**
 
-![Portal do Colaborador](README/Captura%20de%20tela%202026-05-18%20134331.png)
-
-</div>
-
-| Módulo | Descrição |
+| Procurando… | Vá em |
 |---|---|
-| **Painel** | Tela inicial com sino de avisos (comunicados não lidos) e alerta de documentos do RH para assinar |
-| **Ponto** | Registro com selfie e reconhecimento facial com prova de vida, funcionamento offline e pedidos de ajuste |
-| **Férias** | Saldo, solicitações, venda de 10 dias (abono) e status de cada pedido |
-| **Holerites** | Histórico de contracheques e recibos de férias, com assinatura eletrônica e informe de rendimentos |
-| **Documentos** | Envio das pendências do checklist e documentos entregues pelo RH, cifrados de ponta a ponta |
-| **Comunicados** | Comunicados da empresa com controle de leitura |
-| **Meu Desempenho** | Avaliações concluídas, metas do PDI, treinamentos (inclusive cursos externos), processos disciplinares com ciência eletrônica e atestados |
-| **Minha Equipe** | Para gestores: time, avaliações de desempenho, treinamentos e aprovação de férias |
-| **Chat** | Conversas com colegas e canais, e atendimento com o RH |
-| **Perfil** | Dados pessoais, foto, biografia, MFA e preferências de notificação |
+| Scripts de banco de dados | `supabase/schema.sql` (banco inteiro) e `supabase/migrations/` (uma alteração por arquivo, numeradas) |
+| Componentes visuais | `src/screens/` (HTML de cada tela) com o CSS de mesmo nome em `src/styles/` e o JS em `src/javascript/` |
+| Lógica de negócio | `src/javascript/domain/` no navegador e, para o que não pode ser burlado, as funções e triggers em `supabase/migrations/` |
+| Lógica que roda no servidor | `supabase/functions/` |
 
 ---
 
-## Inteligência Artificial
+## Segurança e Criptografia
 
-O módulo **Central de Alertas** usa a API da Groq (modelo GPT-OSS 120B) para analisar padrões de comportamento — excesso de horas, ausências frequentes, baixa interação — e sinalizar automaticamente possíveis riscos de burnout para o RH. A gestão de pessoas passa a agir de forma preventiva, antes que o problema se agrave.
-
-<div align="center">
-
-![Central de Alertas](README/Captura%20de%20tela%202026-05-18%20140350.png)
-
-</div>
-
----
-
-## Segurança e criptografia
-
-**Em trânsito:** todo o tráfego usa HTTPS (Vercel e Supabase).
-
-**Em repouso, no banco (criptografia em nível de coluna, AES-256 via `pgcrypto`)** — migration `059_column_encryption.sql`:
-
-| Dado | Onde |
+| Camada | Como o Nexus protege |
 |---|---|
-| CPF, RG, telefone, salário, chave PIX, agência e conta | `employees` |
-| Data de nascimento, gênero, raça/cor, deficiência e tipo de pensão (dados pessoais sensíveis, LGPD art. 5º, II) | `employees` (migration 062) |
-| Mensagens de canais e conversas diretas | `chat_messages.content` |
-| Mensagens do atendimento com o RH | `hr_ticket_messages.content` |
+| **Em trânsito** | Todo o tráfego usa HTTPS (Vercel e Supabase) |
+| **No banco** | CPF, RG, salário, dados bancários, dados sensíveis (LGPD art. 5º, II), mensagens e holerites cifrados com AES-256 (`pgcrypto`), chaves no Supabase Vault e leitura pelas views `*_decrypted`, que respeitam a RLS |
+| **Arquivos** | AES-256-GCM pela Edge Function `nexus-files`, com rotação de chave |
+| **Ponta a ponta** | Documentos, selfies do ponto e mensagens do chat cifrados no navegador (ECDH P-256 + AES-256-GCM); o servidor nunca tem a chave |
+| **Acesso** | Row Level Security em todas as tabelas, MFA obrigatório para o RH (com códigos de recuperação) e acesso cortado para quem é desligado |
+| **Front-end** | CSP sem `'unsafe-inline'`, SRI em todas as bibliotecas externas e teste automático contra XSS |
+| **Monitoramento** | Alertas de comportamento anormal: falhas de login em série, exportação em massa e acesso do RH fora do horário comercial |
 
-Como funciona:
+> ⚠️ **Guarde uma cópia das chaves de cifragem fora do Supabase** (`data_encryption_key`, `data_hmac_key` no Vault e `FILES_ENCRYPTION_KEY` nas Edge Functions). Sem elas, os dados cifrados **não podem ser recuperados**.
 
-- **Escrita:** triggers cifram sozinhos. O código continua gravando texto normal em `employees`, `chat_messages` e `hr_ticket_messages`.
-- **Leitura:** as tabelas devolvem texto cifrado. Para ler o valor, use as views **`employees_decrypted`**, **`chat_messages_decrypted`** e **`hr_ticket_messages_decrypted`**. Elas respeitam a RLS e só decifram para quem tem direito ao dado (RH e a própria pessoa em `employees`; membros em conversas; RH nunca em conversas diretas). O gestor enxerga a equipe, mas sem nenhum dos campos cifrados.
-- **Amarração ao dono:** cada valor cifrado carrega o seu dono (`emp:<id>`, `chan:<id>`, `tkt:<id>`). Copiar o texto cifrado de uma linha para outra não revela nada, e a função de decifrar confere a autorização antes de abrir.
-- **CPF único:** `cpf_hash` é um índice cego (HMAC-SHA256, com ou sem máscara) que garante unicidade sem guardar o CPF em claro.
+**Documentação técnica:**
 
-**Chaves:** ficam no **Supabase Vault** (`data_encryption_key` e `data_hmac_key`), geradas pela própria migration. Nunca estão no código nem no navegador.
-
-> ⚠️ **Guarde uma cópia das duas chaves fora do Supabase** (gerenciador de senhas do time) e faça backup do banco antes de aplicar a migration. Sem as chaves, os dados cifrados **não podem ser recuperados**. Para ler: `select name, decrypted_secret from vault.decrypted_secrets where name in ('data_encryption_key','data_hmac_key');`
-
-**Aplicando em um banco existente:** rode as migrations em ordem, a partir da `057` até a mais recente. A 059, a 062 e a 064 cifram os dados que já existem (a 064 exige a 059 e a 062 antes); a 060 restringe o que o colaborador edita; a 061 cria o limite de chamadas da IA; a 063 exige MFA para o RH; a 065 libera os buckets para arquivos cifrados; a 066 cria os alertas de comportamento anormal; a 067 permite trocar as chaves de cifragem; a 068 fecha leituras e execuções que estavam abertas a anônimos; a 082 faz as funções de RPC exigirem o segundo fator de quem tem MFA; a 083 cifra o histórico de edição; a 084 cria os códigos de recuperação do MFA; a 085 cria as tabelas de chaves da criptografia de ponta a ponta; a 086 estende essas chaves aos canais de grupo; a 087 e a 088 guardam o certificado do treinamento e exigem anexo no atestado; a 089 impede excluir colaborador que tenha holerite, ponto ou documento (prazo legal de guarda); a 090 cria o bucket de documentos; a 091 leva para o banco as regras de folha, guarda de documentos e atendimentos; a 092 isola a biometria facial; a 093 cria o recibo de férias com abono; a 094 otimiza as políticas de RLS; a 095 leva as regras de férias para o banco; a 096 fecha para anônimos as funções que não precisam ser públicas e a 097 reabre só as quatro que as políticas de acesso usam; a 098 cria os índices das chaves estrangeiras; a 099 tira todo o acesso de quem foi desligado; a 106 guarda o valor da pensão alimentícia (cifrado), cria as convenções coletivas com piso salarial e faz o banco barrar a dispensa sem justa causa durante a estabilidade; a 108 impede alterar holerite já pago, grava o ponto feito sem internet no horário do aparelho (com trava contra horário futuro ou de outro dia, sem sobrescrever marcação) e protege os débitos de banco de horas lançados pela folha; a 109 faz a versão nova de um documento desmarcar a anterior na mesma gravação. Ordem de publicação que evita travar o RH: habilite o TOTP no painel do Supabase (Authentication → MFA) e publique o front antes da 063, e publique o front e as Edge Functions junto com a 064 e a 065 (front antigo lê a tabela cifrada). Em um projeto novo, `supabase/schema.sql` já traz tudo.
-
-**Regras para quem desenvolve:**
-
-- Para **ler** CPF, RG, telefone, salário, PIX, agência, conta, nascimento, gênero, raça/cor, deficiência ou o conteúdo de mensagens, consulte a view `*_decrypted`. A tabela devolve texto cifrado.
-- Depois de **adicionar coluna** em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
-- Para cifrar **outra coluna**, siga o padrão de `employees_encrypt_sensitive()` na migration 059.
-
-**Também cifrados** (migrations 064, 065 e 083): holerites (`payslips`), o histórico de edição (`employee_audit.changes`, lido pela view `employee_audit_decrypted`), feedback anônimo, as tabelas de histórico, cache, memória e log da IA do RH, os indicadores `pcd` e `pensao_alimenticia`, e os arquivos dos buckets `documents`, `message-attachments` e `ponto-selfies` (AES-256-GCM pela Edge Function `nexus-files`, chave mestra no segredo `FILES_ENCRYPTION_KEY`). A leitura segue o mesmo padrão das views `*_decrypted`.
-
-**O que ainda NÃO é cifrado:** avatares (bucket público de propósito) e o número de dependentes. Nos dados cifrados em repouso, quem tem acesso administrativo ao banco **e** ao Vault enxerga tudo, porque a chave fica na mesma plataforma. Isso não vale para o que é cifrado de ponta a ponta (veja abaixo). A rotação das chaves existe para as colunas (migration 067) e para os arquivos (`scripts/rotate-file-key.mjs`, veja acima), as duas manuais.
-
-### Criptografia de ponta a ponta (migration 085)
-
-**O que é cifrado no navegador** (o servidor guarda só o conteúdo cifrado e nunca tem a chave): documentos do colaborador, atestados, anexos do banco de horas, selfies do ponto, as **mensagens diretas** e as mensagens dos **canais de grupo** do chat. Código em `src/javascript/shared/e2e-crypto.js` (WebCrypto), `e2e.js` (chaves e fluxos) e `e2e-ui.js` (janelas).
-
-- **Chaves por pessoa:** cada usuário tem um par ECDH P-256 gerado no navegador. A chave privada vai ao banco (`e2e_keys`) só embrulhada pela senha (PBKDF2-SHA256, 600 mil iterações) e por uma **chave de recuperação** de 160 bits mostrada uma única vez no primeiro login. Depois do login, ela fica no IndexedDB como chave não exportável e é apagada ao sair.
-- **Chave do RH:** um par da organização, entregue a cada administrador embrulhado com a chave pessoal dele (`e2e_org_key_grants`). Um administrador novo recebe acesso quando outro abre a tela Segurança.
-- **Arquivos:** AES-256-GCM com chave aleatória por arquivo, embrulhada para o colaborador dono e para a chave do RH, no próprio cabeçalho do arquivo (formato `NXE1`). O envio vai direto ao Storage, com o RLS de sempre. Arquivos antigos seguem abrindo pela `nexus-files`, e o botão **Proteger arquivos antigos** (tela Segurança) os converte.
-- **Mensagens diretas:** chave por conversa (`e2e_channel_keys`), embrulhada para os dois membros e versionada. Se um dos dois refaz as chaves, o outro recompartilha a conversa ao enviar a próxima mensagem.
-- **Canais de grupo** (migration 086): chave por canal, embrulhada para cada membro que já tem chaves e para a chave do RH (o RH mantém a leitura prevista na política de compliance). Quem sai do canal força uma versão nova da chave e não lê o que vem depois. Quem entra ou cria chaves depois recebe a chave quando qualquer membro abre o canal.
-- **Esqueceu a senha:** no login seguinte, a chave de recuperação reabre tudo e passa a valer a senha nova. Sem ela, a pessoa gera chaves novas: as conversas diretas antigas ficam ilegíveis, e os documentos voltam quando o RH usa "Proteger arquivos antigos".
-
-**Continua visível para o servidor:** metadados (nome, tipo e dono do documento; quem conversa com quem e quando), cadastro, holerites e tudo que o sistema precisa processar (IA, alertas, folha, dashboard), que seguem cifrados em repouso com a chave do Vault. **Limite de todo E2E na web:** quem controla a hospedagem do front poderia publicar um JavaScript alterado; SRI, CSP e a revisão do código publicado reduzem, mas não eliminam, esse risco.
-
-**Limitação conhecida da plataforma (Supabase, imagem `17.6.1.111`):** nessa versão, a extensão `supautils` derruba o Postgres quando `anon` ou `authenticated` chamam uma função sem permissão de execução (o código que monta a dica do erro, ligado por `supautils.hint_roles`, causa a falha de segmentação). Como a API expõe as funções do schema `public`, uma chamada a `/rest/v1/rpc/<função revogada>` reinicia o banco. Foi reproduzido localmente na mesma imagem, com PostgREST v12 e v14, e não acontece na `17.6.1.166`. A correção é atualizar o Postgres do projeto (no plano Free, pelo suporte do Supabase). O teste `test-integration/rpc-revogada-nao-derruba.js` confere isso e deve entrar no `test:integration`, junto com a troca da imagem do CI, depois da atualização.
-
-**Desempenho:** decifrar tem custo por linha; ler 200 colaboradores leva na ordem de décimos de segundo. Para volumes muito maiores, vale cachear a chave por consulta ou paginar as listas.
-
-### Proteções contra ataques
-
-| Ameaça | Proteção |
-|---|---|
-| Colaborador alterar o próprio salário, cargo, status ou gestor | Migration `060`: policy de UPDATE só na própria linha **e** trigger que recusa qualquer coluna fora de nome, telefone, bio, avatar, preferências e último acesso. Vale também para colunas criadas no futuro. |
-| XSS (código injetado por nome, mensagem, arquivo etc.) | Todo texto de usuário em HTML passa por `escapeHtml()` (`src/javascript/shared/html.js`). O teste `test/xss-guard.test.js` varre o código com um analisador de AST e **falha** se alguém interpolar texto de usuário sem escapar. Conteúdo HTML externo (markdown da IA, comunicados) passa por sanitizador com lista de permissões e parser inerte. |
-| Execução de script externo / vazamento de dados | `vercel.json`: Content-Security-Policy (só as origens usadas; `connect-src` limitado ao Supabase, ViaCEP e CDNs), `frame-ancestors 'none'`, HSTS, `nosniff`, `Permissions-Policy` e COOP. |
-| CDN comprometido (supply chain) | Todas as bibliotecas externas têm **versão fixa e SRI** (`integrity`). Para atualizar uma, gere o novo hash (`openssl dgst -sha384 -binary arquivo | openssl base64 -A`). |
-| Senhas fracas | Mínimo de 12 caracteres, com letras e números, no app e em `supabase/config.toml`. **No projeto hospedado, ajuste o mesmo no painel** (Authentication → Sign In / Providers → Email). |
-| Abuso e custo das funções de IA | Migration `061`: `rate_limit_check` limita por usuário (ai-alerts: 30/h; ai-employee-chat: 60/h). |
-| Dependências vulneráveis | `npm audit --audit-level=high` no CI e Dependabot semanal. |
-| Funções internas chamáveis por anônimo | Migrations `068` e `096`: retiram o `EXECUTE` de anônimos das funções internas; `kudos` e `onboarding_tasks` deixam de ser legíveis sem login. A `097` devolve o acesso só a `is_rh`, `my_employee_id`, `chat_is_member` e `chat_channel_is_dm`, usadas dentro das políticas de RLS (para quem não fez login elas devolvem "não" ou vazio), e `report_login_failure` segue aberta porque registra falhas antes do login. |
-| Fraude no ponto (foto de outra pessoa, vídeo gravado) | Migration `092`: o modelo facial fica em `biometric_templates`, cifrado e sem acesso pela API; a comparação é feita no banco (`biometric_verify`), que recusa o mesmo vetor reenviado. No app há prova de vida (piscar) e consentimento explícito (LGPD art. 11). |
-| Ex-colaborador continuar entrando | Migration `099`: `my_employee_id()` e `is_rh()` deixam de reconhecer quem está `Inativo` ou `Bloqueado`, então todas as políticas de RLS param de liberar dados para essa pessoa de uma vez. O login e as telas avisam "conta desativada" (`conta_desativada()`), e as inscrições de push são apagadas no desligamento. |
-| Apagar provas (documentos, atendimentos) | Migration `091`: documento aprovado só sai por `soft_delete_documents` com motivo e respeitando o prazo de guarda; mensagens e chamados de atendimento não podem ser apagados, só ocultados. |
-
-**Se o projeto Supabase mudar**, atualize o domínio em `connect-src` e `img-src` do `vercel.json`.
-
-**Sem `'unsafe-inline'` em `script-src`:** o app não usa mais `onclick=`/`<script>` inline. Os manipuladores são atributos `data-click`, `data-change`, `data-input`, `data-keydown` e `data-keyup` (com `-args`, veja `src/javascript/shared/events.js`), ligados por listeners. Em templates JS use `data-click="fn" data-click-args="${dargs(id)}"`; nunca escreva `onclick=` (o teste `test/csp-inline.test.js` falha). O dispatcher só chama funções globais declaradas pelo app (não nativas), então markup injetado com `data-click="eval"` não executa código. Janelas de impressão usam `printWhenLoaded(win)` em vez de `<script>` inline.
-
-**Sem `'unsafe-inline'` em `style-src`:** nenhum HTML ou template usa `style=`, `<style>` ou `setAttribute('style')` (o mesmo teste falha). Estilo fixo vai para classe CSS. Valor dinâmico usa um atributo de lista fechada, aplicado por `src/javascript/shared/dynamic-style.js` via `el.style`: `data-bg`/`data-color` (só cor), `data-w` (largura em %), `data-x`/`data-y` (px), `data-delay` (s), `data-bg-img` (só `https:`, `blob:` ou `data:image`) e `data-hide` (começa escondido e depois se comporta como `style.display = 'none'`). Janelas de impressão usam um `.css` próprio via `<link>`, e a orientação do holerite usa uma folha construída (`adoptedStyleSheets`).
-
-**Limites conhecidos:** o CSS do Google Fonts não tem SRI (o Google serve um CSS diferente por navegador). A proteção contra senhas vazadas do Supabase (consulta ao HaveIBeenPwned) só existe no plano Pro; no plano Free o Security Advisor mostra esse aviso, e a compensação é a senha mínima de 12 caracteres, o MFA obrigatório para o RH, o limite de tentativas e o alerta de falhas de login em série. O Security Advisor também lista as funções `SECURITY DEFINER` chamáveis por usuários logados: são as RPCs do próprio app, e cada uma confere internamente o papel de quem chama. **MFA (TOTP):** obrigatório para o RH e opcional para o colaborador (`src/javascript/shared/mfa.js`, migration 063). Ao ativar, a pessoa recebe 10 códigos de recuperação (só o hash bcrypt fica no banco, migration 084). Se perder o celular, um código na tela de login desvincula o app e gera um alerta crítico para o RH; o RH então cadastra o celular novo na ativação obrigatória. **Alertas de comportamento anormal** (migration 066): falhas de login em série, login logo após falhas, exportação ou download em massa e acesso do RH fora do horário comercial, exibidos na tela Segurança.
+- [docs/SEGURANCA.md](docs/SEGURANCA.md): criptografia por coluna e de ponta a ponta, proteções contra ataques, regras para quem desenvolve e limites conhecidos.
+- [docs/MIGRATIONS.md](docs/MIGRATIONS.md): o que cada migration faz e a ordem de aplicação em um banco existente.
+- [docs/EDGE-FUNCTIONS.md](docs/EDGE-FUNCTIONS.md): cada Edge Function, a troca da chave dos arquivos e a configuração do Vault para os avisos automáticos.
 
 ---
 
-## Privacidade (LGPD) e operação
+## Privacidade (LGPD) e Operação
 
 - **Backup e restauração:** o backup cifrado (`scripts/backup/backup-db.mjs`) e a restauração em banco novo são ensaiados por `node scripts/backup/restore-drill.mjs` (Docker + gpg), que também roda todo mês no GitHub Actions. O relatório fica em `test-results/restore-drill/`.
 - **Retenção:** `purge_security_events()` apaga eventos de segurança com mais de 180 dias e `purge_expired_conversations()` (migrations 081 e 110) apaga chat interno e histórico do assistente de IA do RH após 12 meses, e atendimentos resolvidos (ou só com o assistente) 5 anos após a última mensagem, por serem prova em reclamação trabalhista; atendimentos abertos ficam até serem resolvidos. As duas rodam todo dia pelo pg_cron. A política pública fica em `src/screens/privacidade.html` (versão de demonstração com empresa fictícia).
 - **Acessos:** `scripts/ops/revisao-de-acessos.sql` lista quem tem acesso a quê.
 - O schema não vai ao ar: o `.vercelignore` o exclui da hospedagem.
 
-## Tecnologias
-
-| Camada | Tecnologias |
-|---|---|
-| **Frontend** | HTML5 · CSS3 · JavaScript |
-| **Backend** | Supabase (PostgreSQL · Auth · Storage · Realtime) |
-| **Serverless** | TypeScript via Supabase Edge Functions (convites, IA, arquivos cifrados, push) |
-| **IA** | Groq API — GPT-OSS 120B |
-| **Deploy** | Vercel |
-
-**Destaques de arquitetura**
-
-- Autenticação com controle de acesso por papel (`administrador` / `colaborador`)
-- Atualizações em tempo real com Supabase Realtime, sem polling
-- Edge Functions para lógica sensível fora do cliente (convites, análise de IA)
-- Row Level Security (RLS) para isolamento de dados por usuário no banco
-
 ---
 
-## Equipe
+## Governança e Autoria
 
-| Nome |
-|---|
-| Madu Araújo |
-| Vinicius |
-| Igor |
-| Maria Luiza |
-| Aline |
+### Como Contribuir
+
+Contribuições passam por *pull request* e só entram depois de revisadas pelos autores. Antes de começar algo grande, abra uma *issue* descrevendo a ideia.
+
+**1. Faça um fork e clone a sua cópia**
+
+Clique em **Fork** no GitHub e depois:
+
+```bash
+git clone https://github.com/SEU_USUARIO/Nexus.git
+cd Nexus
+git remote add upstream https://github.com/MaduAraujo/Nexus.git
+npm install
+```
+
+**2. Crie uma branch a partir da `main` atualizada**
+
+```bash
+git fetch upstream
+git switch -c feature/nome-curto upstream/main
+```
+
+| Prefixo | Quando usar | Exemplo |
+|---|---|---|
+| `feature/` | Funcionalidade nova | `feature/exportar-ponto-pdf` |
+| `fix/` | Correção de bug | `fix/calculo-dsr-feriado` |
+| `docs/` | Só documentação | `docs/guia-instalacao` |
+| `test/` | Só testes | `test/rescisao-aprendiz` |
+| `refactor/` | Mudança interna sem alterar comportamento | `refactor/modulo-ferias` |
+| `chore/` | Dependências, CI e configuração | `chore/atualizar-playwright` |
+
+Nomes em minúsculas, sem acento e com palavras separadas por hífen.
+
+**3. Escreva os commits no padrão [Conventional Commits](https://www.conventionalcommits.org/pt-br/)**
+
+```text
+<tipo>(<escopo opcional>): <descrição no imperativo, em minúsculas>
+```
+
+```bash
+git commit -m "feat(ferias): permitir abono de 10 dias no pedido do colaborador"
+git commit -m "fix(folha): descontar DSR só na semana da falta"
+git commit -m "docs: explicar variáveis de ambiente das edge functions"
+```
+
+Os tipos são os mesmos dos prefixos de branch (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`). Cada commit trata de um assunto só.
+
+**4. Siga as convenções do projeto**
+
+- O código não leva comentários (`//`, `/* */` ou `--`); nomes claros de funções e variáveis fazem esse papel, e a explicação vai na descrição do PR.
+- Toda mudança de comportamento vem com teste. O CI exige 99% de cobertura de linhas, ramos e funções.
+- Mudança no banco vira uma migration nova em `supabase/migrations/`, com o próximo número da sequência, e também é refletida em `supabase/schema.sql`.
+- Texto vindo do usuário só entra no HTML por `escapeHtml()`, e nada de `onclick=` ou `style=` inline (a CSP bloqueia e os testes falham).
+- Não rode o Prettier em arquivos `.html`; use `npm run format` só no que ele já cobre.
+
+**5. Confira tudo localmente antes de enviar**
+
+```bash
+npm run lint
+npm run format:check
+npm run test:coverage
+```
+
+**6. Abra o Pull Request**
+
+```bash
+git push origin feature/nome-curto
+```
+
+No GitHub, abra o PR da sua branch para a `main` de `MaduAraujo/Nexus`. Na descrição, informe:
+
+- **o que** mudou e **por quê**, com o número da *issue*, se houver;
+- **como testar**, passo a passo;
+- capturas de tela, se a interface mudou;
+- migrations novas e a ordem de aplicação, se houver.
+
+O PR só é aceito com o CI verde (testes, integração, E2E e varredura de segurança) e a aprovação de um dos autores.
+
+### Licença
+
+**Todos os direitos reservados.** O código está público apenas para consulta e avaliação acadêmica. Copiar, modificar, distribuir ou usar o Nexus em outros projetos depende de autorização prévia e por escrito dos autores. Quem envia uma contribuição autoriza os autores a incorporá-la sob esses mesmos termos.
+
+**Quer usar o Nexus na sua empresa?** O sistema pode ser contratado diretamente com os autores, incluindo implantação, suporte e o desenvolvimento sob medida das funcionalidades que ele ainda não tem. Prazos, valores, garantias e o tratamento de dados (LGPD) ficam em contrato próprio. Fale com a equipe pelos [Contatos](#contatos).
+
+Texto completo em [LICENSE](LICENSE).
+
+### Contatos
+
+| Nome | Contato |
+|---|---|
+| Maria Eduarda Araújo | [LinkedIn](https://www.linkedin.com/in/mariaeduarda2801/) · [GitHub](https://github.com/MaduAraujo) |
+| Vinicius Lopes | [LinkedIn](https://www.linkedin.com/in/vlopes1996/) |
