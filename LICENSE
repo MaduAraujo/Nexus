@@ -1,29 +1,27 @@
-Copyright (c) 2026 Maria Eduarda Araújo e Vinicius Lopes.
-Todos os direitos reservados.
+## Licença Proprietária e Direitos Autorais
 
-Este repositório e todo o seu conteúdo (código-fonte, banco de dados,
-documentação, imagens e identidade visual do Nexus) são de propriedade
-exclusiva dos autores acima.
+**Copyright © 2026 Maria Eduarda Araújo e Vinicius Lopes. Todos os direitos reservados.**
 
-O código está publicado apenas para consulta e avaliação acadêmica.
-Sem autorização prévia e por escrito dos autores, não é permitido copiar,
-modificar, distribuir, sublicenciar, vender nem usar este software, no
-todo ou em parte, em outros projetos, comerciais ou não.
+Este repositório e todos os seus artefatos associados — incluindo, mas não se limitando a, código-fonte, modelagem de banco de dados, documentação técnica, elementos visuais e a identidade da marca "Nexus" — constituem propriedade intelectual exclusiva dos autores.
 
-Ao enviar uma contribuição (pull request, issue ou sugestão de código),
-quem contribui autoriza os autores a usá-la, alterá-la e incorporá-la ao
-Nexus sob estes mesmos termos.
+### 1. Termos de Uso e Restrições
 
-CONTRATAÇÃO POR EMPRESAS
+A publicação deste código em ambiente aberto tem finalidade estritamente consultiva, de portfólio e avaliação acadêmica. É **expressamente proibido** copiar, modificar, distribuir, sublicenciar, comercializar ou incorporar este software (total ou parcialmente) em projetos de terceiros, sejam eles comerciais ou não, sem a prévia autorização formal e por escrito dos detentores dos direitos.
 
-Empresas interessadas em usar o Nexus podem contratá-lo diretamente com
-os autores. A contratação pode incluir a implantação, o suporte e o
-desenvolvimento de funcionalidades que o sistema ainda não tem, feitas
-sob medida para a empresa. Prazos, valores, garantias, níveis de serviço
-e o tratamento de dados pessoais (LGPD) são definidos em contrato próprio,
-que prevalece sobre este aviso no que tratar de forma diferente.
+### 2. Política de Contribuições
 
-O código publicado neste repositório, quando usado fora de um contrato
-com os autores, é fornecido "no estado em que se encontra", sem garantia
-de qualquer tipo, expressa ou implícita, e os autores não respondem por
-reclamações, danos ou outras responsabilidades decorrentes desse uso.
+Ao submeter qualquer tipo de contribuição a este repositório (como *Pull Requests*, abertura de *Issues* ou sugestões de código), o colaborador reconhece e autoriza que os autores utilizem, modifiquem e incorporem as referidas contribuições ao ecossistema do Nexus, submetendo-as de forma irrevogável aos mesmos termos desta licença proprietária.
+
+### 3. Uso Comercial e Contratação Corporativa (B2B)
+
+Empresas e organizações interessadas em adotar o Nexus em suas operações podem licenciá-lo mediante contratação direta com os autores. O modelo de parceria corporativa pode incluir:
+
+* Implantação e configuração do sistema nos servidores da empresa;
+* Suporte técnico especializado;
+* Desenvolvimento de módulos customizados sob demanda.
+
+*Nota legal:* Parâmetros operacionais como Acordos de Nível de Serviço (SLA), custos, garantias e as diretrizes rigorosas de conformidade com a Lei Geral de Proteção de Dados (LGPD) serão estabelecidos em contrato empresarial específico, cujas cláusulas terão precedência sobre este aviso.
+
+### 4. Limitação de Responsabilidade (*Disclaimer*)
+
+Salvo quando amparado por um contrato formal de prestação de serviços B2B firmado com os autores, o software contido neste repositório é fornecido "no estado em que se encontra" (*as is*), sem garantias expressas ou implícitas de qualquer natureza. Os autores isentam-se de qualquer responsabilidade legal, perdas de dados, danos operacionais ou outras reclamações decorrentes do uso não autorizado deste software.
