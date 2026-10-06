@@ -4,14 +4,6 @@
 
 ### Software de Recursos Humanos
 
-[![CI](https://img.shields.io/github/actions/workflow/status/MaduAraujo/Nexus/tests.yml?branch=main&label=CI&style=flat-square)](https://github.com/MaduAraujo/Nexus/actions/workflows/tests.yml)
-[![Cobertura](https://img.shields.io/badge/cobertura-99%25-22c55e?style=flat-square)](#5-rodar-os-testes)
-[![Status](https://img.shields.io/badge/status-ativo-22c55e?style=flat-square)](https://nexus-nine-zeta.vercel.app)
-[![Versão](https://img.shields.io/badge/versão-1.0.0-6366f1?style=flat-square)](https://github.com/MaduAraujo/Nexus/releases/tag/v1.0.0)
-[![JavaScript](https://img.shields.io/badge/JavaScript-puro-f7df1e?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
-[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Supabase](https://img.shields.io/badge/backend-Supabase-3ecf8e?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Deploy](https://img.shields.io/badge/deploy-Vercel-black?style=flat-square&logo=vercel)](https://nexus-nine-zeta.vercel.app)
 [![Licença](https://img.shields.io/badge/licença-todos%20os%20direitos%20reservados-lightgrey?style=flat-square)](LICENSE)
 
 **[→ Acessar o Nexus](https://nexus-nine-zeta.vercel.app)**
@@ -43,13 +35,6 @@ A palavra **Nexus** significa "conexão" ou "ponto de junção". O sistema atua 
 O Nexus resolve os gargalos do ciclo de vida do funcionário contratado através de dois ambientes espelhados e em tempo real: um **Painel do RH** para gestão completa e um **Portal do Colaborador**.
 
 O projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC), com o objetivo de mostrar como um sistema web pode substituir planilhas, registro de ponto em dispositivos físicos e pastas compartilhadas na rotina do RH, aplicando as regras da legislação trabalhista e da LGPD no próprio sistema.
-
-| | |
-|---|---|
-| **Curso** | Bacharelado em Ciência da Computação |
-| **Instituição** | FAM — Centro Universitário das Américas |
-| **Orientador** | Prof. Me. Ranieri Marinho de Souza |
-| **Ano** | 2026 |
 
 > **Nota de Escopo:** o Nexus é focado inteiramente na jornada do colaborador ativo. Ele não possui módulos de recrutamento e seleção nem suporte a múltiplas empresas na mesma conta.
 
@@ -153,7 +138,7 @@ O Nexus é **HTML/CSS/JS puro, sem framework e sem build step** — não há bun
 | Ferramenta | Versão | Para quê |
 |---|---|---|
 | [Git](https://git-scm.com/) | qualquer recente | Clonar o repositório |
-| [Node.js](https://nodejs.org/) | **22 ou superior** (a mesma do CI) | Servidor local, testes, lint e Supabase CLI via `npx`. Não é usado em produção |
+| [Node.js](https://nodejs.org/) | **22 ou superior** | Servidor local, testes, lint e Supabase CLI via `npx`. Não é usado em produção |
 | Projeto no [Supabase](https://supabase.com/) | plano Free já serve | Banco, autenticação, arquivos e Edge Functions |
 | Cliente `psql` ([PostgreSQL](https://www.postgresql.org/download/)) | 15 ou superior | Carregar o `schema.sql` no banco (ou use o SQL Editor do Supabase) |
 | [OpenSSL](https://www.openssl.org/) | qualquer recente | Gerar a chave de cifragem dos arquivos (já vem com o Git Bash no Windows) |
@@ -227,10 +212,7 @@ O `supabase/config.toml` já os usa no Supabase local. **O projeto hospedado nã
 
 Para o link do e-mail abrir o app, configure em Authentication → URL Configuration o **Site URL** (`https://nexus-nine-zeta.vercel.app`) e inclua `https://nexus-nine-zeta.vercel.app/**` em **Redirect URLs**.
 
-**Remetente (SMTP):** o servidor padrão do Supabase envia poucos e-mails por hora e cai no spam com facilidade. Configure um SMTP próprio em Project Settings → Authentication → SMTP Settings. Opções:
-
-- **Gmail com senha de app** (grátis, usado na demonstração): host `smtp.gmail.com`, porta `465`, usuário e remetente = o Gmail, senha = uma [senha de app](https://myaccount.google.com/apppasswords) (exige verificação em duas etapas). Limite de cerca de 500 e-mails por dia. O Supabase avisa que o Gmail é um provedor pessoal; o envio funciona, mas para uso real prefira a opção abaixo.
-- **Serviço transacional com domínio próprio** (ex.: Resend): verifique o domínio com os registros SPF, DKIM e DMARC que o serviço indicar e use host `smtp.resend.com`, porta `465`, usuário `resend` e a API key como senha.
+**Remetente (SMTP):** o servidor padrão do Supabase envia poucos e-mails por hora e cai no spam com facilidade. Configure um SMTP próprio em Project Settings → Authentication → SMTP Settings.
 
 #### 5. Rodar os Testes
 
@@ -273,9 +255,9 @@ O Nexus não tem um `.env` único, porque cada parte lê a configuração de um 
 
 | Onde | Arquivo ou comando | O que vai lá |
 |---|---|---|
-| Front-end (navegador) | `src/javascript/shared/supabase-client.js`, criado a partir de `supabase-client.example.js` (passo 2) | URL do projeto e `anon key` |
+| Front-end (navegador) | `src/javascript/shared/supabase-client.js`, criado a partir de `supabase-client.example.js` | URL do projeto e `anon key` |
 | Edge Functions | `supabase/functions/.env`, criado a partir de `supabase/functions/.env.example` | Chaves de IA, de cifragem e de push |
-| Banco (Postgres) | Vault, pelo SQL Editor (passo 4) | URL do projeto e `service_role key`, usadas pelos avisos automáticos |
+| Banco (Postgres) | Vault, pelo SQL Editor | URL do projeto e `service_role key`, usadas pelos avisos automáticos |
 
 **Edge Functions.** Copie o modelo, preencha e envie para o Supabase:
 
@@ -291,7 +273,7 @@ npx supabase secrets set --env-file supabase/functions/.env
 | `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` | Para notificações push | `npx web-push generate-vapid-keys`. A pública também vai em `src/javascript/perfil-colaborador.js` |
 | `QUIET_HOURS_START_HOUR` e `QUIET_HOURS_END_HOUR` | Não (padrão 8 e 18) | Horário comercial em que os avisos push podem sair |
 
-`SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` **não** entram nesse arquivo: o Supabase já as entrega às Edge Functions automaticamente. O `supabase/functions/.env` está no `.gitignore` e nunca deve ser commitado.
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` **não** entram nesse arquivo: o Supabase já as entrega às Edge Functions automaticamente.
 
 **Testes e scripts** (só no terminal, não precisam de arquivo):
 
@@ -634,7 +616,25 @@ Texto completo em [LICENSE](LICENSE).
 
 ### Contatos
 
+<table>
+<tr>
+<td valign="top">
+
 | Nome | Contato |
 |---|---|
-| Maria Eduarda Araújo | [LinkedIn](https://www.linkedin.com/in/mariaeduarda2801/) · [GitHub](https://github.com/MaduAraujo) |
+| Maria Eduarda Araújo | [LinkedIn](https://www.linkedin.com/in/mariaeduarda2801/) |
 | Vinicius Lopes | [LinkedIn](https://www.linkedin.com/in/vlopes1996/) |
+
+</td>
+<td valign="top">
+
+| | |
+|---|---|
+| **Curso** | Bacharelado em Ciência da Computação |
+| **Instituição** | FAM — Centro Universitário das Américas |
+| **Orientador** | Prof. Me. Ranieri Marinho de Souza |
+| **Ano** | 2026 |
+
+</td>
+</tr>
+</table>

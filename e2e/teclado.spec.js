@@ -77,6 +77,7 @@ test.describe('Teclado (foco visível e navegável)', () => {
         await page.keyboard.press('Tab');
         await expect(page.locator('#btn-marcar-lido')).toBeFocused();
         await page.keyboard.press('Enter');
+        await expect(page.locator('#modal-lido')).toBeVisible();
         await expect(page.locator('#modal-lido')).toContainText('Ciência confirmada');
         await page.keyboard.press('Escape');
         await expect(page.locator('#msg-modal')).toBeHidden();
