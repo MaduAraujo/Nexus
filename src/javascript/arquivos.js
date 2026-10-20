@@ -596,6 +596,7 @@
         const unread = entries.filter((e) => !notifRead.has(e.key)).length;
         notifBadge.textContent = String(unread);
         notifBadge.classList.toggle('hidden', unread === 0);
+        btnNotif.setAttribute('aria-label', unread ? `${unread} ${unread === 1 ? 'pendência não lida' : 'pendências não lidas'}` : 'Pendências');
         document.getElementById('notif-mark-all')?.classList.toggle('hidden', unread === 0);
 
         if (!entries.length) {

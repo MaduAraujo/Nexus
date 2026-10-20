@@ -1094,6 +1094,7 @@ function renderNotifPanel() {
     const total = criticos.length + vencidos.length + pendentes.length;
     badge.textContent = total;
     badge.classList.toggle('hidden', total === 0);
+    $('btn-notif')?.setAttribute('aria-label', total ? `${total} ${total === 1 ? 'notificação' : 'notificações'}` : 'Notificações');
     body.innerHTML = rows.length ? rows.join('') : `<div class="notif-empty"><i class="fas fa-circle-check"></i><p>Tudo em dia por aqui.</p></div>`;
 }
 

@@ -143,7 +143,7 @@
         trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.className = 'nexus-search-trigger';
-        trigger.setAttribute('aria-label', 'Busca universal');
+        trigger.setAttribute('aria-keyshortcuts', navigator.platform.includes('Mac') ? 'Meta+K' : 'Control+K');
         trigger.innerHTML = `<i class="fas fa-search"></i><span>Buscar</span><kbd>${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} K</kbd>`;
         trigger.addEventListener('click', open);
         document.body.appendChild(trigger);
