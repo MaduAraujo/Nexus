@@ -9006,3 +9006,5 @@ CREATE TRIGGER job_titles_rename_sync_trg
   EXECUTE FUNCTION job_titles_rename_sync();
 
 SELECT nexus_refresh_employees_view();
+
+UPDATE job_titles SET title = 'Estagiário(a)' WHERE title = 'Estagiário';
