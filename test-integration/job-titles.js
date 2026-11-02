@@ -105,3 +105,59 @@ describe('job_titles_public() — catálogo sem faixa salarial', () => {
         });
     });
 });
+
+describe('employees.job_title_id — vínculo com o catálogo', () => {
+    const vinculo = async (db) => (await db.query('SELECT role, job_title_id FROM employees WHERE id = $1', [E_COLAB])).rows[0];
+
+    after(async () => {
+        await withServiceRole((db) => db.query('UPDATE employees SET role = NULL WHERE id = $1', [E_COLAB]));
+        await withServiceRole((db) => db.query(`UPDATE job_titles SET title = 'Cargo de Teste Ativo' WHERE id = $1`, [titleId]));
+    });
+
+    test('cargo do catálogo preenche o vínculo, ignorando caixa e espaços', async () => {
+        await withServiceRole(async (db) => {
+            await db.query(`UPDATE employees SET role = '  cargo de teste ativo ' WHERE id = $1`, [E_COLAB]);
+            assert.equal((await vinculo(db)).job_title_id, titleId);
+        });
+    });
+
+    test('cargo fora do catálogo mantém o texto e deixa o vínculo vazio', async () => {
+        await withServiceRole(async (db) => {
+            await db.query(`UPDATE employees SET role = 'Cargo Antigo' WHERE id = $1`, [E_COLAB]);
+            const row = await vinculo(db);
+            assert.equal(row.role, 'Cargo Antigo');
+            assert.equal(row.job_title_id, null);
+        });
+    });
+
+    test('o vínculo não pode divergir do cargo em texto', async () => {
+        await withServiceRole(async (db) => {
+            await db.query(`UPDATE employees SET role = 'Cargo de Teste Ativo' WHERE id = $1`, [E_COLAB]);
+            await db.query('UPDATE employees SET job_title_id = $1 WHERE id = $2', [inactiveId, E_COLAB]);
+            assert.equal((await vinculo(db)).job_title_id, titleId);
+        });
+    });
+
+    test('colaborador continua editando o próprio perfil sem acesso ao catálogo', async () => {
+        await withUser({ sub: U_COLAB }, async (db) => {
+            const { rowCount } = await db.query(`UPDATE employees SET bio = 'Nova bio' WHERE id = $1`, [E_COLAB]);
+            assert.equal(rowCount, 1);
+            await assert.rejects(db.query(`UPDATE employees SET role = 'Diretor' WHERE id = $1`, [E_COLAB]), FORBIDDEN);
+        });
+    });
+
+    test('cargo em uso não pode ser excluído', async () => {
+        await withServiceRole(async (db) => {
+            await assert.rejects(db.query('DELETE FROM job_titles WHERE id = $1', [titleId]), { code: '23503' });
+        });
+    });
+
+    test('renomear o cargo atualiza quem está vinculado a ele', async () => {
+        await withServiceRole(async (db) => {
+            await db.query(`UPDATE job_titles SET title = 'Cargo de Teste Renomeado' WHERE id = $1`, [titleId]);
+            const row = await vinculo(db);
+            assert.equal(row.role, 'Cargo de Teste Renomeado');
+            assert.equal(row.job_title_id, titleId);
+        });
+    });
+});

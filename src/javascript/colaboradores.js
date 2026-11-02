@@ -2940,7 +2940,11 @@ window.deleteJobTitle = async function (id) {
     if (!confirm('Excluir este cargo do catálogo?')) return;
     const { error } = await sb.from('job_titles').delete().eq('id', id);
     if (error) {
-        showToast('Erro!', 'Não foi possível excluir o cargo.', 'error');
+        showToast(
+            'Erro!',
+            error.code === '23503' ? 'Este cargo está em uso por colaboradores. Desative-o em vez de excluir.' : 'Não foi possível excluir o cargo.',
+            'error'
+        );
         return;
     }
     await fetchJobTitlesFull();

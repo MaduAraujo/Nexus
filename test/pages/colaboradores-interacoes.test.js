@@ -576,6 +576,15 @@ describe('colaboradores.html — promoção, catálogos e registros do colaborad
         assert.equal(c.tables.job_titles.length, 1);
     });
 
+    test('catálogo de cargos: cargo em uso orienta a desativar em vez de excluir', async () => {
+        const c = client();
+        page = await openPage('colaboradores', { client: c, now: NOW, confirm: true });
+        c.errors['job_titles:delete'] = { message: 'x', code: '23503' };
+        await page.window.deleteJobTitle('jt1');
+        assert.ok(toastCom(page, /em uso por colaboradores/));
+        assert.equal(c.tables.job_titles.length, 1);
+    });
+
     test('catálogo de treinamentos: nome obrigatório, repetido, erros; fechar limpa os campos', async () => {
         const c = client();
         page = await openPage('colaboradores', { client: c, now: NOW, confirm: true });
