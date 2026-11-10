@@ -159,9 +159,9 @@ describe('Migration 117 — validade do certificado (RF3.2)', () => {
 
     test('o colaborador informa a validade ao autodeclarar um curso', async () => {
         await comoA(
-            `INSERT INTO employee_trainings (employee_id, title, source, status, certificado_valido_ate)
-             VALUES ($1, 'Primeiros socorros', 'autodeclarado', 'aguardando_aprovacao', '2027-11-10')`,
-            [E_A]
+            `INSERT INTO employee_trainings (employee_id, title, source, status, certificate_path, certificado_valido_ate)
+             VALUES ($1, 'Primeiros socorros', 'autodeclarado', 'aguardando_aprovacao', $2, '2027-11-10')`,
+            [E_A, `${E_A}/certificados/primeiros-socorros.pdf`]
         );
         const { rows } = await comoA(`SELECT certificado_valido_ate::text AS ate FROM employee_trainings WHERE employee_id = $1`, [E_A]);
         assert.equal(rows[0].ate, '2027-11-10');

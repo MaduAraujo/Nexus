@@ -9719,6 +9719,8 @@ CREATE POLICY "rh_departments_all" ON departments FOR ALL
   USING ((SELECT public.is_rh())) WITH CHECK ((SELECT public.is_rh()));
 DROP POLICY IF EXISTS "authenticated_departments_select" ON departments;
 CREATE POLICY "authenticated_departments_select" ON departments FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS mfa_required ON departments;
+CREATE POLICY mfa_required ON departments AS RESTRICTIVE TO authenticated USING ((SELECT public.mfa_ok()));
 
 INSERT INTO departments (nome, descricao) VALUES
   ('TI', 'Tecnologia da Informação'),
