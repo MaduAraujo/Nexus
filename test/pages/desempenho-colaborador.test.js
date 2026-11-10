@@ -135,9 +135,36 @@ describe('desempenho-colaborador.html — treinamentos', () => {
         const [ins] = c.writes('employee_trainings', 'insert');
         assert.equal(ins.payload[0].hours, 12.5);
         assert.equal(ins.payload[0].status, 'aguardando_aprovacao');
+        assert.equal(ins.payload[0].certificado_valido_ate, null);
         assert.match(ins.payload[0].certificate_path, /^emp-ana\/certificados\/\d+_cert\.pdf$/);
         assert.equal(page.fetches.length, 1);
         assert.ok(page.toasts().includes('Curso enviado para aprovação do RH!'));
+    });
+
+    test('validade do certificado: não aceita data passada, grava a informada e aparece na lista', async () => {
+        const c = client();
+        c.tables.employee_trainings.push({
+            id: 't9',
+            employee_id: ANA.id,
+            title: 'NR-35',
+            status: 'concluido',
+            source: 'atribuido',
+            certificado_valido_ate: '2028-01-10',
+            created_at: '2026-09-01',
+        });
+        page = await openPage('desempenho-colaborador', { client: c, fetch: filesOk, now: '2026-11-10T10:00:00-03:00' });
+        assert.match(page.text('#trainings-list .training-validade--valido'), /Certificado válido até 10\/01\/2028/);
+        await page.fill('#tr-self-title', 'Primeiros socorros');
+        await page.setFiles('#tr-self-file', [page.file('cert.pdf', '%PDF-1.4', 'application/pdf')]);
+        page.$('#tr-self-validade').value = '2026-11-09';
+        await page.click('#tr-self-submit');
+        assert.ok(page.toasts().includes('A validade do certificado não pode estar no passado.'));
+        assert.equal(c.writes('employee_trainings', 'insert').length, 0);
+
+        page.$('#tr-self-validade').value = '2027-11-10';
+        await page.click('#tr-self-submit');
+        assert.equal(c.writes('employee_trainings', 'insert')[0].payload[0].certificado_valido_ate, '2027-11-10');
+        assert.equal(page.$('#tr-self-validade').value, '');
     });
 
     test('anexo em formato não aceito é recusado', async () => {

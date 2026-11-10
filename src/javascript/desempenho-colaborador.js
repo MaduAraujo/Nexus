@@ -228,7 +228,7 @@ let trainings = [];
 async function loadTrainings() {
     const { data } = await sb
         .from('employee_trainings')
-        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,certificate_path,created_at')
+        .select('id,title,category,provider,hours,source,status,completion_date,certificado_valido_ate,certificate_url,certificate_path,created_at')
         .eq('employee_id', myEmployeeId)
         .order('created_at', { ascending: false });
     trainings = data || [];
@@ -250,6 +250,8 @@ function renderTrainings() {
                 bits.push(
                     `<button type="button" class="training-cert-link" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado anexado</button>`
                 );
+            const validade = validadeCertificadoHtml(t.certificado_valido_ate);
+            if (validade) bits.push(validade);
             const withdrawBtn =
                 t.source === 'autodeclarado' && t.status === 'aguardando_aprovacao'
                     ? `<button type="button" class="training-withdraw-btn" data-click="withdrawTraining" data-click-args="${dargs(t.id)}">Retirar</button>`
@@ -294,6 +296,11 @@ async function selfReportTrainingSubmit() {
         showToast('O link do certificado deve começar com https://', 'error');
         return;
     }
+    const validoAte = document.getElementById('tr-self-validade')?.value || null;
+    if (validoAte && validoAte < localISODate()) {
+        showToast('A validade do certificado não pode estar no passado.', 'error');
+        return;
+    }
     const file = document.getElementById('tr-self-file')?.files?.[0] || null;
     if (!file) {
         showToast('Anexe o certificado (imagem ou PDF).', 'error');
@@ -314,6 +321,7 @@ async function selfReportTrainingSubmit() {
         hours,
         certificate_url: certificateUrl,
         certificate_path: certificatePath,
+        certificado_valido_ate: validoAte,
         source: 'autodeclarado',
         status: 'aguardando_aprovacao',
     });
@@ -325,6 +333,7 @@ async function selfReportTrainingSubmit() {
     document.getElementById('tr-self-title').value = '';
     document.getElementById('tr-self-hours').value = '';
     document.getElementById('tr-self-cert').value = '';
+    document.getElementById('tr-self-validade').value = '';
     clearFilePicker('tr-self-file');
     await loadTrainings();
     renderTrainings();

@@ -30,18 +30,25 @@ async function stubPushFunctions(page) {
     );
 }
 
+const BODY_WAIT_MS = 5_000;
+
 function watchSupabase(page) {
     const failures = [];
-    page.on('response', async (res) => {
+    const bodies = [];
+    page.on('response', (res) => {
         const url = res.url();
         if (!url.startsWith(LOCAL_SUPABASE_URL) || res.status() < 400) return;
         const route = url.slice(LOCAL_SUPABASE_URL.length);
         if (!WATCHED.some((p) => route.startsWith(p))) return;
-        let body = '';
-        try {
-            body = (await res.text()).slice(0, 300);
-        } catch {}
-        failures.push(`${res.request().method()} ${route.split('?')[0]} → ${res.status()} ${body}`);
+        const i = failures.push(`${res.request().method()} ${route.split('?')[0]} → ${res.status()}`) - 1;
+        bodies.push(
+            res
+                .text()
+                .then((body) => {
+                    failures[i] += ` ${body.slice(0, 300)}`;
+                })
+                .catch(() => {})
+        );
     });
     page.on('pageerror', (err) => failures.push(`erro de JavaScript na tela: ${err.message}`));
     if (process.env.E2E_DEBUG) {
@@ -51,7 +58,8 @@ function watchSupabase(page) {
             (r) => r.url().startsWith(LOCAL_SUPABASE_URL) && console.log('[res]', r.status(), r.request().method(), r.url().slice(LOCAL_SUPABASE_URL.length))
         );
     }
-    return failures;
+    const settled = () => Promise.race([Promise.all(bodies), new Promise((resolve) => setTimeout(resolve, BODY_WAIT_MS))]);
+    return { failures, settled };
 }
 
 const test = base.test.extend({
@@ -62,9 +70,10 @@ const test = base.test.extend({
     page: async ({ page, supabaseErrors }, use) => {
         await useLocalSupabase(page);
         await stubPushFunctions(page);
-        const failures = watchSupabase(page);
+        const { failures, settled } = watchSupabase(page);
         page.on('dialog', (d) => d.accept());
         await use(page);
+        await settled();
         const pending = [...supabaseErrors.expected];
         const unexpected = failures.filter((f) => {
             const i = pending.findIndex((p) => p.test(f));

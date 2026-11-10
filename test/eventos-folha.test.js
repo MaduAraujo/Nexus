@@ -12,6 +12,7 @@ const {
     calcParcela13,
     calcAdiantamentoFerias,
     proventosFerias,
+    prazoDecimoTerceiro,
 } = require('../src/javascript/domain/eventos-folha.js');
 
 describe('isElegivel13', () => {
@@ -319,5 +320,23 @@ describe('médias e adicionais nas férias (CLT art. 142 §§5º e 6º)', () => 
             .toFixed(2);
         assert.ok(inss > 0 && inss <= 2 * calcINSS(base));
         assert.equal(r.descontos.find((d) => d.cod === '906').valor, calcIRRFMensal({ rendimento: base, inss, dependentes: 2 }));
+    });
+});
+
+describe('prazoDecimoTerceiro (Lei 4.749/65)', () => {
+    test('1ª parcela até 30/11 e 2ª até 20/12, com dias restantes e situação', () => {
+        assert.deepEqual(prazoDecimoTerceiro(2026, 1, '2026-09-01'), { prazo: '2026-11-30', dias: 90, situacao: 'no_prazo' });
+        assert.deepEqual(prazoDecimoTerceiro(2026, 1, '2026-11-10'), { prazo: '2026-11-30', dias: 20, situacao: 'proximo' });
+        assert.deepEqual(prazoDecimoTerceiro(2026, 1, '2026-12-01'), { prazo: '2026-11-30', dias: -1, situacao: 'vencido' });
+    });
+
+    test('prazo que cai no fim de semana é antecipado para a sexta-feira', () => {
+        assert.equal(prazoDecimoTerceiro(2026, 2, '2026-12-01').prazo, '2026-12-18');
+        assert.equal(prazoDecimoTerceiro(2025, 1, '2025-11-01').prazo, '2025-11-28');
+        assert.equal(prazoDecimoTerceiro(2027, 2, '2027-12-01').prazo, '2027-12-20');
+    });
+
+    test('no próprio dia do prazo ainda não está vencido', () => {
+        assert.deepEqual(prazoDecimoTerceiro(2026, 2, '2026-12-18'), { prazo: '2026-12-18', dias: 0, situacao: 'proximo' });
     });
 });

@@ -20,6 +20,32 @@ function pickValidFiles(fileList, existingCount) {
     return picked;
 }
 
+const DEST_ICONES = {
+    TI: 'fa-code',
+    RH: 'fa-user-tie',
+    Financeiro: 'fa-dollar-sign',
+    Marketing: 'fa-ad',
+    Jurídico: 'fa-gavel',
+    Administrativo: 'fa-building',
+};
+
+function montarDestinos(departamentos) {
+    const chip = (d) =>
+        `<button class="dest-inline-chip" data-dest="${escHTML(d.nome)}" type="button"><i class="fas ${DEST_ICONES[d.nome] || 'fa-building'}"></i><span>${escHTML(d.nome)}</span></button>`;
+    ['dest-inline-grid', 'edit-dest-grid'].forEach((id) => document.getElementById(id).insertAdjacentHTML('beforeend', departamentos.map(chip).join('')));
+    document
+        .getElementById('history-filters')
+        .insertAdjacentHTML(
+            'beforeend',
+            departamentos
+                .map(
+                    (d) =>
+                        `<button class="hist-chip" data-dest="${escHTML(d.nome)}" data-click="setHistFilter" data-click-args='[{"$":"this"}]'>${escHTML(d.nome)}</button>`
+                )
+                .join('')
+        );
+}
+
 function filterMessages(dbMensagens, histFilter, histCatFilter, searchQuery) {
     let msgs = histFilter === 'todos' ? dbMensagens : dbMensagens.filter((m) => m.destino === histFilter);
     if (histCatFilter !== 'todas') msgs = msgs.filter((m) => m.categoria === histCatFilter);
@@ -283,6 +309,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (sendBtn) sendBtn.innerHTML = scheduleToggle.checked ? 'Agendar' : 'Enviar';
         checkSendReady();
     });
+
+    const { data: depData } = await sb.from('departments').select('nome,descricao').eq('ativo', true).order('nome');
+    (depData || []).forEach((d) => {
+        if (d.descricao) DEPT_LABELS[d.nome] = d.descricao;
+    });
+    montarDestinos(depData || []);
 
     const destToggleBtn = document.getElementById('dest-toggle-btn');
     const destInlineGrid = document.getElementById('dest-inline-grid');

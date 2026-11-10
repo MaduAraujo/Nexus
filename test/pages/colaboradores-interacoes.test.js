@@ -604,8 +604,23 @@ describe('colaboradores.html — promoção, catálogos e registros do colaborad
         c.errors['trainings:delete'] = { message: 'x' };
         await page.click('#trainings-catalog-list [data-click="deleteTrainingCatalog"]');
         assert.ok(toastCom(page, /Não foi possível excluir o treinamento/));
+        delete c.errors['trainings:insert'];
+        for (const invalida of ['0', '121', '1,5']) {
+            page.$('#tc-add-validade').value = invalida;
+            await page.click('[data-click="addTrainingCatalog"]');
+        }
+        assert.equal(page.toasts().filter((t) => /validade do certificado em meses, de 1 a 120/.test(t)).length, 3);
+        page.$('#tc-add-title').value = 'NR-35';
+        page.$('#tc-add-validade').value = '24';
+        await page.click('[data-click="addTrainingCatalog"]');
+        assert.equal(c.writes('trainings', 'insert').at(-1).payload[0].validade_meses, 24);
+        c.tables.trainings.push({ id: 'tc-mes', title: 'Brigada', active: true, validade_meses: 1 });
+        await page.window.openTrainingsCatalogModal();
+        assert.match(page.text('#trainings-catalog-list'), /certificado vale 24 meses/);
+        assert.match(page.text('#trainings-catalog-list'), /certificado vale 1 mês/);
         await page.click('[data-click="closeTrainingsCatalogModal"]');
         assert.equal(page.$('#tc-add-title').value, '');
+        assert.equal(page.$('#tc-add-validade').value, '');
         assert.ok(!page.$('#trainings-catalog-modal').classList.contains('open'));
     });
 
@@ -622,6 +637,15 @@ describe('colaboradores.html — promoção, catálogos e registros do colaborad
                     created_at: '2026-06-01',
                 },
                 { id: 'et2', employee_id: ANA.id, title: 'NR-10', status: 'pendente', created_at: '2026-06-02' },
+                {
+                    id: 'et3',
+                    employee_id: ANA.id,
+                    title: 'NR-35',
+                    status: 'concluido',
+                    completion_date: '2025-07-01',
+                    certificado_valido_ate: '2026-07-01',
+                    created_at: '2025-06-01',
+                },
             ],
         });
         page = await openPage('colaboradores', { client: c, now: NOW });
@@ -632,6 +656,7 @@ describe('colaboradores.html — promoção, catálogos e registros do colaborad
         };
         page.window.openDrawer(ANA.id);
         await page.window.handleOpenTrainings();
+        assert.match(page.text('#trainings-list .training-validade--vencendo'), /Certificado vence em 14 dias \(01\/07\/2026\)/);
         await page.click('[data-click="assignTraining"]');
         assert.ok(toastCom(page, /Escolha um treinamento do catálogo ou digite o nome/));
         page.$('#tr-assign-title').value = 'Word';

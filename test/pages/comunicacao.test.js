@@ -243,3 +243,22 @@ describe('comunicacao.html — histórico', () => {
 });
 
 void CAIO;
+
+describe('comunicacao.html — destinos vêm do cadastro de departamentos', () => {
+    test('departamento novo vira destino e filtro; inativo não aparece; ícone padrão para nomes sem ícone próprio', async () => {
+        const c = client();
+        c.tables.departments.push({ id: 'dep-log', nome: 'Logística', descricao: null, ativo: true });
+        c.tables.departments.find((d) => d.nome === 'Jurídico').ativo = false;
+        page = await openPage('comunicacao', { client: c, now: NOW });
+        const destinos = (grade) => page.$$(`${grade} .dest-inline-chip`).map((b) => b.dataset.dest);
+        assert.deepEqual(destinos('#dest-inline-grid'), ['Todos', 'Administrativo', 'Financeiro', 'Logística', 'Marketing', 'RH', 'TI']);
+        assert.deepEqual(destinos('#edit-dest-grid'), destinos('#dest-inline-grid'));
+        assert.ok(page.$('#dest-inline-grid [data-dest="Logística"] i').classList.contains('fa-building'));
+        assert.ok(page.$('#dest-inline-grid [data-dest="TI"] i').classList.contains('fa-code'));
+        assert.ok(page.$('#history-filters .hist-chip[data-dest="Logística"]'));
+        assert.equal(page.$('#history-filters .hist-chip[data-dest="Jurídico"]'), null);
+
+        await page.click('#history-filters .hist-chip[data-dest="TI"]');
+        assert.ok(page.$('#history-filters .hist-chip[data-dest="TI"]').classList.contains('hist-chip--active'));
+    });
+});

@@ -17,6 +17,7 @@ let faceVerified = false;
 let faceModelsPromise = null;
 let capturedDescriptor = null;
 let biometricToken = null;
+let provaDeVidaMs = null;
 let biometriaStatus = null;
 let bioStream = null;
 let holidaysMap = {};
@@ -1297,20 +1298,23 @@ function razaoAspectoOlho(pontos) {
     return (d(p2, p6) + d(p3, p5)) / (2 * d(p1, p4));
 }
 
-async function detectarPiscada(video, limiteMs = window.NEXUS_PROVA_DE_VIDA_MS || 8000) {
+const PROVA_DE_VIDA_MS = 5000;
+
+async function detectarPiscada(video, limiteMs = window.NEXUS_PROVA_DE_VIDA_MS || PROVA_DE_VIDA_MS) {
     await loadFaceModels();
+    const inicio = performance.now();
     let etapa = 'aberto';
-    for (let quadro = 0; quadro < limiteMs / 100; quadro++) {
+    while (performance.now() - inicio < limiteMs) {
         const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
         if (det?.landmarks) {
             const ear = (razaoAspectoOlho(det.landmarks.getLeftEye()) + razaoAspectoOlho(det.landmarks.getRightEye())) / 2;
             if (etapa === 'aberto' && ear >= EAR_ABERTO) etapa = 'esperando-fechar';
             else if (etapa === 'esperando-fechar' && ear <= EAR_FECHADO) etapa = 'fechado';
-            else if (etapa === 'fechado' && ear >= EAR_ABERTO) return true;
+            else if (etapa === 'fechado' && ear >= EAR_ABERTO) return Math.round(performance.now() - inicio);
         }
         await new Promise((r) => setTimeout(r, 100));
     }
-    return false;
+    return null;
 }
 
 async function exigirProvaDeVida(video, hint, botao) {
@@ -1319,15 +1323,18 @@ async function exigirProvaDeVida(video, hint, botao) {
         hint.textContent = 'Prova de vida: olhe para a câmera e pisque os olhos devagar.';
         hint.classList.remove('selfie-hint--erro');
     }
-    let vivo = false;
+    provaDeVidaMs = null;
     try {
-        vivo = await detectarPiscada(video);
+        provaDeVidaMs = await detectarPiscada(video);
     } catch (e) {
         console.error('Prova de vida:', e);
     }
+    const vivo = provaDeVidaMs !== null;
     if (botao) botao.disabled = false;
     if (hint) {
-        hint.textContent = vivo ? 'Piscada detectada.' : 'Não detectamos a piscada. Fique de frente, com boa luz, e tente de novo.';
+        hint.textContent = vivo
+            ? `Piscada detectada em ${(provaDeVidaMs / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s.`
+            : 'Não detectamos a piscada. Fique de frente, com boa luz, e tente de novo.';
         hint.classList.toggle('selfie-hint--erro', !vivo);
     }
     return vivo;
@@ -1565,9 +1572,11 @@ window.confirmarRegistro = async function () {
         loc: { lat: userCoords.lat, lng: userCoords.lng },
         selfie: capturedSelfieDataUrl,
         biometricToken,
+        provaDeVidaMs,
         excessoLegalMin: pendingExcessoLegalMin > 0 ? pendingExcessoLegalMin : 0,
         justificativaExcesso,
     };
+    provaDeVidaMs = null;
     capturedSelfieDataUrl = null;
     capturedDescriptor = null;
     biometricToken = null;
@@ -1669,7 +1678,18 @@ async function tokenBiometrico({ biometricToken: token, selfie }) {
     return { token: data?.verification_id || null };
 }
 
-async function syncPunch({ step, date, timestamp, offline, loc, selfie, biometricToken: token, excessoLegalMin, justificativaExcesso }) {
+async function syncPunch({
+    step,
+    date,
+    timestamp,
+    offline,
+    loc,
+    selfie,
+    biometricToken: token,
+    provaDeVidaMs: livenessMs,
+    excessoLegalMin,
+    justificativaExcesso,
+}) {
     try {
         const bio = await tokenBiometrico({ biometricToken: token, selfie });
         if (bio.rejeitado) return REJEITADO_BIOMETRIA;
@@ -1709,6 +1729,7 @@ async function syncPunch({ step, date, timestamp, offline, loc, selfie, biometri
         operator_name: myEmployee.name,
         operator_profile: 'colaborador',
         justificativa: justificativaExcesso || null,
+        prova_vida_ms: Number.isInteger(livenessMs) ? livenessMs : null,
     });
     if (excessoLegalMin > 0 && justificativaExcesso) {
         const aprendiz = CLTDomain.isAprendiz(myEmployee.contract_type);

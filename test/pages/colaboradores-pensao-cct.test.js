@@ -124,6 +124,60 @@ describe('colaboradores.html — convenção coletiva no cadastro', () => {
         assert.equal(c.writes('employees', 'update')[0].payload.convencao_coletiva_id, 'cct2');
     });
 
+    test('expediente do colaborador: editar mostra o salvo; incompleto não salva; limpar volta para o da convenção ou empresa', async () => {
+        const c = client({ expediente_inicio: 14, expediente_fim: 22 });
+        await editar(c);
+        assert.deepEqual([page.$('#expediente-inicio').value, page.$('#expediente-fim').value], ['14', '22']);
+        assert.equal(page.$$('#expediente-inicio option').length, 25);
+        assert.equal(page.$('#expediente-fim option:last-child').textContent, '24h');
+
+        page.$('#expediente-fim').value = '';
+        await salvar();
+        assert.ok(toastCom(/Informe o início e o fim do expediente juntos/));
+        assert.equal(c.writes('employees', 'update').length, 0);
+
+        page.$('#expediente-inicio').value = '6';
+        page.$('#expediente-fim').value = '15';
+        await salvar();
+        let upd = c.writes('employees', 'update')[0].payload;
+        assert.deepEqual([upd.expediente_inicio, upd.expediente_fim], [6, 15]);
+
+        assert.equal(upd.expediente_dias, null);
+        assert.equal(upd.escala_12x36_inicio, null);
+
+        page.close();
+        await editar(c);
+        page.$('#expediente-inicio').value = '';
+        page.$('#expediente-fim').value = '';
+        await salvar();
+        upd = c.writes('employees', 'update').at(-1).payload;
+        assert.deepEqual([upd.expediente_inicio, upd.expediente_fim], [null, null]);
+    });
+
+    test('dias de trabalho e escala 12x36: o campo da escala só aparece na 12x36 e só é gravado nela', async () => {
+        const c = client({ expediente_dias: [1, 3, 5], work_load: '12x36', escala_12x36_inicio: '2026-06-12' });
+        await editar(c);
+        assert.deepEqual(
+            page.$$('#expediente-dias input:checked').map((i) => i.value),
+            ['1', '3', '5']
+        );
+        assert.equal(page.$('#escala-12x36-group').classList.contains('hidden'), false);
+        assert.equal(page.$('#escala-12x36-inicio').value, '2026-06-12');
+        await salvar();
+        let upd = c.writes('employees', 'update')[0].payload;
+        assert.deepEqual([upd.expediente_dias, upd.escala_12x36_inicio], [[1, 3, 5], '2026-06-12']);
+
+        page.close();
+        await editar(c);
+        page.$('#work-load').value = '44h';
+        page.$('#work-load').dispatchEvent(new page.window.Event('change'));
+        assert.equal(page.$('#escala-12x36-group').classList.contains('hidden'), true);
+        await page.check(page.$('#expediente-dias input[value="1"]'), false);
+        await salvar();
+        upd = c.writes('employees', 'update').at(-1).payload;
+        assert.equal(upd.escala_12x36_inicio, null);
+    });
+
     test('convenção que não existe mais volta como "Nenhuma"; o erro do banco sobre o piso aparece para o RH', async () => {
         const c = client({ convencao_coletiva_id: 'apagada' }, [CCT_VIGENTE]);
         await editar(c);
@@ -210,6 +264,9 @@ describe('colaboradores.html — catálogo de convenções coletivas', () => {
             vigencia_inicio: '2026-03-01',
             vigencia_fim: '2028-03-01',
             piso_salarial: 2500,
+            expediente_inicio: null,
+            expediente_fim: null,
+            expediente_dias: null,
         });
         assert.match(page.text('#convencoes-list'), /CCT Nova/);
         assert.equal(page.$('#cct-add-nome').value, '');
@@ -222,6 +279,41 @@ describe('colaboradores.html — catálogo de convenções coletivas', () => {
         c.errors['convencoes_coletivas:insert'] = { code: '500', message: 'x' };
         await page.click('[data-click="addConvencao"]');
         assert.ok(toastCom(/Não foi possível adicionar a convenção/));
+    });
+
+    test('expediente da convenção: precisa de início e fim diferentes; gravado aparece na lista', async () => {
+        const c = client();
+        await abrir(c);
+        const base = { 'cct-add-nome': 'CCT Noturna', 'cct-add-inicio': '2026-03-01', 'cct-add-fim': '2027-03-01', 'cct-add-piso': '2500' };
+        preencher({ ...base, 'cct-add-expediente-inicio': '22' });
+        await page.click('[data-click="addConvencao"]');
+        assert.ok(toastCom(/Informe o início e o fim do expediente juntos/));
+        preencher({ 'cct-add-expediente-fim': '22' });
+        await page.click('[data-click="addConvencao"]');
+        assert.ok(toastCom(/O fim do expediente deve ser diferente do início/));
+        assert.equal(c.writes('convencoes_coletivas', 'insert').length, 0);
+
+        preencher({ 'cct-add-expediente-fim': '6' });
+        await page.click('[data-click="addConvencao"]');
+        const gravada = page.plain(c.writes('convencoes_coletivas', 'insert')[0].payload)[0];
+        assert.deepEqual([gravada.expediente_inicio, gravada.expediente_fim], [22, 6]);
+        assert.match(page.text('#convencoes-list'), /expediente 22h às 6h/);
+        assert.equal(page.$('#cct-add-expediente-inicio').value, '');
+    });
+
+    test('dias da convenção: marcados são gravados, aparecem na lista e são limpos ao fechar', async () => {
+        const c = client();
+        await abrir(c);
+        assert.equal(page.$$('#cct-add-expediente-dias input').length, 7);
+        preencher({ 'cct-add-nome': 'CCT Comércio', 'cct-add-inicio': '2026-03-01', 'cct-add-fim': '2027-03-01', 'cct-add-piso': '2500' });
+        for (const d of ['2', '3', '4', '5', '6']) await page.check(page.$(`#cct-add-expediente-dias input[value="${d}"]`));
+        await page.click('[data-click="addConvencao"]');
+        assert.deepEqual(page.plain(c.writes('convencoes_coletivas', 'insert')[0].payload)[0].expediente_dias, [2, 3, 4, 5, 6]);
+        assert.match(page.text('#convencoes-list'), /dias: ter, qua, qui, sex, sáb/);
+        assert.equal(page.$$('#cct-add-expediente-dias input:checked').length, 0);
+        await page.check(page.$('#cct-add-expediente-dias input[value="0"]'));
+        await page.click('[data-click="closeConvencoesModal"]');
+        assert.equal(page.$$('#cct-add-expediente-dias input:checked').length, 0);
     });
 
     test('excluir pede confirmação, avisa erro e desvincula os colaboradores', async () => {

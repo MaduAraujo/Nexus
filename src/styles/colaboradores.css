@@ -3090,7 +3090,8 @@ ul {
     display: flex;
     gap: 8px;
 }
-.jt-add-row input {
+.jt-add-row input,
+.jt-add-row select {
     flex: 1;
     min-width: 0;
     padding: 8px 12px;
@@ -3103,7 +3104,8 @@ ul {
     font-family: 'DM Sans', sans-serif;
     transition: border-color 0.2s var(--ease);
 }
-.jt-add-row input:focus {
+.jt-add-row input:focus,
+.jt-add-row select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
@@ -4381,4 +4383,33 @@ ul {
 .estagio-provas-lista button:focus-visible {
     background: var(--bg-input);
     color: var(--danger, #c0392b);
+}
+
+.training-validade--vencendo {
+    color: #b45309;
+    font-weight: 600;
+}
+.training-validade--vencido {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.dias-expediente {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.dia-expediente {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.dia-expediente:has(input:checked) {
+    border-color: var(--accent);
+    color: var(--accent);
 }

@@ -125,6 +125,7 @@ async function refresh() {
         renderRecibosFerias();
         loadKPIs();
         atualizarPrevias();
+        await avisarPrazoDecimoTerceiro(employees);
     } finally {
         setLoading(false);
     }
@@ -1302,13 +1303,72 @@ function setupDecimoTerceiroToggle() {
         if (!btn) return;
         hidden.value = btn.dataset.parcela;
         toggle.querySelectorAll('.type-toggle-card').forEach((c) => c.classList.toggle('active', c === btn));
+        renderPrazoDecimoTerceiro();
     });
+    document.getElementById('dt-ano').addEventListener('input', renderPrazoDecimoTerceiro);
+}
+
+function textoPrazo13({ prazo, dias, situacao }, parcela) {
+    const quando = `${parcela}ª parcela até ${fmtDate(prazo)} (Lei 4.749/65, ${parcela === 1 ? 'art. 2º' : 'art. 1º'})`;
+    if (situacao === 'vencido')
+        return `Prazo vencido: ${quando}. Pague o quanto antes; o atraso sujeita a empresa a multa administrativa (Lei 7.855/89, art. 3º).`;
+    if (dias === 0) return `O prazo termina hoje: ${quando}.`;
+    return `${quando}, faltam ${dias} dia${dias === 1 ? '' : 's'}.`;
+}
+
+function renderPrazoDecimoTerceiro() {
+    const el = document.getElementById('dt-prazo');
+    const ano = parseInt(document.getElementById('dt-ano').value, 10);
+    const parcela = parseInt(document.getElementById('dt-parcela').value, 10);
+    if (!(ano >= 2000 && ano <= 2100)) {
+        el.classList.add('hidden');
+        return;
+    }
+    const p = window.EventosFolha.prazoDecimoTerceiro(ano, parcela, localISODate());
+    el.className = `modal-alert ${p.situacao === 'no_prazo' ? 'info' : 'warning'}`;
+    el.textContent = textoPrazo13(p, parcela);
+}
+
+async function avisarPrazoDecimoTerceiro(empList) {
+    const btn = document.getElementById('btn-open-decimo-terceiro');
+    const hoje = localISODate();
+    const ano = Number(hoje.slice(0, 4));
+    const elegiveis = empList.filter(
+        (e) =>
+            e.admissionDate &&
+            window.EventosFolha.isElegivel13(e.contractType) &&
+            window.EventosFolha.calcDecimoTerceiroIntegral({ salario: 1, admissaoISO: e.admissionDate, anoBase: ano }).avos > 0
+    );
+    let aviso = null;
+    if (elegiveis.length) {
+        const { data } = await sb
+            .from('payslips')
+            .select('employee_id,mes')
+            .in('mes', [`${ano}-13-1`, `${ano}-13-2`]);
+        for (const parcela of [1, 2]) {
+            const p = window.EventosFolha.prazoDecimoTerceiro(ano, parcela, hoje);
+            const geradas = new Set((data || []).filter((s) => s.mes === `${ano}-13-${parcela}`).map((s) => s.employee_id));
+            const faltam = elegiveis.filter((e) => !geradas.has(e.id)).length;
+            if (faltam && p.situacao !== 'no_prazo') {
+                const quem = `${faltam} colaborador${faltam === 1 ? '' : 'es'} sem a ${parcela}ª parcela`;
+                aviso = p.situacao === 'vencido' ? `${quem}, que venceu em ${fmtDate(p.prazo)}` : `${quem}, que vence em ${fmtDate(p.prazo)}`;
+                break;
+            }
+        }
+    }
+    btn.classList.toggle('btn-topbar-icon--alerta', !!aviso);
+    btn.title = aviso ? `13º Salário: ${aviso}` : '13º Salário';
+    btn.setAttribute('aria-label', btn.title);
 }
 
 window.openDecimoTerceiroModal = function () {
-    document.getElementById('dt-ano').value = String(new Date().getFullYear());
-    document.getElementById('dt-parcela').value = '1';
-    document.querySelectorAll('#dt-parcela-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.parcela === '1'));
+    const hoje = localISODate();
+    const ano = Number(hoje.slice(0, 4));
+    const parcela = hoje > `${ano}-11-30` ? '2' : '1';
+    document.getElementById('dt-ano').value = String(ano);
+    document.getElementById('dt-parcela').value = parcela;
+    document.querySelectorAll('#dt-parcela-toggle .type-toggle-card').forEach((c) => c.classList.toggle('active', c.dataset.parcela === parcela));
+    renderPrazoDecimoTerceiro();
     const errEl = document.getElementById('dt-error');
     if (errEl) {
         errEl.textContent = '';
@@ -1426,6 +1486,14 @@ window.calcularDecimoTerceiroModal = async function () {
 window.gerarDecimoTerceiro = async function () {
     if (!lastDecimoTerceiroCalc) return;
     const { ano, parcela, rows } = lastDecimoTerceiroCalc;
+    const prazo = window.EventosFolha.prazoDecimoTerceiro(ano, parcela, localISODate());
+    if (
+        prazo.situacao === 'vencido' &&
+        !confirm(`${textoPrazo13(prazo, parcela)}
+
+Gerar os holerites mesmo assim?`)
+    )
+        return;
     const btn = document.getElementById('btn-gerar-decimo-terceiro');
     if (btn) {
         btn.disabled = true;
@@ -1467,6 +1535,7 @@ window.gerarDecimoTerceiro = async function () {
     }
     showToast(`13º Salário (${descricaoParcela}) gerado para ${rows.length} colaborador${rows.length === 1 ? '' : 'es'}.`, 'success');
     closeModal('decimo-terceiro-modal');
+    await avisarPrazoDecimoTerceiro(employees);
     if (btn) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Gerar Holerites';

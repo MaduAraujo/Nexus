@@ -258,6 +258,74 @@ describe('send-push (comunicados)', () => {
         assert.ok(admin.tables.messages[0].scheduled_at);
     });
 
+    test('expediente próprio: envia a quem está no horário e guarda o próximo envio para os demais', async (t) => {
+        emDiaUtil(t);
+        const { admin, enviados, webpush } = setup({
+            employees: [
+                { id: 'e1', dept: 'TI', notif_prefs: { comunicados: true } },
+                { id: 'e4', dept: 'TI', notif_prefs: {}, expediente_inicio: 14, expediente_fim: 22 },
+            ],
+            push_subscriptions: [
+                { id: 's1', employee_id: 'e1', endpoint: 'https://push/1', p256dh: 'k', auth: 'a' },
+                { id: 's4', employee_id: 'e4', endpoint: 'https://push/4', p256dh: 'k', auth: 'a' },
+            ],
+        });
+        const h = await loadEdgeFunction('send-push', { env: ENV, createClient: () => admin, webpush });
+        const chamar = async () =>
+            (await h(request('https://x', { body: { message_id: 'm1' }, headers: { Authorization: `Bearer ${ENV.SUPABASE_SERVICE_ROLE_KEY}` } }))).json();
+
+        assert.deepEqual(await chamar(), { sent: 1 });
+        let msg = admin.tables.messages[0];
+        assert.deepEqual(msg.push_sent_to, ['e1']);
+        assert.equal(msg.push_sent_at, null);
+        assert.equal(msg.push_next_at, '2026-09-23T17:00:00.000Z');
+        assert.equal(msg.scheduled_at, undefined);
+
+        t.mock.timers.setTime(new Date('2026-09-23T18:00:00Z').getTime());
+        assert.deepEqual(await chamar(), { sent: 1 });
+        msg = admin.tables.messages[0];
+        assert.deepEqual(msg.push_sent_to, ['e1', 'e4']);
+        assert.ok(msg.push_sent_at);
+        assert.equal(msg.push_next_at, null);
+        assert.deepEqual(
+            enviados.map((e) => e[0]),
+            ['https://push/1', 'https://push/4']
+        );
+    });
+
+    test('ninguém no expediente depois de um envio parcial: adia o push sem esconder o comunicado já publicado', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-23T23:00:00Z') });
+        const { admin, webpush } = setup({
+            messages: [{ id: 'm1', texto: 'x', categoria: 'Institucional', destino: 'Todos', push_sent_to: ['e1'] }],
+            employees: [
+                { id: 'e1', dept: 'TI', notif_prefs: {} },
+                { id: 'e5', dept: 'RH', notif_prefs: {}, convencao_coletiva_id: 'c1' },
+            ],
+            convencoes_coletivas: [{ id: 'c1', expediente_inicio: 6, expediente_fim: 14 }],
+        });
+        const h = await loadEdgeFunction('send-push', {
+            env: { ...ENV, QUIET_HOURS_START_HOUR: '8', QUIET_HOURS_END_HOUR: '18' },
+            createClient: () => admin,
+            webpush,
+        });
+        const r = await h(request('https://x', { body: { message_id: 'm1' }, headers: { Authorization: `Bearer ${ENV.SUPABASE_SERVICE_ROLE_KEY}` } }));
+        assert.deepEqual(await r.json(), { sent: 0, deferred: true });
+        assert.equal(admin.tables.messages[0].scheduled_at, undefined);
+        assert.equal(admin.tables.messages[0].push_next_at, '2026-09-24T09:00:00.000Z');
+    });
+
+    test('todos já avisados: marca como enviado sem consultar inscrições', async (t) => {
+        emDiaUtil(t);
+        const { admin, webpush } = setup({
+            messages: [{ id: 'm1', texto: 'x', categoria: 'Institucional', destino: 'TI', push_sent_to: ['e1'] }],
+        });
+        const h = await loadEdgeFunction('send-push', { env: ENV, createClient: () => admin, webpush });
+        const r = await h(request('https://x', { body: { message_id: 'm1' }, headers: { Authorization: `Bearer ${ENV.SUPABASE_SERVICE_ROLE_KEY}` } }));
+        assert.deepEqual(await r.json(), { sent: 0 });
+        assert.ok(admin.tables.messages[0].push_sent_at);
+        assert.equal(admin.calls.filter((c) => c.table === 'push_subscriptions').length, 0);
+    });
+
     test('usuário comum não dispara push de comunicado', async () => {
         const caller = new FakeSupabase({ user: COLAB, tables: { profiles } });
         const h = await loadEdgeFunction('send-push', { env: ENV, createClient: () => caller });
@@ -299,6 +367,18 @@ describe('send-document-push', () => {
         const r = await h(request('https://x', { body: { document_ids: ['11111111-1111-4111-8111-111111111111'] }, headers: { Authorization: AAL2 } }));
         assert.deepEqual(await r.json(), { sent: 1 });
         assert.match(JSON.stringify(enviados[0]), /assinar|Contrato/i);
+
+        admin.tables.employees[0].expediente_inicio = 14;
+        admin.tables.employees[0].expediente_fim = 22;
+        const fora = await h(request('https://x', { body: { document_ids: ['11111111-1111-4111-8111-111111111111'] }, headers: { Authorization: AAL2 } }));
+        assert.deepEqual(await fora.json(), { sent: 0, skipped: 'fora_do_horario' });
+
+        admin.tables.employees[0].notif_prefs = { documentos: false };
+        const semPreferencia = await h(
+            request('https://x', { body: { document_ids: ['11111111-1111-4111-8111-111111111111'] }, headers: { Authorization: AAL2 } })
+        );
+        assert.deepEqual(await semPreferencia.json(), { sent: 0 });
+        assert.equal(enviados.length, 1);
     });
 });
 
@@ -362,7 +442,33 @@ describe('send-chat-push', () => {
         const r = await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: SERVICE }));
         assert.deepEqual(await r.json(), { sent: 0, skipped: 'fora_do_horario' });
         assert.equal(enviados.length, 0);
-        assert.equal(admin.rpcCalls('chat_push_targets').length, 0);
+    });
+
+    test('cada colaborador recebe só dentro do próprio expediente; o RH segue o horário da empresa', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-23T22:00:00Z') });
+        const { admin, enviados, webpush } = setup({
+            targets: () => [
+                { employee_id: 'e1', profile_id: null, title: 't', body: 'b', url: '/u', tag: 'x' },
+                { employee_id: 'e9', profile_id: null, title: 't', body: 'b', url: '/u', tag: 'x' },
+                { employee_id: null, profile_id: 'u-rh', title: 't', body: 'b', url: '/u', tag: 'x' },
+            ],
+        });
+        admin.tables.employees = [
+            { id: 'e1', expediente_inicio: 14, expediente_fim: 22, convencao_coletiva_id: null },
+            { id: 'e9', expediente_inicio: null, expediente_fim: null, convencao_coletiva_id: null },
+        ];
+        admin.tables.convencoes_coletivas = [];
+        const h = await loadEdgeFunction('send-chat-push', {
+            env: { ...ENV, QUIET_HOURS_START_HOUR: '8', QUIET_HOURS_END_HOUR: '18' },
+            createClient: () => admin,
+            webpush,
+        });
+        const r = await h(request('https://x', { body: { kind: 'chat', id: ID }, headers: SERVICE }));
+        assert.deepEqual(await r.json(), { sent: 1 });
+        assert.deepEqual(
+            enviados.map((e) => e.endpoint),
+            ['https://push/1']
+        );
     });
 
     test('envia a cada destinatário o texto do banco, sem o conteúdo da mensagem, e limpa inscrições vencidas', async (t) => {

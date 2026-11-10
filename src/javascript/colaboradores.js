@@ -51,6 +51,10 @@ function dbToEmployee(row) {
         tipoPensao: row.tipo_pensao,
         pensaoValor: row.pensao_valor ?? null,
         convencaoColetivaId: row.convencao_coletiva_id || '',
+        expedienteInicio: row.expediente_inicio ?? '',
+        expedienteDias: row.expediente_dias || [],
+        escala12x36Inicio: row.escala_12x36_inicio || '',
+        expedienteFim: row.expediente_fim ?? '',
         adicionalPericulosidade: !!row.adicional_periculosidade,
         grauInsalubridade: row.grau_insalubridade || '',
         estabilidadeMotivo: row.estabilidade_motivo || '',
@@ -110,6 +114,64 @@ function direitosCltToDb(emp) {
     };
 }
 
+function horaOuNull(valor) {
+    return valor === '' || valor === null || valor === undefined ? null : Number(valor);
+}
+
+function expedienteToDb(emp) {
+    const inicio = horaOuNull(emp.expedienteInicio);
+    const fim = horaOuNull(emp.expedienteFim);
+    const valido = inicio !== null && fim !== null && inicio !== fim;
+    return {
+        expediente_inicio: valido ? inicio : null,
+        expediente_fim: valido ? fim : null,
+        expediente_dias: emp.expedienteDias?.length ? emp.expedienteDias : null,
+    };
+}
+
+const NOMES_DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function rotuloDias(dias) {
+    return dias.map((d) => NOMES_DIAS[d].toLowerCase()).join(', ');
+}
+
+function preencherDiasExpediente() {
+    document.querySelectorAll('.dias-expediente').forEach((grupo) => {
+        grupo.innerHTML = NOMES_DIAS.map(
+            (nome, i) => `<label class="dia-expediente"><input type="checkbox" name="${grupo.id}" value="${i}" /><span>${escapeHtml(nome)}</span></label>`
+        ).join('');
+    });
+}
+
+function lerDias(grupoId) {
+    return [...document.querySelectorAll(`input[name="${grupoId}"]:checked`)].map((c) => Number(c.value));
+}
+
+function marcarDias(grupoId, dias) {
+    document.querySelectorAll(`input[name="${grupoId}"]`).forEach((c) => (c.checked = dias.includes(Number(c.value))));
+}
+
+function syncEscala12x36() {
+    document.getElementById('escala-12x36-group').classList.toggle('hidden', document.getElementById('work-load').value !== '12x36');
+}
+
+function erroExpediente(inicio, fim) {
+    if ((inicio === '') !== (fim === '')) return 'Informe o início e o fim do expediente juntos (ou deixe os dois em branco).';
+    if (inicio !== '' && inicio === fim) return 'O fim do expediente deve ser diferente do início.';
+    return null;
+}
+
+function rotuloExpediente(inicio, fim) {
+    return `${inicio}h às ${fim}h`;
+}
+
+function preencherSelectsDeHora() {
+    document.querySelectorAll('select[data-horas]').forEach((sel) => {
+        const [de, ate] = sel.dataset.horas.split('-').map(Number);
+        for (let h = de; h <= ate; h++) sel.add(new Option(`${String(h).padStart(2, '0')}h`, String(h)));
+    });
+}
+
 function employeeToDb(emp) {
     const parseVal = (v) => parseNumeroBR(v) || null;
     return {
@@ -148,6 +210,8 @@ function employeeToDb(emp) {
         tipo_pensao: emp.pensaoAlimenticia === 'sim' ? emp.tipoPensao || null : null,
         pensao_valor: emp.pensaoAlimenticia === 'sim' && Number(emp.pensaoValor) > 0 ? String(emp.pensaoValor) : null,
         convencao_coletiva_id: emp.convencaoColetivaId || null,
+        ...expedienteToDb(emp),
+        escala_12x36_inicio: emp.workLoad === '12x36' && emp.escala12x36Inicio ? emp.escala12x36Inicio : null,
         ...direitosCltToDb(emp),
         vale_transporte: emp.valeTransporte === 'sim',
         valor_passagem: emp.valeTransporte === 'sim' ? parseVal(emp.valorPassagem) : null,
@@ -1034,8 +1098,12 @@ function buildImportRow(rawRow, headerMap, index) {
     if (!get('contractType')) errors.push('Tipo de contrato é obrigatório.');
     else if (!contractType) errors.push(CAMPOS_DE_OPCAO.contractType.erro);
 
-    const dept = get('dept');
-    if (!dept) errors.push('Departamento é obrigatório.');
+    const deptInformado = get('dept');
+    const departamento = departamentoPorNome(deptInformado);
+    if (!deptInformado) errors.push('Departamento é obrigatório.');
+    else if (!departamento) errors.push(`Departamento "${deptInformado}" não está cadastrado. Cadastre-o em Departamentos antes de importar.`);
+    else if (!departamento.ativo) errors.push(`Departamento "${departamento.nome}" está inativo.`);
+    const dept = departamento ? departamento.nome : deptInformado;
 
     const workLoad = opcaoCanonica('workLoad', get('workLoad'));
     if (!get('workLoad')) errors.push('Jornada de trabalho é obrigatória.');
@@ -2368,6 +2436,7 @@ window.toggleForm = function () {
         headerActions?.classList.remove('hidden');
         renderAlertsBanner();
         form?.reset();
+        syncEscala12x36();
         resetDateFields();
         document.getElementById('employee-id').value = '';
         setFormHeader('fa-user-plus', 'Novo Colaborador');
@@ -2536,6 +2605,14 @@ function setupFormListener() {
             return;
         }
 
+        const expedienteInicioVal = document.getElementById('expediente-inicio')?.value ?? '';
+        const expedienteFimVal = document.getElementById('expediente-fim')?.value ?? '';
+        const erroDoExpediente = erroExpediente(expedienteInicioVal, expedienteFimVal);
+        if (erroDoExpediente) {
+            showToast('Expediente', erroDoExpediente, 'error');
+            return;
+        }
+
         const tipoPensaoVal = document.querySelector('input[name="tipo-pensao"]:checked')?.value || '';
         const pensaoValorVal = parseNumeroBR(document.getElementById('pensao-valor')?.value);
         if (pensaoAlimenticia === 'sim') {
@@ -2592,6 +2669,10 @@ function setupFormListener() {
             tipoPensao: pensaoAlimenticia === 'sim' ? tipoPensaoVal : '',
             pensaoValor: pensaoAlimenticia === 'sim' ? pensaoValorVal : null,
             convencaoColetivaId: document.getElementById('convencao-coletiva')?.value || '',
+            expedienteInicio: expedienteInicioVal,
+            expedienteFim: expedienteFimVal,
+            expedienteDias: lerDias('expediente-dias'),
+            escala12x36Inicio: document.getElementById('escala-12x36-inicio').value,
             adicionalPericulosidade: document.getElementById('rem-periculosidade')?.value === 'sim',
             grauInsalubridade: document.getElementById('rem-insalubridade')?.value || '',
             estabilidadeMotivo: estabilidadeMotivoVal,
@@ -2955,6 +3036,196 @@ window.deleteJobTitle = async function (id) {
 
 let convencoes = [];
 
+let departamentos = [];
+let departamentoEmEdicao = null;
+
+async function fetchDepartamentos() {
+    const { data } = await sb.from('departments').select('*').order('nome');
+    departamentos = data || [];
+}
+
+function departamentoPorNome(nome) {
+    const chave = String(nome || '')
+        .trim()
+        .toLowerCase();
+    return departamentos.find((d) => d.nome.toLowerCase() === chave);
+}
+
+function populateDeptSelects(atual) {
+    const opcoes = departamentos.filter((d) => d.ativo || d.nome === atual);
+    ['dept', 'vinculo-dept'].forEach((id) => {
+        const select = document.getElementById(id);
+        select.innerHTML =
+            '<option value="" disabled selected>Selecione</option>' +
+            opcoes
+                .map((d) => {
+                    const rotulo = `${d.nome}${d.descricao ? ` — ${d.descricao}` : ''}${d.ativo ? '' : ' (inativo)'}`;
+                    return `<option value="${escapeHtml(d.nome)}">${escapeHtml(rotulo)}</option>`;
+                })
+                .join('');
+        select.value = opcoes.some((d) => d.nome === atual) ? atual : '';
+    });
+}
+
+function colaboradoresAtivosDo(dep) {
+    return employees.filter((e) => e.dept === dep.nome && e.status !== 'Inativo');
+}
+
+function renderDepartamentosList() {
+    const wrap = document.getElementById('departamentos-list');
+    if (!departamentos.length) {
+        wrap.innerHTML = `<p class="onb-empty">Nenhum departamento cadastrado ainda.</p>`;
+        return;
+    }
+    wrap.innerHTML = departamentos
+        .map((d) => {
+            const responsavel = employees.find((e) => e.id === d.responsavel_id);
+            const n = colaboradoresAtivosDo(d).length;
+            const meta = [d.descricao, responsavel ? `Responsável: ${responsavel.name}` : 'Sem responsável', `${n} colaborador${n === 1 ? '' : 'es'}`]
+                .filter(Boolean)
+                .join(' · ');
+            const badge = d.ativo ? '' : `<span class="jt-inactive-badge">Inativo</span>`;
+            const acao = d.ativo ? 'Inativar' : 'Reativar';
+            return `<div class="onb-chip">
+                <div class="onb-chip-body">
+                    <div class="onb-chip-title">${escapeHtml(d.nome)}${badge}</div>
+                    <div class="onb-chip-desc">${escapeHtml(meta)}</div>
+                </div>
+                <button type="button" data-click="editarDepartamento" data-click-args="${dargs(d.id)}" title="Editar" aria-label="Editar ${escapeHtml(d.nome)}">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button type="button" data-click="toggleDepartamentoAtivo" data-click-args="${dargs(d.id)}" title="${acao}" aria-label="${acao} ${escapeHtml(d.nome)}">
+                    <i class="fas ${d.ativo ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                </button>
+                <button type="button" data-click="excluirDepartamento" data-click-args="${dargs(d.id)}" title="Excluir" aria-label="Excluir ${escapeHtml(d.nome)}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
+        })
+        .join('');
+}
+
+function populateResponsavelSelect(selecionado) {
+    const select = document.getElementById('dep-responsavel');
+    const ativos = employees.filter((e) => e.status !== 'Inativo').sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    select.innerHTML =
+        '<option value="">Sem responsável</option>' + ativos.map((e) => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+    select.value = ativos.some((e) => e.id === selecionado) ? selecionado : '';
+}
+
+function limparFormDepartamento() {
+    departamentoEmEdicao = null;
+    document.getElementById('dep-nome').value = '';
+    document.getElementById('dep-descricao').value = '';
+    populateResponsavelSelect('');
+    document.getElementById('dep-cancelar').classList.add('hidden');
+    const salvar = document.getElementById('dep-salvar');
+    salvar.innerHTML = '<i class="fas fa-plus"></i> Adicionar';
+    salvar.setAttribute('aria-label', 'Adicionar departamento');
+}
+
+async function recarregarDepartamentos() {
+    await fetchDepartamentos();
+    await fetchEmployees();
+    renderDepartamentosList();
+    populateDeptSelects(document.getElementById('dept').value);
+    applyStatusFilter(activeStatusFilter());
+}
+
+window.openDepartamentosModal = async function () {
+    document.getElementById('departamentos-list').innerHTML = `<p class="onb-empty">Carregando…</p>`;
+    document.getElementById('departamentos-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    limparFormDepartamento();
+    await fetchDepartamentos();
+    renderDepartamentosList();
+};
+
+window.closeDepartamentosModal = function () {
+    document.getElementById('departamentos-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    limparFormDepartamento();
+};
+
+window.editarDepartamento = function (id) {
+    const dep = departamentos.find((d) => d.id === id);
+    departamentoEmEdicao = dep.id;
+    document.getElementById('dep-nome').value = dep.nome;
+    document.getElementById('dep-descricao').value = dep.descricao || '';
+    populateResponsavelSelect(dep.responsavel_id);
+    document.getElementById('dep-cancelar').classList.remove('hidden');
+    const salvar = document.getElementById('dep-salvar');
+    salvar.innerHTML = '<i class="fas fa-check"></i> Salvar';
+    salvar.setAttribute('aria-label', `Salvar ${dep.nome}`);
+    document.getElementById('dep-nome').focus();
+};
+
+window.cancelarEdicaoDepartamento = limparFormDepartamento;
+
+window.salvarDepartamento = async function () {
+    const nome = document.getElementById('dep-nome').value.trim().replace(/\s+/g, ' ');
+    if (!nome) {
+        showToast('Campo obrigatório', 'Informe o nome do departamento.', 'warning');
+        return;
+    }
+    if (nome.length > 60 || nome.toLowerCase() === 'todos') {
+        showToast('Nome inválido', 'Use até 60 caracteres. "Todos" é reservado para comunicados a toda a empresa.', 'warning');
+        return;
+    }
+    const dados = {
+        nome,
+        descricao: document.getElementById('dep-descricao').value.trim() || null,
+        responsavel_id: document.getElementById('dep-responsavel').value || null,
+    };
+    const editando = departamentoEmEdicao;
+    const { error } = editando ? await sb.from('departments').update(dados).eq('id', editando) : await sb.from('departments').insert(dados);
+    if (error) {
+        showToast('Erro!', error.code === '23505' ? 'Já existe um departamento com esse nome.' : 'Não foi possível salvar o departamento.', 'error');
+        return;
+    }
+    limparFormDepartamento();
+    await recarregarDepartamentos();
+    showToast(editando ? 'Departamento Atualizado!' : 'Departamento Adicionado!', `"${nome}" já pode ser escolhido no cadastro dos colaboradores.`, 'success');
+};
+
+window.toggleDepartamentoAtivo = async function (id) {
+    const dep = departamentos.find((d) => d.id === id);
+    const n = colaboradoresAtivosDo(dep).length;
+    if (
+        dep.ativo &&
+        n &&
+        !confirm(`${n} colaborador${n === 1 ? ' continua' : 'es continuam'} em ${dep.nome}, mas ninguém novo poderá ser vinculado. Inativar?`)
+    )
+        return;
+    const { error } = await sb.from('departments').update({ ativo: !dep.ativo }).eq('id', id);
+    if (error) {
+        showToast('Erro!', 'Não foi possível atualizar o departamento.', 'error');
+        return;
+    }
+    await recarregarDepartamentos();
+    showToast(dep.ativo ? 'Departamento Inativado' : 'Departamento Reativado', `"${dep.nome}" foi ${dep.ativo ? 'inativado' : 'reativado'}.`, 'success');
+};
+
+window.excluirDepartamento = async function (id) {
+    const dep = departamentos.find((d) => d.id === id);
+    if (employees.some((e) => e.dept === dep.nome)) {
+        showToast('Departamento em uso', 'Há colaboradores (ativos ou desligados) neste departamento. Inative-o em vez de excluir.', 'warning');
+        return;
+    }
+    if (!confirm(`Excluir o departamento ${dep.nome}?`)) return;
+    const { error } = await sb.from('departments').delete().eq('id', id);
+    if (error) {
+        showToast(
+            'Erro!',
+            error.code === '23503' ? 'Há colaboradores neste departamento. Inative-o em vez de excluir.' : 'Não foi possível excluir o departamento.',
+            'error'
+        );
+        return;
+    }
+    await recarregarDepartamentos();
+    showToast('Departamento Excluído', `"${dep.nome}" foi removido.`, 'success');
+};
+
 async function fetchConvencoes() {
     const { data } = await sb.from('convencoes_coletivas').select('*').order('vigencia_fim', { ascending: false });
     convencoes = data || [];
@@ -3007,7 +3278,9 @@ function renderConvencoesList() {
                 ? `<div class="onb-chip-desc cct-alerta" role="alert">${abaixo.length} colaborador${abaixo.length > 1 ? 'es' : ''} abaixo do piso: ${escapeHtml(abaixo.map((e) => e.name).join(', '))}</div>`
                 : '';
             const badge = vig.situacao === 'vigente' ? '' : `<span class="jt-inactive-badge">${escapeHtml(vig.situacao)}</span>`;
-            const meta = [c.sindicato, vig.texto].filter(Boolean).join(' · ');
+            const expediente = Number.isInteger(c.expediente_inicio) ? `expediente ${rotuloExpediente(c.expediente_inicio, c.expediente_fim)}` : null;
+            const dias = c.expediente_dias?.length ? `dias: ${rotuloDias(c.expediente_dias)}` : null;
+            const meta = [c.sindicato, vig.texto, expediente, dias].filter(Boolean).join(' · ');
             return `<div class="onb-chip">
                 <div class="onb-chip-body">
                     <div class="onb-chip-title">${escapeHtml(c.nome)}${badge}</div>
@@ -3022,7 +3295,15 @@ function renderConvencoesList() {
         .join('');
 }
 
-const CCT_CAMPOS = ['cct-add-nome', 'cct-add-sindicato', 'cct-add-inicio', 'cct-add-fim', 'cct-add-piso'];
+const CCT_CAMPOS = [
+    'cct-add-nome',
+    'cct-add-sindicato',
+    'cct-add-inicio',
+    'cct-add-fim',
+    'cct-add-piso',
+    'cct-add-expediente-inicio',
+    'cct-add-expediente-fim',
+];
 
 window.openConvencoesModal = async function () {
     document.getElementById('convencoes-list').innerHTML = `<p class="onb-empty">Carregando…</p>`;
@@ -3036,6 +3317,7 @@ window.closeConvencoesModal = function () {
     document.getElementById('convencoes-modal').classList.remove('open');
     document.body.style.overflow = '';
     CCT_CAMPOS.forEach((id) => (document.getElementById(id).value = ''));
+    marcarDias('cct-add-expediente-dias', []);
 };
 
 window.addConvencao = async function () {
@@ -3053,13 +3335,28 @@ window.addConvencao = async function () {
         showToast('Vigência inválida', 'O fim da vigência deve ser depois do início e em no máximo 2 anos (CLT art. 614 §3º).', 'warning');
         return;
     }
+    const expInicio = document.getElementById('cct-add-expediente-inicio').value;
+    const expFim = document.getElementById('cct-add-expediente-fim').value;
+    const erroDoExpediente = erroExpediente(expInicio, expFim);
+    if (erroDoExpediente) {
+        showToast('Expediente', erroDoExpediente, 'warning');
+        return;
+    }
     const sindicato = document.getElementById('cct-add-sindicato').value.trim() || null;
-    const { error } = await sb.from('convencoes_coletivas').insert({ nome, sindicato, vigencia_inicio: inicio, vigencia_fim: fim, piso_salarial: piso });
+    const { error } = await sb.from('convencoes_coletivas').insert({
+        nome,
+        sindicato,
+        vigencia_inicio: inicio,
+        vigencia_fim: fim,
+        piso_salarial: piso,
+        ...expedienteToDb({ expedienteInicio: expInicio, expedienteFim: expFim, expedienteDias: lerDias('cct-add-expediente-dias') }),
+    });
     if (error) {
         showToast('Erro!', error.code === '23505' ? 'Já existe uma convenção com esse nome.' : 'Não foi possível adicionar a convenção.', 'error');
         return;
     }
     CCT_CAMPOS.forEach((id) => (document.getElementById(id).value = ''));
+    marcarDias('cct-add-expediente-dias', []);
     await fetchConvencoes();
     renderConvencoesList();
     populateConvencaoSelect(document.getElementById('convencao-coletiva').value);
@@ -3115,7 +3412,9 @@ function renderTrainingsCatalogList() {
     }
     wrap.innerHTML = trainingsCatalogFull
         .map((t) => {
-            const meta = [t.category, t.provider, t.duration_hours ? `${t.duration_hours}h` : null].filter(Boolean).join(' · ') || 'Sem detalhes definidos';
+            const validade = t.validade_meses ? `certificado vale ${t.validade_meses} ${t.validade_meses === 1 ? 'mês' : 'meses'}` : null;
+            const meta =
+                [t.category, t.provider, t.duration_hours ? `${t.duration_hours}h` : null, validade].filter(Boolean).join(' · ') || 'Sem detalhes definidos';
             const inactiveBadge = t.active ? '' : `<span class="jt-inactive-badge">Inativo</span>`;
             return `<div class="onb-chip">
                 <div class="onb-chip-body">
@@ -3144,7 +3443,7 @@ window.openTrainingsCatalogModal = async function () {
 window.closeTrainingsCatalogModal = function () {
     document.getElementById('trainings-catalog-modal')?.classList.remove('open');
     document.body.style.overflow = '';
-    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours'].forEach((id) => {
+    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours', 'tc-add-validade'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -3164,13 +3463,19 @@ window.addTrainingCatalog = async function () {
         showToast('Valor inválido', 'Informe a carga horária em número de horas.', 'warning');
         return;
     }
+    const validadeRaw = document.getElementById('tc-add-validade')?.value.trim();
+    const validadeMeses = validadeRaw ? Number(validadeRaw) : null;
+    if (validadeRaw && !(Number.isInteger(validadeMeses) && validadeMeses >= 1 && validadeMeses <= 120)) {
+        showToast('Valor inválido', 'Informe a validade do certificado em meses, de 1 a 120.', 'warning');
+        return;
+    }
 
-    const { error } = await sb.from('trainings').insert({ title, category, provider, duration_hours: hours });
+    const { error } = await sb.from('trainings').insert({ title, category, provider, duration_hours: hours, validade_meses: validadeMeses });
     if (error) {
         showToast('Erro!', error.code === '23505' ? 'Já existe um treinamento com esse nome.' : 'Não foi possível adicionar o treinamento.', 'error');
         return;
     }
-    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours'].forEach((id) => {
+    ['tc-add-title', 'tc-add-category', 'tc-add-provider', 'tc-add-hours', 'tc-add-validade'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -3207,7 +3512,9 @@ window.deleteTrainingCatalog = async function (id) {
 async function fetchEmployeeTrainings(employeeId) {
     const { data } = await sb
         .from('employee_trainings')
-        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,certificate_path,notes,assigned_by_name,created_at')
+        .select(
+            'id,title,category,provider,hours,source,status,completion_date,certificado_valido_ate,certificate_url,certificate_path,notes,assigned_by_name,created_at'
+        )
         .eq('employee_id', employeeId)
         .order('created_at', { ascending: false });
     employeeTrainings = data || [];
@@ -3225,6 +3532,8 @@ function renderTrainingsList() {
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
             if (safeHttpUrl(t.certificate_url))
                 bits.push(`<a href="${escapeHtml(safeHttpUrl(t.certificate_url))}" target="_blank" rel="noopener">Certificado</a>`);
+            const validade = validadeCertificadoHtml(t.certificado_valido_ate);
+            if (validade) bits.push(validade);
             let actions = t.certificate_path
                 ? `<button type="button" class="training-action-btn" data-click="viewTrainingCertificate" data-click-args="${dargs(t.id)}"><i class="fas fa-paperclip"></i> Certificado</button>`
                 : '';
@@ -3732,7 +4041,7 @@ window.editEmployee = function (id) {
     document.getElementById('contract-type').value = opcaoCanonica('contractType', emp.contractType);
     document.getElementById('salary-type').value = opcaoCanonica('salaryType', emp.salaryType);
     document.getElementById('work-load').value = opcaoCanonica('workLoad', emp.workLoad);
-    document.getElementById('dept').value = emp.dept || '';
+    populateDeptSelects(emp.dept || '');
     populateManagerSelect(emp.id);
     if (document.getElementById('manager-id')) document.getElementById('manager-id').value = emp.managerId || '';
     document.getElementById('salary').value = maskedBRL(emp.salary || 0);
@@ -3766,6 +4075,13 @@ window.editEmployee = function (id) {
     document.getElementById('pensao-valor').value = emp.pensaoValor ? String(emp.pensaoValor).replace('.', ',') : '';
     atualizarRotuloPensao();
     populateConvencaoSelect(emp.convencaoColetivaId);
+    const expInicio = document.getElementById('expediente-inicio');
+    if (expInicio) expInicio.value = String(emp.expedienteInicio ?? '');
+    const expFim = document.getElementById('expediente-fim');
+    if (expFim) expFim.value = String(emp.expedienteFim ?? '');
+    marcarDias('expediente-dias', emp.expedienteDias);
+    document.getElementById('escala-12x36-inicio').value = emp.escala12x36Inicio;
+    syncEscala12x36();
     const periculosidade = document.getElementById('rem-periculosidade');
     if (periculosidade) periculosidade.value = emp.adicionalPericulosidade ? 'sim' : 'nao';
     const insalubridade = document.getElementById('rem-insalubridade');
@@ -4165,11 +4481,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     daTypeField = createSelectField('da-type', () => {
         document.getElementById('da-suspension-days')?.classList.toggle('hidden', document.getElementById('da-type')?.value !== 'suspensao');
     });
+    preencherSelectsDeHora();
+    preencherDiasExpediente();
+    document.getElementById('work-load').addEventListener('change', syncEscala12x36);
     if (!(await requireRhAccess())) return;
     await fetchEmployees();
     await fetchJobTitlesPublic();
     await fetchConvencoes();
     populateConvencaoSelect('');
+    await fetchDepartamentos();
+    populateDeptSelects('');
     await fetchTrainingsCatalogPublic();
     await fetchExpiringDocuments();
     await fetchAdmissionalDocTypes();

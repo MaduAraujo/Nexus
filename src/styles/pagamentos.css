@@ -551,6 +551,17 @@ ul {
     border-color: rgba(99, 102, 241, 0.5);
     color: #fff;
 }
+.btn-topbar-icon--alerta::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #f59e0b;
+    border: 2px solid #111827;
+}
 
 .export-menu {
     display: none;

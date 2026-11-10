@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { isBusinessHours } from "../_shared/quiet-hours.mjs";
+import { separarPorExpediente } from "../_shared/quiet-hours.mjs";
 import { isValidDocumentIds, groupDocumentsByEmployee, documentPushMessage, filterEmployeeIdsByPref, isStalePushError } from "../_shared/push-format.mjs";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { mfaSatisfied, MFA_REQUIRED_MESSAGE } from "../_shared/mfa.ts";
@@ -46,8 +46,6 @@ serve(async (req) => {
     if (profile?.profile !== "Administrador") return json({ error: "Acesso restrito ao Administrador" }, 403);
     if (!mfaSatisfied(user, authHeader, true)) return json({ error: MFA_REQUIRED_MESSAGE }, 403);
 
-    if (!isBusinessHours(new Date(), QUIET_HOURS)) return json({ sent: 0, skipped: "fora_do_horario" });
-
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: docs } = await adminClient
@@ -62,9 +60,14 @@ serve(async (req) => {
     const byEmployee = groupDocumentsByEmployee(docs);
 
     const employeeIds = [...byEmployee.keys()];
-    const { data: employees } = await adminClient.from("employees").select("id, notif_prefs").in("id", employeeIds);
-    const allowed = new Set(filterEmployeeIdsByPref(employees, "documentos"));
-    if (!allowed.size) return json({ sent: 0 });
+    const [{ data: employees }, { data: ccts }] = await Promise.all([
+      adminClient.from("employees").select("id, notif_prefs, expediente_inicio, expediente_fim, expediente_dias, escala_12x36_inicio, convencao_coletiva_id").in("id", employeeIds),
+      adminClient.from("convencoes_coletivas").select("id, expediente_inicio, expediente_fim, expediente_dias"),
+    ]);
+    const querem = new Set(filterEmployeeIdsByPref(employees, "documentos"));
+    const { dentro } = separarPorExpediente((employees ?? []).filter((e) => querem.has(e.id)), ccts, new Date(), QUIET_HOURS);
+    const allowed = new Set(dentro);
+    if (!allowed.size) return json({ sent: 0, ...(querem.size ? { skipped: "fora_do_horario" } : {}) });
 
     const { data: subs } = await adminClient
       .from("push_subscriptions")

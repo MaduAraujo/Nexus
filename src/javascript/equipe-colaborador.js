@@ -556,7 +556,7 @@ async function fetchTrainingsCatalogPublic() {
 async function fetchEmployeeTrainings(employeeId) {
     const { data } = await sb
         .from('employee_trainings')
-        .select('id,title,category,provider,hours,source,status,completion_date,certificate_url,notes,assigned_by_name,created_at')
+        .select('id,title,category,provider,hours,source,status,completion_date,certificado_valido_ate,certificate_url,notes,assigned_by_name,created_at')
         .eq('employee_id', employeeId)
         .order('created_at', { ascending: false });
     employeeTrainings = data || [];
@@ -574,6 +574,8 @@ function renderTrainingsList() {
             const bits = [t.category, t.provider, t.hours ? `${t.hours}h` : null, t.source === 'autodeclarado' ? 'Autodeclarado' : null].filter(Boolean);
             if (safeHttpUrl(t.certificate_url))
                 bits.push(`<a href="${escHtml(safeHttpUrl(t.certificate_url))}" target="_blank" rel="noopener">Certificado</a>`);
+            const validade = validadeCertificadoHtml(t.certificado_valido_ate);
+            if (validade) bits.push(validade);
             let actions = '';
             if (t.status === 'aguardando_aprovacao') {
                 actions = `<button type="button" class="training-action-btn training-action-btn--approve" data-click="approveTraining" data-click-args="${dargs(t.id)}">Aprovar</button>

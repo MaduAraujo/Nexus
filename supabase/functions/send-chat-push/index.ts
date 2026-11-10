@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { isBusinessHours } from "../_shared/quiet-hours.mjs";
+import { isBusinessHours, separarPorExpediente } from "../_shared/quiet-hours.mjs";
 import { isValidChatPushRequest, isStalePushError } from "../_shared/push-format.mjs";
 import { corsHeadersFor } from "../_shared/cors.ts";
 
@@ -34,14 +34,25 @@ serve(async (req) => {
       return json({ error: "Não autorizado" }, 401);
     }
 
-    if (!isBusinessHours(new Date(), QUIET_HOURS)) return json({ sent: 0, skipped: "fora_do_horario" });
-
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: targets, error } = await adminClient.rpc("chat_push_targets", { p_kind: body.kind, p_id: body.id });
     if (error) throw new Error(error.message);
-    const list = (targets ?? []) as Target[];
-    if (!list.length) return json({ sent: 0 });
+    const now = new Date();
+    const rhNoExpediente = isBusinessHours(now, QUIET_HOURS);
+    let list = ((targets ?? []) as Target[]).filter((t) => t.employee_id || rhNoExpediente);
+    const employeeIds = list.filter((t) => t.employee_id).map((t) => t.employee_id!);
+    if (employeeIds.length) {
+      const [{ data: employees }, { data: ccts }] = await Promise.all([
+        adminClient.from("employees").select("id, expediente_inicio, expediente_fim, expediente_dias, escala_12x36_inicio, convencao_coletiva_id").in("id", employeeIds),
+        adminClient.from("convencoes_coletivas").select("id, expediente_inicio, expediente_fim, expediente_dias"),
+      ]);
+      const porId = new Map((employees ?? []).map((e) => [e.id, e]));
+      const alvos = employeeIds.map((id) => porId.get(id) ?? { id });
+      const dentro = new Set(separarPorExpediente(alvos, ccts, now, QUIET_HOURS).dentro);
+      list = list.filter((t) => !t.employee_id || dentro.has(t.employee_id));
+    }
+    if (!list.length) return json({ sent: 0, ...(targets?.length ? { skipped: "fora_do_horario" } : {}) });
 
     const byEmployee = new Map(list.filter((t) => t.employee_id).map((t) => [t.employee_id!, t]));
     const byProfile = new Map(list.filter((t) => t.profile_id).map((t) => [t.profile_id!, t]));

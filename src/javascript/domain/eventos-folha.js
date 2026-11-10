@@ -101,6 +101,18 @@ function pagarFeriasAte(startDate) {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+const PRAZO_13 = { 1: '11-30', 2: '12-20' };
+const AVISO_13_DIAS = 30;
+
+function prazoDecimoTerceiro(ano, parcela, hojeISO) {
+    const d = new Date(`${ano}-${PRAZO_13[parcela]}T12:00:00`);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+    const prazo = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const dias = Math.round((d - new Date(`${hojeISO}T12:00:00`)) / 86400000);
+    const situacao = dias < 0 ? 'vencido' : dias <= AVISO_13_DIAS ? 'proximo' : 'no_prazo';
+    return { prazo, dias, situacao };
+}
+
 function diasPorCompetencia(startDate, dias) {
     const out = {};
     const d = new Date(`${startDate}T12:00:00`);
@@ -172,6 +184,7 @@ window.EventosFolha = {
     inicioDoReciboFerias,
     pagarFeriasAte,
     diasPorCompetencia,
+    prazoDecimoTerceiro,
 };
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -188,5 +201,6 @@ if (typeof module !== 'undefined' && module.exports) {
         inicioDoReciboFerias,
         pagarFeriasAte,
         diasPorCompetencia,
+        prazoDecimoTerceiro,
     };
 }

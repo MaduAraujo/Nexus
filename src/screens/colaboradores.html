@@ -56,6 +56,15 @@
                         </button>
                         <button
                             class="btn-topbar-icon"
+                            id="btn-open-departamentos"
+                            data-click="openDepartamentosModal"
+                            title="Departamentos"
+                            aria-label="Departamentos"
+                        >
+                            <i class="fas fa-sitemap"></i>
+                        </button>
+                        <button
+                            class="btn-topbar-icon"
                             id="btn-open-convencoes"
                             data-click="openConvencoesModal"
                             title="Convenções Coletivas"
@@ -223,12 +232,6 @@
                                                 <label for="dept">Departamento <span class="required-mark">*</span></label>
                                                 <select id="dept" required>
                                                     <option value="" disabled selected>Selecione</option>
-                                                    <option value="TI">Tecnologia da Informação</option>
-                                                    <option value="RH">Recursos Humanos</option>
-                                                    <option value="Financeiro">Financeiro</option>
-                                                    <option value="Marketing">Marketing</option>
-                                                    <option value="Jurídico">Jurídico</option>
-                                                    <option value="Administrativo">Administrativo</option>
                                                 </select>
                                             </div>
                                             <div class="form-group flex-1">
@@ -760,12 +763,6 @@
                                                     <label for="vinculo-dept">Departamento</label>
                                                     <select id="vinculo-dept">
                                                         <option value="" disabled selected>Selecione</option>
-                                                        <option value="TI">Tecnologia da Informação</option>
-                                                        <option value="RH">Recursos Humanos</option>
-                                                        <option value="Financeiro">Financeiro</option>
-                                                        <option value="Marketing">Marketing</option>
-                                                        <option value="Jurídico">Jurídico</option>
-                                                        <option value="Administrativo">Administrativo</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group flex-1">
@@ -807,6 +804,35 @@
                                                     </select>
                                                 </div>
                                             </div>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label for="expediente-inicio">Início do expediente</label>
+                                                    <select id="expediente-inicio" data-horas="0-23">
+                                                        <option value="">Da convenção ou da empresa</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group flex-1">
+                                                    <label for="expediente-fim">Fim do expediente</label>
+                                                    <select id="expediente-fim" data-horas="1-24">
+                                                        <option value="">Da convenção ou da empresa</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-row">
+                                                <div class="form-group flex-1">
+                                                    <label id="expediente-dias-label">Dias de trabalho</label>
+                                                    <div class="dias-expediente" id="expediente-dias" role="group" aria-labelledby="expediente-dias-label"></div>
+                                                </div>
+                                                <div class="form-group flex-1 hidden" id="escala-12x36-group">
+                                                    <label for="escala-12x36-inicio">Um dia de plantão da escala 12x36</label>
+                                                    <input type="date" id="escala-12x36-inicio" />
+                                                </div>
+                                            </div>
+                                            <p class="form-hint-block">
+                                                Fora desse horário e desses dias o colaborador não recebe notificações (direito à desconexão). Sem horário ou dias
+                                                próprios, valem os da convenção coletiva e, sem ela, os da empresa (segunda a sexta). Turno que vira a noite é aceito
+                                                (ex.: 22h às 6h). Na escala 12x36, informe um dia de plantão: o sistema alterna a partir dele, inclusive nos fins de semana.
+                                            </p>
                                             <div class="form-row">
                                                 <div class="form-group flex-1">
                                                     <label for="rem-periculosidade">Periculosidade</label>
@@ -1588,6 +1614,43 @@
             </div>
         </div>
 
+        <div class="modal-overlay" id="departamentos-modal">
+            <div class="modal-content modal-content--lg">
+                <div class="modal-header">
+                    <div class="modal-header-icon"><i class="fas fa-sitemap"></i></div>
+                    <div>
+                        <h3 class="modal-title">Departamentos</h3>
+                        <p class="modal-subtitle">Cadastre, edite e inative os departamentos da empresa</p>
+                    </div>
+                    <button class="close-modal" data-click="closeDepartamentosModal" aria-label="Fechar"><i class="fas fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="onb-chips" id="departamentos-list"></div>
+                    <div class="jt-add">
+                        <div class="jt-add-row">
+                            <input type="text" id="dep-nome" maxlength="60" placeholder="Nome (ex.: Vendas)..." aria-label="Nome do departamento" />
+                            <input type="text" id="dep-descricao" placeholder="Descrição (opcional)..." aria-label="Descrição do departamento" />
+                        </div>
+                        <div class="jt-add-row">
+                            <select id="dep-responsavel" aria-label="Responsável pelo departamento">
+                                <option value="">Sem responsável</option>
+                            </select>
+                            <button type="button" class="hidden" id="dep-cancelar" data-click="cancelarEdicaoDepartamento" aria-label="Cancelar edição">
+                                <i class="fas fa-xmark"></i> Cancelar
+                            </button>
+                            <button type="button" id="dep-salvar" data-click="salvarDepartamento" aria-label="Adicionar departamento">
+                                <i class="fas fa-plus"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+                    <p class="form-hint-block">
+                        Departamento inativo continua com os colaboradores que já estão nele, mas não recebe novos. Só é possível excluir um departamento
+                        sem colaboradores. Ao renomear, o cadastro dos colaboradores, os comunicados e o canal do chat do departamento acompanham o novo nome.
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <div class="modal-overlay" id="convencoes-modal">
             <div class="modal-content modal-content--lg">
                 <div class="modal-header">
@@ -1609,12 +1672,22 @@
                             <input type="date" id="cct-add-inicio" aria-label="Início da vigência" />
                             <input type="date" id="cct-add-fim" aria-label="Fim da vigência" />
                             <input type="text" id="cct-add-piso" placeholder="Piso salarial (R$)" aria-label="Piso salarial" />
+                        </div>
+                        <div class="jt-add-row">
+                            <select id="cct-add-expediente-inicio" data-horas="0-23" aria-label="Início do expediente da convenção">
+                                <option value="">Expediente: início (opcional)</option>
+                            </select>
+                            <select id="cct-add-expediente-fim" data-horas="1-24" aria-label="Fim do expediente da convenção">
+                                <option value="">Expediente: fim (opcional)</option>
+                            </select>
                             <button type="button" data-click="addConvencao" aria-label="Adicionar convenção"><i class="fas fa-plus"></i> Adicionar</button>
                         </div>
+                        <div class="dias-expediente" id="cct-add-expediente-dias" role="group" aria-label="Dias de trabalho da convenção (opcional)"></div>
                     </div>
                     <p class="form-hint-block">
                         A convenção vale por até 2 anos (CLT art. 614 §3º). Enquanto estiver vigente, o sistema não deixa gravar salário abaixo do piso, proporcional à
-                        jornada para quem trabalha menos de 44h semanais (OJ 358 do TST). Não vale para PJ, estágio e aprendiz.
+                        jornada para quem trabalha menos de 44h semanais (OJ 358 do TST). Não vale para PJ, estágio e aprendiz. O expediente, se informado, define
+                        quando os colaboradores vinculados podem receber notificações.
                     </p>
                 </div>
             </div>
@@ -1640,6 +1713,7 @@
                         </div>
                         <div class="jt-add-row">
                             <input type="text" id="tc-add-hours" placeholder="Carga horária (h)" />
+                            <input type="text" id="tc-add-validade" inputmode="numeric" placeholder="Validade do certificado (meses)" aria-label="Validade do certificado em meses" />
                             <button type="button" data-click="addTrainingCatalog" aria-label="Adicionar treinamento">
                                 <i class="fas fa-plus"></i> Adicionar
                             </button>

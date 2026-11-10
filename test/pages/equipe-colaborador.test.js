@@ -289,6 +289,7 @@ describe('equipe-colaborador.html — erros, estados vazios e controles', () => 
                     status: 'aguardando_aprovacao',
                     source: 'autodeclarado',
                     certificate_url: 'https://cert.exemplo.com/1',
+                    certificado_valido_ate: '2020-01-31',
                     created_at: '2026-06-03',
                 },
             ],
@@ -296,6 +297,7 @@ describe('equipe-colaborador.html — erros, estados vazios e controles', () => 
         page = await openPage('equipe-colaborador', { client: c, now: NOW });
         await page.click('.team-card-trainings');
         assert.match(page.text('#trainings-list'), /Excel.*TI · Escola · 8h/);
+        assert.match(page.text('#trainings-list .training-validade--vencido'), /Certificado vencido em 31\/01\/2020/);
         assert.ok(page.$('#trainings-list a[href="https://cert.exemplo.com/1"]'));
 
         await page.click('[data-click="completeTraining"]');

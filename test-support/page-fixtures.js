@@ -58,8 +58,18 @@ function profiles() {
     ];
 }
 
+const DEPARTMENTS = [
+    { id: 'dep-adm', nome: 'Administrativo', descricao: null, responsavel_id: null, ativo: true },
+    { id: 'dep-fin', nome: 'Financeiro', descricao: null, responsavel_id: null, ativo: true },
+    { id: 'dep-jur', nome: 'Jurídico', descricao: null, responsavel_id: null, ativo: true },
+    { id: 'dep-mkt', nome: 'Marketing', descricao: null, responsavel_id: null, ativo: true },
+    { id: 'dep-rh', nome: 'RH', descricao: 'Recursos Humanos', responsavel_id: null, ativo: true },
+    { id: 'dep-ti', nome: 'TI', descricao: 'Tecnologia da Informação', responsavel_id: null, ativo: true },
+];
+
 function baseTables(extra = {}) {
     return {
+        departments: DEPARTMENTS.map((d) => ({ ...d })),
         profiles: profiles(),
         employees: EMPLOYEES.map((e) => ({ ...e })),
         employees_decrypted: EMPLOYEES.map((e) => ({ ...e })),
@@ -71,4 +81,4 @@ const AAL1_NO_MFA = { level: { currentLevel: 'aal1', nextLevel: 'aal1' } };
 const AAL1_CHALLENGE = { level: { currentLevel: 'aal1', nextLevel: 'aal2' } };
 const FIXED_NOW = '2026-06-17T14:00:00-03:00';
 
-module.exports = { RH_USER, COLAB_USER, MANAGER_USER, ANA, BIA, CAIO, EMPLOYEES, profiles, baseTables, AAL1_NO_MFA, AAL1_CHALLENGE, FIXED_NOW };
+module.exports = { RH_USER, COLAB_USER, MANAGER_USER, ANA, BIA, CAIO, EMPLOYEES, DEPARTMENTS, profiles, baseTables, AAL1_NO_MFA, AAL1_CHALLENGE, FIXED_NOW };

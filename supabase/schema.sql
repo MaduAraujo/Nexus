@@ -9008,3 +9008,821 @@ CREATE TRIGGER job_titles_rename_sync_trg
 SELECT nexus_refresh_employees_view();
 
 UPDATE job_titles SET title = 'Estagiário(a)' WHERE title = 'Estagiário';
+
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS prova_vida_ms INTEGER;
+ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_prova_vida_ms_check;
+ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_prova_vida_ms_check
+  CHECK (prova_vida_ms IS NULL OR prova_vida_ms BETWEEN 0 AND 60000);
+
+CREATE OR REPLACE FUNCTION nexus_fmt_brl(p_valor NUMERIC)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE WHEN p_valor IS NULL THEN NULL
+    ELSE 'R$ ' || translate(to_char(p_valor, 'FM999,999,999,990.00'), ',.', '.,')
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION nexus_fmt_brl(NUMERIC) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION payslip_itens_diff(p_rotulo TEXT, p_old JSONB, p_new JSONB)
+RETURNS JSONB
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  WITH antes AS (
+    SELECT COALESCE(e->>'cod', '') AS cod, COALESCE(e->>'descricao', '') AS descricao,
+           sum(CASE WHEN (e->>'valor') ~ '^-?[0-9]+(\.[0-9]+)?$' THEN (e->>'valor')::NUMERIC END) AS valor
+      FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p_old) = 'array' THEN p_old ELSE '[]'::JSONB END) e
+     WHERE jsonb_typeof(e) = 'object'
+     GROUP BY 1, 2
+  ), depois AS (
+    SELECT COALESCE(e->>'cod', '') AS cod, COALESCE(e->>'descricao', '') AS descricao,
+           sum(CASE WHEN (e->>'valor') ~ '^-?[0-9]+(\.[0-9]+)?$' THEN (e->>'valor')::NUMERIC END) AS valor
+      FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p_new) = 'array' THEN p_new ELSE '[]'::JSONB END) e
+     WHERE jsonb_typeof(e) = 'object'
+     GROUP BY 1, 2
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'field', 'holerite_item',
+           'label', p_rotulo || ' · ' || COALESCE(NULLIF(COALESCE(d.descricao, a.descricao), ''), COALESCE(d.cod, a.cod)),
+           'oldValue', nexus_fmt_brl(a.valor),
+           'newValue', nexus_fmt_brl(d.valor)
+         ) ORDER BY COALESCE(d.cod, a.cod), COALESCE(d.descricao, a.descricao)), '[]'::JSONB)
+    FROM antes a
+    FULL JOIN depois d ON d.cod = a.cod AND d.descricao = a.descricao
+   WHERE a.valor IS DISTINCT FROM d.valor
+      OR a.cod IS NULL
+      OR d.cod IS NULL;
+$$;
+
+REVOKE ALL ON FUNCTION payslip_itens_diff(TEXT, JSONB, JSONB) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION payslips_audit()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_row     payslips := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  v_ctx     TEXT := 'slip:' || v_row.employee_id::TEXT || ':' || v_row.mes || ':';
+  v_rotulo  TEXT := 'Holerite ' || COALESCE(NULLIF(v_row.mes_formatado, ''), v_row.mes);
+  v_changes JSONB := '[]'::JSONB;
+  v_old_p   JSONB;
+  v_old_d   JSONB;
+  v_old_liq NUMERIC;
+  v_new_p   JSONB;
+  v_new_d   JSONB;
+  v_new_liq NUMERIC;
+  v_email   TEXT;
+BEGIN
+  IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM employees WHERE id = OLD.employee_id) THEN
+    RETURN NULL;
+  END IF;
+
+  IF TG_OP <> 'INSERT' THEN
+    v_old_p   := nexus_unwrap(v_ctx || 'proventos', OLD.proventos)::JSONB;
+    v_old_d   := nexus_unwrap(v_ctx || 'descontos', OLD.descontos)::JSONB;
+    v_old_liq := nexus_unwrap(v_ctx || 'salario_liquido', OLD.salario_liquido)::NUMERIC;
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    v_new_p   := nexus_unwrap(v_ctx || 'proventos', NEW.proventos)::JSONB;
+    v_new_d   := nexus_unwrap(v_ctx || 'descontos', NEW.descontos)::JSONB;
+    v_new_liq := nexus_unwrap(v_ctx || 'salario_liquido', NEW.salario_liquido)::NUMERIC;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    v_changes := jsonb_build_array(jsonb_build_object(
+      'field', 'holerite', 'label', v_rotulo, 'oldValue', NULL,
+      'newValue', 'Lançado · líquido ' || COALESCE(nexus_fmt_brl(v_new_liq), '—')
+    ));
+  ELSIF TG_OP = 'DELETE' THEN
+    v_changes := jsonb_build_array(jsonb_build_object(
+      'field', 'holerite', 'label', v_rotulo,
+      'oldValue', 'Líquido ' || COALESCE(nexus_fmt_brl(v_old_liq), '—'), 'newValue', 'Excluído'
+    ));
+  ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+    v_changes := jsonb_build_array(jsonb_build_object(
+      'field', 'holerite_status', 'label', v_rotulo || ' · Situação', 'oldValue', OLD.status, 'newValue', NEW.status
+    ));
+  END IF;
+
+  v_changes := v_changes
+    || payslip_itens_diff(v_rotulo || ' · Provento', v_old_p, v_new_p)
+    || payslip_itens_diff(v_rotulo || ' · Desconto', v_old_d, v_new_d);
+
+  IF TG_OP = 'UPDATE' AND v_old_liq IS DISTINCT FROM v_new_liq THEN
+    v_changes := v_changes || jsonb_build_array(jsonb_build_object(
+      'field', 'holerite_liquido', 'label', v_rotulo || ' · Líquido',
+      'oldValue', nexus_fmt_brl(v_old_liq), 'newValue', nexus_fmt_brl(v_new_liq)
+    ));
+  END IF;
+
+  IF jsonb_array_length(v_changes) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT email INTO v_email FROM auth.users WHERE id = auth.uid();
+
+  INSERT INTO employee_audit (employee_id, changes, operator_name, operator_email)
+  VALUES (v_row.employee_id, v_changes, COALESCE(split_part(v_email, '@', 1), 'Sistema'), v_email);
+
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION payslips_audit() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS payslips_z_audit_trg ON payslips;
+CREATE TRIGGER payslips_z_audit_trg
+  AFTER INSERT OR UPDATE OR DELETE ON payslips
+  FOR EACH ROW EXECUTE FUNCTION payslips_audit();
+
+ALTER TABLE trainings ADD COLUMN IF NOT EXISTS validade_meses SMALLINT;
+ALTER TABLE trainings DROP CONSTRAINT IF EXISTS trainings_validade_meses_check;
+ALTER TABLE trainings ADD CONSTRAINT trainings_validade_meses_check
+  CHECK (validade_meses IS NULL OR validade_meses BETWEEN 1 AND 120);
+
+ALTER TABLE employee_trainings ADD COLUMN IF NOT EXISTS certificado_valido_ate DATE;
+ALTER TABLE employee_trainings DROP CONSTRAINT IF EXISTS employee_trainings_certificado_valido_ate_check;
+ALTER TABLE employee_trainings ADD CONSTRAINT employee_trainings_certificado_valido_ate_check
+  CHECK (certificado_valido_ate IS NULL OR completion_date IS NULL OR certificado_valido_ate >= completion_date);
+
+CREATE OR REPLACE FUNCTION employee_trainings_validade()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_meses SMALLINT;
+BEGIN
+  IF NEW.status = 'concluido' AND NEW.completion_date IS NOT NULL AND NEW.certificado_valido_ate IS NULL
+     AND NEW.training_id IS NOT NULL THEN
+    SELECT validade_meses INTO v_meses FROM trainings WHERE id = NEW.training_id;
+    IF v_meses IS NOT NULL THEN
+      NEW.certificado_valido_ate := (NEW.completion_date + make_interval(months => v_meses))::DATE;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employee_trainings_validade() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employee_trainings_validade_trg ON employee_trainings;
+CREATE TRIGGER employee_trainings_validade_trg
+  BEFORE INSERT OR UPDATE ON employee_trainings
+  FOR EACH ROW EXECUTE FUNCTION employee_trainings_validade();
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS expediente_inicio SMALLINT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS expediente_fim SMALLINT;
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_expediente_check;
+ALTER TABLE employees ADD CONSTRAINT employees_expediente_check CHECK (
+  (expediente_inicio IS NULL AND expediente_fim IS NULL)
+  OR (expediente_inicio IS NOT NULL AND expediente_fim IS NOT NULL
+      AND expediente_inicio BETWEEN 0 AND 23 AND expediente_fim BETWEEN 1 AND 24 AND expediente_inicio <> expediente_fim)
+);
+
+ALTER TABLE convencoes_coletivas ADD COLUMN IF NOT EXISTS expediente_inicio SMALLINT;
+ALTER TABLE convencoes_coletivas ADD COLUMN IF NOT EXISTS expediente_fim SMALLINT;
+ALTER TABLE convencoes_coletivas DROP CONSTRAINT IF EXISTS convencoes_coletivas_expediente_check;
+ALTER TABLE convencoes_coletivas ADD CONSTRAINT convencoes_coletivas_expediente_check CHECK (
+  (expediente_inicio IS NULL AND expediente_fim IS NULL)
+  OR (expediente_inicio IS NOT NULL AND expediente_fim IS NOT NULL
+      AND expediente_inicio BETWEEN 0 AND 23 AND expediente_fim BETWEEN 1 AND 24 AND expediente_inicio <> expediente_fim)
+);
+
+SELECT nexus_refresh_employees_view();
+
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS push_sent_to UUID[] NOT NULL DEFAULT '{}';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS push_next_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION dispatch_deferred_pushes()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_msg         RECORD;
+  v_alert       RECORD;
+  v_url         TEXT;
+  v_service_key TEXT;
+  v_hour        INT := extract(hour FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+  v_dow         INT := extract(dow  FROM NOW() AT TIME ZONE 'America/Sao_Paulo');
+BEGIN
+  SELECT decrypted_secret INTO v_url         FROM vault.decrypted_secrets WHERE name = 'project_url';
+  SELECT decrypted_secret INTO v_service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+
+  IF v_url IS NULL OR v_service_key IS NULL THEN
+    RAISE WARNING 'dispatch_deferred_pushes: vault secrets project_url/service_role_key ausentes — pushes adiados (comunicados, compliance, burnout, segurança) não serão enviados';
+    RETURN;
+  END IF;
+
+  FOR v_msg IN
+    SELECT id FROM messages
+    WHERE push_sent_at IS NULL
+      AND COALESCE(push_next_at, scheduled_at) <= NOW()
+      AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('message_id', v_msg.id)
+    );
+  END LOOP;
+
+  IF v_dow IN (0, 6) OR v_hour < 8 OR v_hour >= 18 THEN
+    RETURN;
+  END IF;
+
+  FOR v_alert IN
+    SELECT id FROM compliance_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'compliance_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM burnout_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'burnout_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+
+  FOR v_alert IN
+    SELECT id FROM security_alerts
+    WHERE push_scheduled_at IS NOT NULL
+      AND push_scheduled_at <= NOW()
+      AND push_sent_at IS NULL
+      AND created_at > NOW() - INTERVAL '7 days'
+  LOOP
+    PERFORM net.http_post(
+      url     := v_url || '/functions/v1/send-alert-push',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || v_service_key
+      ),
+      body := jsonb_build_object('table', 'security_alerts', 'id', v_alert.id)
+    );
+  END LOOP;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION dispatch_deferred_pushes() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS expediente_dias SMALLINT[];
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS escala_12x36_inicio DATE;
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_expediente_dias_check;
+ALTER TABLE employees ADD CONSTRAINT employees_expediente_dias_check CHECK (
+  expediente_dias IS NULL
+  OR (cardinality(expediente_dias) BETWEEN 1 AND 7 AND expediente_dias <@ ARRAY[0, 1, 2, 3, 4, 5, 6]::SMALLINT[])
+);
+
+ALTER TABLE convencoes_coletivas ADD COLUMN IF NOT EXISTS expediente_dias SMALLINT[];
+ALTER TABLE convencoes_coletivas DROP CONSTRAINT IF EXISTS convencoes_coletivas_expediente_dias_check;
+ALTER TABLE convencoes_coletivas ADD CONSTRAINT convencoes_coletivas_expediente_dias_check CHECK (
+  expediente_dias IS NULL
+  OR (cardinality(expediente_dias) BETWEEN 1 AND 7 AND expediente_dias <@ ARRAY[0, 1, 2, 3, 4, 5, 6]::SMALLINT[])
+);
+
+SELECT nexus_refresh_employees_view();
+
+CREATE INDEX IF NOT EXISTS employee_trainings_validade_idx
+  ON employee_trainings (employee_id, certificado_valido_ate)
+  WHERE status = 'concluido' AND certificado_valido_ate IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION generate_compliance_alerts()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_hoje           DATE := (NOW() AT TIME ZONE 'America/Sao_Paulo')::date;
+  v_emp            RECORD;
+  v_alertas        JSONB;
+  v_n              INTEGER;
+  v_cycle_start    DATE;
+  v_cycle_end      DATE;
+  v_concessivo     DATE;
+  v_used_remaining INTEGER;
+  v_expired_days   INTEGER;
+  v_pending        INTEGER;
+  v_diff_dias      INTEGER;
+  v_existed        BOOLEAN;
+  v_prev_lido      BOOLEAN;
+  v_new_lido       BOOLEAN;
+  v_alert_id       UUID;
+  v_ctx            TEXT;
+  v_nasc           DATE;
+  v_pcd            BOOLEAN;
+  v_jornada        INTEGER;
+  v_dias           INTEGER;
+  v_ultimo_rel     DATE;
+  v_prazo_rel      DATE;
+  v_cert           RECORD;
+BEGIN
+  FOR v_emp IN
+    SELECT id, admission_date, contract_type, is_probation, probation_end_date,
+           is_aviso_previo, aviso_previo_end_date, work_load, contract_end_date, birth_date, pcd,
+           estagio_supervisor_id, estagio_avaliacoes
+    FROM employees
+    WHERE status IN ('Ativo', 'ativo')
+  LOOP
+    v_alertas := '[]'::jsonb;
+
+    IF v_emp.admission_date IS NOT NULL AND lower(COALESCE(v_emp.contract_type, '')) NOT IN ('estagio', 'estágio', 'pj', 'temporário', 'temporario') THEN
+      v_used_remaining := COALESCE((
+        SELECT SUM(days + CASE WHEN abono THEN 10 ELSE 0 END) FROM vacations
+        WHERE employee_id = v_emp.id AND status IN ('aprovado', 'concluido')
+      ), 0);
+      v_expired_days := 0;
+      v_n := 0;
+      LOOP
+        v_cycle_start := (v_emp.admission_date + (v_n || ' years')::interval)::date;
+        EXIT WHEN v_cycle_start > v_hoje;
+        v_cycle_end := (v_emp.admission_date + ((v_n + 1) || ' years')::interval)::date - 1;
+        IF v_cycle_end < v_hoje THEN
+          v_pending := GREATEST(0, 30 - LEAST(v_used_remaining, 30));
+          v_used_remaining := GREATEST(0, v_used_remaining - 30);
+          IF v_pending > 0 THEN
+            v_concessivo := (v_cycle_end + INTERVAL '1 year')::date;
+            IF v_hoje > v_concessivo THEN
+              v_expired_days := v_expired_days + v_pending;
+            END IF;
+          END IF;
+        END IF;
+        v_n := v_n + 1;
+      END LOOP;
+      IF v_expired_days > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'ferias_vencidas', 'nivel', 'critico',
+          'titulo', format('%s dia(s) de férias vencidas', v_expired_days),
+          'mensagem', format('%s dia(s) de férias vencidas — risco de pagamento em dobro (CLT art. 137).', v_expired_days)
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_probation AND v_emp.probation_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.probation_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'fim_experiencia',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Experiência vencida há %sd', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Experiência vence hoje'
+            ELSE format('Experiência vence em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF v_emp.is_aviso_previo AND v_emp.aviso_previo_end_date IS NOT NULL THEN
+      v_diff_dias := v_emp.aviso_previo_end_date - v_hoje;
+      IF v_diff_dias <= 15 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aviso_previo',
+          'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+          'titulo', CASE
+            WHEN v_diff_dias < 0 THEN format('Aviso prévio venceu há %sd — regularizar desligamento', abs(v_diff_dias))
+            WHEN v_diff_dias = 0 THEN 'Aviso prévio termina hoje'
+            ELSE format('Aviso prévio termina em %sd', v_diff_dias)
+          END
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'aprendiz' THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      BEGIN
+        v_nasc := left(nexus_unwrap(v_ctx, v_emp.birth_date), 10)::DATE;
+      EXCEPTION WHEN OTHERS THEN
+        v_nasc := NULL;
+      END;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato de aprendizagem sem data de término (CLT art. 428)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato de aprendizagem terminou há %sd — desligar ou recontratar (CLT art. 433)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato de aprendizagem termina hoje'
+              ELSE format('Contrato de aprendizagem termina em %sd', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_nasc IS NOT NULL THEN
+        v_diff_dias := (v_nasc + INTERVAL '24 years')::DATE - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_24_anos',
+            'nivel', CASE WHEN v_diff_dias <= 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias <= 0 THEN 'Aprendiz completou 24 anos — o contrato de aprendizagem se extingue (CLT art. 433)'
+              ELSE format('Aprendiz completa 24 anos em %sd — o contrato se extingue (CLT art. 433)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := aprendiz_jornada_min(v_emp.work_load);
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > v_jornada + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'aprendiz_hora_extra', 'nivel', 'critico',
+          'titulo', format('Aprendiz passou da jornada em %s dia(s) nos últimos 30 dias — hora extra e compensação são proibidas (CLT art. 432)', v_dias)
+        ));
+      END IF;
+
+      IF v_nasc IS NOT NULL AND v_hoje < (v_nasc + INTERVAL '18 years')::DATE THEN
+        SELECT count(*) INTO v_dias
+          FROM time_records t
+         WHERE t.employee_id = v_emp.id
+           AND t.date >= v_hoje - 30
+           AND EXISTS (
+             SELECT 1 FROM unnest(ARRAY[t.entrada, t.saida_almoco, t.retorno_almoco, t.saida]) AS m(marca)
+              WHERE m.marca IS NOT NULL
+                AND (m.marca AT TIME ZONE 'America/Sao_Paulo')::TIME NOT BETWEEN TIME '05:00' AND TIME '22:00'
+           );
+        IF v_dias > 0 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'aprendiz_menor_noturno', 'nivel', 'critico',
+            'titulo', format('Aprendiz menor de 18 anos com marcação entre 22h e 5h em %s dia(s) — trabalho noturno é proibido (CLT art. 404)', v_dias)
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) IN ('estagio', 'estágio') THEN
+      v_ctx := 'emp:' || v_emp.id::TEXT;
+      v_pcd := lower(COALESCE(nexus_unwrap(v_ctx, v_emp.pcd), 'false')) = 'true';
+
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_termino', 'nivel', 'critico',
+          'titulo', 'Estágio sem data de término no termo de compromisso (Lei 11.788 art. 3º)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Estágio terminou há %sd — encerrar ou aditar o termo e emitir o termo de realização (art. 9º, V)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Estágio termina hoje — emitir o termo de realização (art. 9º, V)'
+              ELSE format('Estágio termina em %sd — prepare o termo de realização (art. 9º, V)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF NOT v_pcd AND v_emp.admission_date IS NOT NULL THEN
+        v_diff_dias := ((v_emp.admission_date + INTERVAL '2 years')::DATE - 1) - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_2_anos',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN 'Estágio passou de 2 anos na empresa — risco de vínculo de emprego (Lei 11.788 arts. 11 e 15)'
+              ELSE format('Estágio chega ao limite de 2 anos em %sd (Lei 11.788 art. 11)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      IF v_emp.estagio_supervisor_id IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_sem_supervisor', 'nivel', 'critico',
+          'titulo', 'Estagiário sem supervisor indicado (Lei 11.788 art. 9º, III)'
+        ));
+      END IF;
+
+      IF v_emp.admission_date IS NOT NULL THEN
+        SELECT max(d.created_at AT TIME ZONE 'America/Sao_Paulo')::DATE INTO v_ultimo_rel
+          FROM documents d
+         WHERE d.employee_id = v_emp.id
+           AND d.tipo = 'Relatório de Atividades de Estágio'
+           AND COALESCE(d.status, 'pendente') <> 'recusado';
+        v_prazo_rel := (GREATEST(v_emp.admission_date, COALESCE(v_ultimo_rel, v_emp.admission_date)) + INTERVAL '6 months')::DATE;
+        v_diff_dias := v_prazo_rel - v_hoje;
+        IF v_diff_dias <= 15 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'estagio_relatorio',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Relatório semestral de atividades do estágio atrasado há %sd (art. 9º, VII)', abs(v_diff_dias))
+              ELSE format('Relatório semestral de atividades do estágio vence em %sd (art. 9º, VII)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+
+      v_jornada := CASE v_emp.work_load WHEN '20h' THEN 240 WHEN '40h' THEN 480 ELSE 360 END;
+      SELECT count(*) INTO v_dias
+        FROM time_records t
+       WHERE t.employee_id = v_emp.id
+         AND t.date >= v_hoje - 30
+         AND t.entrada IS NOT NULL
+         AND t.saida IS NOT NULL
+         AND (CASE
+                WHEN t.saida_almoco IS NOT NULL
+                  THEN extract(EPOCH FROM t.saida_almoco - t.entrada) / 60
+                       + COALESCE(extract(EPOCH FROM t.saida - t.retorno_almoco) / 60, 0)
+                ELSE extract(EPOCH FROM t.saida - t.entrada) / 60
+              END) > (CASE
+                        WHEN EXISTS (
+                          SELECT 1 FROM jsonb_array_elements(COALESCE(v_emp.estagio_avaliacoes, '[]'::jsonb)) p
+                           WHERE jsonb_typeof(p) = 'object'
+                             AND t.date BETWEEN (p->>'inicio')::DATE AND (p->>'fim')::DATE
+                        ) THEN round(v_jornada / 2.0)
+                        ELSE v_jornada
+                      END) + 10;
+      IF v_dias > 0 THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'estagio_jornada_excedida', 'nivel', 'critico',
+          'titulo', format('Estagiário passou da jornada do termo em %s dia(s) nos últimos 30 dias — estágio não admite hora extra (Lei 11.788 art. 10)', v_dias)
+        ));
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) IN ('temporário', 'temporario') THEN
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'temporario_sem_termino', 'nivel', 'critico',
+          'titulo', 'Temporário sem data de término do contrato (Lei 6.019/1974, art. 10)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'temporario_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato temporário terminou há %sd e o trabalhador segue ativo — risco de vínculo direto com a empresa (Lei 6.019, art. 10)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato temporário termina hoje — combine o encerramento com a agência'
+              ELSE format('Contrato temporário termina em %sd — combine com a agência o encerramento ou a prorrogação (até 270 dias no total)', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    IF lower(COALESCE(v_emp.contract_type, '')) = 'prazo determinado' THEN
+      IF v_emp.contract_end_date IS NULL THEN
+        v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+          'tipo', 'prazo_sem_termino', 'nivel', 'critico',
+          'titulo', 'Contrato por prazo determinado sem data de término (CLT art. 443)'
+        ));
+      ELSE
+        v_diff_dias := v_emp.contract_end_date - v_hoje;
+        IF v_diff_dias <= 30 THEN
+          v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+            'tipo', 'prazo_termino',
+            'nivel', CASE WHEN v_diff_dias < 0 THEN 'critico' ELSE 'atencao' END,
+            'titulo', CASE
+              WHEN v_diff_dias < 0 THEN format('Contrato por prazo determinado terminou há %sd e a pessoa segue trabalhando — ele passa a valer por prazo indeterminado (CLT art. 451)', abs(v_diff_dias))
+              WHEN v_diff_dias = 0 THEN 'Contrato por prazo determinado termina hoje'
+              ELSE format('Contrato por prazo determinado termina em %sd — desligar no prazo ou efetivar', v_diff_dias)
+            END
+          ));
+        END IF;
+      END IF;
+    END IF;
+
+    FOR v_cert IN
+      SELECT et.title, et.certificado_valido_ate - v_hoje AS dias
+        FROM employee_trainings et
+       WHERE et.employee_id = v_emp.id
+         AND et.status = 'concluido'
+         AND et.certificado_valido_ate IS NOT NULL
+         AND et.certificado_valido_ate <= v_hoje + 30
+         AND NOT EXISTS (
+           SELECT 1 FROM employee_trainings n
+            WHERE n.employee_id = et.employee_id
+              AND n.id <> et.id
+              AND n.status = 'concluido'
+              AND (n.training_id = et.training_id OR lower(trim(n.title)) = lower(trim(et.title)))
+              AND COALESCE(n.certificado_valido_ate, 'infinity'::DATE) > et.certificado_valido_ate
+              AND (n.completion_date IS NULL OR et.completion_date IS NULL OR n.completion_date >= et.completion_date)
+         )
+       ORDER BY et.certificado_valido_ate, et.title
+    LOOP
+      v_alertas := v_alertas || jsonb_build_array(jsonb_build_object(
+        'tipo', 'certificado_validade',
+        'nivel', CASE WHEN v_cert.dias < 0 THEN 'critico' ELSE 'atencao' END,
+        'titulo', CASE
+          WHEN v_cert.dias < 0 THEN format('Certificado de "%s" venceu há %sd — providencie a reciclagem', v_cert.title, abs(v_cert.dias))
+          WHEN v_cert.dias = 0 THEN format('Certificado de "%s" vence hoje — providencie a reciclagem', v_cert.title)
+          ELSE format('Certificado de "%s" vence em %sd — programe a reciclagem', v_cert.title, v_cert.dias)
+        END
+      ));
+    END LOOP;
+
+    IF jsonb_array_length(v_alertas) > 0 THEN
+      SELECT lido INTO v_prev_lido FROM compliance_alerts WHERE employee_id = v_emp.id AND date = v_hoje;
+      v_existed := FOUND;
+
+      INSERT INTO compliance_alerts (employee_id, date, alertas, lido)
+      VALUES (v_emp.id, v_hoje, v_alertas, false)
+      ON CONFLICT (employee_id, date) DO UPDATE
+        SET alertas = EXCLUDED.alertas,
+            lido = CASE WHEN compliance_alerts.alertas = EXCLUDED.alertas THEN compliance_alerts.lido ELSE false END
+      RETURNING id, lido INTO v_alert_id, v_new_lido;
+
+      IF v_new_lido = false AND (NOT v_existed OR v_prev_lido IS DISTINCT FROM false) THEN
+        PERFORM notify_alert_push('compliance_alerts', v_alert_id);
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$;
+
+CREATE TABLE IF NOT EXISTS departments (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome           TEXT NOT NULL,
+  descricao      TEXT,
+  responsavel_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  ativo          BOOLEAN NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (length(trim(nome)) BETWEEN 1 AND 60),
+  CHECK (nome = trim(nome)),
+  CHECK (lower(nome) <> 'todos')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS departments_nome_unico ON departments (lower(nome));
+CREATE INDEX IF NOT EXISTS departments_responsavel_idx ON departments (responsavel_id);
+
+DROP TRIGGER IF EXISTS departments_updated_at ON departments;
+CREATE TRIGGER departments_updated_at
+  BEFORE UPDATE ON departments
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON departments FROM PUBLIC, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON departments TO authenticated;
+DROP POLICY IF EXISTS "rh_departments_all" ON departments;
+CREATE POLICY "rh_departments_all" ON departments FOR ALL
+  USING ((SELECT public.is_rh())) WITH CHECK ((SELECT public.is_rh()));
+DROP POLICY IF EXISTS "authenticated_departments_select" ON departments;
+CREATE POLICY "authenticated_departments_select" ON departments FOR SELECT TO authenticated USING (true);
+
+INSERT INTO departments (nome, descricao) VALUES
+  ('TI', 'Tecnologia da Informação'),
+  ('RH', 'Recursos Humanos'),
+  ('Financeiro', NULL),
+  ('Marketing', NULL),
+  ('Jurídico', NULL),
+  ('Administrativo', NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO departments (nome)
+SELECT DISTINCT ON (lower(trim(e.dept))) trim(e.dept)
+  FROM employees e
+ WHERE length(trim(COALESCE(e.dept, ''))) BETWEEN 1 AND 60
+   AND lower(trim(e.dept)) <> 'todos'
+ ORDER BY lower(trim(e.dept)), trim(e.dept)
+ON CONFLICT DO NOTHING;
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS department_id UUID REFERENCES departments(id);
+CREATE INDEX IF NOT EXISTS employees_department_id_idx ON employees (department_id);
+
+ALTER TABLE employees DISABLE TRIGGER USER;
+
+UPDATE employees e
+   SET department_id = d.id,
+       dept = d.nome
+  FROM departments d
+ WHERE lower(d.nome) = lower(trim(e.dept));
+
+ALTER TABLE employees ENABLE TRIGGER USER;
+
+CREATE OR REPLACE FUNCTION employees_department_sync()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_dep departments;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.department_id IS DISTINCT FROM OLD.department_id AND NEW.department_id IS NOT NULL THEN
+    SELECT * INTO v_dep FROM departments WHERE id = NEW.department_id;
+  ELSIF TG_OP = 'INSERT' AND NEW.department_id IS NOT NULL AND NEW.dept IS NULL THEN
+    SELECT * INTO v_dep FROM departments WHERE id = NEW.department_id;
+  ELSIF length(trim(COALESCE(NEW.dept, ''))) = 0 THEN
+    NEW.dept := NULL;
+    NEW.department_id := NULL;
+    RETURN NEW;
+  ELSE
+    SELECT * INTO v_dep FROM departments WHERE lower(nome) = lower(trim(NEW.dept));
+    IF NOT FOUND THEN
+      INSERT INTO departments (nome) VALUES (left(trim(NEW.dept), 60)) RETURNING * INTO v_dep;
+    END IF;
+  END IF;
+
+  IF NOT v_dep.ativo AND (TG_OP = 'INSERT' OR v_dep.id IS DISTINCT FROM OLD.department_id) THEN
+    RAISE EXCEPTION 'O departamento % está inativo: escolha outro ou reative-o.', v_dep.nome USING ERRCODE = '23514';
+  END IF;
+
+  NEW.department_id := v_dep.id;
+  NEW.dept := v_dep.nome;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION employees_department_sync() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS employees_department_sync_trg ON employees;
+CREATE TRIGGER employees_department_sync_trg
+  BEFORE INSERT OR UPDATE OF dept, department_id ON employees
+  FOR EACH ROW EXECUTE FUNCTION employees_department_sync();
+
+CREATE OR REPLACE FUNCTION departments_rename_sync()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE employees SET dept = NEW.nome WHERE department_id = NEW.id;
+  UPDATE messages SET destino = NEW.nome WHERE destino = OLD.nome;
+  UPDATE chat_channels SET dept = NEW.nome WHERE dept = OLD.nome;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION departments_rename_sync() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS departments_rename_sync_trg ON departments;
+CREATE TRIGGER departments_rename_sync_trg
+  AFTER UPDATE OF nome ON departments
+  FOR EACH ROW
+  WHEN (OLD.nome IS DISTINCT FROM NEW.nome)
+  EXECUTE FUNCTION departments_rename_sync();
+
+SELECT nexus_refresh_employees_view();
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'departments'
+     ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.departments;
+  END IF;
+END $$;

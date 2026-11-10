@@ -1278,3 +1278,12 @@ body {
 .team-section-body {
     margin-top: 12px;
 }
+
+.training-validade--vencendo {
+    color: #b45309;
+    font-weight: 600;
+}
+.training-validade--vencido {
+    color: #dc2626;
+    font-weight: 600;
+}

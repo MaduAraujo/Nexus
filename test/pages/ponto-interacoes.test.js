@@ -379,6 +379,17 @@ describe('ponto-colaborador.html — câmera, prova de vida e verificação faci
         assert.equal(page.$('#btn-confirmar-ponto').disabled, false);
     });
 
+    test('prova de vida mostra o tempo da piscada e o registro guarda esse tempo (RF1.1)', async () => {
+        const { c } = await abrirSelfie();
+        await tirarSelfie();
+        assert.match(page.text('#selfie-hint'), /^Piscada detectada em \d+,\d s\.$/);
+        await page.waitFor(() => !page.$('#btn-confirmar-ponto').disabled);
+        await page.click('#btn-confirmar-ponto');
+        await page.waitFor(() => c.writes('activity_logs', 'insert').length === 1);
+        const ms = c.writes('activity_logs', 'insert')[0].payload[0].prova_vida_ms;
+        assert.ok(Number.isInteger(ms) && ms >= 0 && ms < 600, `tempo medido: ${ms}`);
+    });
+
     test('confirmar sem selfie avisa', async () => {
         await abrirSelfie();
         await page.window.confirmarRegistro();
