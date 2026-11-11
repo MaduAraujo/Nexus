@@ -59,10 +59,16 @@ Para não travar o RH durante a atualização:
 | `110` | Cria a ciência dos comunicados e a retenção de 5 anos dos atendimentos, e torna privado o bucket de avatares |
 | `111` e `112` | Incluem na publicação do Realtime todas as tabelas que o front acompanha |
 | `113` | Cria o contador de mensagens não lidas do chat e os triggers do push de mensagens |
+| `114` | Remove a leitura pública dos avatares, que passam a abrir por link assinado |
+| `115` | Liga o cargo do colaborador ao catálogo de cargos (`employees.job_title_id`) |
+| `116` | Deixa o cargo de estágio com nome neutro no catálogo |
+| `117` | Grava o tempo da prova de vida na batida, registra em `employee_audit` todo lançamento, alteração, pagamento e exclusão de holerite, cria a validade dos certificados de treinamento e o expediente (horário) por colaborador e por convenção coletiva, e faz os comunicados adiados saírem para cada colaborador no início do expediente dele |
+| `118` | Acrescenta os dias de trabalho e a escala 12x36 ao expediente e o alerta diário de certificado vencendo ou vencido na Central de Alertas |
+| `119` | Cria o cadastro de departamentos (`departments`), liga o colaborador a ele (`employees.department_id`) e leva a troca de nome para colaboradores, comunicados e canais do chat |
 
 ## Criando uma migration nova
 
-1. Crie o arquivo em `supabase/migrations/` com o próximo número da sequência e um nome curto em inglês, como `114_nome_da_mudanca.sql`.
+1. Crie o arquivo em `supabase/migrations/` com o próximo número da sequência e um nome curto em inglês, como `120_nome_da_mudanca.sql`.
 2. Reflita a mesma mudança em `supabase/schema.sql`, para que um projeto novo continue nascendo completo.
 3. Se adicionar coluna em `employees`, rode `select nexus_refresh_employees_view();` (o teste `test-integration/column-encryption.js` falha se a view ficar desatualizada).
 4. Acrescente a migration nesta tabela.

@@ -306,8 +306,6 @@ Quase toda tabela aponta para `employees` por `employee_id`. Os grupos principai
 | **Comunicação** | `messages`, `message_reads`, `chat_channels`, `chat_channel_members`, `chat_messages`, `e2e_channel_keys`, `hr_tickets`, `hr_ticket_messages`, `hr_ticket_hidden` |
 | **Alertas e auditoria** | `burnout_alerts`, `compliance_alerts`, `ai_decision_log`, `activity_logs`, `data_access_log`, `push_subscriptions`, `admin_push_subscriptions` |
 
-O diagrama mostra as tabelas de negócio. As de infraestrutura (limites de chamadas, eventos e regras de segurança, chaves de criptografia, códigos de recuperação do MFA e cache da IA) ficam de fora para não poluir a imagem; a definição completa de todas está em [`supabase/schema.sql`](supabase/schema.sql). A imagem é anterior às tabelas `departments` e `job_titles` e às colunas de validade de certificado, expediente e tempo da prova de vida (migrations 115 a 119), que já estão no schema.
-
 ---
 
 ## Base Legal e Normas

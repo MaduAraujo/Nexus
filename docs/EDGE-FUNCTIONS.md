@@ -11,7 +11,7 @@ As Edge Functions ficam em `supabase/functions/` e rodam no Supabase (TypeScript
 | `ai-alerts` | Analisa os dados da equipe e gera os alertas de burnout e compliance da Central de Alertas | `GROQ_API_KEY` |
 | `ai-employee-chat` | Assistente de IA que responde às dúvidas do colaborador sobre os próprios dados | `GROQ_API_KEY` |
 | `mfa-recover` | Recebe o código de recuperação do MFA, confere no banco (uso único, até 5 tentativas a cada 15 min) e desvincula o aplicativo autenticador | nenhuma |
-| `send-push` | Envia push quando o RH publica um comunicado imediato (não agendado) | VAPID, horário comercial |
+| `send-push` | Envia o push do comunicado a quem está no expediente e deixa os demais para o início do expediente de cada um; chamada pelo RH ao publicar e pelo banco para os adiados | VAPID, horário comercial |
 | `send-alert-push` | Envia push dos alertas de compliance e burnout; chamada pelo banco | VAPID, horário comercial |
 | `send-document-push` | Avisa o colaborador quando o RH entrega um documento (contrato, termos, políticas), respeitando a preferência "Documentos do RH" em Meu Perfil | VAPID, horário comercial |
 | `send-chat-push` | Avisa quem recebe mensagem no chat e o RH quando um colaborador pede atendimento, respeitando a preferência "Mensagens do chat" em Meu Perfil; chamada por triggers da migration `113` | VAPID, horário comercial |
@@ -22,7 +22,9 @@ Depois de publicar, confira no painel do Supabase (**Edge Functions**) que as no
 
 ## Notificações push
 
-- As funções de push só enviam em horário comercial (padrão das 8h às 18h, ajustável por `QUIET_HOURS_START_HOUR` e `QUIET_HOURS_END_HOUR`), por causa do direito à desconexão. Fora dele, o comunicado fica para o próximo horário comercial e o aviso de documento aparece só na tela inicial do colaborador.
+- Por causa do direito à desconexão, cada colaborador só recebe push no próprio expediente: o horário e os dias do cadastro dele, senão os da convenção coletiva, senão o padrão da empresa (8h às 18h, de segunda a sexta, com o horário ajustável por `QUIET_HOURS_START_HOUR` e `QUIET_HOURS_END_HOUR`). Turnos que viram a noite e a escala 12x36 são aceitos. A regra fica em `_shared/quiet-hours.mjs`.
+- Fora do expediente, o comunicado fica guardado e o banco chama a `send-push` de novo no início do expediente de quem ainda não recebeu (`messages.push_sent_to` e `push_next_at`). O aviso de documento e o de chat não são reenviados: aparecem só na tela inicial e no contador do menu.
+- Os pushes do RH (alertas e pedidos de atendimento no chat) seguem o horário padrão da empresa.
 - O push do chat nunca leva o conteúdo da mensagem, que pode estar cifrado de ponta a ponta. Em canais com várias pessoas, só a primeira mensagem não lida avisa; as seguintes aparecem no contador do menu.
 - A chave pública VAPID precisa estar também em `VAPID_PUBLIC_KEY`, no topo de `src/javascript/perfil-colaborador.js`, porque o navegador usa essa chave para se inscrever. Mantenha as duas iguais. Se estiverem diferentes, o botão "Notificações push do navegador" em Meu Perfil continua aparecendo, mas o envio falha e o erro fica só no log da `send-push`.
 
