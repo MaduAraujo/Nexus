@@ -1,18 +1,18 @@
-## Licença Proprietária e Direitos Autorais
+Licença Proprietária e Direitos Autorais
 
-**Copyright © 2026 Maria Eduarda Araújo e Vinicius Lopes. Todos os direitos reservados.**
+Copyright © 2026. Todos os direitos reservados.
 
-Este repositório e todos os seus artefatos associados — incluindo, mas não se limitando a, código-fonte, modelagem de banco de dados, documentação técnica, elementos visuais e a identidade da marca "Nexus" — constituem propriedade intelectual exclusiva dos autores.
+Este repositório e todos os seus artefatos associados incluindo, mas não se limitando a, código-fonte, modelagem de banco de dados, documentação técnica, elementos visuais e a identidade da marca Nexus — constituem propriedade intelectual exclusiva dos autores.
 
-### 1. Termos de Uso e Restrições
+1. Termos de Uso e Restrições
 
 A publicação deste código em ambiente aberto tem finalidade estritamente consultiva, de portfólio e avaliação acadêmica. É **expressamente proibido** copiar, modificar, distribuir, sublicenciar, comercializar ou incorporar este software (total ou parcialmente) em projetos de terceiros, sejam eles comerciais ou não, sem a prévia autorização formal e por escrito dos detentores dos direitos.
 
-### 2. Política de Contribuições
+2. Política de Contribuições
 
 Ao submeter qualquer tipo de contribuição a este repositório (como *Pull Requests*, abertura de *Issues* ou sugestões de código), o colaborador reconhece e autoriza que os autores utilizem, modifiquem e incorporem as referidas contribuições ao ecossistema do Nexus, submetendo-as de forma irrevogável aos mesmos termos desta licença proprietária.
 
-### 3. Uso Comercial e Contratação Corporativa (B2B)
+3. Uso Comercial e Contratação Corporativa (B2B)
 
 Empresas e organizações interessadas em adotar o Nexus em suas operações podem licenciá-lo mediante contratação direta com os autores. O modelo de parceria corporativa pode incluir:
 
@@ -20,8 +20,8 @@ Empresas e organizações interessadas em adotar o Nexus em suas operações pod
 * Suporte técnico especializado;
 * Desenvolvimento de módulos customizados sob demanda.
 
-*Nota legal:* Parâmetros operacionais como Acordos de Nível de Serviço (SLA), custos, garantias e as diretrizes rigorosas de conformidade com a Lei Geral de Proteção de Dados (LGPD) serão estabelecidos em contrato empresarial específico, cujas cláusulas terão precedência sobre este aviso.
+Nota legal: Parâmetros operacionais como Acordos de Nível de Serviço (SLA), custos, garantias e as diretrizes rigorosas de conformidade com a Lei Geral de Proteção de Dados (LGPD) serão estabelecidos em contrato empresarial específico, cujas cláusulas terão precedência sobre este aviso.
 
-### 4. Limitação de Responsabilidade (*Disclaimer*)
+4. Limitação de Responsabilidade (Disclaimer)
 
-Salvo quando amparado por um contrato formal de prestação de serviços B2B firmado com os autores, o software contido neste repositório é fornecido "no estado em que se encontra" (*as is*), sem garantias expressas ou implícitas de qualquer natureza. Os autores isentam-se de qualquer responsabilidade legal, perdas de dados, danos operacionais ou outras reclamações decorrentes do uso não autorizado deste software.
+Salvo quando amparado por um contrato formal de prestação de serviços B2B firmado com os autores, o software contido neste repositório é fornecido "no estado em que se encontra", sem garantias expressas ou implícitas de qualquer natureza. Os autores isentam-se de qualquer responsabilidade legal, perdas de dados, danos operacionais ou outras reclamações decorrentes do uso não autorizado deste software.
