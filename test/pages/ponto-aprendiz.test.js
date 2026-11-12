@@ -78,8 +78,8 @@ describe('ponto-colaborador.html — aprendiz (CLT art. 432)', () => {
         assert.equal(page.visible('#excesso-legal-bloco'), true);
         assert.match(page.text('#excesso-legal-msg'), /passaria 0h 30min da sua jornada hoje\. Aprendiz não pode fazer hora extra/);
         await page.click('#btn-selfie-shoot');
-        await page.settle();
         await page.fill('#excesso-legal-just', 'Reunião atrasou');
+        await page.waitFor(() => !page.$('#btn-confirmar-ponto').disabled, { message: 'selfie verificada' });
         await page.click('#btn-confirmar-ponto');
         await page.waitFor(() => page.toasts().length);
         const [alerta] = client.rpcCalls('report_daily_overtime_alert');

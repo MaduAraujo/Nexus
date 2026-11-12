@@ -48,8 +48,8 @@ async function baterPonto(p, { justificativa } = {}) {
     await p.click('#btn-ponto');
     assert.ok(p.$('#modal-confirmar').classList.contains('open'), 'modal de confirmação abre');
     await p.click('#btn-selfie-shoot');
-    await p.waitFor(() => !p.$('#btn-confirmar-ponto').disabled || justificativa, { message: 'selfie verificada' });
     if (justificativa) await p.fill('#excesso-legal-just', justificativa);
+    await p.waitFor(() => !p.$('#btn-confirmar-ponto').disabled, { message: 'selfie verificada' });
     await p.click('#btn-confirmar-ponto');
     await p.waitFor(() => p.toasts().length);
 }
@@ -155,7 +155,7 @@ describe('ponto-colaborador.html — registrar ponto', () => {
         assert.equal(page.visible('#excesso-legal-bloco'), true);
         assert.match(page.text('#excesso-legal-msg'), /3h 30min de horas extras hoje, acima do limite legal de 2h 00min\/dia/);
         await page.click('#btn-selfie-shoot');
-        await page.settle();
+        await page.waitFor(() => /Identidade confirmada/.test(page.text('#face-verify-status')), { message: 'selfie verificada' });
         assert.equal(page.$('#btn-confirmar-ponto').disabled, true, 'sem motivo não confirma');
         await page.fill('#excesso-legal-just', 'Fechamento do mês');
         assert.equal(page.$('#btn-confirmar-ponto').disabled, false);
