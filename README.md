@@ -923,8 +923,6 @@ Texto completo em [LICENSE](LICENSE).
 
 ### Documentação Acadêmica
 
-O Nexus foi desenvolvido como Trabalho de Conclusão de Curso do Bacharelado em Ciência da Computação da FAM, sob orientação do Prof. Me. Ranieri Marinho de Souza, e apresentado no 11º Congresso de Projetos Interdisciplinares.
-
 | Material | Link |
 |---|---|
 | Artigo do TCC | [docs/academico/artigo-tcc.pdf](docs/academico/artigo-tcc.pdf) |
