@@ -104,8 +104,8 @@ O Nexus usa a API da Groq (modelo GPT-OSS 120B) em dois lugares, sempre por Edge
 
 | Onde | Para quem | O que faz |
 |---|---|---|
-| **Central de Alertas** (`ai-alerts`) | RH | Analisa padrões de jornada (excesso de horas, ausências frequentes, baixa interação) e sinaliza possíveis riscos de burnout e prazos de compliance. Também gera relatórios e responde perguntas do RH sobre a equipe |
-| **Assistente no Chat** (`ai-employee-chat`) | Colaborador | Tira dúvidas do próprio colaborador sobre saldo de férias, banco de horas, ponto, holerites e contrato, usando só os dados dele |
+| **Central de Alertas** | RH | Analisa padrões de jornada (excesso de horas, ausências frequentes, baixa interação) e sinaliza possíveis riscos de burnout e prazos de compliance. Também gera relatórios e responde perguntas do RH sobre a equipe |
+| **Assistente no Chat** | Colaborador | Tira dúvidas do próprio colaborador sobre saldo de férias, banco de horas, ponto, holerites e contrato, usando só os dados dele |
 
 **Cuidados com os dados:**
 
@@ -146,7 +146,7 @@ O Nexus não tem um servidor de aplicação próprio. A Vercel só entrega os ar
 | **Back-end** | [Supabase](https://supabase.com/): PostgreSQL (regras de negócio em funções, triggers e RLS), Auth com MFA (TOTP), Storage, Realtime, Vault e pg_cron |
 | **Serverless** | Supabase Edge Functions em TypeScript (Deno): convites, IA, arquivos cifrados, recuperação do MFA e notificações push |
 | **Banco de dados** | PostgreSQL |
-| **Inteligência Artificial** | API da [Groq](https://groq.com/) com o modelo GPT-OSS 120B (`openai/gpt-oss-120b`) |
+| **Inteligência Artificial** | API da [Groq](https://groq.com/) com o modelo GPT-OSS 120B |
 | **Bibliotecas** | `supabase-js` · Chart.js (gráficos) · jsPDF e jsPDF-AutoTable (holerites, recibos e relatórios) · SheetJS (planilhas) · face-api.js (reconhecimento facial no ponto) · Tesseract.js (leitura de documentos por OCR) · Leaflet (mapa do ponto) · marked (respostas da IA) |
 | **Qualidade** | `node:test` + jsdom (unidade e telas) · Playwright (E2E) · axe-core (acessibilidade) · ESLint · Prettier · OWASP ZAP · GitHub Actions |
 | **Hospedagem** | Vercel (front-end) e Supabase (back-end) |
@@ -178,7 +178,7 @@ Os requisitos definidos no artigo do TCC, com o que o sistema entrega hoje, onde
 | Requisito | | Como o Nexus atende | Verificação |
 |---|:-:|---|---|
 | RF1.1 Prova de vida em até 5 s | ✅ | Piscada detectada no próprio navegador com face-api.js (`ponto-colaborador.js`), com limite de 5 s contados no relógio. O tempo de cada prova de vida aparece para o colaborador e fica gravado na batida (`activity_logs.prova_vida_ms`). Os modelos de reconhecimento são baixados ao abrir a tela, fora desse tempo | `pages/ponto-interacoes.test.js`, `requisitos-pendentes.js` |
-| RF1.2 Ponto disponível 99,9% do tempo | ⚠️ | O ponto funciona offline e envia as marcações quando a conexão volta, mas a disponibilidade depende da Vercel e do Supabase (plano Free, sem SLA) | `ponto-colaborador-flow.test.js`, `holerite-pago-ponto-offline.js` |
+| RF1.2 Ponto disponível 99,9% do tempo | ⚠️ | O ponto funciona offline e envia as marcações quando a conexão volta, mas a disponibilidade depende da Vercel e do Supabase. **Limitação:** não dá para garantir no plano Free, que não tem SLA | `ponto-colaborador-flow.test.js`, `holerite-pago-ponto-offline.js` |
 | RF1.3 Senhas e documentos cifrados | ✅ | Senhas com hash pelo Supabase Auth; documentos e selfies cifrados de ponta a ponta e com AES-256-GCM | `e2e-crypto.test.js`, `file-crypto.test.js`, `e2e-keys.js` |
 | RF1.4 Interface simples no celular e no computador | ✅ | Telas responsivas e PWA instalável | Conferência manual; `e2e/acessibilidade.spec.js` |
 | RF1.5 Banco de horas e faltas sem erro de cálculo | ✅ | `domain/clt-domain.js` e `shared/faltas.js`, conferidos contra o mesmo cálculo feito nas Edge Functions | `jornada-paridade.test.js`, `banco-horas-flow.test.js`, `faltas-loader.test.js` |
@@ -191,7 +191,7 @@ Os requisitos definidos no artigo do TCC, com o que o sistema entrega hoje, onde
 | RF2.2 Férias conforme a CLT | ✅ | Período aquisitivo, fracionamento, aviso de 30 dias, abono e férias vencidas em `domain/clt-domain.js` e em triggers do banco | `clt-domain-regras-clt.test.js`, `ferias-regras-banco.js` |
 | RF2.3 13º nas datas da lei | ✅ | Avos, 1ª e 2ª parcela e descontos calculados em `domain/eventos-folha.js`. O modal do 13º mostra o prazo de cada parcela (30/11 e 20/12, antecipado para sexta quando cai no fim de semana); a 30 dias do prazo o botão do 13º passa a indicar quantos colaboradores ainda não receberam; depois do prazo, gerar a parcela exige confirmação. O pagamento atrasado não é bloqueado, porque isso deixaria o colaborador sem receber | `eventos-folha.test.js`, `pages/pagamentos-prazo-13.test.js`, `rescisao-13-pago.test.js` |
 | RF2.4 Lançamentos de folha com log | ✅ | Um trigger no banco (migration 117) registra em `employee_audit`, cifrado, todo lançamento, alteração, pagamento e exclusão de holerite, com quem fez e o valor anterior e novo de cada provento e desconto. Por estar no banco, vale também para chamadas feitas fora da tela. Holerite pago não pode mais ser alterado | `requisitos-pendentes.js`, `employee-audit-encryption.js`, `holerite-pago-ponto-offline.js` |
-| RF2.5 Rescisão conforme a lei e o eSocial | ⚠️ | Verbas por tipo de desligamento e regime e prazo de pagamento (CLT art. 477 §6º) em `domain/calculo-rescisao.js`. Não há integração com o eSocial | `calculo-rescisao*.test.js`, `e2e/rescisao.spec.js` |
+| RF2.5 Rescisão conforme a lei e o eSocial | ⚠️ | Verbas por tipo de desligamento e regime e prazo de pagamento (CLT art. 477 §6º) em `domain/calculo-rescisao.js`. Não há integração com o eSocial. **Limitação:** exige certificado digital e envio ao governo | `calculo-rescisao*.test.js`, `e2e/rescisao.spec.js` |
 
 **RF3 · Desenvolvimento de colaboradores**
 
@@ -291,7 +291,7 @@ O código não usa classes: os métodos do diagrama viram funções JavaScript d
 
 <p align="center">
   <a href="README/der.jpg"><img src="README/der.jpg" alt="Diagrama entidade-relacionamento com a tabela employees no centro, ligada às tabelas de ponto, férias, folha, documentos, desempenho, treinamentos, chat, atendimento e alertas" width="700"></a>
-  <br><em>DER do banco do Nexus (clique para ampliar)</em>
+  <br><em>DER do banco do Nexus</em>
 </p>
 
 Quase toda tabela aponta para `employees` por `employee_id`. Os grupos principais são:
@@ -755,10 +755,10 @@ Esta versão entrega a base do sistema, mas ainda tem limites conhecidos. Eles e
 |---|---|
 | **Escopo** | Não há recrutamento e seleção, e cada instalação atende uma única empresa |
 | **Ponto eletrônico** | Não é um REP-P da Portaria MTP 671/2021: não gera AFD, AEJ nem comprovante de marcação, uma correção aprovada substitui o horário original e o RH consegue apagar marcações |
-| **Folha** | Não há integração com o eSocial: os eventos (S-1200, S-2299 etc.) não são gerados nem transmitidos |
+| **Folha** | Não há integração com o eSocial: os eventos (S-1200, S-2299 etc.) não são gerados nem transmitidos, porque isso exige certificado digital e envio ao governo (RF2.5) |
 | **Departamentos** | O responsável do departamento fica registrado, mas o acesso do gestor continua pela equipe ligada a ele (`manager_id`), não pelo departamento inteiro |
 | **Direito à desconexão** | Feriados não entram no cálculo do expediente, e escalas diferentes de dias fixos e 12x36 (como 6x1 com folga rotativa) ainda não são representadas |
-| **Infraestrutura** | O projeto roda no plano Free do Supabase, sem garantia de disponibilidade (SLA), e a IA depende da disponibilidade da Groq |
+| **Infraestrutura** | O projeto roda no plano Free do Supabase, e os 99,9% de disponibilidade do ponto (RF1.2) não dá para garantir no plano Free, que não tem SLA. A IA também depende da disponibilidade da Groq |
 | **Responsividade** | O uso no celular é conferido à mão; não há teste automatizado de layout |
 
 ### Trabalhos Futuros
