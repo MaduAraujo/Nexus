@@ -56,6 +56,10 @@ test.describe('Fluxos de RH de ponta a ponta (Supabase local real)', () => {
     });
 });
 
+async function cameraComImagem(page, video) {
+    await expect.poll(() => page.locator(video).evaluate((v) => v.videoWidth), { timeout: 15000 }).toBeGreaterThan(0);
+}
+
 async function rostoSimulado(page) {
     await page.route('**/@vladmandic/face-api@*/**', (route) => route.abort());
     await page.addInitScript(() => {
@@ -115,6 +119,7 @@ test.describe('Ponto (Supabase local real)', () => {
         await expect(page.locator('#modal-biometria')).toHaveClass(/open/);
         await expect(page.locator('#modal-confirmar')).not.toHaveClass(/open/);
         await page.check('#biometria-consentimento');
+        await cameraComImagem(page, '#bio-video');
         await page.click('#btn-biometria-salvar');
         await expect(page.locator('.toast', { hasText: 'Biometria facial cadastrada' })).toBeVisible({ timeout: 20000 });
         await expect(page.locator('#biometria-status-text')).toContainText('cadastrada em');
@@ -125,6 +130,7 @@ test.describe('Ponto (Supabase local real)', () => {
 
         await page.click('#btn-ponto');
         await expect(page.locator('#btn-selfie-shoot')).toBeEnabled({ timeout: 15000 });
+        await cameraComImagem(page, '#selfie-video');
         await page.click('#btn-selfie-shoot');
         await expect(page.locator('#face-verify-status')).toContainText('Identidade confirmada', { timeout: 60000 });
         await expect(page.locator('#btn-confirmar-ponto')).toBeEnabled();
