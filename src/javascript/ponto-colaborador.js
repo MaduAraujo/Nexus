@@ -1092,6 +1092,11 @@ window.abrirConfirmar = function () {
     const rec = getTodayRec();
     const step = nextStep(rec);
     if (step === 'encerrado') return;
+    if (biometriaStatus?.enrolled === false) {
+        showToast('Cadastre sua biometria facial para registrar o ponto.', 'warning');
+        window.abrirCadastroBiometria();
+        return;
+    }
     pendingStep = step;
     const now = new Date(),
         ini = initials(myEmployee.name),
@@ -1232,7 +1237,7 @@ window.capturarSelfie = async function () {
         canvas = $('selfie-canvas'),
         preview = $('selfie-preview');
     if (!video.videoWidth) return;
-    if (biometriaStatus?.enrolled && !(await exigirProvaDeVida(video, $('selfie-hint'), $('btn-selfie-shoot')))) return;
+    if (!(await exigirProvaDeVida(video, $('selfie-hint'), $('btn-selfie-shoot')))) return;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -1270,7 +1275,8 @@ window.retomarSelfie = function () {
 };
 
 const FACE_MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
-const BIOMETRIA_CONSENTIMENTO_VERSAO = 'biometria-ponto-v1';
+const BIOMETRIA_CONSENTIMENTO_VERSAO = 'biometria-ponto-v2';
+const BIOMETRIA_PENDENTE_HTML = '<i class="fas fa-triangle-exclamation"></i> Cadastre sua biometria facial antes de registrar o ponto.';
 
 function loadFaceModels() {
     if (!faceModelsPromise) {
@@ -1359,7 +1365,7 @@ function renderBiometriaCard() {
     const cadastrada = !!biometriaStatus?.enrolled;
     txt.textContent = cadastrada
         ? `Biometria facial cadastrada em ${new Date(biometriaStatus.consent_at).toLocaleDateString('pt-BR')}`
-        : 'Biometria facial não cadastrada — seus registros não têm verificação de identidade.';
+        : 'Biometria facial não cadastrada — cadastre para poder registrar o ponto.';
     btnCadastrar?.classList.toggle('hidden', cadastrada);
     btnRevogar?.classList.toggle('hidden', !cadastrada);
 }
@@ -1384,7 +1390,7 @@ async function verificarIdentidadeSelfie(selfieDataUrl) {
     setStatus('checking', '<i class="fas fa-spinner fa-spin"></i> Verificando identidade...');
 
     if (!(await biometriaCadastrada())) {
-        liberar('<i class="fas fa-circle-info"></i> Biometria facial não cadastrada — verificação de identidade não realizada.');
+        setStatus('erro', BIOMETRIA_PENDENTE_HTML);
         return;
     }
 
@@ -1413,8 +1419,8 @@ async function verificarIdentidadeSelfie(selfieDataUrl) {
     if (error) {
         setStatus('erro', `<i class="fas fa-triangle-exclamation"></i> ${escapeHtml(error.message || 'Não foi possível verificar a identidade.')}`);
     } else if (!data?.enrolled) {
-        liberar('<i class="fas fa-circle-info"></i> Biometria facial não cadastrada — verificação de identidade não realizada.');
-        return;
+        setStatus('erro', BIOMETRIA_PENDENTE_HTML);
+        await carregarStatusBiometria();
     } else if (data.matched) {
         faceVerified = true;
         biometricToken = data.verification_id;
@@ -1498,16 +1504,13 @@ window.salvarBiometria = async function () {
 };
 
 window.revogarBiometria = async function () {
-    if (
-        !confirm('Revogar o consentimento e apagar sua biometria facial? Seus registros de ponto deixam de ter verificação de identidade até um novo cadastro.')
-    )
-        return;
+    if (!confirm('Apagar sua biometria facial? O registro de ponto fica bloqueado até você cadastrar o rosto de novo.')) return;
     const { error } = await sb.rpc('biometric_revoke');
     if (error) {
-        showToast('Não foi possível revogar agora. Tente novamente.', 'error');
+        showToast('Não foi possível apagar agora. Tente novamente.', 'error');
         return;
     }
-    showToast('Biometria facial apagada.', 'success');
+    showToast('Biometria facial apagada. Cadastre de novo para registrar o ponto.', 'success');
     await carregarStatusBiometria();
 };
 

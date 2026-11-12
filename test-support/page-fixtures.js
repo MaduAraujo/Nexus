@@ -81,4 +81,24 @@ const AAL1_NO_MFA = { level: { currentLevel: 'aal1', nextLevel: 'aal1' } };
 const AAL1_CHALLENGE = { level: { currentLevel: 'aal1', nextLevel: 'aal2' } };
 const FIXED_NOW = '2026-06-17T14:00:00-03:00';
 
-module.exports = { RH_USER, COLAB_USER, MANAGER_USER, ANA, BIA, CAIO, EMPLOYEES, DEPARTMENTS, profiles, baseTables, AAL1_NO_MFA, AAL1_CHALLENGE, FIXED_NOW };
+const BIOMETRIA_OK = {
+    biometric_status: { enrolled: true, consent_at: '2026-06-01T10:00:00Z' },
+    biometric_verify: { enrolled: true, matched: true, verification_id: 'tok-bio' },
+};
+
+module.exports = {
+    RH_USER,
+    COLAB_USER,
+    MANAGER_USER,
+    ANA,
+    BIA,
+    CAIO,
+    EMPLOYEES,
+    DEPARTMENTS,
+    profiles,
+    baseTables,
+    AAL1_NO_MFA,
+    AAL1_CHALLENGE,
+    FIXED_NOW,
+    BIOMETRIA_OK,
+};

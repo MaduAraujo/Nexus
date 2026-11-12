@@ -332,11 +332,13 @@ describe('Regra 7 — biometria facial isolada, cifrada e comparada só no banco
         });
     });
 
-    test('sem biometria cadastrada, a batida segue sem verificação', async () => {
-        const { rows } = await colabA((db) =>
-            db.query(`SELECT (punch_time_record((now() AT TIME ZONE 'America/Sao_Paulo')::date, 'entrada')).entrada IS NOT NULL AS ok`)
-        );
-        assert.deepEqual(rows, [{ ok: true }]);
+    test('sem biometria cadastrada, a batida é recusada', async () => {
+        await colabA(async (db) => {
+            await assert.rejects(() => db.query(`SELECT punch_time_record((now() AT TIME ZONE 'America/Sao_Paulo')::date, 'entrada')`), {
+                code: '42501',
+                message: /Cadastre sua biometria facial/,
+            });
+        });
     });
 
     test('cadastro cifra o modelo e ninguém o lê pela API (nem o RH, nem o próprio colaborador)', async () => {
@@ -416,7 +418,7 @@ describe('Regra 7 — biometria facial isolada, cifrada e comparada só no banco
         assert.equal(modelo.rows[0].r.matched, false, 'vetor idêntico ao cadastro não é uma selfie nova');
     });
 
-    test('revogar o consentimento apaga o modelo e o histórico de verificações', async () => {
+    test('apagar a biometria remove o modelo e o histórico de verificações, e o ponto volta a ser recusado', async () => {
         await colabA((db) => db.query('SELECT biometric_revoke()'), { commit: true });
         const { rows } = await withServiceRole((db) =>
             db.query(
@@ -425,6 +427,12 @@ describe('Regra 7 — biometria facial isolada, cifrada e comparada só no banco
             )
         );
         assert.deepEqual(rows, [{ t: 0, v: 0 }]);
+        await colabA(async (db) => {
+            await assert.rejects(() => db.query(`SELECT punch_time_record((now() AT TIME ZONE 'America/Sao_Paulo')::date, 'saida')`), {
+                code: '42501',
+                message: /Cadastre sua biometria facial/,
+            });
+        });
     });
 
     test('a foto de perfil não é referência biométrica: o modelo entra na rotação de chaves como coluna cifrada', async () => {

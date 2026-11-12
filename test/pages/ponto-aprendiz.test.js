@@ -1,7 +1,7 @@
 const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { openPage, FakeSupabase } = require('../../test-support/page-harness');
-const { COLAB_USER, ANA, baseTables } = require('../../test-support/page-fixtures');
+const { COLAB_USER, ANA, baseTables, BIOMETRIA_OK } = require('../../test-support/page-fixtures');
 
 let page;
 afterEach(() => page?.close());
@@ -36,7 +36,7 @@ function aprendizClient({ records = [], now, contract_type = 'Aprendiz' } = {}) 
         user: COLAB_USER,
         now: now ? () => new Date(now).toISOString() : undefined,
         tables,
-        rpc: { punch_time_record: punchRpc, report_daily_overtime_alert: {}, biometric_status: { enrolled: false } },
+        rpc: { punch_time_record: punchRpc, report_daily_overtime_alert: {}, ...BIOMETRIA_OK },
     });
 }
 

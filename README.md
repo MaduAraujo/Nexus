@@ -15,6 +15,7 @@
 ## Índice
 
 - [Sobre o Projeto](#sobre-o-projeto)
+- [Pesquisa e Mercado](#pesquisa-e-mercado)
 - [Painel do RH](#painel-do-rh)
 - [Portal do Colaborador](#portal-do-colaborador)
 - [Inteligência Artificial](#inteligência-artificial)
@@ -28,6 +29,7 @@
 - [Segurança e Criptografia](#segurança-e-criptografia)
 - [Privacidade (LGPD) e Operação](#privacidade-lgpd-e-operação)
 - [Limitações e Trabalhos Futuros](#limitações-e-trabalhos-futuros)
+- [Modelo de Negócio](#modelo-de-negócio)
 - [Governança e Autoria](#governança-e-autoria)
 
 ---
@@ -41,6 +43,17 @@ O Nexus resolve os gargalos do ciclo de vida do funcionário contratado através
 O projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC), com o objetivo de mostrar como um sistema web pode substituir planilhas, registro de ponto em dispositivos físicos e pastas compartilhadas na rotina do RH, aplicando as regras da legislação trabalhista e da LGPD no próprio sistema.
 
 > **Nota de Escopo:** o Nexus é focado inteiramente na jornada do colaborador ativo. Ele não possui módulos de recrutamento e seleção nem suporte a múltiplas empresas na mesma conta.
+
+### Por que o Nexus?
+
+Nas pequenas e médias empresas, o RH ainda depende de planilhas, papel e WhatsApp. Isso gera erros, retrabalho e riscos trabalhistas, e deixa passar os sinais de esgotamento da equipe.
+
+| Indicador | Número | Fonte |
+|---|---|---|
+| Afastamentos por burnout no Brasil | 823 em 2021 → 7.595 em 2025 (+823%) | Ministério da Previdência Social, via g1 |
+| Ações trabalhistas por burnout (2016–2026) | 22,8 mil, com R$ 9,9 bi em pedidos | Estudo Predictus, via Jota |
+
+O Nexus automatiza e centraliza a gestão do RH e acrescenta uma camada preventiva: a Central de Alertas sinaliza o risco de burnout antes do afastamento.
 
 ### Demonstração
 
@@ -58,6 +71,39 @@ O projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC), com o obj
   <img src="README/chat%20IA.png" alt="Central de Alertas com o Assistente RH" width="900">
   <br><em>Central de Alertas com o assistente de IA</em>
 </p>
+
+---
+
+## Pesquisa e Mercado
+
+### Soluções Semelhantes
+
+Seis sistemas de RH do mercado foram comparados nas duas frentes que diferenciam o Nexus.
+
+| Solução | Desconexão fora do expediente | Risco de burnout |
+|---|---|---|
+| **Nexus** | ✅ Automática, pelo expediente de cada colaborador | ✅ IA sobre os dados de jornada |
+| Sólides | — | — |
+| VR Pontomais | — | — |
+| Gupy | — | 🟡 IA em pesquisa de clima |
+| Feedz by TOTVS | 🟡 Agendamento manual | 🟡 Humor autodeclarado |
+| Factorial | — | — |
+| Convenia | — | — |
+
+**Legenda:** ✅ presente · 🟡 parcial · — não identificado. Só o Nexus une as duas frentes.
+
+### Pesquisa com Usuários
+
+Questionário aplicado a trabalhadores de empresas com até 200 colaboradores, com 31 respostas.
+
+| Resultado | % |
+|---|---|
+| Atualizam dados por e-mail, WhatsApp ou papel | 87% |
+| Enviam férias e atestados fora de um sistema | 73% |
+| Já esperaram ou tiveram dificuldade com o RH | 67% |
+| Não se sentem totalmente seguros com seus dados | 67% |
+
+As funcionalidades mais pedidas foram o acesso a holerites (61%) e um canal rastreável com o RH (55%), e ambas estão no Portal do Colaborador.
 
 ---
 
@@ -158,7 +204,7 @@ O Nexus não tem um servidor de aplicação próprio. A Vercel só entrega os ar
 - **Isolamento de dados por usuário.** Row Level Security em todas as tabelas, MFA obrigatório para o RH e acesso cortado automaticamente para quem é desligado.
 - **Tempo real e persistência offline.** Os dois ambientes se atualizam pelo Supabase Realtime, sem polling. O ponto registrado sem internet fica numa fila local e é enviado com o horário do aparelho quando a conexão volta.
 - **IA com privacidade.** Antes de chegar ao modelo, os nomes dos colaboradores são trocados por apelidos (`[P1]`, `[P2]`…), e cada usuário tem limite de chamadas por hora.
-- **Biometria com prova de vida.** O ponto compara o rosto no banco, a partir de um modelo facial cifrado e fora do alcance da API, e pede que a pessoa pisque para recusar foto ou vídeo gravado.
+- **Biometria obrigatória com prova de vida.** O colaborador cadastra o próprio rosto antes do primeiro registro de ponto; sem esse cadastro, o banco recusa a batida. O ponto compara o rosto no banco, a partir de um modelo facial cifrado e fora do alcance da API, e pede que a pessoa pisque para recusar foto ou vídeo gravado.
 - **LGPD e direito à desconexão.** Retenção automática de dados pelo pg_cron, backup cifrado com ensaio mensal de restauração, e notificações enviadas só no expediente de cada colaborador (o do cadastro, senão o da convenção coletiva, senão o da empresa).
 - **Segurança do front-end.** Content-Security-Policy sem `'unsafe-inline'`, bibliotecas externas com versão fixa e SRI, e um teste que analisa o código (AST) e falha se algum texto de usuário entrar no HTML sem escape.
 - **Testes e CI.** Mais de 2.000 testes automatizados, com cobertura mínima de 99% de linhas, ramos e funções exigida no CI. Também rodam no CI testes de integração das políticas de RLS contra um PostgreSQL real, E2E no navegador (folha, rescisão, documentos, comunicados, vários perfis), acessibilidade WCAG 2.1 AA, navegação por teclado, carga e varredura OWASP ZAP.
@@ -169,78 +215,76 @@ O Nexus não tem um servidor de aplicação próprio. A Vercel só entrega os ar
 
 Os requisitos definidos no artigo do TCC, com o que o sistema entrega hoje, onde cada um está e qual teste o comprova. Os caminhos de teste ficam em `test/` (unidade e telas), `test-integration/` (banco real) e `e2e/` (navegador).
 
-**Legenda:** ✅ atendido · ⚠️ atendido em parte · ❌ não atendido
-
 ### Requisitos Funcionais
 
 **RF1 · Cadastro e jornada**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF1.1 Prova de vida em até 5 s | ✅ | Piscada detectada no próprio navegador com face-api.js (`ponto-colaborador.js`), com limite de 5 s contados no relógio. O tempo de cada prova de vida aparece para o colaborador e fica gravado na batida (`activity_logs.prova_vida_ms`). Os modelos de reconhecimento são baixados ao abrir a tela, fora desse tempo | `pages/ponto-interacoes.test.js`, `requisitos-pendentes.js` |
-| RF1.2 Ponto disponível 99,9% do tempo | ⚠️ | O ponto funciona offline e envia as marcações quando a conexão volta, mas a disponibilidade depende da Vercel e do Supabase. **Limitação:** não dá para garantir no plano Free, que não tem SLA | `ponto-colaborador-flow.test.js`, `holerite-pago-ponto-offline.js` |
-| RF1.3 Senhas e documentos cifrados | ✅ | Senhas com hash pelo Supabase Auth; documentos e selfies cifrados de ponta a ponta e com AES-256-GCM | `e2e-crypto.test.js`, `file-crypto.test.js`, `e2e-keys.js` |
-| RF1.4 Interface simples no celular e no computador | ✅ | Telas responsivas e PWA instalável | Conferência manual; `e2e/acessibilidade.spec.js` |
-| RF1.5 Banco de horas e faltas sem erro de cálculo | ✅ | `domain/clt-domain.js` e `shared/faltas.js`, conferidos contra o mesmo cálculo feito nas Edge Functions | `jornada-paridade.test.js`, `banco-horas-flow.test.js`, `faltas-loader.test.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF1.1 Prova de vida em até 5 s | Piscada detectada no próprio navegador com face-api.js (`ponto-colaborador.js`), com limite de 5 s contados no relógio. O tempo de cada prova de vida aparece para o colaborador e fica gravado na batida (`activity_logs.prova_vida_ms`). Os modelos de reconhecimento são baixados ao abrir a tela, fora desse tempo | `pages/ponto-interacoes.test.js`, `requisitos-pendentes.js` |
+| RF1.2 Ponto disponível 99,9% do tempo | O ponto funciona offline e envia as marcações quando a conexão volta, mas a disponibilidade depende da Vercel e do Supabase. **Limitação:** não dá para garantir no plano Free, que não tem SLA | `ponto-colaborador-flow.test.js`, `holerite-pago-ponto-offline.js` |
+| RF1.3 Senhas e documentos cifrados | Senhas com hash pelo Supabase Auth; documentos e selfies cifrados de ponta a ponta e com AES-256-GCM | `e2e-crypto.test.js`, `file-crypto.test.js`, `e2e-keys.js` |
+| RF1.4 Interface simples no celular e no computador | Telas responsivas e PWA instalável | Conferência manual; `e2e/acessibilidade.spec.js` |
+| RF1.5 Banco de horas e faltas sem erro de cálculo | `domain/clt-domain.js` e `shared/faltas.js`, conferidos contra o mesmo cálculo feito nas Edge Functions | `jornada-paridade.test.js`, `banco-horas-flow.test.js`, `faltas-loader.test.js` |
 
 **RF2 · Folha e benefícios**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF2.1 Holerite visível só ao colaborador e ao RH | ✅ | RLS na tabela `payslips` e leitura pela view cifrada `payslips_decrypted` | `rls-policies.js`, `column-encryption.js` |
-| RF2.2 Férias conforme a CLT | ✅ | Período aquisitivo, fracionamento, aviso de 30 dias, abono e férias vencidas em `domain/clt-domain.js` e em triggers do banco | `clt-domain-regras-clt.test.js`, `ferias-regras-banco.js` |
-| RF2.3 13º nas datas da lei | ✅ | Avos, 1ª e 2ª parcela e descontos calculados em `domain/eventos-folha.js`. O modal do 13º mostra o prazo de cada parcela (30/11 e 20/12, antecipado para sexta quando cai no fim de semana); a 30 dias do prazo o botão do 13º passa a indicar quantos colaboradores ainda não receberam; depois do prazo, gerar a parcela exige confirmação. O pagamento atrasado não é bloqueado, porque isso deixaria o colaborador sem receber | `eventos-folha.test.js`, `pages/pagamentos-prazo-13.test.js`, `rescisao-13-pago.test.js` |
-| RF2.4 Lançamentos de folha com log | ✅ | Um trigger no banco (migration 117) registra em `employee_audit`, cifrado, todo lançamento, alteração, pagamento e exclusão de holerite, com quem fez e o valor anterior e novo de cada provento e desconto. Por estar no banco, vale também para chamadas feitas fora da tela. Holerite pago não pode mais ser alterado | `requisitos-pendentes.js`, `employee-audit-encryption.js`, `holerite-pago-ponto-offline.js` |
-| RF2.5 Rescisão conforme a lei e o eSocial | ⚠️ | Verbas por tipo de desligamento e regime e prazo de pagamento (CLT art. 477 §6º) em `domain/calculo-rescisao.js`. Não há integração com o eSocial. **Limitação:** exige certificado digital e envio ao governo | `calculo-rescisao*.test.js`, `e2e/rescisao.spec.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF2.1 Holerite visível só ao colaborador e ao RH | RLS na tabela `payslips` e leitura pela view cifrada `payslips_decrypted` | `rls-policies.js`, `column-encryption.js` |
+| RF2.2 Férias conforme a CLT | Período aquisitivo, fracionamento, aviso de 30 dias, abono e férias vencidas em `domain/clt-domain.js` e em triggers do banco | `clt-domain-regras-clt.test.js`, `ferias-regras-banco.js` |
+| RF2.3 13º nas datas da lei | Avos, 1ª e 2ª parcela e descontos calculados em `domain/eventos-folha.js`. O modal do 13º mostra o prazo de cada parcela (30/11 e 20/12, antecipado para sexta quando cai no fim de semana); a 30 dias do prazo o botão do 13º passa a indicar quantos colaboradores ainda não receberam; depois do prazo, gerar a parcela exige confirmação. O pagamento atrasado não é bloqueado, porque isso deixaria o colaborador sem receber | `eventos-folha.test.js`, `pages/pagamentos-prazo-13.test.js`, `rescisao-13-pago.test.js` |
+| RF2.4 Lançamentos de folha com log | Um trigger no banco (migration 117) registra em `employee_audit`, cifrado, todo lançamento, alteração, pagamento e exclusão de holerite, com quem fez e o valor anterior e novo de cada provento e desconto. Por estar no banco, vale também para chamadas feitas fora da tela. Holerite pago não pode mais ser alterado | `requisitos-pendentes.js`, `employee-audit-encryption.js`, `holerite-pago-ponto-offline.js` |
+| RF2.5 Rescisão conforme a lei e o eSocial | Verbas por tipo de desligamento e regime e prazo de pagamento (CLT art. 477 §6º) em `domain/calculo-rescisao.js`. Não há integração com o eSocial. **Limitação:** exige certificado digital e envio ao governo | `calculo-rescisao*.test.js`, `e2e/rescisao.spec.js` |
 
 **RF3 · Desenvolvimento de colaboradores**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF3.1 Sigilo das avaliações | ✅ | RLS: o colaborador vê só a própria avaliação, o gestor só a da equipe e o RH todas | `performance-reviews.js` |
-| RF3.2 Treinamentos com certificado e validade | ✅ | Certificado anexado e cifrado em cada treinamento, com data de validade (`certificado_valido_ate`). O catálogo pode ter a validade em meses, e o banco calcula a data ao concluir o treinamento; no curso autodeclarado o colaborador informa a data. As listas mostram válido, vencendo (30 dias) ou vencido, e o alerta diário de compliance (migration 118) avisa o RH na Central de Alertas até a reciclagem ser registrada | `requisitos-pendentes.js`, `datas-validade-certificado.test.js`, `trainings.js` |
-| RF3.3 Disciplinares com acesso restrito | ✅ | RLS: RH registra, gestor só lê os da equipe e o colaborador vê os seus e dá ciência eletrônica | `disciplinary-actions.js` |
-| RF3.4 Atestados protegidos | ✅ | Tabela `medical_leaves` com anexo cifrado e acesso só do colaborador e do RH | `medical-leaves.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF3.1 Sigilo das avaliações | RLS: o colaborador vê só a própria avaliação, o gestor só a da equipe e o RH todas | `performance-reviews.js` |
+| RF3.2 Treinamentos com certificado e validade | Certificado anexado e cifrado em cada treinamento, com data de validade (`certificado_valido_ate`). O catálogo pode ter a validade em meses, e o banco calcula a data ao concluir o treinamento; no curso autodeclarado o colaborador informa a data. As listas mostram válido, vencendo (30 dias) ou vencido, e o alerta diário de compliance (migration 118) avisa o RH na Central de Alertas até a reciclagem ser registrada | `requisitos-pendentes.js`, `datas-validade-certificado.test.js`, `trainings.js` |
+| RF3.3 Disciplinares com acesso restrito | RLS: RH registra, gestor só lê os da equipe e o colaborador vê os seus e dá ciência eletrônica | `disciplinary-actions.js` |
+| RF3.4 Atestados protegidos | Tabela `medical_leaves` com anexo cifrado e acesso só do colaborador e do RH | `medical-leaves.js` |
 
 **RF4 · Comunicação**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF4.1 Comunicados só pelo RH | ✅ | RLS: apenas o RH grava na tabela `messages`; colaboradores só leem e confirmam ciência | `ciencia-comunicados-avatars.js`, `e2e/comunicados.spec.js` |
-| RF4.2 Chat cifrado em trânsito | ✅ | HTTPS em todo o tráfego e, além disso, mensagens cifradas de ponta a ponta no navegador | `e2e-crypto.test.js`, `e2e-keys.js` |
-| RF4.3 Canais só para membros | ✅ | Tabela `chat_channel_members` e uma chave de cifragem por canal, entregue só aos membros | `e2e-keys.js`, `chat-nao-lidas-push.js` |
-| RF4.4 Sigilo no atendimento ao RH | ✅ | RLS: o colaborador vê só os próprios chamados | `rls-policies.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF4.1 Comunicados só pelo RH | RLS: apenas o RH grava na tabela `messages`; colaboradores só leem e confirmam ciência | `ciencia-comunicados-avatars.js`, `e2e/comunicados.spec.js` |
+| RF4.2 Chat cifrado em trânsito | HTTPS em todo o tráfego e, além disso, mensagens cifradas de ponta a ponta no navegador | `e2e-crypto.test.js`, `e2e-keys.js` |
+| RF4.3 Canais só para membros | Tabela `chat_channel_members` e uma chave de cifragem por canal, entregue só aos membros | `e2e-keys.js`, `chat-nao-lidas-push.js` |
+| RF4.4 Sigilo no atendimento ao RH | RLS: o colaborador vê só os próprios chamados | `rls-policies.js` |
 
 **RF5 · Indicadores de risco**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF5.1 Alertas de burnout sem discriminação nem punição | ✅ | Regras em `domain/burnout-domain.js`, nomes trocados por apelidos antes da IA e nenhuma ação automática sobre o colaborador | `burnout-domain.test.js`, `pseudonymize.test.js`, `ai-alerts-snapshot.test.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF5.1 Alertas de burnout sem discriminação nem punição | Regras em `domain/burnout-domain.js`, nomes trocados por apelidos antes da IA e nenhuma ação automática sobre o colaborador | `burnout-domain.test.js`, `pseudonymize.test.js`, `ai-alerts-snapshot.test.js` |
 
 **RF6 · Organização por departamento**
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RF6.1 Cadastrar, editar e inativar departamentos | ✅ | Tabela `departments` (migration 119) com nome, descrição, responsável e situação, gerida pelo RH no botão Departamentos da tela Colaboradores. O cadastro do colaborador, a importação por planilha e os destinos dos comunicados usam essa lista. Departamento inativo mantém quem já está nele e não recebe ninguém novo; com colaboradores, não pode ser excluído; renomear atualiza colaboradores, comunicados e canal do chat | `departamentos.js`, `pages/colaboradores-departamentos.test.js`, `pages/comunicacao.test.js` |
-| RF6.2 Vincular colaborador a departamento e gestor | ✅ | `department_id` (ligado ao cadastro de departamentos) e `manager_id` no cadastro do colaborador | `pages/colaboradores.test.js` |
-| RF6.3 Consultar por departamento | ✅ | Filtro por departamento na tela Colaboradores | `pages/colaboradores.test.js` |
-| RF6.4 Gestor vê só a própria equipe | ⚠️ | O gestor vê os colaboradores ligados a ele por `manager_id` (Minha Equipe), não por departamento | `equipe-colaborador.test.js`, `performance-reviews.js` |
-| RF6.5 Histórico da troca de departamento | ✅ | A mudança fica em `employee_audit`, com valor anterior, novo e quem alterou | `employee-audit-encryption.js` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RF6.1 Cadastrar, editar e inativar departamentos | Tabela `departments` (migration 119) com nome, descrição, responsável e situação, gerida pelo RH no botão Departamentos da tela Colaboradores. O cadastro do colaborador, a importação por planilha e os destinos dos comunicados usam essa lista. Departamento inativo mantém quem já está nele e não recebe ninguém novo; com colaboradores, não pode ser excluído; renomear atualiza colaboradores, comunicados e canal do chat | `departamentos.js`, `pages/colaboradores-departamentos.test.js`, `pages/comunicacao.test.js` |
+| RF6.2 Vincular colaborador a departamento e gestor | `department_id` (ligado ao cadastro de departamentos) e `manager_id` no cadastro do colaborador | `pages/colaboradores.test.js` |
+| RF6.3 Consultar por departamento | Filtro por departamento na tela Colaboradores | `pages/colaboradores.test.js` |
+| RF6.4 Gestor vê só a própria equipe | O gestor vê os colaboradores ligados a ele por `manager_id` (Minha Equipe), não por departamento | `equipe-colaborador.test.js`, `performance-reviews.js` |
+| RF6.5 Histórico da troca de departamento | A mudança fica em `employee_audit`, com valor anterior, novo e quem alterou | `employee-audit-encryption.js` |
 
 ### Requisitos Não Funcionais
 
-| Requisito | | Como o Nexus atende | Verificação |
-|---|:-:|---|---|
-| RNF1.1 MFA obrigatório para o RH | ✅ | Funções do banco exigem sessão com segundo fator (`aal2`) para o RH; recuperação por códigos | `mfa-enforcement.js`, `mfa-recovery.js`, `mfa.test.js` |
-| RNF1.2 Isolamento por RLS | ✅ | RLS em todas as tabelas; quem é desligado perde o acesso | `rls-policies.js`, `desligado-sem-acesso.js` |
-| RNF1.3 Criptografia em repouso (AES-256) | ✅ | Colunas sensíveis com `pgcrypto`, arquivos com AES-256-GCM e backup cifrado com gpg | `column-encryption.js`, `file-crypto.test.js`, ensaio mensal de restauração |
-| RNF1.4 Comunicação protegida em trânsito | ✅ | HTTPS com HSTS (`vercel.json`) e cifragem de ponta a ponta no chat e nos documentos | `e2e-crypto.test.js`, varredura OWASP ZAP |
-| RNF2.1 LGPD | ✅ | Finalidade e minimização na política de privacidade, exportação dos dados (art. 18, V), anonimização (art. 18, VI), registro de acesso e purga automática | `employee-audit-encryption.js`, `conversation-retention.js` |
-| RNF2.2 Direito à desconexão | ✅ | Cada colaborador recebe notificações só no próprio expediente: o horário e os dias de trabalho do cadastro, senão os da convenção coletiva, senão os da empresa (8h às 18h, de segunda a sexta). Turnos que viram a noite e a escala 12x36 (alternada a partir de um dia de plantão, inclusive nos fins de semana) são aceitos. Comunicados chegam a quem está no expediente e ficam guardados para os demais até o início do horário deles | `quiet-hours.test.js`, `edge-functions.test.js`, `comunicacao.test.js` |
-| RNF3.1 WCAG 2.1 AA | ✅ | axe-core em cada tela durante o E2E | `e2e/acessibilidade.spec.js` |
-| RNF3.2 Navegação por teclado | ✅ | Todas as ações alcançáveis e acionáveis pelo teclado | `e2e/teclado.spec.js` |
-| RNF4.1 Uso em computador e celular | ✅ | CSS responsivo nas telas | Conferência manual |
-| RNF4.2 Instalável como PWA | ✅ | `manifest.json` e `service-worker.js` | `npm run test:pwa` |
+| Requisito | Como o Nexus atende | Verificação |
+|---|---|---|
+| RNF1.1 MFA obrigatório para o RH | Funções do banco exigem sessão com segundo fator (`aal2`) para o RH; recuperação por códigos | `mfa-enforcement.js`, `mfa-recovery.js`, `mfa.test.js` |
+| RNF1.2 Isolamento por RLS | RLS em todas as tabelas; quem é desligado perde o acesso | `rls-policies.js`, `desligado-sem-acesso.js` |
+| RNF1.3 Criptografia em repouso (AES-256) | Colunas sensíveis com `pgcrypto`, arquivos com AES-256-GCM e backup cifrado com gpg | `column-encryption.js`, `file-crypto.test.js`, ensaio mensal de restauração |
+| RNF1.4 Comunicação protegida em trânsito | HTTPS com HSTS (`vercel.json`) e cifragem de ponta a ponta no chat e nos documentos | `e2e-crypto.test.js`, varredura OWASP ZAP |
+| RNF2.1 LGPD | Finalidade e minimização na política de privacidade, exportação dos dados (art. 18, V), anonimização (art. 18, VI), registro de acesso e purga automática | `employee-audit-encryption.js`, `conversation-retention.js` |
+| RNF2.2 Direito à desconexão | Cada colaborador recebe notificações só no próprio expediente: o horário e os dias de trabalho do cadastro, senão os da convenção coletiva, senão os da empresa (8h às 18h, de segunda a sexta). Turnos que viram a noite e a escala 12x36 (alternada a partir de um dia de plantão, inclusive nos fins de semana) são aceitos. Comunicados chegam a quem está no expediente e ficam guardados para os demais até o início do horário deles | `quiet-hours.test.js`, `edge-functions.test.js`, `comunicacao.test.js` |
+| RNF3.1 WCAG 2.1 AA | axe-core em cada tela durante o E2E | `e2e/acessibilidade.spec.js` |
+| RNF3.2 Navegação por teclado | Todas as ações alcançáveis e acionáveis pelo teclado | `e2e/teclado.spec.js` |
+| RNF4.1 Uso em computador e celular | CSS responsivo nas telas | Conferência manual |
+| RNF4.2 Instalável como PWA | `manifest.json` e `service-worker.js` | `npm run test:pwa` |
 
 ---
 
@@ -772,6 +816,23 @@ Esta versão entrega a base do sistema, mas ainda tem limites conhecidos. Eles e
 
 ---
 
+## Modelo de Negócio
+
+O Nexus é oferecido como SaaS (Software as a Service): a empresa paga uma mensalidade por colaborador ativo, e a manutenção preventiva e as atualizações legais (CLT, LGPD e eSocial) já estão incluídas. Quanto maior a empresa, menor o valor por colaborador.
+
+| Porte | Colaboradores | Valor por colaborador/mês | Mensal | Anual |
+|---|--:|--:|--:|--:|
+| Pequeno | 15 | R$ 20 | R$ 300 | R$ 3.600 |
+| Médio | 100 | R$ 15 | R$ 1.500 | R$ 18.000 |
+| Grande | 300 | R$ 12 | R$ 3.600 | R$ 43.200 |
+
+- **Implantação (pagamento único):** R$ 1.000 a R$ 2.500, conforme o porte. Inclui a configuração inicial, a jornada de trabalho, os departamentos e o treinamento do RH.
+- **Suporte sob demanda:** R$ 35 por chamado simples, R$ 90 por hora de suporte técnico avançado e R$ 150 por sessão extra de treinamento.
+
+Os valores são a projeção apresentada no TCC.
+
+---
+
 ## Governança e Autoria
 
 ### Como Contribuir
@@ -859,6 +920,16 @@ O PR só é aceito com o CI verde (testes, integração, E2E e varredura de segu
 **Quer usar o Nexus na sua empresa?** O sistema pode ser contratado diretamente com os autores, incluindo implantação, suporte e o desenvolvimento sob medida das funcionalidades que ele ainda não tem. Prazos, valores, garantias e o tratamento de dados (LGPD) ficam em contrato próprio. Fale com a equipe pelos [Contatos](#contatos).
 
 Texto completo em [LICENSE](LICENSE).
+
+### Documentação Acadêmica
+
+O Nexus foi desenvolvido como Trabalho de Conclusão de Curso do Bacharelado em Ciência da Computação da FAM, sob orientação do Prof. Me. Ranieri Marinho de Souza, e apresentado no 11º Congresso de Projetos Interdisciplinares.
+
+| Material | Link |
+|---|---|
+| Artigo do TCC | [docs/academico/artigo-tcc.pdf](docs/academico/artigo-tcc.pdf) |
+| Apresentação | [docs/academico/apresentacao-tcc.pdf](docs/academico/apresentacao-tcc.pdf) |
+| Formulário da pesquisa com usuários | [Google Forms](https://docs.google.com/forms/d/e/1FAIpQLSdUw7tgv-UER8JPCdgIpZVJKWfvz2y4F2-smZgExbpQftpolw/viewform) |
 
 ### Contatos
 

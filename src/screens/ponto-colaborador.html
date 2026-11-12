@@ -107,7 +107,7 @@
                             <i class="fas fa-face-smile"></i>
                             <span id="biometria-status-text">Verificando biometria facial...</span>
                             <button type="button" class="btn-biometria hidden" id="btn-biometria-cadastrar" data-click="abrirCadastroBiometria">Cadastrar</button>
-                            <button type="button" class="btn-biometria btn-biometria--sec hidden" id="btn-biometria-revogar" data-click="revogarBiometria">Revogar</button>
+                            <button type="button" class="btn-biometria btn-biometria--sec hidden" id="btn-biometria-revogar" data-click="revogarBiometria">Apagar</button>
                         </div>
                     </div>
                 </div>
@@ -343,12 +343,12 @@
         </div>
         <div class="modal-body">
             <div class="biometria-termo">
-                <p><strong>Dado pessoal sensível (LGPD art. 11).</strong> A biometria facial serve só para confirmar que é você quem registra o ponto.</p>
+                <p><strong>Dado pessoal sensível (LGPD art. 11, II, "g").</strong> A biometria facial é obrigatória para registrar o ponto e serve só para confirmar que é você quem registra, prevenindo fraude.</p>
                 <ul>
                     <li>A foto não é guardada: guardamos só um modelo facial (números), cifrado e separado dos demais dados.</li>
                     <li>Ninguém consegue ler esse modelo, nem o RH: o sistema de ponto apenas compara a selfie com ele.</li>
                     <li>Sua foto de perfil não é usada para isso.</li>
-                    <li>Você pode revogar a qualquer momento nesta tela; o modelo é apagado na hora.</li>
+                    <li>Você pode apagar o modelo nesta tela a qualquer momento; sem ele, o ponto fica bloqueado até um novo cadastro.</li>
                 </ul>
             </div>
             <div class="selfie-capture">
@@ -358,7 +358,7 @@
             </div>
             <label class="biometria-consentimento">
                 <input type="checkbox" id="biometria-consentimento" data-change="onBiometriaConsentimento">
-                <span>Autorizo, de forma específica e destacada, o tratamento da minha biometria facial para verificar minha identidade no registro de ponto.</span>
+                <span>Li e estou ciente de que minha biometria facial será tratada para verificar minha identidade no registro de ponto.</span>
             </label>
         </div>
         <div class="modal-footer">

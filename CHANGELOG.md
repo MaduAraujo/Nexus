@@ -19,6 +19,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Alterado
 
+- Biometria facial obrigatória para registrar o ponto: sem o rosto cadastrado, o banco recusa a batida e a tela leva o colaborador ao cadastro. A base legal passa a ser a prevenção à fraude na identificação (LGPD, art. 11, II, "g"), e "Revogar" vira "Apagar", que bloqueia o ponto até um novo cadastro.
 - Comunicados podem ser enviados a qualquer hora; as notificações fora do expediente de cada colaborador ficam guardadas e saem no início do expediente seguinte.
 - Cargo de estágio com nome neutro no catálogo (Estagiário(a)).
 - Contagem de pendências e notificações lida pelos leitores de tela.

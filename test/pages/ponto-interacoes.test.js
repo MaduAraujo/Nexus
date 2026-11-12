@@ -1,7 +1,7 @@
 const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { openPage, FakeSupabase } = require('../../test-support/page-harness');
-const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables } = require('../../test-support/page-fixtures');
+const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables, BIOMETRIA_OK } = require('../../test-support/page-fixtures');
 
 let page;
 afterEach(() => page?.close());
@@ -31,7 +31,7 @@ function colabClient({ extra = {}, user = COLAB_USER, rpc = {}, ana = {} } = {})
     return new FakeSupabase({
         user,
         tables,
-        rpc: { report_daily_overtime_alert: {}, biometric_status: { enrolled: false }, ...rpc },
+        rpc: { report_daily_overtime_alert: {}, ...BIOMETRIA_OK, ...rpc },
         defaults: { adjustment_requests: { status: 'pendente' }, bank_requests: { status: 'pendente' } },
     });
 }
@@ -366,7 +366,7 @@ describe('ponto-colaborador.html — câmera, prova de vida e verificação faci
         assert.equal(page.$('#btn-confirmar-ponto').disabled, true);
     });
 
-    test('erro do servidor na verificação mostra a mensagem; servidor sem biometria libera sem token', async () => {
+    test('erro do servidor na verificação mostra a mensagem; servidor sem biometria bloqueia a batida', async () => {
         await abrirSelfie({ rpc: { biometric_verify: { error: { message: 'Serviço de biometria fora do ar.' } } } });
         await tirarSelfie();
         assert.match(page.text('#face-verify-status'), /Serviço de biometria fora do ar\./);
@@ -375,8 +375,8 @@ describe('ponto-colaborador.html — câmera, prova de vida e verificação faci
 
         await abrirSelfie({ rpc: { biometric_verify: { enrolled: false } } });
         await tirarSelfie();
-        assert.match(page.text('#face-verify-status'), /Biometria facial não cadastrada/);
-        assert.equal(page.$('#btn-confirmar-ponto').disabled, false);
+        assert.match(page.text('#face-verify-status'), /Cadastre sua biometria facial antes de registrar o ponto/);
+        assert.equal(page.$('#btn-confirmar-ponto').disabled, true);
     });
 
     test('prova de vida mostra o tempo da piscada e o registro guarda esse tempo (RF1.1)', async () => {
@@ -477,12 +477,12 @@ describe('ponto-colaborador.html — cadastro e revogação da biometria: falhas
         assert.ok(page.$('#modal-biometria').classList.contains('open'));
     });
 
-    test('erro ao revogar avisa e mantém a biometria', async () => {
+    test('erro ao apagar avisa e mantém a biometria', async () => {
         page = await cadastro({ biometric_status: { enrolled: true, consent_at: '2026-06-01T10:00:00Z' }, biometric_revoke: { error: { message: 'x' } } });
         await page.waitFor(() => /cadastrada em/.test(page.text('#biometria-card')));
         await page.click('#btn-biometria-revogar');
         await page.waitFor(() => page.toasts().length);
-        assert.ok(page.toasts().includes('Não foi possível revogar agora. Tente novamente.'));
+        assert.ok(page.toasts().includes('Não foi possível apagar agora. Tente novamente.'));
         assert.match(page.text('#biometria-card'), /cadastrada em/);
     });
 });
@@ -590,7 +590,7 @@ describe('ponto-colaborador.html — caminhos restantes', () => {
             },
         });
         await page.settle();
-        assert.match(page.text('#biometria-card'), /não cadastrada/);
+        assert.match(page.text('#biometria-card'), /cadastrada em/);
     });
 
     test('botão de anexo do pedido de banco de horas abre o seletor de arquivo', async () => {
@@ -623,8 +623,8 @@ describe('ponto-colaborador.html — caminhos restantes', () => {
         await page.waitFor(() => page.text('#loc-status-text') === 'Dentro da empresa');
         await page.click('#btn-ponto');
         await page.click('#btn-selfie-shoot');
-        await page.waitFor(() => !page.$('#btn-confirmar-ponto').disabled || page.visible('#excesso-legal-just'));
         await page.fill('#excesso-legal-just', 'Fechamento');
+        await page.waitFor(() => !page.$('#btn-confirmar-ponto').disabled, { timeout: 5000 });
         await page.click('#btn-confirmar-ponto');
         await page.waitFor(() => page.toasts().length);
         assert.ok(page.toasts().includes('Saída registrada — bom descanso!'));

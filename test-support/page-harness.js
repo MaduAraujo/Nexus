@@ -374,10 +374,31 @@ function installStubs(w, opts, rec) {
         write: () => new Uint8Array([1]),
     };
     w.L = chainable(libLog, 'L');
+    let quadroDoVideo = 0;
+    const olho = (aberto) =>
+        [
+            [0, 0],
+            [1, aberto ? -1 : -0.1],
+            [2, aberto ? -1 : -0.1],
+            [3, 0],
+            [2, aberto ? 1 : 0.1],
+            [1, aberto ? 1 : 0.1],
+        ].map(([x, y]) => ({ x, y }));
     w.faceapi = {
         nets: new Proxy({}, { get: () => ({ loadFromUri: async () => {}, isLoaded: true }) }),
         TinyFaceDetectorOptions: class {},
-        detectSingleFace: () => ({ withFaceLandmarks: () => ({ withFaceDescriptor: async () => null }), then: (r) => r(null) }),
+        fetchImage: async (src) => ({ src }),
+        detectSingleFace: (entrada) => ({
+            withFaceLandmarks: () => ({
+                then: (ok) => {
+                    if (entrada?.tagName !== 'VIDEO') return ok(null);
+                    const aberto = quadroDoVideo++ % 3 !== 1;
+                    return ok({ landmarks: { getLeftEye: () => olho(aberto), getRightEye: () => olho(aberto) } });
+                },
+                withFaceDescriptor: async () => ({ descriptor: Float32Array.from({ length: 128 }, () => 0.1) }),
+            }),
+            then: (r) => r(null),
+        }),
         detectAllFaces: async () => [],
         euclideanDistance: () => 0.1,
     };

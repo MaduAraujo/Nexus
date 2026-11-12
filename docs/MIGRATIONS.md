@@ -65,6 +65,7 @@ Para não travar o RH durante a atualização:
 | `117` | Grava o tempo da prova de vida na batida, registra em `employee_audit` todo lançamento, alteração, pagamento e exclusão de holerite, cria a validade dos certificados de treinamento e o expediente (horário) por colaborador e por convenção coletiva, e faz os comunicados adiados saírem para cada colaborador no início do expediente dele |
 | `118` | Acrescenta os dias de trabalho e a escala 12x36 ao expediente e o alerta diário de certificado vencendo ou vencido na Central de Alertas |
 | `119` | Cria o cadastro de departamentos (`departments`), liga o colaborador a ele (`employees.department_id`) e leva a troca de nome para colaboradores, comunicados e canais do chat |
+| `120` | Torna a biometria facial obrigatória: `biometric_consume_for_punch` recusa a batida de quem não cadastrou o rosto, em vez de liberá-la sem verificação |
 
 ## Criando uma migration nova
 

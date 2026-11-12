@@ -1,7 +1,7 @@
 const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { openPage, FakeSupabase } = require('../../test-support/page-harness');
-const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables } = require('../../test-support/page-fixtures');
+const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables, BIOMETRIA_OK } = require('../../test-support/page-fixtures');
 
 let page;
 afterEach(() => page?.close());
@@ -24,7 +24,7 @@ function colabClient({ extra = {}, user = COLAB_USER, rpc = {} } = {}) {
             burnout_alerts: [],
             ...extra,
         }),
-        rpc: { report_daily_overtime_alert: {}, biometric_status: { enrolled: false }, ...rpc },
+        rpc: { report_daily_overtime_alert: {}, ...BIOMETRIA_OK, ...rpc },
         defaults: { adjustment_requests: { status: 'pendente' }, bank_requests: { status: 'pendente' } },
     });
 }
@@ -423,14 +423,76 @@ describe('ponto-colaborador.html — verificação facial da selfie (biometria n
         assert.equal(page.visible('#selfie-preview'), false);
     });
 
-    test('sem biometria cadastrada: avisa, não compara nada e a batida vai sem token', async () => {
-        const c = await tirarSelfie(0.9, { enrolled: false });
-        assert.match(page.text('#face-verify-status'), /Biometria facial não cadastrada/);
+    test('sem biometria cadastrada: o botão de ponto abre o cadastro e nenhuma batida é enviada', async () => {
+        const c = colabClient({ rpc: servidor({ enrolled: false }) });
+        page = await openPage('ponto-colaborador', {
+            client: c,
+            now: `${HOJE}T08:00:00-03:00`,
+            geolocation: NA_EMPRESA,
+            camera: true,
+            fetch: filesOk,
+        });
+        await page.waitFor(() => /não cadastrada/.test(page.text('#biometria-card')));
+        assert.match(page.text('#biometria-card'), /cadastre para poder registrar o ponto/);
+        await page.click('#btn-ponto');
+        assert.ok(page.toasts().includes('Cadastre sua biometria facial para registrar o ponto.'));
+        assert.ok(page.$('#modal-biometria').classList.contains('open'), 'abre o cadastro da biometria');
+        assert.equal(page.$('#modal-confirmar').classList.contains('open'), false, 'não abre a confirmação do ponto');
         assert.equal(c.rpcCalls('biometric_verify').length, 0);
-        assert.match(page.text('#biometria-card'), /não cadastrada/);
-        await page.click('#btn-confirmar-ponto');
-        await page.waitFor(() => page.toasts().length);
-        assert.equal(c.rpcCalls('punch_time_record')[0].args.p_biometric_token, null);
+        assert.equal(c.rpcCalls('punch_time_record').length, 0);
+    });
+
+    test('situação da biometria que não carregou ao abrir: a selfie consulta de novo e, sem cadastro, não libera a batida', async () => {
+        let chamadas = 0;
+        const c = colabClient({
+            rpc: {
+                ...servidor({ enrolled: false }),
+                biometric_status: () => (++chamadas === 1 ? { error: { message: 'fora' } } : { enrolled: false }),
+            },
+        });
+        page = await openPage('ponto-colaborador', {
+            client: c,
+            now: `${HOJE}T08:00:00-03:00`,
+            geolocation: NA_EMPRESA,
+            camera: true,
+            fetch: filesOk,
+            before: comFaceApi(0.11),
+        });
+        await page.waitFor(() => page.text('#loc-status-text') === 'Dentro da empresa');
+        await page.click('#btn-ponto');
+        assert.ok(page.$('#modal-confirmar').classList.contains('open'));
+        await page.click('#btn-selfie-shoot');
+        await page.waitFor(() => /Cadastre sua biometria/.test(page.text('#face-verify-status')), { timeout: 5000 });
+        assert.equal(chamadas, 2);
+        assert.equal(page.$('#btn-confirmar-ponto').disabled, true);
+        assert.equal(c.rpcCalls('biometric_verify').length, 0);
+    });
+
+    test('biometria apagada em outro aparelho: a selfie não libera a batida e a situação é atualizada', async () => {
+        let cadastrado = true;
+        const c = colabClient({
+            rpc: {
+                ...servidor(),
+                biometric_status: () => ({ enrolled: cadastrado, consent_at: '2026-06-01T10:00:00Z' }),
+                biometric_verify: () => ({ enrolled: false }),
+            },
+        });
+        page = await openPage('ponto-colaborador', {
+            client: c,
+            now: `${HOJE}T08:00:00-03:00`,
+            geolocation: NA_EMPRESA,
+            camera: true,
+            fetch: filesOk,
+            before: comFaceApi(0.11),
+        });
+        await page.waitFor(() => /cadastrada em/.test(page.text('#biometria-card')));
+        cadastrado = false;
+        await page.click('#btn-ponto');
+        await page.click('#btn-selfie-shoot');
+        await page.waitFor(() => /Cadastre sua biometria/.test(page.text('#face-verify-status')), { timeout: 5000 });
+        assert.equal(page.$('#btn-confirmar-ponto').disabled, true);
+        await page.waitFor(() => /não cadastrada/.test(page.text('#biometria-card')));
+        assert.equal(c.rpcCalls('punch_time_record').length, 0);
     });
 
     test('sem conexão: a fila não guarda o vetor facial; a verificação acontece no envio e rosto que não confere é recusado', async () => {
@@ -494,7 +556,7 @@ describe('ponto-colaborador.html — cadastro da biometria facial (captura dedic
 
         const [enroll] = c.rpcCalls('biometric_enroll');
         assert.deepEqual(Object.keys(enroll.args).sort(), ['p_consent', 'p_consent_version', 'p_descriptor']);
-        assert.deepEqual([enroll.args.p_consent, enroll.args.p_consent_version, enroll.args.p_descriptor.length], [true, 'biometria-ponto-v1', 128]);
+        assert.deepEqual([enroll.args.p_consent, enroll.args.p_consent_version, enroll.args.p_descriptor.length], [true, 'biometria-ponto-v2', 128]);
         assert.equal(page.fetches.length, 0, 'nenhum upload: a foto do cadastro não sai do aparelho');
         assert.match(page.toasts()[0], /Biometria facial cadastrada/);
         assert.equal(page.$('#modal-biometria').classList.contains('open'), false);
@@ -502,7 +564,7 @@ describe('ponto-colaborador.html — cadastro da biometria facial (captura dedic
         assert.equal(page.visible('#btn-biometria-revogar'), true);
     });
 
-    test('revogar o consentimento apaga a biometria', async () => {
+    test('apagar a biometria remove o modelo e avisa que o ponto fica bloqueado', async () => {
         let cadastrado = true;
         const c = colabClient({
             rpc: {
@@ -517,7 +579,8 @@ describe('ponto-colaborador.html — cadastro da biometria facial (captura dedic
         await page.waitFor(() => /cadastrada em/.test(page.text('#biometria-card')));
         await page.click('#btn-biometria-revogar');
         await page.waitFor(() => page.toasts().length);
-        assert.match(page.confirms.at(-1), /Revogar o consentimento/);
+        assert.match(page.confirms.at(-1), /fica bloqueado até você cadastrar o rosto de novo/);
+        assert.ok(page.toasts().includes('Biometria facial apagada. Cadastre de novo para registrar o ponto.'));
         assert.equal(c.rpcCalls('biometric_revoke').length, 1);
         assert.match(page.text('#biometria-card'), /não cadastrada/);
     });

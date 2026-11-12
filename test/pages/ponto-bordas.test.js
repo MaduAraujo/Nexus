@@ -1,7 +1,7 @@
 const { test, describe, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { openPage, FakeSupabase } = require('../../test-support/page-harness');
-const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables } = require('../../test-support/page-fixtures');
+const { COLAB_USER, MANAGER_USER, ANA, BIA, baseTables, BIOMETRIA_OK } = require('../../test-support/page-fixtures');
 
 let page;
 afterEach(() => page?.close());
@@ -29,7 +29,7 @@ function colabClient({ extra = {}, user = COLAB_USER, rpc = {}, ana = {}, errors
     return new FakeSupabase({
         user,
         tables,
-        rpc: { report_daily_overtime_alert: {}, biometric_status: { enrolled: false }, ...rpc },
+        rpc: { report_daily_overtime_alert: {}, ...BIOMETRIA_OK, ...rpc },
         defaults: { adjustment_requests: { status: 'pendente' }, bank_requests: { status: 'pendente' } },
         errors,
     });

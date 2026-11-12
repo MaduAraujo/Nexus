@@ -11,6 +11,18 @@ const HOJE = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const comoRH = (sql, params) => withUser({ sub: U_RH, commit: true }, (db) => db.query(sql, params));
 const comoA = (sql, params) => withUser({ sub: U_A, commit: true }, (db) => db.query(sql, params));
 
+const ROSTO = Array.from({ length: 128 }, (_, i) => +(Math.sin(i * 7 + 3) * 0.1).toFixed(6));
+let selfies = 0;
+const selfie = () => {
+    const d = 0.01 + ++selfies * 0.0001;
+    return JSON.stringify(ROSTO.map((v) => +(v + d).toFixed(6)));
+};
+const baterComoA = (passo, marcadoEm = 'NULL') =>
+    withUser({ sub: U_A, commit: true }, async (db) => {
+        const token = (await db.query('SELECT biometric_verify($1) AS r', [selfie()])).rows[0].r.verification_id;
+        return db.query(`SELECT entrada, offline_steps FROM punch_time_record(${HOJE}, '${passo}', NULL, NULL, $1, ${marcadoEm})`, [token]);
+    });
+
 before(async () => {
     await withServiceRole(async (db) => {
         for (const id of [U_RH, U_A]) await db.query('INSERT INTO auth.users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [id]);
@@ -26,6 +38,7 @@ before(async () => {
             [U_RH, E_RH, U_A, E_A]
         );
     });
+    await withUser({ sub: U_A, commit: true }, (db) => db.query('SELECT biometric_enroll($1, true, $2)', [JSON.stringify(ROSTO), 'biometria-ponto-v2']));
 });
 
 beforeEach(async () => {
@@ -41,6 +54,8 @@ after(async () => {
         await db.query('DELETE FROM payslips WHERE employee_id = $1', [E_A]);
         await db.query('DELETE FROM time_records WHERE employee_id = $1', [E_A]);
         await db.query('DELETE FROM bank_adjustments WHERE employee_id = $1', [E_A]);
+        await db.query('DELETE FROM biometric_verifications WHERE employee_id = $1', [E_A]);
+        await db.query('DELETE FROM biometric_templates WHERE employee_id = $1', [E_A]);
         await db.query('DELETE FROM profiles WHERE id = ANY($1)', [[U_RH, U_A]]);
         await db.query('DELETE FROM auth.users WHERE id = ANY($1)', [[U_RH, U_A]]);
         await db.query('DELETE FROM employees WHERE id = ANY($1)', [[E_RH, E_A]]);
@@ -83,16 +98,14 @@ describe('Migration 108 — holerite pago não muda', () => {
 
 describe('Migration 108 — ponto offline', () => {
     test('vale o horário do aparelho e a marcação fica marcada como offline', async () => {
-        const { rows } = await comoA(
-            `SELECT entrada, offline_steps FROM punch_time_record(${HOJE}, 'entrada', NULL, NULL, NULL, least(now(), (${HOJE})::timestamp AT TIME ZONE 'America/Sao_Paulo' + INTERVAL '1 minute'))`
-        );
+        const { rows } = await baterComoA('entrada', `least(now(), (${HOJE})::timestamp AT TIME ZONE 'America/Sao_Paulo' + INTERVAL '1 minute')`);
         assert.deepEqual(rows[0].offline_steps, ['entrada']);
         assert.ok(new Date(rows[0].entrada) <= new Date());
     });
 
     test('a mesma marcação não é registrada duas vezes', async () => {
-        await comoA(`SELECT punch_time_record(${HOJE}, 'entrada')`);
-        await assert.rejects(comoA(`SELECT punch_time_record(${HOJE}, 'entrada')`), { code: '23505', message: /já foi registrada/ });
+        await baterComoA('entrada');
+        await assert.rejects(baterComoA('entrada'), { code: '23505', message: /já foi registrada/ });
     });
 
     test('horário no futuro ou fora do dia é recusado', async () => {

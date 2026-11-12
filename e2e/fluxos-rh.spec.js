@@ -56,6 +56,43 @@ test.describe('Fluxos de RH de ponta a ponta (Supabase local real)', () => {
     });
 });
 
+async function rostoSimulado(page) {
+    await page.route('**/@vladmandic/face-api@*/**', (route) => route.abort());
+    await page.addInitScript(() => {
+        let quadro = 0;
+        let selfies = 0;
+        const base = Array.from({ length: 128 }, (_, i) => Math.sin(i * 7 + 5) * 0.1);
+        const olho = (aberto) =>
+            [
+                [0, 0],
+                [1, aberto ? -1 : -0.1],
+                [2, aberto ? -1 : -0.1],
+                [3, 0],
+                [2, aberto ? 1 : 0.1],
+                [1, aberto ? 1 : 0.1],
+            ].map(([x, y]) => ({ x, y }));
+        const api = {
+            nets: new Proxy({}, { get: () => ({ loadFromUri: async () => {} }) }),
+            TinyFaceDetectorOptions: class {},
+            fetchImage: async (src) => ({ src }),
+            detectSingleFace: (entrada) => ({
+                withFaceLandmarks: () => ({
+                    then: (ok) => {
+                        if (entrada?.tagName !== 'VIDEO') return ok(null);
+                        const aberto = quadro++ % 3 !== 1;
+                        return ok({ landmarks: { getLeftEye: () => olho(aberto), getRightEye: () => olho(aberto) } });
+                    },
+                    withFaceDescriptor: async () => {
+                        const d = selfies++ * 0.002;
+                        return { descriptor: Float32Array.from(base, (v) => v + d) };
+                    },
+                }),
+            }),
+        };
+        Object.defineProperty(window, 'faceapi', { value: api, writable: false, configurable: false });
+    });
+}
+
 test.describe('Ponto (Supabase local real)', () => {
     test.use({
         geolocation: { latitude: -23.5591, longitude: -46.6606 },
@@ -64,17 +101,33 @@ test.describe('Ponto (Supabase local real)', () => {
 
     test.beforeEach(resetE2EData);
 
-    test('colaborador na empresa tira a selfie e registra a entrada; a selfie fica cifrada no Storage', async ({ page }) => {
+    test('sem biometria o ponto pede o cadastro; depois de cadastrar o rosto, a entrada é registrada e a selfie fica cifrada no Storage', async ({ page }) => {
+        await rostoSimulado(page);
         await login(page, ADMIN, 'Administrador');
         await switchUser(page, COLAB, 'colaborador');
         await page.goto('/src/screens/ponto-colaborador.html');
         await expect(page.locator('#loc-status-text')).toHaveText('Dentro da empresa', { timeout: 15000 });
         await expect(page.locator('#btn-ponto-text')).toHaveText('Registrar Entrada');
+        await expect(page.locator('#biometria-status-text')).toContainText('não cadastrada');
+
+        await page.click('#btn-ponto');
+        await expect(page.locator('.toast', { hasText: 'Cadastre sua biometria facial para registrar o ponto.' })).toBeVisible();
+        await expect(page.locator('#modal-biometria')).toHaveClass(/open/);
+        await expect(page.locator('#modal-confirmar')).not.toHaveClass(/open/);
+        await page.check('#biometria-consentimento');
+        await page.click('#btn-biometria-salvar');
+        await expect(page.locator('.toast', { hasText: 'Biometria facial cadastrada' })).toBeVisible({ timeout: 20000 });
+        await expect(page.locator('#biometria-status-text')).toContainText('cadastrada em');
+        const modelos = await withServiceRole(
+            async (db) => (await db.query('SELECT consent_version FROM biometric_templates WHERE employee_id = $1', [COLAB.employeeId])).rows
+        );
+        expect(modelos).toEqual([{ consent_version: 'biometria-ponto-v2' }]);
 
         await page.click('#btn-ponto');
         await expect(page.locator('#btn-selfie-shoot')).toBeEnabled({ timeout: 15000 });
         await page.click('#btn-selfie-shoot');
-        await expect(page.locator('#btn-confirmar-ponto')).toBeEnabled({ timeout: 60000 });
+        await expect(page.locator('#face-verify-status')).toContainText('Identidade confirmada', { timeout: 60000 });
+        await expect(page.locator('#btn-confirmar-ponto')).toBeEnabled();
         await page.click('#btn-confirmar-ponto');
         await expect(page.locator('.toast', { hasText: 'Entrada registrada!' })).toBeVisible({ timeout: 20000 });
         await expect(page.locator('#btn-ponto-text')).toHaveText('Saída para Almoço');

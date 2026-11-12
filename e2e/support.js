@@ -134,7 +134,16 @@ async function resetE2EData() {
         );
         await db.query('DELETE FROM messages WHERE created_by = ANY($1)', [[COLAB.userId, ADMIN.userId]]);
         await db.query('DELETE FROM document_audit_log WHERE employee_id = ANY($1)', [E2E_EMPLOYEES]);
-        for (const table of ['documents', 'vacations', 'payslips', 'time_records', 'employee_audit', 'data_access_log']) {
+        for (const table of [
+            'documents',
+            'vacations',
+            'payslips',
+            'time_records',
+            'employee_audit',
+            'data_access_log',
+            'biometric_verifications',
+            'biometric_templates',
+        ]) {
             await db.query(`DELETE FROM ${table} WHERE employee_id = ANY($1)`, [E2E_EMPLOYEES]);
         }
         await db.query(`UPDATE employees SET status = 'Ativo', termination_date = NULL WHERE id = ANY($1)`, [E2E_EMPLOYEES]);
